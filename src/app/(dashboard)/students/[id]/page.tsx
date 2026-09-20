@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { deriveFurthestPosition } from "@/lib/recitation/logic";
-import { effectiveAttendance } from "@/lib/attendance";
+import { attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import { DetailView } from "./DetailView";
 
@@ -28,13 +28,15 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     }
   }
 
-  const [sessions, pointsLogs] = await Promise.all([
+  const today = todayDateOnly();
+  const [sessions, pointsLogs, todayAttendance] = await Promise.all([
     prisma.recitationSession.findMany({
       where: { studentId: student.id },
       include: { teacher: { select: { name: true } } },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     }),
     prisma.pointsLog.findMany({ where: { studentId: student.id } }),
+    prisma.attendanceLog.findMany({ where: { studentId: student.id, day: today } }),
   ]);
 
   const plan = student.planItems.map((pi) => pi.surahNumber);
@@ -53,7 +55,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         id: student.id,
         name: student.name,
         age: student.age,
-        attendance: effectiveAttendance(student.attendanceStatus, student.attendanceDay),
+        attendance: attendanceStatusForDay(todayAttendance, today),
       }}
       plan={plan}
       furthest={furthest}

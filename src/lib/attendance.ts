@@ -19,19 +19,14 @@ export function parseDateOnlyInput(raw: string): Date | null {
   return parsed;
 }
 
-function sameDate(a: Date, b: Date): boolean {
-  return (
-    a.getUTCFullYear() === b.getUTCFullYear() &&
-    a.getUTCMonth() === b.getUTCMonth() &&
-    a.getUTCDate() === b.getUTCDate()
-  );
-}
-
 export type AttendanceStatus = "IN" | "OUT" | "PENDING";
 
-// attendance is a per-day value; if the stored day isn't today it reads as
-// PENDING rather than being reset by a cron job
-export function effectiveAttendance(status: AttendanceStatus, day: Date | null): AttendanceStatus {
-  if (!day || !sameDate(day, todayDateOnly())) return "PENDING";
-  return status;
+// AttendanceLog is append-only, one row per student per day; a day with no
+// row is implicitly PENDING (nothing to reset — there's simply no entry yet)
+export function attendanceStatusForDay(
+  logs: { day: Date; status: AttendanceStatus }[],
+  day: Date,
+): AttendanceStatus {
+  const match = logs.find((l) => l.day.getTime() === day.getTime());
+  return match?.status ?? "PENDING";
 }

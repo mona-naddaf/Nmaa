@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveFurthestPosition } from "@/lib/recitation/logic";
 import { SURAH_NAME, AYAH_COUNT } from "@/lib/quran-data";
-import { effectiveAttendance, type AttendanceStatus } from "@/lib/attendance";
+import { attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/lib/attendance";
 
 export interface StudentSummary {
   id: string;
@@ -26,7 +26,8 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
 
   const studentIds = students.map((s) => s.id);
 
-  const [sessions, pointsLogs] = await Promise.all([
+  const today = todayDateOnly();
+  const [sessions, pointsLogs, attendanceLogs] = await Promise.all([
     prisma.recitationSession.findMany({
       where: { studentId: { in: studentIds } },
       select: { studentId: true, surahNumber: true, toAyah: true, pagesCalculated: true, mode: true },
@@ -35,7 +36,18 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
       where: { studentId: { in: studentIds } },
       select: { studentId: true, valueAtTime: true, typeAtTime: true },
     }),
+    prisma.attendanceLog.findMany({
+      where: { studentId: { in: studentIds }, day: today },
+      select: { studentId: true, day: true, status: true },
+    }),
   ]);
+
+  const attendanceByStudent = new Map<string, { day: Date; status: AttendanceStatus }[]>();
+  for (const a of attendanceLogs) {
+    const arr = attendanceByStudent.get(a.studentId) ?? [];
+    arr.push(a);
+    attendanceByStudent.set(a.studentId, arr);
+  }
 
   const sessionsByStudent = new Map<string, typeof sessions>();
   for (const s of sessions) {
@@ -73,7 +85,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
       name: student.name,
       age: student.age,
       groupId: student.groupId,
-      attendance: effectiveAttendance(student.attendanceStatus, student.attendanceDay),
+      attendance: attendanceStatusForDay(attendanceByStudent.get(student.id) ?? [], today),
       cumPages: Math.round(cumPages * 1000) / 1000,
       cumPoints: pointsByStudent.get(student.id) ?? 0,
       onlineCount,

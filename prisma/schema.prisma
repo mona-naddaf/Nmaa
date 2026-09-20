@@ -60,6 +60,7 @@ model Teacher {
   groupAssignments TeacherGroupAssignment[]
   recitationLogs   RecitationSession[]
   pointsLogs       PointsLog[]
+  attendanceLogs   AttendanceLog[]
 
   @@unique([courseId, nameKey])
   @@index([courseId])
@@ -110,23 +111,20 @@ model PointsActivity {
 // ---------- Students ----------
 
 model Student {
-  id               String           @id @default(cuid())
-  courseId         String
-  course           Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  groupId          String
-  group            Group            @relation(fields: [groupId], references: [id])
-  name             String
-  age              Int
-  planTemplate     PlanTemplate     @default(CUSTOM)
-  // Attendance is a per-day value; if attendanceDay isn't today it's treated
-  // as PENDING when rendered (see src/lib/attendance.ts) rather than reset by a cron job.
-  attendanceStatus AttendanceStatus @default(PENDING)
-  attendanceDay    DateTime?        @db.Date
-  createdAt        DateTime         @default(now())
+  id           String       @id @default(cuid())
+  courseId     String
+  course       Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  groupId      String
+  group        Group        @relation(fields: [groupId], references: [id])
+  name         String
+  age          Int
+  planTemplate PlanTemplate @default(CUSTOM)
+  createdAt    DateTime     @default(now())
 
   planItems          PlanItem[]
   recitationSessions RecitationSession[]
   pointsLogs         PointsLog[]
+  attendanceLogs     AttendanceLog[]
 
   @@index([courseId])
   @@index([groupId])
@@ -187,6 +185,24 @@ model PointsLog {
   createdAt   DateTime       @default(now())
 
   @@unique([studentId, activityId, day])
+  @@index([studentId, day])
+}
+
+// Append-only, one entry per student per day (mirrors PointsLog) — replaces
+// what used to be a single mutable status/day pair on Student, which could
+// only ever answer "what was she marked today," not "how many days was she
+// present in this range." PENDING isn't stored: a day with no row is pending.
+model AttendanceLog {
+  id        String           @id @default(cuid())
+  studentId String
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   Teacher          @relation(fields: [teacherId], references: [id])
+  status    AttendanceStatus
+  day       DateTime         @db.Date
+  createdAt DateTime         @default(now())
+
+  @@unique([studentId, day])
   @@index([studentId, day])
 }
 

@@ -102,9 +102,13 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
 export async function setAttendanceAction(studentId: string, status: "IN" | "OUT") {
   const session = await requireSession();
   await loadStudentForCourse(studentId, session.courseId);
-  await prisma.student.update({
-    where: { id: studentId },
-    data: { attendanceStatus: status, attendanceDay: todayDateOnly() },
+  const teacherId = await resolveTeacherId(session);
+  const day = todayDateOnly();
+
+  await prisma.attendanceLog.upsert({
+    where: { studentId_day: { studentId, day } },
+    update: { status, teacherId },
+    create: { studentId, day, status, teacherId },
   });
   revalidatePath(`/students/${studentId}`);
 }

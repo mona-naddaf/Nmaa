@@ -9,6 +9,7 @@ export function NavLinks({ showSettings }: { showSettings: boolean }) {
   const links = [
     { href: "/students", label: "قائمة الطالبات" },
     { href: "/leaderboard", label: "لوحة الإنجاز" },
+    { href: "/reports", label: "التقارير" },
     ...(showSettings ? [{ href: "/settings", label: "الإعدادات" }] : []),
   ];
 

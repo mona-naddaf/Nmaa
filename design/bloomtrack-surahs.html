@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الزهرات — قاعدة بيانات السور</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF6EC; --paper:#FFFDF8; --ink:#3B3226; --ink-soft:#6E6355;
+    --rose:#E7AFAE; --rose-deep:#C77D82; --sage:#9FB897; --sage-deep:#6E8F65;
+    --lavender:#C6B7DC; --gold:#E3B54F; --gold-deep:#B8862A; --line:#E7DFCF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--cream);
+    background-image:radial-gradient(circle at 10% 4%, rgba(231,175,174,0.10), transparent 40%),
+      radial-gradient(circle at 94% 92%, rgba(198,183,220,0.12), transparent 40%);
+    font-family:'Tajawal',sans-serif;color:var(--ink);padding:28px 16px 60px;
+  }
+  .wrap{max-width:920px;margin:0 auto;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:12px;}
+  .brand{font-family:'Markazi Text',serif;font-weight:700;font-size:28px;color:var(--rose-deep);}
+  .brand span{color:var(--sage-deep);}
+  .subtitle{font-size:13px;color:var(--ink-soft);margin-bottom:22px;}
+
+  .mode-bar{
+    display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;
+  }
+  .mode-pill{
+    padding:10px 18px;border-radius:14px;border:1px solid var(--line);background:var(--paper);
+    font-weight:800;font-size:13.5px;color:var(--ink-soft);cursor:pointer;
+  }
+  .mode-pill.sel{background:var(--sage-deep);color:#fff;border-color:var(--sage-deep);}
+  .search{
+    margin-inline-start:auto;background:var(--paper);border:1px solid var(--line);border-radius:20px;
+    padding:9px 16px;font-size:13.5px;color:var(--ink);width:180px;
+  }
+
+  .explain{
+    background:linear-gradient(90deg, rgba(198,183,220,0.16), rgba(198,183,220,0.04));
+    border:1px dashed var(--lavender);border-radius:14px;padding:13px 18px;font-size:13px;color:var(--ink-soft);
+    margin-bottom:18px;
+  }
+  .explain b{color:var(--ink);}
+
+  table{width:100%;border-collapse:collapse;background:var(--paper);border-radius:16px;overflow:hidden;border:1px solid var(--line);}
+  thead th{
+    background:#F3ECDC;color:var(--ink-soft);font-size:12px;font-weight:800;text-align:right;
+    padding:11px 16px;border-bottom:1px solid var(--line);
+  }
+  tbody td{padding:9px 16px;font-size:14px;border-bottom:1px solid #F1EBDD;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#FBF3E8;}
+  td.num{color:var(--ink-soft);font-size:12.5px;width:36px;}
+  td.name{font-weight:700;font-family:'Markazi Text',serif;font-size:16.5px;}
+  td.ayahs{color:var(--ink-soft);}
+  .juz-badge{
+    display:inline-block;background:rgba(199,125,130,0.14);color:var(--rose-deep);
+    font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:8px;
+  }
+  tr.dim{display:none;}
+  tr.order-num td.num::after{content:none;}
+
+  .order-index{
+    display:inline-block;width:20px;text-align:center;font-weight:800;color:var(--sage-deep);font-size:12px;
+  }
+
+  .note{font-size:11.5px;color:var(--ink-soft);text-align:center;margin-top:22px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">نماء 🌱</div>
+  </div>
+  <div class="subtitle">قاعدة بيانات السور — 114 سورة بعدد آياتها ورقم الجزء اللي تبلش فيه</div>
+
+  <div class="mode-bar">
+    <div class="mode-pill sel" onclick="setMode(this,'mushaf')">ترتيب المصحف</div>
+    <div class="mode-pill" onclick="setMode(this,'juzamma')">جزء عمّ بالعكس (نموذج القالب)</div>
+    <input class="search" id="searchBox" placeholder="بحث باسم السورة..." oninput="filterSearch()" />
+  </div>
+
+  <div class="explain" id="explainBox">
+    هذا الترتيب هو الأساس الذي يُبنى عليه منطق "تحذير الفجوة": إذا سجّلت المعلمة تسميعًا لسورة، ولم تكتمل بعد السورة التي تسبقها في خطة الطالبة (وفق هذا الترتيب)، يظهر تنبيه.
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>السورة</th><th>عدد الآيات</th><th>الجزء</th></tr>
+    </thead>
+    <tbody id="tbody">
+      <tr data-name="الفاتحة"><td class="num">1</td><td class="name">الفاتحة</td><td class="ayahs">7</td><td class="juz"><span class="juz-badge">ج1</span></td></tr>
+<tr data-name="البقرة"><td class="num">2</td><td class="name">البقرة</td><td class="ayahs">286</td><td class="juz"><span class="juz-badge">ج1</span></td></tr>
+<tr data-name="آل عمران"><td class="num">3</td><td class="name">آل عمران</td><td class="ayahs">200</td><td class="juz"><span class="juz-badge">ج3</span></td></tr>
+<tr data-name="النساء"><td class="num">4</td><td class="name">النساء</td><td class="ayahs">176</td><td class="juz"><span class="juz-badge">ج4</span></td></tr>
+<tr data-name="المائدة"><td class="num">5</td><td class="name">المائدة</td><td class="ayahs">120</td><td class="juz"><span class="juz-badge">ج6</span></td></tr>
+<tr data-name="الأنعام"><td class="num">6</td><td class="name">الأنعام</td><td class="ayahs">165</td><td class="juz"><span class="juz-badge">ج7</span></td></tr>
+<tr data-name="الأعراف"><td class="num">7</td><td class="name">الأعراف</td><td class="ayahs">206</td><td class="juz"><span class="juz-badge">ج8</span></td></tr>
+<tr data-name="الأنفال"><td class="num">8</td><td class="name">الأنفال</td><td class="ayahs">75</td><td class="juz"><span class="juz-badge">ج9</span></td></tr>
+<tr data-name="التوبة"><td class="num">9</td><td class="name">التوبة</td><td class="ayahs">129</td><td class="juz"><span class="juz-badge">ج10</span></td></tr>
+<tr data-name="يونس"><td class="num">10</td><td class="name">يونس</td><td class="ayahs">109</td><td class="juz"><span class="juz-badge">ج11</span></td></tr>
+<tr data-name="هود"><td class="num">11</td><td class="name">هود</td><td class="ayahs">123</td><td class="juz"><span class="juz-badge">ج11</span></td></tr>
+<tr data-name="يوسف"><td class="num">12</td><td class="name">يوسف</td><td class="ayahs">111</td><td class="juz"><span class="juz-badge">ج12</span></td></tr>
+<tr data-name="الرعد"><td class="num">13</td><td class="name">الرعد</td><td class="ayahs">43</td><td class="juz"><span class="juz-badge">ج13</span></td></tr>
+<tr data-name="إبراهيم"><td class="num">14</td><td class="name">إبراهيم</td><td class="ayahs">52</td><td class="juz"><span class="juz-badge">ج13</span></td></tr>
+<tr data-name="الحجر"><td class="num">15</td><td class="name">الحجر</td><td class="ayahs">99</td><td class="juz"><span class="juz-badge">ج14</span></td></tr>
+<tr data-name="النحل"><td class="num">16</td><td class="name">النحل</td><td class="ayahs">128</td><td class="juz"><span class="juz-badge">ج14</span></td></tr>
+<tr data-name="الإسراء"><td class="num">17</td><td class="name">الإسراء</td><td class="ayahs">111</td><td class="juz"><span class="juz-badge">ج15</span></td></tr>
+<tr data-name="الكهف"><td class="num">18</td><td class="name">الكهف</td><td class="ayahs">110</td><td class="juz"><span class="juz-badge">ج15</span></td></tr>
+<tr data-name="مريم"><td class="num">19</td><td class="name">مريم</td><td class="ayahs">98</td><td class="juz"><span class="juz-badge">ج16</span></td></tr>
+<tr data-name="طه"><td class="num">20</td><td class="name">طه</td><td class="ayahs">135</td><td class="juz"><span class="juz-badge">ج16</span></td></tr>
+<tr data-name="الأنبياء"><td class="num">21</td><td class="name">الأنبياء</td><td class="ayahs">112</td><td class="juz"><span class="juz-badge">ج17</span></td></tr>
+<tr data-name="الحج"><td class="num">22</td><td class="name">الحج</td><td class="ayahs">78</td><td class="juz"><span class="juz-badge">ج17</span></td></tr>
+<tr data-name="المؤمنون"><td class="num">23</td><td class="name">المؤمنون</td><td class="ayahs">118</td><td class="juz"><span class="juz-badge">ج18</span></td></tr>
+<tr data-name="النور"><td class="num">24</td><td class="name">النور</td><td class="ayahs">64</td><td class="juz"><span class="juz-badge">ج18</span></td></tr>
+<tr data-name="الفرقان"><td class="num">25</td><td class="name">الفرقان</td><td class="ayahs">77</td><td class="juz"><span class="juz-badge">ج18</span></td></tr>
+<tr data-name="الشعراء"><td class="num">26</td><td class="name">الشعراء</td><td class="ayahs">227</td><td class="juz"><span class="juz-badge">ج19</span></td></tr>
+<tr data-name="النمل"><td class="num">27</td><td class="name">النمل</td><td class="ayahs">93</td><td class="juz"><span class="juz-badge">ج19</span></td></tr>
+<tr data-name="القصص"><td class="num">28</td><td class="name">القصص</td><td class="ayahs">88</td><td class="juz"><span class="juz-badge">ج20</span></td></tr>
+<tr data-name="العنكبوت"><td class="num">29</td><td class="name">العنكبوت</td><td class="ayahs">69</td><td class="juz"><span class="juz-badge">ج20</span></td></tr>
+<tr data-name="الروم"><td class="num">30</td><td class="name">الروم</td><td class="ayahs">60</td><td class="juz"><span class="juz-badge">ج21</span></td></tr>
+<tr data-name="لقمان"><td class="num">31</td><td class="name">لقمان</td><td class="ayahs">34</td><td class="juz"><span class="juz-badge">ج21</span></td></tr>
+<tr data-name="السجدة"><td class="num">32</td><td class="name">السجدة</td><td class="ayahs">30</td><td class="juz"><span class="juz-badge">ج21</span></td></tr>
+<tr data-name="الأحزاب"><td class="num">33</td><td class="name">الأحزاب</td><td class="ayahs">73</td><td class="juz"><span class="juz-badge">ج21</span></td></tr>
+<tr data-name="سبأ"><td class="num">34</td><td class="name">سبأ</td><td class="ayahs">54</td><td class="juz"><span class="juz-badge">ج22</span></td></tr>
+<tr data-name="فاطر"><td class="num">35</td><td class="name">فاطر</td><td class="ayahs">45</td><td class="juz"><span class="juz-badge">ج22</span></td></tr>
+<tr data-name="يس"><td class="num">36</td><td class="name">يس</td><td class="ayahs">83</td><td class="juz"><span class="juz-badge">ج22</span></td></tr>
+<tr data-name="الصافات"><td class="num">37</td><td class="name">الصافات</td><td class="ayahs">182</td><td class="juz"><span class="juz-badge">ج23</span></td></tr>
+<tr data-name="ص"><td class="num">38</td><td class="name">ص</td><td class="ayahs">88</td><td class="juz"><span class="juz-badge">ج23</span></td></tr>
+<tr data-name="الزمر"><td class="num">39</td><td class="name">الزمر</td><td class="ayahs">75</td><td class="juz"><span class="juz-badge">ج23</span></td></tr>
+<tr data-name="غافر"><td class="num">40</td><td class="name">غافر</td><td class="ayahs">85</td><td class="juz"><span class="juz-badge">ج24</span></td></tr>
+<tr data-name="فصلت"><td class="num">41</td><td class="name">فصلت</td><td class="ayahs">54</td><td class="juz"><span class="juz-badge">ج24</span></td></tr>
+<tr data-name="الشورى"><td class="num">42</td><td class="name">الشورى</td><td class="ayahs">53</td><td class="juz"><span class="juz-badge">ج25</span></td></tr>
+<tr data-name="الزخرف"><td class="num">43</td><td class="name">الزخرف</td><td class="ayahs">89</td><td class="juz"><span class="juz-badge">ج25</span></td></tr>
+<tr data-name="الدخان"><td class="num">44</td><td class="name">الدخان</td><td class="ayahs">59</td><td class="juz"><span class="juz-badge">ج25</span></td></tr>
+<tr data-name="الجاثية"><td class="num">45</td><td class="name">الجاثية</td><td class="ayahs">37</td><td class="juz"><span class="juz-badge">ج25</span></td></tr>
+<tr data-name="الأحقاف"><td class="num">46</td><td class="name">الأحقاف</td><td class="ayahs">35</td><td class="juz"><span class="juz-badge">ج26</span></td></tr>
+<tr data-name="محمد"><td class="num">47</td><td class="name">محمد</td><td class="ayahs">38</td><td class="juz"><span class="juz-badge">ج26</span></td></tr>
+<tr data-name="الفتح"><td class="num">48</td><td class="name">الفتح</td><td class="ayahs">29</td><td class="juz"><span class="juz-badge">ج26</span></td></tr>
+<tr data-name="الحجرات"><td class="num">49</td><td class="name">الحجرات</td><td class="ayahs">18</td><td class="juz"><span class="juz-badge">ج26</span></td></tr>
+<tr data-name="ق"><td class="num">50</td><td class="name">ق</td><td class="ayahs">45</td><td class="juz"><span class="juz-badge">ج26</span></td></tr>
+<tr data-name="الذاريات"><td class="num">51</td><td class="name">الذاريات</td><td class="ayahs">60</td><td class="juz"><span class="juz-badge">ج26</span></td></tr>
+<tr data-name="الطور"><td class="num">52</td><td class="name">الطور</td><td class="ayahs">49</td><td class="juz"><span class="juz-badge">ج27</span></td></tr>
+<tr data-name="النجم"><td class="num">53</td><td class="name">النجم</td><td class="ayahs">62</td><td class="juz"><span class="juz-badge">ج27</span></td></tr>
+<tr data-name="القمر"><td class="num">54</td><td class="name">القمر</td><td class="ayahs">55</td><td class="juz"><span class="juz-badge">ج27</span></td></tr>
+<tr data-name="الرحمن"><td class="num">55</td><td class="name">الرحمن</td><td class="ayahs">78</td><td class="juz"><span class="juz-badge">ج27</span></td></tr>
+<tr data-name="الواقعة"><td class="num">56</td><td class="name">الواقعة</td><td class="ayahs">96</td><td class="juz"><span class="juz-badge">ج27</span></td></tr>
+<tr data-name="الحديد"><td class="num">57</td><td class="name">الحديد</td><td class="ayahs">29</td><td class="juz"><span class="juz-badge">ج27</span></td></tr>
+<tr data-name="المجادلة"><td class="num">58</td><td class="name">المجادلة</td><td class="ayahs">22</td><td class="juz"><span class="juz-badge">ج28</span></td></tr>
+<tr data-name="الحشر"><td class="num">59</td><td class="name">الحشر</td><td class="ayahs">24</td><td class="juz"><span class="juz-badge">ج28</span></td></tr>
+<tr data-name="الممتحنة"><td class="num">60</td><td class="name">الممتحنة</td><td class="ayahs">13</td><td class="juz"><span class="juz-badge">ج28</span></td></tr>
+<tr data-name="الصف"><td class="num">61</td><td class="name">الصف</td><td class="ayahs">14</td><td class="juz"><span class="juz-badge">ج28</span></td></tr>
+<tr data-name="الجمعة"><td class="num">62</td><td class="name">الجمعة</td><td class="ayahs">11</td><td class="juz"><span class="juz-badge">ج28</span></td></tr>
+<tr data-name="المنافقون"><td class="num">63</td><td class="name">المنافقون</td><td class="ayahs">11</td><td class="juz"><span class="juz-badge">ج28</span></td></tr>
+<tr data-name="التغابن"><td class="num">64</td><td class="name">التغابن</td><td class="ayahs">18</td><td class="juz"><span class="juz-badge">ج28</span></td></tr>
+<tr data-name="الطلاق"><td class="num">65</td><td class="name">الطلاق</td><td class="ayahs">12</td><td class="juz"><span class="juz-badge">ج28</span></td></tr>
+<tr data-name="التحريم"><td class="num">66</td><td class="name">التحريم</td><td class="ayahs">12</td><td class="juz"><span class="juz-badge">ج28</span></td></tr>
+<tr data-name="الملك"><td class="num">67</td><td class="name">الملك</td><td class="ayahs">30</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="القلم"><td class="num">68</td><td class="name">القلم</td><td class="ayahs">52</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="الحاقة"><td class="num">69</td><td class="name">الحاقة</td><td class="ayahs">52</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="المعارج"><td class="num">70</td><td class="name">المعارج</td><td class="ayahs">44</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="نوح"><td class="num">71</td><td class="name">نوح</td><td class="ayahs">28</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="الجن"><td class="num">72</td><td class="name">الجن</td><td class="ayahs">28</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="المزمل"><td class="num">73</td><td class="name">المزمل</td><td class="ayahs">20</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="المدثر"><td class="num">74</td><td class="name">المدثر</td><td class="ayahs">56</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="القيامة"><td class="num">75</td><td class="name">القيامة</td><td class="ayahs">40</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="الإنسان"><td class="num">76</td><td class="name">الإنسان</td><td class="ayahs">31</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="المرسلات"><td class="num">77</td><td class="name">المرسلات</td><td class="ayahs">50</td><td class="juz"><span class="juz-badge">ج29</span></td></tr>
+<tr data-name="النبأ"><td class="num">78</td><td class="name">النبأ</td><td class="ayahs">40</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="النازعات"><td class="num">79</td><td class="name">النازعات</td><td class="ayahs">46</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="عبس"><td class="num">80</td><td class="name">عبس</td><td class="ayahs">42</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="التكوير"><td class="num">81</td><td class="name">التكوير</td><td class="ayahs">29</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الانفطار"><td class="num">82</td><td class="name">الانفطار</td><td class="ayahs">19</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="المطففين"><td class="num">83</td><td class="name">المطففين</td><td class="ayahs">36</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الانشقاق"><td class="num">84</td><td class="name">الانشقاق</td><td class="ayahs">25</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="البروج"><td class="num">85</td><td class="name">البروج</td><td class="ayahs">22</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الطارق"><td class="num">86</td><td class="name">الطارق</td><td class="ayahs">17</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الأعلى"><td class="num">87</td><td class="name">الأعلى</td><td class="ayahs">19</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الغاشية"><td class="num">88</td><td class="name">الغاشية</td><td class="ayahs">26</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الفجر"><td class="num">89</td><td class="name">الفجر</td><td class="ayahs">30</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="البلد"><td class="num">90</td><td class="name">البلد</td><td class="ayahs">20</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الشمس"><td class="num">91</td><td class="name">الشمس</td><td class="ayahs">15</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الليل"><td class="num">92</td><td class="name">الليل</td><td class="ayahs">21</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الضحى"><td class="num">93</td><td class="name">الضحى</td><td class="ayahs">11</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الشرح"><td class="num">94</td><td class="name">الشرح</td><td class="ayahs">8</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="التين"><td class="num">95</td><td class="name">التين</td><td class="ayahs">8</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="العلق"><td class="num">96</td><td class="name">العلق</td><td class="ayahs">19</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="القدر"><td class="num">97</td><td class="name">القدر</td><td class="ayahs">5</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="البينة"><td class="num">98</td><td class="name">البينة</td><td class="ayahs">8</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الزلزلة"><td class="num">99</td><td class="name">الزلزلة</td><td class="ayahs">8</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="العاديات"><td class="num">100</td><td class="name">العاديات</td><td class="ayahs">11</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="القارعة"><td class="num">101</td><td class="name">القارعة</td><td class="ayahs">11</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="التكاثر"><td class="num">102</td><td class="name">التكاثر</td><td class="ayahs">8</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="العصر"><td class="num">103</td><td class="name">العصر</td><td class="ayahs">3</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الهمزة"><td class="num">104</td><td class="name">الهمزة</td><td class="ayahs">9</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الفيل"><td class="num">105</td><td class="name">الفيل</td><td class="ayahs">5</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="قريش"><td class="num">106</td><td class="name">قريش</td><td class="ayahs">4</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الماعون"><td class="num">107</td><td class="name">الماعون</td><td class="ayahs">7</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الكوثر"><td class="num">108</td><td class="name">الكوثر</td><td class="ayahs">3</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الكافرون"><td class="num">109</td><td class="name">الكافرون</td><td class="ayahs">6</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="النصر"><td class="num">110</td><td class="name">النصر</td><td class="ayahs">3</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="المسد"><td class="num">111</td><td class="name">المسد</td><td class="ayahs">5</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الإخلاص"><td class="num">112</td><td class="name">الإخلاص</td><td class="ayahs">4</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الفلق"><td class="num">113</td><td class="name">الفلق</td><td class="ayahs">5</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+<tr data-name="الناس"><td class="num">114</td><td class="name">الناس</td><td class="ayahs">6</td><td class="juz"><span class="juz-badge">ج30</span></td></tr>
+
+    </tbody>
+  </table>
+
+  <div class="note">هاي القائمة رح تصير جزء من إعدادات الموقع الثابتة — منها بنبني كل قوالب الخطط (قالب جاهز أو خطة مخصصة تبنيها المعلمة يدوياً)</div>
+</div>
+
+<script>
+const surahOrder = [{"number": 1, "name": "الفاتحة", "ayahs": 7, "juz": 1}, {"number": 2, "name": "البقرة", "ayahs": 286, "juz": 1}, {"number": 3, "name": "آل عمران", "ayahs": 200, "juz": 3}, {"number": 4, "name": "النساء", "ayahs": 176, "juz": 4}, {"number": 5, "name": "المائدة", "ayahs": 120, "juz": 6}, {"number": 6, "name": "الأنعام", "ayahs": 165, "juz": 7}, {"number": 7, "name": "الأعراف", "ayahs": 206, "juz": 8}, {"number": 8, "name": "الأنفال", "ayahs": 75, "juz": 9}, {"number": 9, "name": "التوبة", "ayahs": 129, "juz": 10}, {"number": 10, "name": "يونس", "ayahs": 109, "juz": 11}, {"number": 11, "name": "هود", "ayahs": 123, "juz": 11}, {"number": 12, "name": "يوسف", "ayahs": 111, "juz": 12}, {"number": 13, "name": "الرعد", "ayahs": 43, "juz": 13}, {"number": 14, "name": "إبراهيم", "ayahs": 52, "juz": 13}, {"number": 15, "name": "الحجر", "ayahs": 99, "juz": 14}, {"number": 16, "name": "النحل", "ayahs": 128, "juz": 14}, {"number": 17, "name": "الإسراء", "ayahs": 111, "juz": 15}, {"number": 18, "name": "الكهف", "ayahs": 110, "juz": 15}, {"number": 19, "name": "مريم", "ayahs": 98, "juz": 16}, {"number": 20, "name": "طه", "ayahs": 135, "juz": 16}, {"number": 21, "name": "الأنبياء", "ayahs": 112, "juz": 17}, {"number": 22, "name": "الحج", "ayahs": 78, "juz": 17}, {"number": 23, "name": "المؤمنون", "ayahs": 118, "juz": 18}, {"number": 24, "name": "النور", "ayahs": 64, "juz": 18}, {"number": 25, "name": "الفرقان", "ayahs": 77, "juz": 18}, {"number": 26, "name": "الشعراء", "ayahs": 227, "juz": 19}, {"number": 27, "name": "النمل", "ayahs": 93, "juz": 19}, {"number": 28, "name": "القصص", "ayahs": 88, "juz": 20}, {"number": 29, "name": "العنكبوت", "ayahs": 69, "juz": 20}, {"number": 30, "name": "الروم", "ayahs": 60, "juz": 21}, {"number": 31, "name": "لقمان", "ayahs": 34, "juz": 21}, {"number": 32, "name": "السجدة", "ayahs": 30, "juz": 21}, {"number": 33, "name": "الأحزاب", "ayahs": 73, "juz": 21}, {"number": 34, "name": "سبأ", "ayahs": 54, "juz": 22}, {"number": 35, "name": "فاطر", "ayahs": 45, "juz": 22}, {"number": 36, "name": "يس", "ayahs": 83, "juz": 22}, {"number": 37, "name": "الصافات", "ayahs": 182, "juz": 23}, {"number": 38, "name": "ص", "ayahs": 88, "juz": 23}, {"number": 39, "name": "الزمر", "ayahs": 75, "juz": 23}, {"number": 40, "name": "غافر", "ayahs": 85, "juz": 24}, {"number": 41, "name": "فصلت", "ayahs": 54, "juz": 24}, {"number": 42, "name": "الشورى", "ayahs": 53, "juz": 25}, {"number": 43, "name": "الزخرف", "ayahs": 89, "juz": 25}, {"number": 44, "name": "الدخان", "ayahs": 59, "juz": 25}, {"number": 45, "name": "الجاثية", "ayahs": 37, "juz": 25}, {"number": 46, "name": "الأحقاف", "ayahs": 35, "juz": 26}, {"number": 47, "name": "محمد", "ayahs": 38, "juz": 26}, {"number": 48, "name": "الفتح", "ayahs": 29, "juz": 26}, {"number": 49, "name": "الحجرات", "ayahs": 18, "juz": 26}, {"number": 50, "name": "ق", "ayahs": 45, "juz": 26}, {"number": 51, "name": "الذاريات", "ayahs": 60, "juz": 26}, {"number": 52, "name": "الطور", "ayahs": 49, "juz": 27}, {"number": 53, "name": "النجم", "ayahs": 62, "juz": 27}, {"number": 54, "name": "القمر", "ayahs": 55, "juz": 27}, {"number": 55, "name": "الرحمن", "ayahs": 78, "juz": 27}, {"number": 56, "name": "الواقعة", "ayahs": 96, "juz": 27}, {"number": 57, "name": "الحديد", "ayahs": 29, "juz": 27}, {"number": 58, "name": "المجادلة", "ayahs": 22, "juz": 28}, {"number": 59, "name": "الحشر", "ayahs": 24, "juz": 28}, {"number": 60, "name": "الممتحنة", "ayahs": 13, "juz": 28}, {"number": 61, "name": "الصف", "ayahs": 14, "juz": 28}, {"number": 62, "name": "الجمعة", "ayahs": 11, "juz": 28}, {"number": 63, "name": "المنافقون", "ayahs": 11, "juz": 28}, {"number": 64, "name": "التغابن", "ayahs": 18, "juz": 28}, {"number": 65, "name": "الطلاق", "ayahs": 12, "juz": 28}, {"number": 66, "name": "التحريم", "ayahs": 12, "juz": 28}, {"number": 67, "name": "الملك", "ayahs": 30, "juz": 29}, {"number": 68, "name": "القلم", "ayahs": 52, "juz": 29}, {"number": 69, "name": "الحاقة", "ayahs": 52, "juz": 29}, {"number": 70, "name": "المعارج", "ayahs": 44, "juz": 29}, {"number": 71, "name": "نوح", "ayahs": 28, "juz": 29}, {"number": 72, "name": "الجن", "ayahs": 28, "juz": 29}, {"number": 73, "name": "المزمل", "ayahs": 20, "juz": 29}, {"number": 74, "name": "المدثر", "ayahs": 56, "juz": 29}, {"number": 75, "name": "القيامة", "ayahs": 40, "juz": 29}, {"number": 76, "name": "الإنسان", "ayahs": 31, "juz": 29}, {"number": 77, "name": "المرسلات", "ayahs": 50, "juz": 29}, {"number": 78, "name": "النبأ", "ayahs": 40, "juz": 30}, {"number": 79, "name": "النازعات", "ayahs": 46, "juz": 30}, {"number": 80, "name": "عبس", "ayahs": 42, "juz": 30}, {"number": 81, "name": "التكوير", "ayahs": 29, "juz": 30}, {"number": 82, "name": "الانفطار", "ayahs": 19, "juz": 30}, {"number": 83, "name": "المطففين", "ayahs": 36, "juz": 30}, {"number": 84, "name": "الانشقاق", "ayahs": 25, "juz": 30}, {"number": 85, "name": "البروج", "ayahs": 22, "juz": 30}, {"number": 86, "name": "الطارق", "ayahs": 17, "juz": 30}, {"number": 87, "name": "الأعلى", "ayahs": 19, "juz": 30}, {"number": 88, "name": "الغاشية", "ayahs": 26, "juz": 30}, {"number": 89, "name": "الفجر", "ayahs": 30, "juz": 30}, {"number": 90, "name": "البلد", "ayahs": 20, "juz": 30}, {"number": 91, "name": "الشمس", "ayahs": 15, "juz": 30}, {"number": 92, "name": "الليل", "ayahs": 21, "juz": 30}, {"number": 93, "name": "الضحى", "ayahs": 11, "juz": 30}, {"number": 94, "name": "الشرح", "ayahs": 8, "juz": 30}, {"number": 95, "name": "التين", "ayahs": 8, "juz": 30}, {"number": 96, "name": "العلق", "ayahs": 19, "juz": 30}, {"number": 97, "name": "القدر", "ayahs": 5, "juz": 30}, {"number": 98, "name": "البينة", "ayahs": 8, "juz": 30}, {"number": 99, "name": "الزلزلة", "ayahs": 8, "juz": 30}, {"number": 100, "name": "العاديات", "ayahs": 11, "juz": 30}, {"number": 101, "name": "القارعة", "ayahs": 11, "juz": 30}, {"number": 102, "name": "التكاثر", "ayahs": 8, "juz": 30}, {"number": 103, "name": "العصر", "ayahs": 3, "juz": 30}, {"number": 104, "name": "الهمزة", "ayahs": 9, "juz": 30}, {"number": 105, "name": "الفيل", "ayahs": 5, "juz": 30}, {"number": 106, "name": "قريش", "ayahs": 4, "juz": 30}, {"number": 107, "name": "الماعون", "ayahs": 7, "juz": 30}, {"number": 108, "name": "الكوثر", "ayahs": 3, "juz": 30}, {"number": 109, "name": "الكافرون", "ayahs": 6, "juz": 30}, {"number": 110, "name": "النصر", "ayahs": 3, "juz": 30}, {"number": 111, "name": "المسد", "ayahs": 5, "juz": 30}, {"number": 112, "name": "الإخلاص", "ayahs": 4, "juz": 30}, {"number": 113, "name": "الفلق", "ayahs": 5, "juz": 30}, {"number": 114, "name": "الناس", "ayahs": 6, "juz": 30}];
+
+function setMode(el, mode){
+  document.querySelectorAll('.mode-pill').forEach(p=>p.classList.remove('sel'));
+  el.classList.add('sel');
+  const tbody = document.getElementById('tbody');
+  const explain = document.getElementById('explainBox');
+
+  let list = [...surahOrder];
+  if(mode === 'juzamma'){
+    list = list.filter(s => s.juz === 30).sort((a,b)=> b.number - a.number);
+    explain.innerHTML = 'في هذا القالب، تُعتبر السورة رقم <b>1</b> في الخطة هي سورة <b>الناس</b> (آخر سورة في المصحف)، وتنازليًا حتى سورة <b>النبأ</b> (بداية جزء عمّ) — بذلك تبدأ الطالبة بأقصر السور.';
+  } else {
+    list = [...surahOrder];
+    explain.innerHTML = 'هذا الترتيب هو الأساس الذي يُبنى عليه منطق "تحذير الفجوة": إذا سجّلت المعلمة تسميعًا لسورة، ولم تكتمل بعد السورة التي تسبقها في خطة الطالبة، يظهر تنبيه.';
+  }
+
+  tbody.innerHTML = list.map((s, i) => `
+    <tr data-name="${s.name}">
+      <td class="num"><span class="order-index">${i+1}</span></td>
+      <td class="name">${s.name}</td>
+      <td class="ayahs">${s.ayahs}</td>
+      <td class="juz"><span class="juz-badge">ج${s.juz}</span></td>
+    </tr>`).join('');
+}
+
+function filterSearch(){
+  const q = document.getElementById('searchBox').value.trim();
+  document.querySelectorAll('#tbody tr').forEach(tr=>{
+    const name = tr.getAttribute('data-name') || '';
+    tr.classList.toggle('dim', q && !name.includes(q));
+  });
+}
+
+setMode(document.querySelector('.mode-pill'), 'mushaf');
+</script>
+</body>
+</html>

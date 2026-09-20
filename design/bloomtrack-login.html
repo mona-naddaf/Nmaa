@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نماء — تسجيل الدخول</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF6EC; --paper:#FFFDF8; --ink:#3B3226; --ink-soft:#6E6355;
+    --rose:#E7AFAE; --rose-deep:#C77D82; --sage:#9FB897; --sage-deep:#6E8F65;
+    --lavender:#C6B7DC; --gold:#E3B54F; --gold-deep:#B8862A; --line:#E7DFCF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;min-height:100vh;background:var(--cream);
+    background-image:radial-gradient(circle at 12% 8%, rgba(231,175,174,0.14), transparent 40%),
+      radial-gradient(circle at 90% 88%, rgba(159,184,151,0.14), transparent 40%);
+    font-family:'Tajawal',sans-serif;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .wrap{max-width:400px;width:100%;}
+  .brand{font-family:'Markazi Text',serif;font-weight:700;font-size:32px;color:var(--rose-deep);text-align:center;margin-bottom:6px;}
+  .brand span{color:var(--sage-deep);}
+  .subtitle{font-size:13px;color:var(--ink-soft);text-align:center;margin-bottom:26px;}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:0 4px 24px rgba(59,50,38,0.06);}
+
+  .role-switch{display:flex;background:var(--cream);border-radius:14px;padding:4px;border:1px solid var(--line);margin-bottom:22px;}
+  .role-switch button{flex:1;border:none;background:transparent;padding:10px;border-radius:11px;font-family:'Tajawal';font-weight:700;font-size:13.5px;cursor:pointer;color:var(--ink-soft);}
+  .role-switch button.active{background:var(--rose-deep);color:#fff;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;font-weight:700;}
+  .field input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--cream);font-family:'Tajawal';font-size:14.5px;color:var(--ink);}
+  .field input:focus{outline:none;border-color:var(--rose-deep);}
+
+  .primary-btn{
+    width:100%;background:var(--rose-deep);color:#fff;border:none;padding:13px;border-radius:12px;
+    font-family:'Tajawal';font-weight:800;font-size:15px;cursor:pointer;margin-top:6px;
+  }
+  .primary-btn:hover{background:#B36A6F;}
+
+  .link-row{text-align:center;margin-top:16px;font-size:12.5px;color:var(--ink-soft);}
+  .link-row a{color:var(--sage-deep);font-weight:700;text-decoration:none;cursor:pointer;}
+
+  .admin-toggle{text-align:center;margin-top:8px;}
+  .admin-toggle a{font-size:12px;color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
+
+  .err{color:var(--rose-deep);font-size:12.5px;margin-top:-8px;margin-bottom:12px;display:none;}
+  .err.show{display:block;}
+
+  /* Admin dashboard (post-login) */
+  .code-box{
+    background:linear-gradient(90deg, rgba(227,181,79,0.16), rgba(227,181,79,0.05));
+    border:1px dashed var(--gold-deep);border-radius:14px;padding:20px;text-align:center;margin-bottom:16px;
+  }
+  .code-box .code-label{font-size:12px;color:var(--gold-deep);font-weight:700;margin-bottom:8px;}
+  .code-box .code-val{font-family:'Markazi Text',serif;font-size:34px;font-weight:700;letter-spacing:4px;color:var(--ink);}
+  .copy-btn{
+    background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 16px;
+    font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;margin-top:10px;
+  }
+  .copy-btn:hover{border-color:var(--gold-deep);color:var(--gold-deep);}
+  .course-name{font-weight:800;font-size:17px;text-align:center;margin-bottom:4px;}
+  .course-sub{font-size:12px;color:var(--ink-soft);text-align:center;margin-bottom:20px;}
+
+  .hidden{display:none;}
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--sage-deep);color:#fff;padding:12px 24px;border-radius:12px;font-weight:700;font-size:14px;
+    opacity:0;transition:.25s;pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">نماء 🌱</div>
+  <div class="subtitle" id="pageSubtitle">منصّة متابعة تسميع وحفظ الطالبات</div>
+
+  <!-- ======= TEACHER LOGIN VIEW ======= -->
+  <div class="card" id="teacherView">
+    <div class="field">
+      <label>اسمك</label>
+      <input type="text" id="teacherName" placeholder="مثال: سارة أحمد">
+    </div>
+    <div class="field">
+      <label>كود الدورة</label>
+      <input type="text" id="courseCode" placeholder="مثال: ZAHRAT-4821" style="text-transform:uppercase;">
+    </div>
+    <div class="err" id="teacherErr">يُرجى إدخال الاسم وكود الدورة</div>
+    <button class="primary-btn" onclick="teacherLogin()">دخول</button>
+
+    <div class="admin-toggle"><a onclick="showAdmin()">أنا مديرة الدورة →</a></div>
+  </div>
+
+  <!-- ======= ADMIN LOGIN / SIGNUP VIEW ======= -->
+  <div class="card hidden" id="adminView">
+    <div class="role-switch">
+      <button class="active" id="btnAdminLogin" onclick="setAdminMode('login')">تسجيل الدخول</button>
+      <button id="btnAdminSignup" onclick="setAdminMode('signup')">إنشاء دورة جديدة</button>
+    </div>
+
+    <div id="signupExtra" class="hidden">
+      <div class="field">
+        <label>اسم الدورة</label>
+        <input type="text" id="courseName" placeholder="مثال: دورة الزهرات — الثلاثاء">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="adminEmail" placeholder="name@example.com">
+    </div>
+    <div class="field">
+      <label>كلمة المرور</label>
+      <input type="password" id="adminPass" placeholder="••••••••">
+    </div>
+    <div class="err" id="adminErr">يُرجى تعبئة جميع الحقول</div>
+    <button class="primary-btn" id="adminSubmitBtn" onclick="adminSubmit()">تسجيل الدخول</button>
+
+    <div class="admin-toggle"><a onclick="showTeacher()">← رجوع لتسجيل دخول المعلمات</a></div>
+  </div>
+
+  <!-- ======= ADMIN DASHBOARD (post-login) ======= -->
+  <div class="card hidden" id="adminDash">
+    <div class="course-name" id="dashCourseName">دورة الزهرات — الثلاثاء</div>
+    <div class="course-sub">شاركي هذا الكود مع معلمات دورتك ليتمكّنّ من الدخول</div>
+    <div class="code-box">
+      <div class="code-label">كود الدورة</div>
+      <div class="code-val" id="dashCode">ZAHRAT-4821</div>
+      <div class="copy-btn" onclick="copyCode()">نسخ الكود 📋</div>
+    </div>
+    <button class="primary-btn" onclick="enterApp()">الدخول إلى لوحة الدورة</button>
+    <div class="admin-toggle"><a onclick="logoutAdmin()">تسجيل خروج</a></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+  let adminMode = 'login';
+  // demo: fixed course code generated once at "signup"
+  const DEMO_COURSE_CODE = 'ZAHRAT-4821';
+
+  function showAdmin(){
+    document.getElementById('teacherView').classList.add('hidden');
+    document.getElementById('adminView').classList.remove('hidden');
+    document.getElementById('adminDash').classList.add('hidden');
+    document.getElementById('pageSubtitle').textContent = 'دخول المديرة';
+  }
+  function showTeacher(){
+    document.getElementById('adminView').classList.add('hidden');
+    document.getElementById('adminDash').classList.add('hidden');
+    document.getElementById('teacherView').classList.remove('hidden');
+    document.getElementById('pageSubtitle').textContent = 'منصّة متابعة تسميع وحفظ الطالبات';
+  }
+
+  function setAdminMode(mode){
+    adminMode = mode;
+    document.getElementById('btnAdminLogin').classList.toggle('active', mode==='login');
+    document.getElementById('btnAdminSignup').classList.toggle('active', mode==='signup');
+    document.getElementById('signupExtra').classList.toggle('hidden', mode!=='signup');
+    document.getElementById('adminSubmitBtn').textContent = mode==='signup' ? 'إنشاء الدورة' : 'تسجيل الدخول';
+  }
+
+  function teacherLogin(){
+    const name = document.getElementById('teacherName').value.trim();
+    const code = document.getElementById('courseCode').value.trim().toUpperCase();
+    const err = document.getElementById('teacherErr');
+    if(!name || !code){
+      err.textContent = 'يُرجى إدخال الاسم وكود الدورة';
+      err.classList.add('show');
+      return;
+    }
+    if(code !== DEMO_COURSE_CODE){
+      err.textContent = 'كود الدورة غير صحيح — يُرجى التأكد منه مع مديرة الدورة';
+      err.classList.add('show');
+      return;
+    }
+    err.classList.remove('show');
+    showToast('تم تسجيل الدخول — أهلًا ' + name + ' 🌱');
+  }
+
+  function adminSubmit(){
+    const email = document.getElementById('adminEmail').value.trim();
+    const pass = document.getElementById('adminPass').value.trim();
+    const err = document.getElementById('adminErr');
+    if(!email || !pass || (adminMode==='signup' && !document.getElementById('courseName').value.trim())){
+      err.textContent = 'يُرجى تعبئة جميع الحقول';
+      err.classList.add('show');
+      return;
+    }
+    err.classList.remove('show');
+    document.getElementById('adminView').classList.add('hidden');
+    document.getElementById('adminDash').classList.remove('hidden');
+    document.getElementById('pageSubtitle').textContent = 'لوحة المديرة';
+    if(adminMode==='signup'){
+      document.getElementById('dashCourseName').textContent = document.getElementById('courseName').value.trim();
+    }
+    document.getElementById('dashCode').textContent = DEMO_COURSE_CODE;
+  }
+
+  function copyCode(){
+    showToast('تم نسخ الكود ✓');
+  }
+
+  function enterApp(){
+    showToast('سيتم فتح لوحة الدورة الكاملة هنا');
+  }
+
+  function logoutAdmin(){
+    document.getElementById('adminDash').classList.add('hidden');
+    showAdmin();
+    setAdminMode('login');
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 2200);
+  }
+</script>
+</body>
+</html>

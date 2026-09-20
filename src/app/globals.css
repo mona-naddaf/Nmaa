@@ -1,0 +1,44 @@
+:root {
+  --cream: #fbf6ec;
+  --paper: #fffdf8;
+  --ink: #3b3226;
+  --ink-soft: #6e6355;
+  --rose: #e7afae;
+  --rose-deep: #c77d82;
+  --sage: #9fb897;
+  --sage-deep: #6e8f65;
+  --lavender: #c6b7dc;
+  --gold: #e3b54f;
+  --gold-deep: #b8862a;
+  --line: #e7dfcf;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--cream);
+  background-image: radial-gradient(circle at 12% 6%, rgba(231, 175, 174, 0.1), transparent 40%),
+    radial-gradient(circle at 92% 90%, rgba(198, 183, 220, 0.12), transparent 40%);
+  background-attachment: fixed;
+  font-family: var(--font-tajawal), "Tajawal", sans-serif;
+  color: var(--ink);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+}

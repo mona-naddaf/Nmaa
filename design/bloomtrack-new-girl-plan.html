@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الزهرات — إضافة طالبة جديدة وخطة الحفظ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF6EC; --paper:#FFFDF8; --ink:#3B3226; --ink-soft:#6E6355;
+    --rose:#E7AFAE; --rose-deep:#C77D82; --sage:#9FB897; --sage-deep:#6E8F65;
+    --lavender:#C6B7DC; --gold:#E3B54F; --gold-deep:#B8862A; --line:#E7DFCF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--cream);
+    background-image:radial-gradient(circle at 12% 6%, rgba(231,175,174,0.10), transparent 40%),
+      radial-gradient(circle at 92% 90%, rgba(198,183,220,0.12), transparent 40%);
+    font-family:'Tajawal',sans-serif;color:var(--ink);padding:28px 16px 60px;
+  }
+  .wrap{max-width:820px;margin:0 auto;}
+  .brand{font-family:'Markazi Text',serif;font-weight:700;font-size:28px;color:var(--rose-deep);margin-bottom:4px;}
+  .brand span{color:var(--sage-deep);}
+  .subtitle{font-size:13px;color:var(--ink-soft);margin-bottom:22px;}
+
+  .sec-title{font-size:14px;font-weight:800;color:var(--ink-soft);margin:26px 4px 10px;display:flex;align-items:center;gap:8px;}
+  .sec-title .dot{width:7px;height:7px;border-radius:50%;background:var(--rose-deep);}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:20px;}
+  .field-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
+  .field{flex:1;min-width:150px;}
+  .field label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;font-weight:700;}
+  .field select, .field input{
+    width:100%;padding:11px 13px;border-radius:11px;border:1px solid var(--line);
+    background:var(--cream);font-family:'Tajawal';font-size:14.5px;color:var(--ink);
+  }
+
+  .group-pills{display:flex;gap:8px;flex-wrap:wrap;}
+  .group-pill{
+    padding:9px 18px;border-radius:14px;border:1px solid var(--line);background:var(--cream);
+    font-weight:700;font-size:13px;color:var(--ink-soft);cursor:pointer;
+  }
+  .group-pill.sel{background:var(--rose-deep);color:#fff;border-color:var(--rose-deep);}
+
+  .template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}
+  .template-card{
+    background:var(--cream);border:2px solid var(--line);border-radius:16px;padding:18px;cursor:pointer;transition:.15s;
+  }
+  .template-card:hover{border-color:var(--sage-deep);}
+  .template-card.sel{border-color:var(--rose-deep);background:#FFF3EF;}
+  .template-card .t-icon{font-size:22px;margin-bottom:6px;}
+  .template-card .t-name{font-weight:800;font-size:15px;margin-bottom:4px;}
+  .template-card .t-desc{font-size:12px;color:var(--ink-soft);line-height:1.5;}
+  .template-card .t-count{
+    display:inline-block;margin-top:8px;font-size:11.5px;font-weight:700;color:var(--sage-deep);
+    background:rgba(159,184,151,0.14);padding:3px 10px;border-radius:8px;
+  }
+
+  .plan-list{max-height:420px;overflow-y:auto;border:1px solid var(--line);border-radius:14px;background:var(--cream);}
+  .plan-row{
+    display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #EDE4D0;font-size:13.5px;
+  }
+  .plan-row:last-child{border-bottom:none;}
+  .plan-row .idx{
+    width:26px;height:26px;border-radius:50%;background:var(--paper);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-family:'Markazi Text',serif;font-weight:700;
+    font-size:13px;color:var(--sage-deep);flex-shrink:0;
+  }
+  .plan-row .p-name{flex:1;font-weight:700;}
+  .plan-row .p-ayahs{font-size:11.5px;color:var(--ink-soft);}
+  .plan-row .p-actions{display:flex;gap:4px;}
+  .plan-row button{
+    border:none;background:var(--paper);border:1px solid var(--line);border-radius:7px;
+    width:26px;height:26px;cursor:pointer;font-size:12px;color:var(--ink-soft);
+  }
+  .plan-row button:hover{background:var(--rose);color:#fff;}
+  .plan-row button:disabled{opacity:.3;cursor:not-allowed;}
+
+  .add-row{display:flex;gap:10px;margin-top:14px;}
+  .add-row select{flex:1;}
+  .add-row button{
+    background:var(--sage-deep);color:#fff;border:none;padding:0 18px;border-radius:11px;
+    font-family:'Tajawal';font-weight:700;font-size:13.5px;cursor:pointer;
+  }
+
+  .plan-summary{
+    display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;
+  }
+  .mini-stat{
+    flex:1;min-width:120px;background:var(--paper);border:1px solid var(--line);border-radius:12px;
+    padding:10px 14px;text-align:center;
+  }
+  .mini-stat .num{font-family:'Markazi Text',serif;font-size:22px;font-weight:700;color:var(--rose-deep);}
+  .mini-stat .lbl{font-size:11px;color:var(--ink-soft);}
+
+  .save-btn{
+    background:var(--rose-deep);color:#fff;border:none;padding:13px 26px;border-radius:12px;
+    font-family:'Tajawal';font-weight:800;font-size:15px;cursor:pointer;width:100%;margin-top:20px;
+  }
+  .save-btn:hover{background:#B36A6F;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--sage-deep);color:#fff;padding:12px 24px;border-radius:12px;font-weight:700;font-size:14px;
+    opacity:0;transition:.25s;pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .note{font-size:11.5px;color:var(--ink-soft);text-align:center;margin-top:24px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">نماء 🌱</div>
+  <div class="subtitle">إضافة طالبة جديدة وتحديد خطة الحفظ الخاصة بها</div>
+
+  <div class="sec-title"><span class="dot"></span> بيانات الطالبة</div>
+  <div class="card">
+    <div class="field-row">
+      <div class="field">
+        <label>اسم الطالبة</label>
+        <input type="text" id="girlName" placeholder="مثال: سارة خالد">
+      </div>
+      <div class="field">
+        <label>العمر</label>
+        <input type="number" id="girlAge" placeholder="مثال: 10">
+      </div>
+    </div>
+    <div class="field">
+      <label>المجموعة</label>
+      <div class="group-pills">
+        <div class="group-pill sel" onclick="selectGroup(this)">زهرات صغيرات</div>
+        <div class="group-pill" onclick="selectGroup(this)">زهرات كبيرات</div>
+        <div class="group-pill" onclick="selectGroup(this)">شموس</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title"><span class="dot"></span> اختيار قالب خطة الحفظ</div>
+  <div class="card">
+    <div class="template-grid">
+      <div class="template-card sel" id="tplMushaf" onclick="applyTemplate('mushaf')">
+        <div class="t-icon">📖</div>
+        <div class="t-name">ترتيب المصحف</div>
+        <div class="t-desc">من سورة الفاتحة إلى سورة الناس، بالترتيب المعتاد في المصحف.</div>
+        <div class="t-count">114 سورة</div>
+      </div>
+      <div class="template-card" id="tplJuzAmma" onclick="applyTemplate('juzamma')">
+        <div class="t-icon">🌙</div>
+        <div class="t-name">جزء عمّ بالعكس</div>
+        <div class="t-desc">من سورة الناس إلى سورة النبأ — تبدأ الطالبة بأقصر السور.</div>
+        <div class="t-count">37 سورة</div>
+      </div>
+      <div class="template-card" id="tplCustom" onclick="applyTemplate('custom')">
+        <div class="t-icon">✏️</div>
+        <div class="t-name">خطة مخصّصة</div>
+        <div class="t-desc">تبدأ الخطة فارغة، وتختار المعلمة السور وترتيبها يدويًا بالكامل.</div>
+        <div class="t-count">حسب الاختيار</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title"><span class="dot"></span> ترتيب الخطة (قابل للتعديل)</div>
+  <div class="card">
+    <div class="plan-list" id="planList"></div>
+
+    <div class="add-row">
+      <select id="addSurahSel">
+        <option value="1">1. الفاتحة</option>
+<option value="2">2. البقرة</option>
+<option value="3">3. آل عمران</option>
+<option value="4">4. النساء</option>
+<option value="5">5. المائدة</option>
+<option value="6">6. الأنعام</option>
+<option value="7">7. الأعراف</option>
+<option value="8">8. الأنفال</option>
+<option value="9">9. التوبة</option>
+<option value="10">10. يونس</option>
+<option value="11">11. هود</option>
+<option value="12">12. يوسف</option>
+<option value="13">13. الرعد</option>
+<option value="14">14. إبراهيم</option>
+<option value="15">15. الحجر</option>
+<option value="16">16. النحل</option>
+<option value="17">17. الإسراء</option>
+<option value="18">18. الكهف</option>
+<option value="19">19. مريم</option>
+<option value="20">20. طه</option>
+<option value="21">21. الأنبياء</option>
+<option value="22">22. الحج</option>
+<option value="23">23. المؤمنون</option>
+<option value="24">24. النور</option>
+<option value="25">25. الفرقان</option>
+<option value="26">26. الشعراء</option>
+<option value="27">27. النمل</option>
+<option value="28">28. القصص</option>
+<option value="29">29. العنكبوت</option>
+<option value="30">30. الروم</option>
+<option value="31">31. لقمان</option>
+<option value="32">32. السجدة</option>
+<option value="33">33. الأحزاب</option>
+<option value="34">34. سبأ</option>
+<option value="35">35. فاطر</option>
+<option value="36">36. يس</option>
+<option value="37">37. الصافات</option>
+<option value="38">38. ص</option>
+<option value="39">39. الزمر</option>
+<option value="40">40. غافر</option>
+<option value="41">41. فصلت</option>
+<option value="42">42. الشورى</option>
+<option value="43">43. الزخرف</option>
+<option value="44">44. الدخان</option>
+<option value="45">45. الجاثية</option>
+<option value="46">46. الأحقاف</option>
+<option value="47">47. محمد</option>
+<option value="48">48. الفتح</option>
+<option value="49">49. الحجرات</option>
+<option value="50">50. ق</option>
+<option value="51">51. الذاريات</option>
+<option value="52">52. الطور</option>
+<option value="53">53. النجم</option>
+<option value="54">54. القمر</option>
+<option value="55">55. الرحمن</option>
+<option value="56">56. الواقعة</option>
+<option value="57">57. الحديد</option>
+<option value="58">58. المجادلة</option>
+<option value="59">59. الحشر</option>
+<option value="60">60. الممتحنة</option>
+<option value="61">61. الصف</option>
+<option value="62">62. الجمعة</option>
+<option value="63">63. المنافقون</option>
+<option value="64">64. التغابن</option>
+<option value="65">65. الطلاق</option>
+<option value="66">66. التحريم</option>
+<option value="67">67. الملك</option>
+<option value="68">68. القلم</option>
+<option value="69">69. الحاقة</option>
+<option value="70">70. المعارج</option>
+<option value="71">71. نوح</option>
+<option value="72">72. الجن</option>
+<option value="73">73. المزمل</option>
+<option value="74">74. المدثر</option>
+<option value="75">75. القيامة</option>
+<option value="76">76. الإنسان</option>
+<option value="77">77. المرسلات</option>
+<option value="78">78. النبأ</option>
+<option value="79">79. النازعات</option>
+<option value="80">80. عبس</option>
+<option value="81">81. التكوير</option>
+<option value="82">82. الانفطار</option>
+<option value="83">83. المطففين</option>
+<option value="84">84. الانشقاق</option>
+<option value="85">85. البروج</option>
+<option value="86">86. الطارق</option>
+<option value="87">87. الأعلى</option>
+<option value="88">88. الغاشية</option>
+<option value="89">89. الفجر</option>
+<option value="90">90. البلد</option>
+<option value="91">91. الشمس</option>
+<option value="92">92. الليل</option>
+<option value="93">93. الضحى</option>
+<option value="94">94. الشرح</option>
+<option value="95">95. التين</option>
+<option value="96">96. العلق</option>
+<option value="97">97. القدر</option>
+<option value="98">98. البينة</option>
+<option value="99">99. الزلزلة</option>
+<option value="100">100. العاديات</option>
+<option value="101">101. القارعة</option>
+<option value="102">102. التكاثر</option>
+<option value="103">103. العصر</option>
+<option value="104">104. الهمزة</option>
+<option value="105">105. الفيل</option>
+<option value="106">106. قريش</option>
+<option value="107">107. الماعون</option>
+<option value="108">108. الكوثر</option>
+<option value="109">109. الكافرون</option>
+<option value="110">110. النصر</option>
+<option value="111">111. المسد</option>
+<option value="112">112. الإخلاص</option>
+<option value="113">113. الفلق</option>
+<option value="114">114. الناس</option>
+      </select>
+      <button onclick="addSurah()">إضافة سورة</button>
+    </div>
+
+    <div class="plan-summary">
+      <div class="mini-stat"><div class="num" id="statCount">114</div><div class="lbl">عدد السور في الخطة</div></div>
+      <div class="mini-stat"><div class="num" id="statAyahs">6236</div><div class="lbl">إجمالي عدد الآيات</div></div>
+      <div class="mini-stat"><div class="num" id="statFirst">الفاتحة</div><div class="lbl">أول سورة في الخطة</div></div>
+      <div class="mini-stat"><div class="num" id="statLast">الناس</div><div class="lbl">آخر سورة في الخطة</div></div>
+    </div>
+  </div>
+
+  <button class="save-btn" onclick="savePlan()">حفظ الطالبة والخطة</button>
+
+  <div class="toast" id="toast">تم حفظ الطالبة وخطة الحفظ ✓</div>
+  <div class="note">يمكن اختيار قالب جاهز كبداية، ثم إعادة ترتيب السور أو حذف/إضافة أي سورة يدويًا قبل الحفظ</div>
+</div>
+
+<script>
+  const surahList = [{"number": 1, "name": "الفاتحة", "ayahs": 7, "juz": 1}, {"number": 2, "name": "البقرة", "ayahs": 286, "juz": 1}, {"number": 3, "name": "آل عمران", "ayahs": 200, "juz": 3}, {"number": 4, "name": "النساء", "ayahs": 176, "juz": 4}, {"number": 5, "name": "المائدة", "ayahs": 120, "juz": 6}, {"number": 6, "name": "الأنعام", "ayahs": 165, "juz": 7}, {"number": 7, "name": "الأعراف", "ayahs": 206, "juz": 8}, {"number": 8, "name": "الأنفال", "ayahs": 75, "juz": 9}, {"number": 9, "name": "التوبة", "ayahs": 129, "juz": 10}, {"number": 10, "name": "يونس", "ayahs": 109, "juz": 11}, {"number": 11, "name": "هود", "ayahs": 123, "juz": 11}, {"number": 12, "name": "يوسف", "ayahs": 111, "juz": 12}, {"number": 13, "name": "الرعد", "ayahs": 43, "juz": 13}, {"number": 14, "name": "إبراهيم", "ayahs": 52, "juz": 13}, {"number": 15, "name": "الحجر", "ayahs": 99, "juz": 14}, {"number": 16, "name": "النحل", "ayahs": 128, "juz": 14}, {"number": 17, "name": "الإسراء", "ayahs": 111, "juz": 15}, {"number": 18, "name": "الكهف", "ayahs": 110, "juz": 15}, {"number": 19, "name": "مريم", "ayahs": 98, "juz": 16}, {"number": 20, "name": "طه", "ayahs": 135, "juz": 16}, {"number": 21, "name": "الأنبياء", "ayahs": 112, "juz": 17}, {"number": 22, "name": "الحج", "ayahs": 78, "juz": 17}, {"number": 23, "name": "المؤمنون", "ayahs": 118, "juz": 18}, {"number": 24, "name": "النور", "ayahs": 64, "juz": 18}, {"number": 25, "name": "الفرقان", "ayahs": 77, "juz": 18}, {"number": 26, "name": "الشعراء", "ayahs": 227, "juz": 19}, {"number": 27, "name": "النمل", "ayahs": 93, "juz": 19}, {"number": 28, "name": "القصص", "ayahs": 88, "juz": 20}, {"number": 29, "name": "العنكبوت", "ayahs": 69, "juz": 20}, {"number": 30, "name": "الروم", "ayahs": 60, "juz": 21}, {"number": 31, "name": "لقمان", "ayahs": 34, "juz": 21}, {"number": 32, "name": "السجدة", "ayahs": 30, "juz": 21}, {"number": 33, "name": "الأحزاب", "ayahs": 73, "juz": 21}, {"number": 34, "name": "سبأ", "ayahs": 54, "juz": 22}, {"number": 35, "name": "فاطر", "ayahs": 45, "juz": 22}, {"number": 36, "name": "يس", "ayahs": 83, "juz": 22}, {"number": 37, "name": "الصافات", "ayahs": 182, "juz": 23}, {"number": 38, "name": "ص", "ayahs": 88, "juz": 23}, {"number": 39, "name": "الزمر", "ayahs": 75, "juz": 23}, {"number": 40, "name": "غافر", "ayahs": 85, "juz": 24}, {"number": 41, "name": "فصلت", "ayahs": 54, "juz": 24}, {"number": 42, "name": "الشورى", "ayahs": 53, "juz": 25}, {"number": 43, "name": "الزخرف", "ayahs": 89, "juz": 25}, {"number": 44, "name": "الدخان", "ayahs": 59, "juz": 25}, {"number": 45, "name": "الجاثية", "ayahs": 37, "juz": 25}, {"number": 46, "name": "الأحقاف", "ayahs": 35, "juz": 26}, {"number": 47, "name": "محمد", "ayahs": 38, "juz": 26}, {"number": 48, "name": "الفتح", "ayahs": 29, "juz": 26}, {"number": 49, "name": "الحجرات", "ayahs": 18, "juz": 26}, {"number": 50, "name": "ق", "ayahs": 45, "juz": 26}, {"number": 51, "name": "الذاريات", "ayahs": 60, "juz": 26}, {"number": 52, "name": "الطور", "ayahs": 49, "juz": 27}, {"number": 53, "name": "النجم", "ayahs": 62, "juz": 27}, {"number": 54, "name": "القمر", "ayahs": 55, "juz": 27}, {"number": 55, "name": "الرحمن", "ayahs": 78, "juz": 27}, {"number": 56, "name": "الواقعة", "ayahs": 96, "juz": 27}, {"number": 57, "name": "الحديد", "ayahs": 29, "juz": 27}, {"number": 58, "name": "المجادلة", "ayahs": 22, "juz": 28}, {"number": 59, "name": "الحشر", "ayahs": 24, "juz": 28}, {"number": 60, "name": "الممتحنة", "ayahs": 13, "juz": 28}, {"number": 61, "name": "الصف", "ayahs": 14, "juz": 28}, {"number": 62, "name": "الجمعة", "ayahs": 11, "juz": 28}, {"number": 63, "name": "المنافقون", "ayahs": 11, "juz": 28}, {"number": 64, "name": "التغابن", "ayahs": 18, "juz": 28}, {"number": 65, "name": "الطلاق", "ayahs": 12, "juz": 28}, {"number": 66, "name": "التحريم", "ayahs": 12, "juz": 28}, {"number": 67, "name": "الملك", "ayahs": 30, "juz": 29}, {"number": 68, "name": "القلم", "ayahs": 52, "juz": 29}, {"number": 69, "name": "الحاقة", "ayahs": 52, "juz": 29}, {"number": 70, "name": "المعارج", "ayahs": 44, "juz": 29}, {"number": 71, "name": "نوح", "ayahs": 28, "juz": 29}, {"number": 72, "name": "الجن", "ayahs": 28, "juz": 29}, {"number": 73, "name": "المزمل", "ayahs": 20, "juz": 29}, {"number": 74, "name": "المدثر", "ayahs": 56, "juz": 29}, {"number": 75, "name": "القيامة", "ayahs": 40, "juz": 29}, {"number": 76, "name": "الإنسان", "ayahs": 31, "juz": 29}, {"number": 77, "name": "المرسلات", "ayahs": 50, "juz": 29}, {"number": 78, "name": "النبأ", "ayahs": 40, "juz": 30}, {"number": 79, "name": "النازعات", "ayahs": 46, "juz": 30}, {"number": 80, "name": "عبس", "ayahs": 42, "juz": 30}, {"number": 81, "name": "التكوير", "ayahs": 29, "juz": 30}, {"number": 82, "name": "الانفطار", "ayahs": 19, "juz": 30}, {"number": 83, "name": "المطففين", "ayahs": 36, "juz": 30}, {"number": 84, "name": "الانشقاق", "ayahs": 25, "juz": 30}, {"number": 85, "name": "البروج", "ayahs": 22, "juz": 30}, {"number": 86, "name": "الطارق", "ayahs": 17, "juz": 30}, {"number": 87, "name": "الأعلى", "ayahs": 19, "juz": 30}, {"number": 88, "name": "الغاشية", "ayahs": 26, "juz": 30}, {"number": 89, "name": "الفجر", "ayahs": 30, "juz": 30}, {"number": 90, "name": "البلد", "ayahs": 20, "juz": 30}, {"number": 91, "name": "الشمس", "ayahs": 15, "juz": 30}, {"number": 92, "name": "الليل", "ayahs": 21, "juz": 30}, {"number": 93, "name": "الضحى", "ayahs": 11, "juz": 30}, {"number": 94, "name": "الشرح", "ayahs": 8, "juz": 30}, {"number": 95, "name": "التين", "ayahs": 8, "juz": 30}, {"number": 96, "name": "العلق", "ayahs": 19, "juz": 30}, {"number": 97, "name": "القدر", "ayahs": 5, "juz": 30}, {"number": 98, "name": "البينة", "ayahs": 8, "juz": 30}, {"number": 99, "name": "الزلزلة", "ayahs": 8, "juz": 30}, {"number": 100, "name": "العاديات", "ayahs": 11, "juz": 30}, {"number": 101, "name": "القارعة", "ayahs": 11, "juz": 30}, {"number": 102, "name": "التكاثر", "ayahs": 8, "juz": 30}, {"number": 103, "name": "العصر", "ayahs": 3, "juz": 30}, {"number": 104, "name": "الهمزة", "ayahs": 9, "juz": 30}, {"number": 105, "name": "الفيل", "ayahs": 5, "juz": 30}, {"number": 106, "name": "قريش", "ayahs": 4, "juz": 30}, {"number": 107, "name": "الماعون", "ayahs": 7, "juz": 30}, {"number": 108, "name": "الكوثر", "ayahs": 3, "juz": 30}, {"number": 109, "name": "الكافرون", "ayahs": 6, "juz": 30}, {"number": 110, "name": "النصر", "ayahs": 3, "juz": 30}, {"number": 111, "name": "المسد", "ayahs": 5, "juz": 30}, {"number": 112, "name": "الإخلاص", "ayahs": 4, "juz": 30}, {"number": 113, "name": "الفلق", "ayahs": 5, "juz": 30}, {"number": 114, "name": "الناس", "ayahs": 6, "juz": 30}];
+  const surahByNum = {};
+  surahList.forEach(s => surahByNum[s.number] = s);
+
+  const mushafOrder = surahList.map(s => s.number);
+  const juzAmmaOrder = surahList.filter(s => s.juz === 30).map(s => s.number).sort((a,b) => b - a);
+
+  let currentPlan = [...mushafOrder];
+
+  function selectGroup(el){
+    document.querySelectorAll('.group-pill').forEach(p => p.classList.remove('sel'));
+    el.classList.add('sel');
+  }
+
+  function applyTemplate(type){
+    document.querySelectorAll('.template-card').forEach(c => c.classList.remove('sel'));
+    if(type === 'mushaf'){
+      document.getElementById('tplMushaf').classList.add('sel');
+      currentPlan = [...mushafOrder];
+    } else if(type === 'juzamma'){
+      document.getElementById('tplJuzAmma').classList.add('sel');
+      currentPlan = [...juzAmmaOrder];
+    } else {
+      document.getElementById('tplCustom').classList.add('sel');
+      currentPlan = [];
+    }
+    renderPlan();
+  }
+
+  function renderPlan(){
+    const list = document.getElementById('planList');
+    list.innerHTML = currentPlan.map((num, i) => {
+      const s = surahByNum[num];
+      return `<div class="plan-row">
+        <div class="idx">${i+1}</div>
+        <div class="p-name">${s.name}</div>
+        <div class="p-ayahs">${s.ayahs} آية</div>
+        <div class="p-actions">
+          <button onclick="moveUp(${i})" ${i===0?'disabled':''} title="نقل لأعلى">▲</button>
+          <button onclick="moveDown(${i})" ${i===currentPlan.length-1?'disabled':''} title="نقل لأسفل">▼</button>
+          <button onclick="removeSurah(${i})" title="حذف">×</button>
+        </div>
+      </div>`;
+    }).join('') || '<div class="plan-row" style="justify-content:center;color:var(--ink-soft);">الخطة فارغة حاليًا — أضيفي سورة من الأسفل</div>';
+
+    document.getElementById('statCount').textContent = currentPlan.length;
+    document.getElementById('statAyahs').textContent = currentPlan.reduce((sum,n) => sum + surahByNum[n].ayahs, 0);
+    document.getElementById('statFirst').textContent = currentPlan.length ? surahByNum[currentPlan[0]].name : '—';
+    document.getElementById('statLast').textContent = currentPlan.length ? surahByNum[currentPlan[currentPlan.length-1]].name : '—';
+  }
+
+  function moveUp(i){
+    if(i===0) return;
+    [currentPlan[i-1], currentPlan[i]] = [currentPlan[i], currentPlan[i-1]];
+    renderPlan();
+  }
+  function moveDown(i){
+    if(i===currentPlan.length-1) return;
+    [currentPlan[i+1], currentPlan[i]] = [currentPlan[i], currentPlan[i+1]];
+    renderPlan();
+  }
+  function removeSurah(i){
+    currentPlan.splice(i,1);
+    renderPlan();
+  }
+  function addSurah(){
+    const num = parseInt(document.getElementById('addSurahSel').value);
+    if(!currentPlan.includes(num)){
+      currentPlan.push(num);
+      renderPlan();
+    }
+  }
+
+  function savePlan(){
+    const toast = document.getElementById('toast');
+    toast.classList.add('show');
+    setTimeout(()=>toast.classList.remove('show'), 2000);
+  }
+
+  renderPlan();
+</script>
+</body>
+</html>

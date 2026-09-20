@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نماء — إعدادات الدورة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF6EC; --paper:#FFFDF8; --ink:#3B3226; --ink-soft:#6E6355;
+    --rose:#E7AFAE; --rose-deep:#C77D82; --sage:#9FB897; --sage-deep:#6E8F65;
+    --lavender:#C6B7DC; --gold:#E3B54F; --gold-deep:#B8862A; --line:#E7DFCF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--cream);
+    background-image:radial-gradient(circle at 12% 6%, rgba(231,175,174,0.10), transparent 40%),
+      radial-gradient(circle at 92% 90%, rgba(198,183,220,0.12), transparent 40%);
+    font-family:'Tajawal',sans-serif;color:var(--ink);padding:28px 16px 60px;
+  }
+  .wrap{max-width:640px;margin:0 auto;}
+  .brand{font-family:'Markazi Text',serif;font-weight:700;font-size:28px;color:var(--rose-deep);margin-bottom:4px;}
+  .brand span{color:var(--sage-deep);}
+  .subtitle{font-size:13px;color:var(--ink-soft);margin-bottom:22px;}
+
+  .sec-title{font-size:14px;font-weight:800;color:var(--ink-soft);margin:26px 4px 10px;display:flex;align-items:center;gap:8px;}
+  .sec-title .dot{width:7px;height:7px;border-radius:50%;background:var(--rose-deep);}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:18px;}
+
+  .setting-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid #F1EBDD;}
+  .setting-row:last-child{border-bottom:none;}
+  .setting-text{flex:1;}
+  .setting-title{font-weight:800;font-size:14.5px;margin-bottom:4px;}
+  .setting-desc{font-size:12.5px;color:var(--ink-soft);line-height:1.6;}
+
+  .option-pills{display:flex;flex-direction:column;gap:8px;min-width:230px;}
+  .option-pill{
+    padding:10px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--cream);
+    font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;text-align:right;
+  }
+  .option-pill.sel{background:var(--rose-deep);color:#fff;border-color:var(--rose-deep);}
+
+  .assign-box{
+    background:var(--cream);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px;display:none;
+  }
+  .assign-box.show{display:block;}
+  .assign-box .a-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:10px;}
+  .assign-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #EDE4D0;font-size:13px;}
+  .assign-row:last-child{border-bottom:none;}
+  .assign-row select{padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);font-family:'Tajawal';font-size:12px;}
+
+  .save-btn{
+    background:var(--rose-deep);color:#fff;border:none;padding:13px 26px;border-radius:12px;
+    font-family:'Tajawal';font-weight:800;font-size:15px;cursor:pointer;width:100%;margin-top:6px;
+  }
+  .save-btn:hover{background:#B36A6F;}
+
+  .edit-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+  .edit-row{display:flex;align-items:center;gap:8px;}
+  .edit-row input[type=text]{flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--cream);font-family:'Tajawal';font-size:13.5px;color:var(--ink);}
+  .edit-row input[type=number]{width:70px;padding:9px 8px;border-radius:10px;border:1px solid var(--line);background:var(--cream);font-family:'Tajawal';font-size:13.5px;color:var(--ink);text-align:center;}
+  .edit-row select{padding:9px 8px;border-radius:10px;border:1px solid var(--line);background:var(--cream);font-family:'Tajawal';font-size:12.5px;color:var(--ink);}
+  .edit-row .remove-btn{
+    width:32px;height:32px;flex-shrink:0;border:1px solid var(--line);background:var(--paper);border-radius:9px;
+    cursor:pointer;color:var(--ink-soft);font-size:14px;
+  }
+  .edit-row .remove-btn:hover{background:var(--rose);color:#fff;border-color:var(--rose);}
+  .add-new-row{display:flex;gap:8px;margin-top:6px;}
+  .add-new-row input{flex:1;}
+  .add-btn{
+    background:var(--sage-deep);color:#fff;border:none;padding:0 16px;border-radius:10px;
+    font-family:'Tajawal';font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0;
+  }
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--sage-deep);color:#fff;padding:12px 24px;border-radius:12px;font-weight:700;font-size:14px;
+    opacity:0;transition:.25s;pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .note{font-size:11.5px;color:var(--ink-soft);text-align:center;margin-top:24px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">نماء 🌱</div>
+  <div class="subtitle">إعدادات دورة الزهرات — الثلاثاء (تظهر للمديرة فقط)</div>
+
+  <div class="sec-title"><span class="dot"></span> صلاحيات المعلمات</div>
+  <div class="card">
+
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">إضافة طالبات جديدات</div>
+        <div class="setting-desc">من يملك صلاحية إضافة طالبة جديدة إلى الدورة؟</div>
+      </div>
+      <div class="option-pills" id="addGirlsSetting">
+        <div class="option-pill sel" data-val="admin" onclick="selectOpt(this,'addGirlsSetting')">المديرة فقط</div>
+        <div class="option-pill" data-val="all" onclick="selectOpt(this,'addGirlsSetting')">كل المعلمات</div>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">رؤية الطالبات</div>
+        <div class="setting-desc">هل تشاهد كل معلمة كل الطالبات، أم فقط الطالبات المخصّصات لها؟</div>
+      </div>
+      <div class="option-pills" id="visibilitySetting">
+        <div class="option-pill sel" data-val="all" onclick="selectOpt(this,'visibilitySetting'); toggleAssignBox(false)">كل المعلمات لكل البنات</div>
+        <div class="option-pill" data-val="assigned" onclick="selectOpt(this,'visibilitySetting'); toggleAssignBox(true)">تخصيص لكل معلمة</div>
+      </div>
+    </div>
+
+    <div class="assign-box" id="assignBox">
+      <div class="a-title">تخصيص المجموعات لكل معلمة</div>
+      <div class="assign-row"><span>أ. سارة</span>
+        <select><option>كل المجموعات</option><option selected>زهرات صغيرات</option><option>زهرات كبيرات</option><option>شموس</option></select>
+      </div>
+      <div class="assign-row"><span>أ. منى</span>
+        <select><option>كل المجموعات</option><option>زهرات صغيرات</option><option selected>زهرات كبيرات</option><option>شموس</option></select>
+      </div>
+      <div class="assign-row"><span>أ. هالة</span>
+        <select><option>كل المجموعات</option><option>زهرات صغيرات</option><option>زهرات كبيرات</option><option selected>شموس</option></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title"><span class="dot"></span> أنواع التسميع</div>
+  <div class="card">
+    <div class="setting-row" style="border-bottom:none;">
+      <div class="setting-text">
+        <div class="setting-title">التسميع الأونلاين</div>
+        <div class="setting-desc">السماح بتسجيل تسميع تمّ عن بُعد (اتصال/مكالمة)، بنفس نظام السورة والآيات، مع تمييزه عن التسميع الحضوري وإضافة عدّاد خاص به لكل طالبة.</div>
+      </div>
+      <div class="option-pills" id="onlineSetting">
+        <div class="option-pill sel" data-val="on" onclick="selectOpt(this,'onlineSetting')">مفعّل</div>
+        <div class="option-pill" data-val="off" onclick="selectOpt(this,'onlineSetting')">غير مفعّل</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title"><span class="dot"></span> مجموعات الدورة</div>
+  <div class="card">
+    <div class="edit-list" id="groupsList"></div>
+    <div class="add-new-row">
+      <input type="text" id="newGroupName" placeholder="اسم مجموعة جديدة...">
+      <button class="add-btn" onclick="addGroup()">إضافة مجموعة</button>
+    </div>
+  </div>
+
+  <div class="sec-title"><span class="dot"></span> نظام النقاط</div>
+  <div class="card">
+    <div class="edit-list" id="pointsList"></div>
+    <div class="add-new-row">
+      <input type="text" id="newPointName" placeholder="اسم نشاط جديد...">
+      <input type="number" id="newPointValue" value="1" style="width:60px;">
+      <select id="newPointType">
+        <option value="add">إضافة</option>
+        <option value="subtract">خصم</option>
+      </select>
+      <button class="add-btn" onclick="addPoint()">إضافة</button>
+    </div>
+  </div>
+
+  <button class="save-btn" onclick="saveSettings()">حفظ الإعدادات</button>
+
+  <div class="toast" id="toast">تم حفظ الإعدادات ✓</div>
+  <div class="note">هذه الإعدادات خاصة بهذه الدورة فقط — يمكن لكل دورة أخرى على المنصة اختيار إعدادات مختلفة تمامًا</div>
+</div>
+
+<script>
+  function selectOpt(el, groupId){
+    document.querySelectorAll('#'+groupId+' .option-pill').forEach(p=>p.classList.remove('sel'));
+    el.classList.add('sel');
+  }
+  function toggleAssignBox(show){
+    document.getElementById('assignBox').classList.toggle('show', show);
+  }
+
+  // ---------- Groups management ----------
+  let groups = ['زهرات صغيرات', 'زهرات كبيرات', 'شموس'];
+
+  function renderGroups(){
+    const list = document.getElementById('groupsList');
+    list.innerHTML = groups.map((g,i) => `
+      <div class="edit-row">
+        <input type="text" value="${g}" onchange="renameGroup(${i}, this.value)">
+        <button class="remove-btn" onclick="removeGroup(${i})" title="حذف المجموعة">×</button>
+      </div>`).join('');
+  }
+  function renameGroup(i, val){ groups[i] = val.trim() || groups[i]; }
+  function removeGroup(i){
+    if(groups.length <= 1){ showToast('لازم يبقى مجموعة واحدة على الأقل'); return; }
+    groups.splice(i,1);
+    renderGroups();
+  }
+  function addGroup(){
+    const input = document.getElementById('newGroupName');
+    const val = input.value.trim();
+    if(!val) return;
+    groups.push(val);
+    input.value = '';
+    renderGroups();
+  }
+
+  // ---------- Points management ----------
+  let pointsSystem = [
+    {name:'الحضور في الوقت المحدد', value:1, type:'add'},
+    {name:'الاستعداد للتسميع والتحضير المنزلي', value:1, type:'add'},
+    {name:'حفظ الحديث والدعاء', value:1, type:'add'},
+    {name:'إحضار المصحف من المنزل + ملابس الصلاة', value:1, type:'add'},
+    {name:'إحضار جدول الصلاة والمتابعة', value:1, type:'add'},
+    {name:'الاستماع للقرآن من الشيخ', value:1, type:'add'},
+    {name:'إحضار الواجب', value:1, type:'add'},
+    {name:'مساعدة مميزة', value:1, type:'add'},
+    {name:'ربط 3 صفحات معًا بدون أخطاء', value:1, type:'add'},
+    {name:'تسميع متقن (بدون أخطاء)', value:1, type:'add'},
+    {name:'تسميع صفحة كاملة', value:1, type:'add'},
+    {name:'إحضار الدفتر', value:1, type:'add'},
+    {name:'عدم إحضار الدفتر', value:1, type:'subtract'},
+    {name:'تزيين الدفتر وترتيبه', value:1, type:'add'},
+    {name:'السلوك والاحترام', value:1, type:'add'},
+    {name:'ارتداء لباس مناسب وأنيق', value:1, type:'add'},
+  ];
+
+  function renderPoints(){
+    const list = document.getElementById('pointsList');
+    list.innerHTML = pointsSystem.map((p,i) => `
+      <div class="edit-row">
+        <input type="text" value="${p.name}" onchange="renamePoint(${i}, this.value)">
+        <input type="number" value="${p.value}" min="1" onchange="updatePointValue(${i}, this.value)">
+        <select onchange="updatePointType(${i}, this.value)">
+          <option value="add" ${p.type==='add'?'selected':''}>إضافة</option>
+          <option value="subtract" ${p.type==='subtract'?'selected':''}>خصم</option>
+        </select>
+        <button class="remove-btn" onclick="removePoint(${i})" title="حذف النشاط">×</button>
+      </div>`).join('');
+  }
+  function renamePoint(i, val){ pointsSystem[i].name = val.trim() || pointsSystem[i].name; }
+  function updatePointValue(i, val){ pointsSystem[i].value = parseInt(val) || 1; }
+  function updatePointType(i, val){ pointsSystem[i].type = val; }
+  function removePoint(i){ pointsSystem.splice(i,1); renderPoints(); }
+  function addPoint(){
+    const name = document.getElementById('newPointName').value.trim();
+    const value = parseInt(document.getElementById('newPointValue').value) || 1;
+    const type = document.getElementById('newPointType').value;
+    if(!name) return;
+    pointsSystem.push({name, value, type});
+    document.getElementById('newPointName').value = '';
+    document.getElementById('newPointValue').value = 1;
+    renderPoints();
+  }
+
+  function saveSettings(){
+    showToast('تم حفظ الإعدادات ✓');
+  }
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 2000);
+  }
+
+  renderGroups();
+  renderPoints();
+</script>
+</body>
+</html>

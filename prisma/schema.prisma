@@ -1,0 +1,237 @@
+// نماء (Namaa) — Prisma schema
+// Design note: a student's "current position" (surah/ayah), cumulative pages,
+// online-recitation count, and cumulative points are NOT stored as mutable
+// counters. They are always derived from RecitationSession / PointsLog rows
+// (latest session = current position, SUM(pagesCalculated) = cumulative pages,
+// etc). This avoids an entire class of sync/drift bugs from incrementing
+// counters across concurrent teachers, and makes the session log the single
+// source of truth — matching how the log screen already works in the
+// prototype. See src/lib/recitation/derive.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Accounts ----------
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  course Course?
+}
+
+// A course (دورة) is the multi-tenant boundary. Every other model hangs off
+// courseId (directly or via a parent that has courseId), and every query in
+// the app must be scoped by the current session's courseId.
+model Course {
+  id                      String                @id @default(cuid())
+  name                    String
+  code                    String                @unique
+  adminId                 String                @unique
+  admin                   Admin                 @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  addStudentsPermission   AddStudentsPermission @default(ADMIN_ONLY)
+  visibilityMode          VisibilityMode        @default(ALL_TEACHERS)
+  onlineRecitationEnabled Boolean               @default(true)
+  createdAt               DateTime              @default(now())
+
+  teachers         Teacher[]
+  groups           Group[]
+  students         Student[]
+  pointsActivities PointsActivity[]
+}
+
+model Teacher {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name      String
+  // normalized (trimmed + lowercased) name used for case-insensitive login matching
+  nameKey   String
+  createdAt DateTime @default(now())
+
+  groupAssignments TeacherGroupAssignment[]
+  recitationLogs   RecitationSession[]
+  pointsLogs       PointsLog[]
+
+  @@unique([courseId, nameKey])
+  @@index([courseId])
+}
+
+// ---------- Course structure ----------
+
+model Group {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  students           Student[]
+  teacherAssignments TeacherGroupAssignment[]
+
+  @@unique([courseId, name])
+  @@index([courseId])
+}
+
+model TeacherGroupAssignment {
+  id        String  @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, groupId])
+}
+
+model PointsActivity {
+  id        String    @id @default(cuid())
+  courseId  String
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name      String
+  value     Int       @default(1)
+  type      PointType @default(ADD)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  logs PointsLog[]
+
+  @@index([courseId])
+}
+
+// ---------- Students ----------
+
+model Student {
+  id               String           @id @default(cuid())
+  courseId         String
+  course           Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  groupId          String
+  group            Group            @relation(fields: [groupId], references: [id])
+  name             String
+  age              Int
+  planTemplate     PlanTemplate     @default(CUSTOM)
+  // Attendance is a per-day value; if attendanceDay isn't today it's treated
+  // as PENDING when rendered (see src/lib/attendance.ts) rather than reset by a cron job.
+  attendanceStatus AttendanceStatus @default(PENDING)
+  attendanceDay    DateTime?        @db.Date
+  createdAt        DateTime         @default(now())
+
+  planItems          PlanItem[]
+  recitationSessions RecitationSession[]
+  pointsLogs         PointsLog[]
+
+  @@index([courseId])
+  @@index([groupId])
+}
+
+// A student's memorization plan: an ordered list of surahs, built from a
+// template (Mushaf order / reverse Juz Amma / fully custom) and then freely
+// reordered/edited. Gap detection walks this list by `position`, not by raw
+// surah number — see spec adaptation note in the technical plan.
+model PlanItem {
+  id          String  @id @default(cuid())
+  studentId   String
+  student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  surahNumber Int
+  position    Int
+
+  @@unique([studentId, position])
+  @@unique([studentId, surahNumber])
+  @@index([studentId])
+}
+
+model RecitationSession {
+  id              String              @id @default(cuid())
+  studentId       String
+  student         Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId       String
+  teacher         Teacher             @relation(fields: [teacherId], references: [id])
+  surahNumber     Int
+  fromAyah        Int
+  toAyah          Int
+  pagesCalculated Decimal             @db.Decimal(7, 3)
+  quality         RecitationQuality
+  mode            RecitationMode
+  situation       RecitationSituation
+  reason          String?
+  notes           String?
+  occurredAt      DateTime            @default(now())
+
+  @@index([studentId, occurredAt])
+}
+
+model PointsLog {
+  id          String         @id @default(cuid())
+  studentId   String
+  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  activityId  String
+  activity    PointsActivity @relation(fields: [activityId], references: [id])
+  teacherId   String
+  teacher     Teacher        @relation(fields: [teacherId], references: [id])
+  // snapshot of the activity's value/type at the moment it was logged, so
+  // editing an activity later doesn't retroactively change past totals
+  valueAtTime Int
+  typeAtTime  PointType
+  day         DateTime       @db.Date
+  createdAt   DateTime       @default(now())
+
+  @@unique([studentId, activityId, day])
+  @@index([studentId, day])
+}
+
+// ---------- Enums ----------
+
+enum AddStudentsPermission {
+  ADMIN_ONLY
+  ALL_TEACHERS
+}
+
+enum VisibilityMode {
+  ALL_TEACHERS
+  ASSIGNED
+}
+
+enum PlanTemplate {
+  MUSHAF_ORDER
+  JUZ_AMMA_REVERSE
+  CUSTOM
+}
+
+enum AttendanceStatus {
+  IN
+  OUT
+  PENDING
+}
+
+enum PointType {
+  ADD
+  SUBTRACT
+}
+
+enum RecitationQuality {
+  EXCELLENT
+  GOOD
+  NEEDS_REPEAT
+}
+
+enum RecitationMode {
+  IN_PERSON
+  ONLINE
+}
+
+// mirrors the 5 states from spec §5 gap-detection logic
+enum RecitationSituation {
+  CONTINUE
+  NEXT
+  SURAH_GAP
+  AYAH_GAP
+  EDIT
+}

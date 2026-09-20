@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الزهرات — لوحة الإنجاز</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF6EC; --paper:#FFFDF8; --ink:#3B3226; --ink-soft:#6E6355;
+    --rose:#E7AFAE; --rose-deep:#C77D82; --sage:#9FB897; --sage-deep:#6E8F65;
+    --lavender:#C6B7DC; --gold:#E3B54F; --gold-deep:#B8862A; --line:#E7DFCF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--cream);
+    background-image:radial-gradient(circle at 12% 6%, rgba(231,175,174,0.10), transparent 40%),
+      radial-gradient(circle at 92% 90%, rgba(198,183,220,0.12), transparent 40%);
+    font-family:'Tajawal',sans-serif;color:var(--ink);padding:28px 16px 60px;
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+  .brand{font-family:'Markazi Text',serif;font-weight:700;font-size:28px;color:var(--rose-deep);margin-bottom:4px;}
+  .brand span{color:var(--sage-deep);}
+  .subtitle{font-size:13px;color:var(--ink-soft);margin-bottom:22px;}
+
+  .tabs{display:flex;gap:8px;margin-bottom:18px;}
+  .tab{padding:11px 20px;border-radius:14px;border:1px solid var(--line);background:var(--paper);font-weight:800;font-size:14px;color:var(--ink-soft);cursor:pointer;}
+  .tab.active{background:var(--rose-deep);color:#fff;border-color:var(--rose-deep);}
+
+  .filter-card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:18px;display:none;}
+  .filter-card.show{display:block;}
+  .filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;}
+  .filter-field{flex:1;min-width:140px;}
+  .filter-field label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:6px;font-weight:700;}
+  .filter-field input{width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--cream);font-family:'Tajawal';font-size:13.5px;color:var(--ink);}
+  .preset-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .preset-pill{padding:7px 14px;border-radius:14px;border:1px solid var(--line);background:var(--cream);font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .preset-pill.sel{background:var(--sage-deep);color:#fff;border-color:var(--sage-deep);}
+
+  .sort-row{display:flex;gap:8px;margin-bottom:16px;align-items:center;}
+  .sort-label{font-size:12.5px;color:var(--ink-soft);font-weight:700;}
+  .sort-pill{padding:7px 14px;border-radius:14px;border:1px solid var(--line);background:var(--paper);font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .sort-pill.sel{background:var(--gold-deep);color:#fff;border-color:var(--gold-deep);}
+
+  .board{background:var(--paper);border:1px solid var(--line);border-radius:18px;overflow:hidden;}
+  .board-row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid #F1EBDD;}
+  .board-row:last-child{border-bottom:none;}
+  .rank{width:32px;text-align:center;font-family:'Markazi Text',serif;font-weight:700;font-size:18px;color:var(--ink-soft);flex-shrink:0;}
+  .rank.medal-1{font-size:22px;}
+  .rank.medal-2{font-size:20px;}
+  .rank.medal-3{font-size:20px;}
+  .b-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--rose),var(--lavender));display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Markazi Text',serif;font-size:16px;font-weight:700;flex-shrink:0;}
+  .b-info{flex:1;}
+  .b-name{font-weight:800;font-size:14.5px;}
+  .b-group{font-size:11px;color:var(--ink-soft);}
+  .b-stats{display:flex;gap:16px;text-align:center;}
+  .b-stat .num{font-family:'Markazi Text',serif;font-size:18px;font-weight:700;color:var(--rose-deep);}
+  .b-stat.sage .num{color:var(--sage-deep);}
+  .b-stat .lbl{font-size:10px;color:var(--ink-soft);}
+
+  .empty-msg{padding:30px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
+
+  .note{font-size:11.5px;color:var(--ink-soft);text-align:center;margin-top:22px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">نماء 🌱</div>
+  <div class="subtitle">لوحة إنجاز جميع الطالبات — تظهر لكل المعلمات معًا</div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="setTab(this,'last')">آخر جلسة</div>
+    <div class="tab" onclick="setTab(this,'range')">فترة تراكمية</div>
+  </div>
+
+  <div class="filter-card" id="rangeFilter">
+    <div class="preset-row" style="margin-bottom:12px;">
+      <div class="preset-pill sel" onclick="applyPreset(this,'all')">الدورة كاملة</div>
+      <div class="preset-pill" onclick="applyPreset(this,'4w')">آخر 4 أسابيع</div>
+      <div class="preset-pill" onclick="applyPreset(this,'8w')">آخر 8 أسابيع</div>
+      <div class="preset-pill" onclick="applyPreset(this,'custom')">تحديد يدوي</div>
+    </div>
+    <div class="filter-row">
+      <div class="filter-field">
+        <label>من تاريخ</label>
+        <input type="date" id="fromDate" value="2026-07-28" onchange="onCustomDate()">
+      </div>
+      <div class="filter-field">
+        <label>إلى تاريخ</label>
+        <input type="date" id="toDate" value="2026-09-15" onchange="onCustomDate()">
+      </div>
+    </div>
+  </div>
+
+  <div class="sort-row">
+    <div class="sort-label">المجموعات:</div>
+    <div class="sort-pill sel" id="grpصغيرات" onclick="toggleGroup('صغيرات')">زهرات صغيرات</div>
+    <div class="sort-pill sel" id="grpكبيرات" onclick="toggleGroup('كبيرات')">زهرات كبيرات</div>
+    <div class="sort-pill sel" id="grpشموس" onclick="toggleGroup('شموس')">شموس</div>
+  </div>
+
+  <div class="sort-row">
+    <div class="sort-label">الترتيب حسب:</div>
+    <div class="sort-pill sel" id="sortPages" onclick="setSort('pages')">الصفحات</div>
+    <div class="sort-pill" id="sortPoints" onclick="setSort('points')">النقاط</div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="note">التبويب "آخر جلسة" يعرض أحدث تاريخ تسجيل مسجّل لكل الطالبات؛ التبويب "فترة تراكمية" يمكن ضبطه على أي مدى تاريخ — مثلًا مدى الترم الثاني بالكامل</div>
+</div>
+
+<script>
+  const girls = [{"id": 1, "name": "لين أحمد", "group": "صغيرات", "avatar": "ل"}, {"id": 2, "name": "سارة خالد", "group": "صغيرات", "avatar": "س"}, {"id": 3, "name": "جنى محمود", "group": "صغيرات", "avatar": "ج"}, {"id": 4, "name": "رهف عمر", "group": "صغيرات", "avatar": "ر"}, {"id": 5, "name": "مها الشيخ", "group": "كبيرات", "avatar": "م"}, {"id": 6, "name": "هدى ناصر", "group": "كبيرات", "avatar": "ه"}, {"id": 7, "name": "نور الدين", "group": "كبيرات", "avatar": "ن"}, {"id": 8, "name": "يارا فايز", "group": "كبيرات", "avatar": "ي"}, {"id": 9, "name": "زينة حمدان", "group": "شموس", "avatar": "ز"}, {"id": 10, "name": "تالا سمير", "group": "شموس", "avatar": "ت"}, {"id": 11, "name": "فرح إبراهيم", "group": "شموس", "avatar": "ف"}];
+  const sessions = [{"girlId": 1, "date": "2026-07-28", "points": 9, "pages": 41.3}, {"girlId": 1, "date": "2026-08-04", "points": 4, "pages": 23.8}, {"girlId": 1, "date": "2026-08-11", "points": 6, "pages": 32.2}, {"girlId": 1, "date": "2026-08-18", "points": 5, "pages": 45.1}, {"girlId": 1, "date": "2026-08-25", "points": 9, "pages": 23.6}, {"girlId": 1, "date": "2026-09-01", "points": 9, "pages": 31.3}, {"girlId": 1, "date": "2026-09-08", "points": 11, "pages": 51.6}, {"girlId": 1, "date": "2026-09-15", "points": 4, "pages": 46.8}, {"girlId": 2, "date": "2026-07-28", "points": 4, "pages": 52.5}, {"girlId": 2, "date": "2026-08-04", "points": 6, "pages": 30.1}, {"girlId": 2, "date": "2026-08-11", "points": 7, "pages": 21.3}, {"girlId": 2, "date": "2026-08-18", "points": 3, "pages": 21.5}, {"girlId": 2, "date": "2026-08-25", "points": 7, "pages": 48.5}, {"girlId": 2, "date": "2026-09-01", "points": 6, "pages": 39.8}, {"girlId": 2, "date": "2026-09-08", "points": 5, "pages": 47.1}, {"girlId": 2, "date": "2026-09-15", "points": 3, "pages": 44.3}, {"girlId": 3, "date": "2026-07-28", "points": 4, "pages": 63.0}, {"girlId": 3, "date": "2026-08-04", "points": 5, "pages": 28.5}, {"girlId": 3, "date": "2026-08-11", "points": 3, "pages": 38.0}, {"girlId": 3, "date": "2026-08-18", "points": 4, "pages": 41.3}, {"girlId": 3, "date": "2026-08-25", "points": 5, "pages": 30.3}, {"girlId": 3, "date": "2026-09-01", "points": 4, "pages": 38.3}, {"girlId": 3, "date": "2026-09-08", "points": 5, "pages": 31.4}, {"girlId": 3, "date": "2026-09-15", "points": 3, "pages": 40.7}, {"girlId": 4, "date": "2026-07-28", "points": 9, "pages": 24.2}, {"girlId": 4, "date": "2026-08-04", "points": 7, "pages": 44.3}, {"girlId": 4, "date": "2026-08-11", "points": 7, "pages": 23.9}, {"girlId": 4, "date": "2026-08-18", "points": 5, "pages": 31.7}, {"girlId": 4, "date": "2026-08-25", "points": 6, "pages": 53.7}, {"girlId": 4, "date": "2026-09-01", "points": 11, "pages": 41.1}, {"girlId": 4, "date": "2026-09-08", "points": 9, "pages": 38.1}, {"girlId": 4, "date": "2026-09-15", "points": 8, "pages": 42.9}, {"girlId": 5, "date": "2026-07-28", "points": 13, "pages": 71.3}, {"girlId": 5, "date": "2026-08-04", "points": 12, "pages": 42.2}, {"girlId": 5, "date": "2026-08-11", "points": 7, "pages": 59.9}, {"girlId": 5, "date": "2026-08-18", "points": 5, "pages": 46.4}, {"girlId": 5, "date": "2026-08-25", "points": 8, "pages": 73.3}, {"girlId": 5, "date": "2026-09-01", "points": 7, "pages": 49.7}, {"girlId": 5, "date": "2026-09-08", "points": 7, "pages": 39.6}, {"girlId": 5, "date": "2026-09-15", "points": 15, "pages": 38.6}, {"girlId": 6, "date": "2026-07-28", "points": 9, "pages": 32.1}, {"girlId": 6, "date": "2026-08-04", "points": 6, "pages": 29.7}, {"girlId": 6, "date": "2026-08-11", "points": 9, "pages": 33.1}, {"girlId": 6, "date": "2026-08-18", "points": 11, "pages": 61.3}, {"girlId": 6, "date": "2026-08-25", "points": 7, "pages": 70.2}, {"girlId": 6, "date": "2026-09-01", "points": 6, "pages": 50.1}, {"girlId": 6, "date": "2026-09-08", "points": 12, "pages": 30.6}, {"girlId": 6, "date": "2026-09-15", "points": 8, "pages": 48.0}, {"girlId": 7, "date": "2026-07-28", "points": 8, "pages": 39.4}, {"girlId": 7, "date": "2026-08-04", "points": 6, "pages": 58.6}, {"girlId": 7, "date": "2026-08-11", "points": 8, "pages": 31.4}, {"girlId": 7, "date": "2026-08-18", "points": 7, "pages": 48.0}, {"girlId": 7, "date": "2026-08-25", "points": 3, "pages": 49.0}, {"girlId": 7, "date": "2026-09-01", "points": 7, "pages": 74.7}, {"girlId": 7, "date": "2026-09-08", "points": 6, "pages": 70.7}, {"girlId": 7, "date": "2026-09-15", "points": 6, "pages": 39.1}, {"girlId": 8, "date": "2026-07-28", "points": 6, "pages": 64.7}, {"girlId": 8, "date": "2026-08-04", "points": 4, "pages": 53.3}, {"girlId": 8, "date": "2026-08-11", "points": 8, "pages": 65.6}, {"girlId": 8, "date": "2026-08-18", "points": 8, "pages": 52.8}, {"girlId": 8, "date": "2026-08-25", "points": 4, "pages": 25.7}, {"girlId": 8, "date": "2026-09-01", "points": 6, "pages": 42.3}, {"girlId": 8, "date": "2026-09-08", "points": 6, "pages": 26.6}, {"girlId": 8, "date": "2026-09-15", "points": 3, "pages": 73.3}, {"girlId": 9, "date": "2026-07-28", "points": 14, "pages": 31.8}, {"girlId": 9, "date": "2026-08-04", "points": 14, "pages": 70.4}, {"girlId": 9, "date": "2026-08-11", "points": 8, "pages": 70.7}, {"girlId": 9, "date": "2026-08-18", "points": 6, "pages": 35.1}, {"girlId": 9, "date": "2026-08-25", "points": 14, "pages": 54.5}, {"girlId": 9, "date": "2026-09-01", "points": 15, "pages": 58.6}, {"girlId": 9, "date": "2026-09-08", "points": 6, "pages": 42.7}, {"girlId": 9, "date": "2026-09-15", "points": 11, "pages": 76.8}, {"girlId": 10, "date": "2026-07-28", "points": 8, "pages": 60.3}, {"girlId": 10, "date": "2026-08-04", "points": 6, "pages": 65.4}, {"girlId": 10, "date": "2026-08-11", "points": 9, "pages": 39.9}, {"girlId": 10, "date": "2026-08-18", "points": 11, "pages": 46.6}, {"girlId": 10, "date": "2026-08-25", "points": 6, "pages": 53.9}, {"girlId": 10, "date": "2026-09-01", "points": 7, "pages": 69.9}, {"girlId": 10, "date": "2026-09-08", "points": 13, "pages": 46.9}, {"girlId": 10, "date": "2026-09-15", "points": 10, "pages": 46.2}, {"girlId": 11, "date": "2026-07-28", "points": 6, "pages": 38.2}, {"girlId": 11, "date": "2026-08-04", "points": 12, "pages": 33.8}, {"girlId": 11, "date": "2026-08-11", "points": 8, "pages": 76.8}, {"girlId": 11, "date": "2026-08-18", "points": 14, "pages": 57.3}, {"girlId": 11, "date": "2026-08-25", "points": 14, "pages": 52.0}, {"girlId": 11, "date": "2026-09-01", "points": 6, "pages": 68.7}, {"girlId": 11, "date": "2026-09-08", "points": 8, "pages": 69.9}, {"girlId": 11, "date": "2026-09-15", "points": 11, "pages": 37.0}];
+  const allDates = ["2026-07-28", "2026-08-04", "2026-08-11", "2026-08-18", "2026-08-25", "2026-09-01", "2026-09-08", "2026-09-15"];
+  const lastDate = allDates[allDates.length-1];
+  const firstDate = allDates[0];
+
+  let activeTab = 'last';
+  let sortBy = 'pages';
+  let activeGroups = new Set(['صغيرات','كبيرات','شموس']);
+
+  function toggleGroup(g){{
+    const el = document.getElementById('grp'+g);
+    if(activeGroups.has(g)){{
+      if(activeGroups.size === 1) return; // keep at least one group selected
+      activeGroups.delete(g);
+      el.classList.remove('sel');
+    }} else {{
+      activeGroups.add(g);
+      el.classList.add('sel');
+    }}
+    render();
+  }}
+
+  function setTab(el, tab){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    activeTab = tab;
+    document.getElementById('rangeFilter').classList.toggle('show', tab==='range');
+    render();
+  }
+
+  function setSort(s){
+    sortBy = s;
+    document.getElementById('sortPages').classList.toggle('sel', s==='pages');
+    document.getElementById('sortPoints').classList.toggle('sel', s==='points');
+    render();
+  }
+
+  function applyPreset(el, type){
+    document.querySelectorAll('.preset-pill').forEach(p=>p.classList.remove('sel'));
+    el.classList.add('sel');
+    const to = new Date(lastDate);
+    let from;
+    if(type==='all'){ from = new Date(firstDate); }
+    else if(type==='4w'){ from = new Date(to); from.setDate(from.getDate()-28); }
+    else if(type==='8w'){ from = new Date(to); from.setDate(from.getDate()-56); }
+    else { return; } // custom: leave dates as-is, user edits manually
+    document.getElementById('fromDate').value = from.toISOString().slice(0,10);
+    document.getElementById('toDate').value = to.toISOString().slice(0,10);
+    render();
+  }
+
+  function onCustomDate(){
+    document.querySelectorAll('.preset-pill').forEach(p=>p.classList.remove('sel'));
+    document.querySelector('.preset-pill:last-child').classList.add('sel');
+    render();
+  }
+
+  function computeTotals(){
+    const totals = {};
+    girls.forEach(g => totals[g.id] = {points:0, pages:0});
+
+    if(activeTab === 'last'){
+      sessions.filter(s => s.date === lastDate).forEach(s => {
+        totals[s.girlId].points += s.points;
+        totals[s.girlId].pages += s.pages;
+      });
+    } else {
+      const from = document.getElementById('fromDate').value;
+      const to = document.getElementById('toDate').value;
+      sessions.filter(s => s.date >= from && s.date <= to).forEach(s => {
+        totals[s.girlId].points += s.points;
+        totals[s.girlId].pages += s.pages;
+      });
+    }
+    return totals;
+  }
+
+  function render(){
+    const totals = computeTotals();
+    let list = girls.filter(g => activeGroups.has(g.group)).map(g => ({...g, points: totals[g.id].points, pages: Math.round(totals[g.id].pages*10)/10}));
+    list.sort((a,b) => sortBy==='pages' ? b.pages - a.pages : b.points - a.points);
+
+    const board = document.getElementById('board');
+    if(list.every(g => g.points===0 && g.pages===0)){
+      board.innerHTML = '<div class="empty-msg">لا توجد بيانات مسجّلة ضمن هذه الفترة</div>';
+      return;
+    }
+    board.innerHTML = list.map((g,i) => {
+      const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+      const rankClass = i<3 ? 'rank medal-'+(i+1) : 'rank';
+      return `<div class="board-row">
+        <div class="${rankClass}">${medal}</div>
+        <div class="b-avatar">${g.avatar}</div>
+        <div class="b-info"><div class="b-name">${g.name}</div><div class="b-group">مجموعة ${g.group}</div></div>
+        <div class="b-stats">
+          <div class="b-stat sage"><div class="num">${g.pages}</div><div class="lbl">صفحة</div></div>
+          <div class="b-stat"><div class="num">${g.points}</div><div class="lbl">نقطة</div></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  render();
+</script>
+</body>
+</html>

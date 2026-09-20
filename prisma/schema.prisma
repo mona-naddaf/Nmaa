@@ -149,21 +149,24 @@ model PlanItem {
 }
 
 model RecitationSession {
-  id              String              @id @default(cuid())
+  id              String               @id @default(cuid())
   studentId       String
-  student         Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student         Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
   teacherId       String
-  teacher         Teacher             @relation(fields: [teacherId], references: [id])
+  teacher         Teacher              @relation(fields: [teacherId], references: [id])
+  source          RecitationSource     @default(LOGGED)
   surahNumber     Int
   fromAyah        Int
   toAyah          Int
-  pagesCalculated Decimal             @db.Decimal(7, 3)
-  quality         RecitationQuality
-  mode            RecitationMode
-  situation       RecitationSituation
+  pagesCalculated Decimal              @db.Decimal(7, 3)
+  // null only for source=PRIOR: a declared starting baseline has no graded
+  // quality, recitation mode, or gap classification
+  quality         RecitationQuality?
+  mode            RecitationMode?
+  situation       RecitationSituation?
   reason          String?
   notes           String?
-  occurredAt      DateTime            @default(now())
+  occurredAt      DateTime             @default(now())
 
   @@index([studentId, occurredAt])
 }
@@ -234,4 +237,14 @@ enum RecitationSituation {
   SURAH_GAP
   AYAH_GAP
   EDIT
+}
+
+enum RecitationSource {
+  // a real recitation session logged with a teacher
+  LOGGED
+  // a declared starting baseline entered when the student was added,
+  // covering memorization from before she joined — included in her current
+  // position / cumulative pages / gap-detection baseline, excluded from the
+  // leaderboard's achievement view
+  PRIOR
 }

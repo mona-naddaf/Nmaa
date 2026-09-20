@@ -3,11 +3,19 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
+import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { AYAH_COUNT } from "@/lib/quran-data";
+import { calculatePageRange } from "@/lib/recitation/logic";
 
 export type ActionState = { error?: string } | null;
 
 const TEMPLATE_MAP = { mushaf: "MUSHAF_ORDER", juzamma: "JUZ_AMMA_REVERSE", custom: "CUSTOM" } as const;
+
+interface PriorPartial {
+  surahNumber: number;
+  fromAyah: number;
+  toAyah: number;
+}
 
 export async function createStudentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireSession();
@@ -41,6 +49,72 @@ export async function createStudentAction(_prev: ActionState, formData: FormData
   }
   if (plan.length === 0) return { error: "يُرجى إضافة سورة واحدة على الأقل إلى الخطة" };
 
+  // ---------- prior memorization (from before she joined) ----------
+  let priorCompletedSurahs: number[] = [];
+  try {
+    priorCompletedSurahs = JSON.parse(String(formData.get("priorCompletedSurahs") ?? "[]"));
+    if (!Array.isArray(priorCompletedSurahs) || priorCompletedSurahs.some((n) => typeof n !== "number")) {
+      throw new Error("invalid");
+    }
+  } catch {
+    return { error: "قائمة السور المحفوظة سابقًا غير صحيحة" };
+  }
+  if (new Set(priorCompletedSurahs).size !== priorCompletedSurahs.length) {
+    return { error: "توجد سورة مكرَّرة في قائمة السور المحفوظة سابقًا" };
+  }
+  if (priorCompletedSurahs.some((n) => !plan.includes(n))) {
+    return { error: "لا يمكن تحديد سورة محفوظة سابقًا غير موجودة في خطة الطالبة" };
+  }
+
+  let priorPartial: PriorPartial | null = null;
+  const priorPartialRaw = String(formData.get("priorPartial") ?? "");
+  if (priorPartialRaw) {
+    try {
+      priorPartial = JSON.parse(priorPartialRaw);
+    } catch {
+      return { error: "بيانات السورة الجارية غير صحيحة" };
+    }
+    if (!priorPartial || !plan.includes(priorPartial.surahNumber)) {
+      return { error: "لا يمكن تحديد سورة جارية غير موجودة في خطة الطالبة" };
+    }
+    if (priorCompletedSurahs.includes(priorPartial.surahNumber)) {
+      return { error: "لا يمكن أن تكون نفس السورة محفوظة بالكامل وجارية في آن واحد" };
+    }
+    const range = calculatePageRange(priorPartial.surahNumber, priorPartial.fromAyah, priorPartial.toAyah);
+    if ("error" in range) {
+      return { error: range.error };
+    }
+  }
+
+  const teacherId = await resolveTeacherId(session);
+
+  const priorSessionsData = [
+    ...priorCompletedSurahs.map((surahNumber) => {
+      const toAyah = AYAH_COUNT[surahNumber];
+      const range = calculatePageRange(surahNumber, 1, toAyah);
+      return {
+        teacherId,
+        source: "PRIOR" as const,
+        surahNumber,
+        fromAyah: 1,
+        toAyah,
+        pagesCalculated: "error" in range ? 0 : range.totalPages,
+      };
+    }),
+    ...(priorPartial
+      ? [
+          {
+            teacherId,
+            source: "PRIOR" as const,
+            surahNumber: priorPartial.surahNumber,
+            fromAyah: priorPartial.fromAyah,
+            toAyah: priorPartial.toAyah,
+            pagesCalculated: (calculatePageRange(priorPartial.surahNumber, priorPartial.fromAyah, priorPartial.toAyah) as { totalPages: number }).totalPages,
+          },
+        ]
+      : []),
+  ];
+
   const student = await prisma.student.create({
     data: {
       courseId: course.id,
@@ -49,6 +123,7 @@ export async function createStudentAction(_prev: ActionState, formData: FormData
       age,
       planTemplate: TEMPLATE_MAP[templateKey] ?? "CUSTOM",
       planItems: { create: plan.map((surahNumber, position) => ({ surahNumber, position })) },
+      recitationSessions: { create: priorSessionsData },
     },
   });
 

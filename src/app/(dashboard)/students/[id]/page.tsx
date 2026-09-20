@@ -32,7 +32,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     prisma.recitationSession.findMany({
       where: { studentId: student.id },
       include: { teacher: { select: { name: true } } },
-      orderBy: { occurredAt: "desc" },
+      orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     }),
     prisma.pointsLog.findMany({ where: { studentId: student.id } }),
   ]);
@@ -47,14 +47,6 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const onlineCount = sessions.filter((s) => s.mode === "ONLINE").length;
   const cumPoints = pointsLogs.reduce((sum, p) => sum + (p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime), 0);
 
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const todayPoints = pointsLogs
-    .filter((p) => p.day.toISOString().slice(0, 10) === todayKey)
-    .reduce((sum, p) => sum + (p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime), 0);
-  const doneActivityIds = new Set(
-    pointsLogs.filter((p) => p.day.toISOString().slice(0, 10) === todayKey).map((p) => p.activityId),
-  );
-
   return (
     <DetailView
       student={{
@@ -68,7 +60,6 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       cumPages={Math.round(cumPages * 1000) / 1000}
       cumPoints={cumPoints}
       onlineCount={onlineCount}
-      todayPoints={todayPoints}
       totalPages={TOTAL_PAGES}
       onlineRecitationEnabled={course.onlineRecitationEnabled}
       pointsActivities={course.pointsActivities.map((a) => ({
@@ -76,11 +67,16 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         name: a.name,
         value: a.value,
         type: a.type,
-        done: doneActivityIds.has(a.id),
+      }))}
+      pointsLogs={pointsLogs.map((p) => ({
+        activityId: p.activityId,
+        date: p.day.toISOString().slice(0, 10),
+        value: p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime,
       }))}
       history={sessions.map((s) => ({
         id: s.id,
         date: s.occurredAt.toISOString().slice(0, 10),
+        source: s.source,
         surahNumber: s.surahNumber,
         fromAyah: s.fromAyah,
         toAyah: s.toAyah,

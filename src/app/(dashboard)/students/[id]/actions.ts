@@ -4,8 +4,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { calculatePageRange, classifyRecitation, deriveFurthestPosition } from "@/lib/recitation/logic";
-import { todayDateOnly } from "@/lib/attendance";
+import { todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
+
+function addHoursUTC(date: Date, hours: number): Date {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
 
 async function loadStudentForCourse(studentId: string, courseId: string) {
   const student = await prisma.student.findFirst({
@@ -25,6 +29,7 @@ export type SaveRecitationInput = {
   mode: "IN_PERSON" | "ONLINE";
   notes: string;
   reason: string;
+  sessionDate: string; // "YYYY-MM-DD", defaults to today but can be backdated
 };
 
 export type SaveRecitationResult = { error: string } | { ok: true };
@@ -63,6 +68,14 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
     return { error: pages.error };
   }
 
+  const sessionDay = parseDateOnlyInput(input.sessionDate);
+  if (!sessionDay) {
+    return { error: "تاريخ الجلسة غير صحيح — لا يمكن أن يكون في المستقبل" };
+  }
+  // today keeps full time-of-day precision for correct same-day ordering;
+  // a backdated entry is pinned to noon of the chosen day
+  const occurredAt = sessionDay.getTime() === todayDateOnly().getTime() ? new Date() : addHoursUTC(sessionDay, 12);
+
   const teacherId = await resolveTeacherId(session);
 
   await prisma.recitationSession.create({
@@ -78,6 +91,7 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
       situation: classification.situation,
       reason: classification.requiresReason ? input.reason.trim() : null,
       notes: input.notes.trim() || null,
+      occurredAt,
     },
   });
 
@@ -95,7 +109,7 @@ export async function setAttendanceAction(studentId: string, status: "IN" | "OUT
   revalidatePath(`/students/${studentId}`);
 }
 
-export async function togglePointAction(studentId: string, activityId: string) {
+export async function togglePointAction(studentId: string, activityId: string, dayInput: string) {
   const session = await requireSession();
   const student = await loadStudentForCourse(studentId, session.courseId);
 
@@ -104,9 +118,11 @@ export async function togglePointAction(studentId: string, activityId: string) {
   });
   if (!activity) throw new Error("نشاط غير موجود");
 
+  const day = parseDateOnlyInput(dayInput);
+  if (!day) throw new Error("تاريخ غير صحيح");
+
   const teacherId = await resolveTeacherId(session);
 
-  const day = todayDateOnly();
   const existing = await prisma.pointsLog.findUnique({
     where: { studentId_activityId_day: { studentId: student.id, activityId, day } },
   });

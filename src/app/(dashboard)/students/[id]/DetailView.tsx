@@ -6,28 +6,36 @@ import { useRouter } from "next/navigation";
 import styles from "./detail.module.css";
 import { calculatePageRange, classifyRecitation, nextExpectedEntry, type FurthestPosition } from "@/lib/recitation/logic";
 import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
+import { todayISO } from "@/lib/attendance";
 import { saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
 type Mode = "IN_PERSON" | "ONLINE";
 type Attendance = "IN" | "OUT" | "PENDING";
+type Source = "LOGGED" | "PRIOR";
 
 interface PointsActivity {
   id: string;
   name: string;
   value: number;
   type: "ADD" | "SUBTRACT";
-  done: boolean;
+}
+
+interface PointsLogEntry {
+  activityId: string;
+  date: string;
+  value: number;
 }
 
 interface HistoryEntry {
   id: string;
   date: string;
+  source: Source;
   surahNumber: number;
   fromAyah: number;
   toAyah: number;
-  quality: Quality;
-  mode: Mode;
+  quality: Quality | null;
+  mode: Mode | null;
   teacherName: string;
   notes: string | null;
   reason: string | null;
@@ -47,10 +55,10 @@ export function DetailView({
   cumPages,
   cumPoints,
   onlineCount,
-  todayPoints: initialTodayPoints,
   totalPages,
   onlineRecitationEnabled,
   pointsActivities,
+  pointsLogs: initialPointsLogs,
   history,
 }: {
   student: { id: string; name: string; age: number; attendance: Attendance };
@@ -59,13 +67,14 @@ export function DetailView({
   cumPages: number;
   cumPoints: number;
   onlineCount: number;
-  todayPoints: number;
   totalPages: number;
   onlineRecitationEnabled: boolean;
   pointsActivities: PointsActivity[];
+  pointsLogs: PointsLogEntry[];
   history: HistoryEntry[];
 }) {
   const router = useRouter();
+  const today = todayISO();
   const [attendance, setAttendanceState] = useState(student.attendance);
   const [attendancePending, startAttendanceTransition] = useTransition();
 
@@ -77,13 +86,22 @@ export function DetailView({
   const [mode, setMode] = useState<Mode>("IN_PERSON");
   const [notes, setNotes] = useState("");
   const [reason, setReason] = useState("");
+  const [sessionDate, setSessionDate] = useState(today);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savePending, startSaveTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
 
-  const [pointsState, setPointsState] = useState(pointsActivities);
-  const [todayPoints, setTodayPoints] = useState(initialTodayPoints);
+  const [pointsLogs, setPointsLogs] = useState(initialPointsLogs);
   const [, startPointsTransition] = useTransition();
+
+  const doneForSelectedDate = useMemo(
+    () => new Set(pointsLogs.filter((p) => p.date === sessionDate).map((p) => p.activityId)),
+    [pointsLogs, sessionDate],
+  );
+  const pointsForSelectedDate = useMemo(
+    () => pointsLogs.filter((p) => p.date === sessionDate).reduce((sum, p) => sum + p.value, 0),
+    [pointsLogs, sessionDate],
+  );
 
   const classification = useMemo(
     () => classifyRecitation(plan, furthest, surahNumber, fromAyah),
@@ -105,10 +123,14 @@ export function DetailView({
 
   function togglePoint(activity: PointsActivity) {
     const delta = activity.type === "ADD" ? activity.value : -activity.value;
-    setPointsState((prev) => prev.map((a) => (a.id === activity.id ? { ...a, done: !a.done } : a)));
-    setTodayPoints((prev) => prev + (activity.done ? -delta : delta));
+    const isDone = doneForSelectedDate.has(activity.id);
+    setPointsLogs((prev) =>
+      isDone
+        ? prev.filter((p) => !(p.activityId === activity.id && p.date === sessionDate))
+        : [...prev, { activityId: activity.id, date: sessionDate, value: delta }],
+    );
     startPointsTransition(async () => {
-      await togglePointAction(student.id, activity.id);
+      await togglePointAction(student.id, activity.id, sessionDate);
       router.refresh();
     });
   }
@@ -125,6 +147,7 @@ export function DetailView({
         mode,
         notes,
         reason,
+        sessionDate,
       });
       if ("error" in result) {
         setSaveError(result.error);
@@ -258,6 +281,16 @@ export function DetailView({
 
         <div className={styles.fieldRow}>
           <div className={styles.field}>
+            <label htmlFor="sessionDate">تاريخ الجلسة</label>
+            <input
+              id="sessionDate"
+              type="date"
+              max={today}
+              value={sessionDate}
+              onChange={(e) => setSessionDate(e.target.value || today)}
+            />
+          </div>
+          <div className={styles.field}>
             <label>طريقة التسميع</label>
             <div className={styles.attendanceToggle} style={{ width: "100%" }}>
               <button
@@ -292,6 +325,11 @@ export function DetailView({
           </div>
         </div>
 
+        {sessionDate !== today && (
+          <div className={styles.modeBadge} style={{ background: "rgba(198,183,220,0.28)", color: "#6B5B95" }}>
+            ⏱️ جلسة مؤرَّخة بتاريخ سابق ({sessionDate}) — ستُنسب نقاطها إلى هذا التاريخ لا إلى اليوم
+          </div>
+        )}
         <div className={`${styles.modeBadge} ${styles[classification.badgeVariant]}`}>{classification.badgeText}</div>
 
         {classification.warningMessage && (
@@ -337,23 +375,26 @@ export function DetailView({
       </div>
 
       <div className={styles.secTitle}>
-        <span className={styles.dot} /> النقاط اليوم
+        <span className={styles.dot} /> {sessionDate === today ? "النقاط اليوم" : `النقاط ليوم ${sessionDate}`}
       </div>
       <div className={styles.card}>
         <div className={styles.pointsGrid}>
-          {pointsState.map((a) => (
-            <div
-              key={a.id}
-              className={`${styles.pointBtn} ${a.done ? styles.done : ""} ${a.type === "SUBTRACT" ? styles.subtractType : ""}`}
-              onClick={() => togglePoint(a)}
-            >
-              {a.name}
-              <span className={styles.val}>
-                {a.type === "ADD" ? "+" : "−"}
-                {a.value}
-              </span>
-            </div>
-          ))}
+          {pointsActivities.map((a) => {
+            const done = doneForSelectedDate.has(a.id);
+            return (
+              <div
+                key={a.id}
+                className={`${styles.pointBtn} ${done ? styles.done : ""} ${a.type === "SUBTRACT" ? styles.subtractType : ""}`}
+                onClick={() => togglePoint(a)}
+              >
+                {a.name}
+                <span className={styles.val}>
+                  {a.type === "ADD" ? "+" : "−"}
+                  {a.value}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -362,8 +403,8 @@ export function DetailView({
       </div>
       <div className={styles.counters}>
         <div className={styles.counter}>
-          <div className={styles.num}>{todayPoints}</div>
-          <div className={styles.lbl}>نقاط اليوم</div>
+          <div className={styles.num}>{pointsForSelectedDate}</div>
+          <div className={styles.lbl}>{sessionDate === today ? "نقاط اليوم" : `نقاط ليوم ${sessionDate}`}</div>
         </div>
         <div className={`${styles.counter} ${styles.gold}`}>
           <div className={styles.num}>{cumPoints}</div>
@@ -390,12 +431,20 @@ export function DetailView({
                   {SURAH_NAME[e.surahNumber]} — آية {e.fromAyah} إلى {e.toAyah}
                 </div>
                 <div className={styles.logMeta}>
-                  <span className={`${styles.logBadge} ${styles[QUALITY_BADGE[e.quality]]}`}>
-                    {QUALITY_LABEL[e.quality]}
-                  </span>
-                  <span className={`${styles.logBadge} ${styles.mode}`}>
-                    {e.mode === "ONLINE" ? "أونلاين" : "حضوري"}
-                  </span>
+                  {e.source === "PRIOR" ? (
+                    <span className={`${styles.logBadge} ${styles.mode}`}>📚 حفظ سابق قبل الانضمام</span>
+                  ) : (
+                    <>
+                      {e.quality && (
+                        <span className={`${styles.logBadge} ${styles[QUALITY_BADGE[e.quality]]}`}>
+                          {QUALITY_LABEL[e.quality]}
+                        </span>
+                      )}
+                      <span className={`${styles.logBadge} ${styles.mode}`}>
+                        {e.mode === "ONLINE" ? "أونلاين" : "حضوري"}
+                      </span>
+                    </>
+                  )}
                   <span className={styles.logTeacher}>بواسطة {e.teacherName}</span>
                 </div>
                 {e.reason && <div className={styles.logReason}>سبب: {e.reason}</div>}

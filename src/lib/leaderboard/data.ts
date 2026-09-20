@@ -25,7 +25,9 @@ export async function getLeaderboardData(courseId: string) {
 
   const [sessions, pointsLogs] = await Promise.all([
     prisma.recitationSession.findMany({
-      where: { studentId: { in: studentIds } },
+      // prior-to-joining memorization isn't "achieved" during this course,
+      // so it's excluded from the leaderboard entirely
+      where: { studentId: { in: studentIds }, source: "LOGGED" },
       select: { studentId: true, occurredAt: true, pagesCalculated: true },
     }),
     prisma.pointsLog.findMany({

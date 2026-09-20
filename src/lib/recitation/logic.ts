@@ -186,6 +186,40 @@ export function classifyRecitation(
   };
 }
 
+export interface NextEntryDefaults {
+  surahNumber: number;
+  fromAyah: number;
+  toAyah: number;
+}
+
+/**
+ * A sensible default next entry to pre-fill the recitation form with: right
+ * after the furthest point reached, rolling over to the next surah in the
+ * plan when the current one is already complete. Caps the range at 15 ayat,
+ * matching the prototype's default window.
+ */
+export function nextExpectedEntry(plan: number[], furthest: FurthestPosition | null): NextEntryDefaults {
+  if (!furthest) {
+    const surahNumber = plan[0] ?? 1;
+    return { surahNumber, fromAyah: 1, toAyah: Math.min(15, AYAH_COUNT[surahNumber] ?? 1) };
+  }
+
+  const ayahCount = AYAH_COUNT[furthest.surahNumber] ?? furthest.ayah;
+  if (furthest.ayah < ayahCount) {
+    const fromAyah = furthest.ayah + 1;
+    return { surahNumber: furthest.surahNumber, fromAyah, toAyah: Math.min(fromAyah + 14, ayahCount) };
+  }
+
+  const pos = plan.indexOf(furthest.surahNumber);
+  const nextSurah = pos >= 0 ? plan[pos + 1] : undefined;
+  if (nextSurah) {
+    return { surahNumber: nextSurah, fromAyah: 1, toAyah: Math.min(15, AYAH_COUNT[nextSurah]) };
+  }
+
+  // plan fully complete (khatm) — leave pointed at the last ayah of the last surah
+  return { surahNumber: furthest.surahNumber, fromAyah: furthest.ayah, toAyah: furthest.ayah };
+}
+
 /**
  * The furthest point reached anywhere in the student's plan, derived from
  * all of her recitation sessions (not just the most recent one — an "edit"

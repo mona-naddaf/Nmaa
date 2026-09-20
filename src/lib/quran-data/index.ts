@@ -28,7 +28,7 @@ export const AYAH_COUNT: Record<number, number> = Object.fromEntries(
 );
 
 // keyed by surah number as string, matching the source data
-const PAGE_MAP = pageMapJson as Record<string, AyahPageEntry[]>;
+const PAGE_MAP = pageMapJson as unknown as Record<string, AyahPageEntry[]>;
 
 export function getAyahPageEntries(surahNumber: number): AyahPageEntry[] | undefined {
   return PAGE_MAP[String(surahNumber)];

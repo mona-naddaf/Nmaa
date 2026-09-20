@@ -1,0 +1,250 @@
+.subtitle {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 22px;
+}
+
+.secTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  margin: 26px 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.secTitle .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rose-deep);
+}
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px;
+  margin-bottom: 18px;
+}
+
+.codeBox {
+  background: linear-gradient(90deg, rgba(227, 181, 79, 0.16), rgba(227, 181, 79, 0.05));
+  border: 1px dashed var(--gold-deep);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+}
+
+.codeLabel {
+  font-size: 12px;
+  color: var(--gold-deep);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.codeVal {
+  font-family: var(--font-markazi), serif;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--ink);
+}
+
+.copyBtn {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.copyBtn:hover {
+  border-color: var(--gold-deep);
+  color: var(--gold-deep);
+}
+
+.settingRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid #f1ebdd;
+}
+
+.settingRow:last-child {
+  border-bottom: none;
+}
+
+.settingText {
+  flex: 1;
+}
+
+.settingTitle {
+  font-weight: 800;
+  font-size: 14.5px;
+  margin-bottom: 4px;
+}
+
+.settingDesc {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.optionPills {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 230px;
+}
+
+.optionPill {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--cream);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-align: right;
+}
+
+.optionPill.sel {
+  background: var(--rose-deep);
+  color: #fff;
+  border-color: var(--rose-deep);
+}
+
+.assignBox {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  margin-top: 14px;
+}
+
+.aTitle {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+
+.assignRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #ede4d0;
+  font-size: 13px;
+}
+
+.assignRow:last-child {
+  border-bottom: none;
+}
+
+.assignRow select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 12px;
+}
+
+.editList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.editRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editRow input[type="text"] {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.editRow input[type="number"] {
+  width: 70px;
+  padding: 9px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 13.5px;
+  color: var(--ink);
+  text-align: center;
+}
+
+.editRow select {
+  padding: 9px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.removeBtn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 9px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.removeBtn:hover {
+  background: var(--rose);
+  color: #fff;
+  border-color: var(--rose);
+}
+
+.addNewRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.addNewRow input {
+  flex: 1;
+}
+
+.addBtn {
+  background: var(--sage-deep);
+  color: #fff;
+  border: none;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.err {
+  color: var(--rose-deep);
+  font-size: 12.5px;
+  margin-top: 6px;
+}

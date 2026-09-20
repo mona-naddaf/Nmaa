@@ -1,0 +1,493 @@
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  margin-bottom: 16px;
+  text-decoration: none;
+}
+
+.backBtn:hover {
+  border-color: var(--rose-deep);
+  color: var(--rose-deep);
+}
+
+.girlCard {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.girlId {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatarLg {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--rose), var(--lavender));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-markazi), serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.girlName {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.girlMeta {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.attendanceToggle {
+  display: flex;
+  background: var(--cream);
+  border-radius: 14px;
+  padding: 4px;
+  border: 1px solid var(--line);
+}
+
+.attendanceToggle button {
+  border: none;
+  background: transparent;
+  padding: 9px 18px;
+  border-radius: 11px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+
+.attendanceToggle button.activeIn {
+  background: var(--sage);
+  color: #fff;
+}
+
+.attendanceToggle button.activeOut {
+  background: var(--rose-deep);
+  color: #fff;
+}
+
+.secTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  margin: 26px 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.secTitle .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rose-deep);
+}
+
+.lastPos {
+  background: linear-gradient(90deg, rgba(159, 184, 151, 0.16), rgba(159, 184, 151, 0.05));
+  border: 1px dashed var(--sage-deep);
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.lastPos .icon {
+  font-size: 22px;
+}
+
+.lastPos .label {
+  font-size: 12px;
+  color: var(--sage-deep);
+  font-weight: 700;
+}
+
+.lastPos .value {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--ink);
+  font-family: var(--font-markazi), serif;
+}
+
+.lastPos .sub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-top: 1px;
+}
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+.fieldRow {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.field {
+  flex: 1;
+  min-width: 150px;
+}
+
+.field label {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.field select,
+.field input {
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 14.5px;
+  color: var(--ink);
+}
+
+.modeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 7px 14px;
+  border-radius: 20px;
+  margin-bottom: 14px;
+}
+
+.modeBadge.continue,
+.modeBadge.next {
+  background: rgba(159, 184, 151, 0.18);
+  color: var(--sage-deep);
+}
+
+.modeBadge.edit {
+  background: rgba(227, 181, 79, 0.18);
+  color: var(--gold-deep);
+}
+
+.modeBadge.gap {
+  background: rgba(199, 125, 130, 0.18);
+  color: var(--rose-deep);
+}
+
+.gapWarning {
+  background: #fdecec;
+  border: 1px solid #e9b7b7;
+  color: #8a3a3a;
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-size: 13.5px;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.reasonBox {
+  background: #fff6e8;
+  border: 1px solid #f0dda8;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.reasonBox label {
+  font-size: 12.5px;
+  color: var(--gold-deep);
+  font-weight: 700;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.reasonBox textarea {
+  width: 100%;
+  border: 1px solid #f0dda8;
+  background: #fff;
+  border-radius: 9px;
+  padding: 9px 11px;
+  font-size: 13.5px;
+  resize: vertical;
+  min-height: 44px;
+}
+
+.liveCalc {
+  background: linear-gradient(90deg, rgba(227, 181, 79, 0.14), rgba(227, 181, 79, 0.03));
+  border: 1px dashed var(--gold-deep);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.liveCalc .lcLabel {
+  font-size: 12px;
+  color: var(--gold-deep);
+  font-weight: 700;
+}
+
+.liveCalc .lcVal {
+  font-family: var(--font-markazi), serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.liveCalc .lcSub {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.saveBtn {
+  background: var(--rose-deep);
+  color: #fff;
+  border: none;
+  padding: 13px 26px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.saveBtn:hover {
+  background: #b36a6f;
+}
+
+.saveBtn:disabled {
+  background: #d9c9c9;
+  cursor: not-allowed;
+}
+
+.pointsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.pointBtn {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 10px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.pointBtn .val {
+  display: block;
+  font-family: var(--font-markazi), serif;
+  font-size: 17px;
+  color: var(--sage-deep);
+  margin-top: 4px;
+}
+
+.pointBtn.done {
+  background: var(--sage);
+  color: #fff;
+  border-color: var(--sage-deep);
+}
+
+.pointBtn.done .val {
+  color: #fff;
+}
+
+.pointBtn.subtractType .val {
+  color: var(--rose-deep);
+}
+
+.pointBtn.done.subtractType {
+  background: var(--rose-deep);
+  border-color: var(--rose-deep);
+}
+
+.pointBtn.done.subtractType .val {
+  color: #fff;
+}
+
+.counters {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.counter {
+  flex: 1;
+  min-width: 150px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 18px;
+  text-align: center;
+}
+
+.counter .num {
+  font-family: var(--font-markazi), serif;
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--rose-deep);
+}
+
+.counter .lbl {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.counter.gold .num {
+  color: var(--gold-deep);
+}
+
+.counter.sage .num {
+  color: var(--sage-deep);
+}
+
+.err {
+  color: var(--rose-deep);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.logRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1ebdd;
+}
+
+.logRow:last-child {
+  border-bottom: none;
+}
+
+.logRow:first-child {
+  padding-top: 0;
+}
+
+.logDate {
+  width: 76px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-weight: 700;
+  padding-top: 2px;
+}
+
+.logBody {
+  flex: 1;
+}
+
+.logTitle {
+  font-weight: 800;
+  font-size: 14px;
+  font-family: var(--font-markazi), serif;
+  margin-bottom: 3px;
+}
+
+.logMeta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.logBadge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 8px;
+}
+
+.logBadge.qGood {
+  background: rgba(159, 184, 151, 0.18);
+  color: var(--sage-deep);
+}
+
+.logBadge.qMid {
+  background: rgba(227, 181, 79, 0.18);
+  color: var(--gold-deep);
+}
+
+.logBadge.qLow {
+  background: rgba(199, 125, 130, 0.18);
+  color: var(--rose-deep);
+}
+
+.logBadge.mode {
+  background: rgba(198, 183, 220, 0.22);
+  color: #6b5b95;
+}
+
+.logTeacher {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.logNotes {
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-style: italic;
+  margin-top: 3px;
+}
+
+.logReason {
+  font-size: 12px;
+  color: var(--gold-deep);
+  margin-top: 3px;
+}
+
+.logEmpty {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 13px;
+  padding: 16px 0;
+}

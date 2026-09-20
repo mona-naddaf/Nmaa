@@ -3,7 +3,7 @@ import { COOKIE_NAME, verifyToken } from "@/lib/auth/session";
 
 const ADMIN_ONLY_PATHS = ["/settings"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(COOKIE_NAME)?.value;
   const session = token ? await verifyToken(token) : null;

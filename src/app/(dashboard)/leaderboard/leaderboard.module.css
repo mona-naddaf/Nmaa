@@ -1,0 +1,223 @@
+.subtitle {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 22px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.tab {
+  padding: 11px 20px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--rose-deep);
+  color: #fff;
+  border-color: var(--rose-deep);
+}
+
+.filterCard {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+
+.filterRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+.filterField {
+  flex: 1;
+  min-width: 140px;
+}
+
+.filterField label {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.filterField input {
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.presetRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.presetPill {
+  padding: 7px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.presetPill.sel {
+  background: var(--sage-deep);
+  color: #fff;
+  border-color: var(--sage-deep);
+}
+
+.sortRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sortLabel {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.sortPill {
+  padding: 7px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.sortPill.sel {
+  background: var(--gold-deep);
+  color: #fff;
+  border-color: var(--gold-deep);
+}
+
+.groupPill.sel {
+  background: var(--sage-deep);
+  color: #fff;
+  border-color: var(--sage-deep);
+}
+
+.board {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.boardRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f1ebdd;
+}
+
+.boardRow:last-child {
+  border-bottom: none;
+}
+
+.rank {
+  width: 32px;
+  text-align: center;
+  font-family: var(--font-markazi), serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+
+.rank.medal1 {
+  font-size: 22px;
+}
+
+.rank.medal2,
+.rank.medal3 {
+  font-size: 20px;
+}
+
+.bAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--rose), var(--lavender));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--font-markazi), serif;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.bInfo {
+  flex: 1;
+}
+
+.bName {
+  font-weight: 800;
+  font-size: 14.5px;
+}
+
+.bGroup {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.bStats {
+  display: flex;
+  gap: 16px;
+  text-align: center;
+}
+
+.bStat .num {
+  font-family: var(--font-markazi), serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rose-deep);
+}
+
+.bStat.sage .num {
+  color: var(--sage-deep);
+}
+
+.bStat .lbl {
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+
+.emptyMsg {
+  padding: 30px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+}

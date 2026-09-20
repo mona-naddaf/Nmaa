@@ -1,0 +1,184 @@
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.search {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  width: 220px;
+}
+
+.addBtn {
+  background: var(--sage-deep);
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 13.5px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 11px 20px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--rose-deep);
+  color: #fff;
+  border-color: var(--rose-deep);
+}
+
+.tab .count {
+  opacity: 0.75;
+  font-weight: 500;
+  margin-inline-start: 4px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.girlCard {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+  transition: 0.15s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.girlCard:hover {
+  border-color: var(--rose-deep);
+  transform: translateY(-2px);
+}
+
+.gcTop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--rose), var(--lavender));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--font-markazi), serif;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.gcName {
+  font-weight: 800;
+  font-size: 15.5px;
+}
+
+.gcAge {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.gcPos {
+  font-size: 12px;
+  color: var(--sage-deep);
+  background: rgba(159, 184, 151, 0.12);
+  border-radius: 9px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.gcFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.attendDot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot.present {
+  background: var(--sage-deep);
+}
+
+.dot.absent {
+  background: var(--rose-deep);
+}
+
+.dot.pending {
+  background: #d8cbb0;
+}
+
+.pointsBadge {
+  font-family: var(--font-markazi), serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--gold-deep);
+  background: rgba(227, 181, 79, 0.15);
+  padding: 3px 10px;
+  border-radius: 9px;
+}
+
+.empty {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 13px;
+  padding: 40px 0;
+}
+
+.note {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  text-align: center;
+  margin-top: 24px;
+}

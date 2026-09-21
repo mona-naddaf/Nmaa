@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
+import { pickByGroup, studentsNoun, type GroupGender } from "@/lib/text/gender";
 
 async function currentCourseId() {
   return (await requireAdmin()).courseId;
@@ -29,7 +30,7 @@ export async function setOnlineRecitationEnabledAction(value: boolean) {
 export async function setTeacherGroupAssignmentAction(teacherId: string, groupId: string | null) {
   const cid = await currentCourseId();
   const teacher = await prisma.teacher.findFirst({ where: { id: teacherId, courseId: cid } });
-  if (!teacher) throw new Error("معلمة غير موجودة");
+  if (!teacher) throw new Error("معلم غير موجود");
 
   await prisma.teacherGroupAssignment.deleteMany({ where: { teacherId } });
   if (groupId) {
@@ -42,12 +43,12 @@ export async function setTeacherGroupAssignmentAction(teacherId: string, groupId
 
 // ---------- Groups ----------
 
-export async function addGroupAction(name: string) {
+export async function addGroupAction(name: string, gender: GroupGender = "GIRLS") {
   const cid = await currentCourseId();
   const trimmed = name.trim();
   if (!trimmed) return;
   const count = await prisma.group.count({ where: { courseId: cid } });
-  await prisma.group.create({ data: { courseId: cid, name: trimmed, sortOrder: count } });
+  await prisma.group.create({ data: { courseId: cid, name: trimmed, gender, sortOrder: count } });
   revalidatePath("/settings");
 }
 
@@ -59,15 +60,25 @@ export async function renameGroupAction(groupId: string, name: string) {
   revalidatePath("/settings");
 }
 
+export async function setGroupGenderAction(groupId: string, gender: GroupGender) {
+  const cid = await currentCourseId();
+  await prisma.group.update({ where: { id: groupId, courseId: cid }, data: { gender } });
+  revalidatePath("/settings");
+}
+
 export async function deleteGroupAction(groupId: string): Promise<{ error?: string }> {
   const cid = await currentCourseId();
   const count = await prisma.group.count({ where: { courseId: cid } });
   if (count <= 1) {
     return { error: "لازم يبقى مجموعة واحدة على الأقل" };
   }
+  const group = await prisma.group.findFirst({ where: { id: groupId, courseId: cid }, select: { gender: true } });
   const studentsInGroup = await prisma.student.count({ where: { groupId, courseId: cid } });
   if (studentsInGroup > 0) {
-    return { error: "لا يمكن حذف مجموعة بها طالبات — يُرجى نقل الطالبات أولًا" };
+    const g = group?.gender ?? "GIRLS";
+    return {
+      error: `لا يمكن حذف مجموعة بها ${studentsNoun(g)} — يُرجى نقل${pickByGroup(g, { m: "هم", f: "هنّ" })} أولًا`,
+    };
   }
   await prisma.group.delete({ where: { id: groupId, courseId: cid } });
   revalidatePath("/settings");

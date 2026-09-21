@@ -81,3 +81,70 @@
   max-width: 1040px;
   margin: 0 auto;
 }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(59, 50, 38, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.promptCard {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 26px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+}
+
+.promptTitle {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.promptDesc {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-bottom: 18px;
+}
+
+.promptOptions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.promptBtn {
+  border: 1px solid var(--line);
+  background: var(--cream);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.promptBtn:hover {
+  border-color: var(--rose-deep);
+  color: var(--rose-deep);
+}
+
+.promptSkip {
+  margin-top: 14px;
+  background: transparent;
+  border: none;
+  color: var(--ink-soft);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}

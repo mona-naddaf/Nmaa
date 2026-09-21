@@ -453,18 +453,18 @@
 }
 
 .logBadge.qMid {
-  background: rgba(227, 181, 79, 0.18);
+  background: rgba(173, 150, 31, 0.18);
   color: var(--gold-deep);
 }
 
 .logBadge.qLow {
-  background: rgba(199, 125, 130, 0.18);
+  background: rgba(184, 134, 42, 0.18);
   color: var(--rose-deep);
 }
 
 .logBadge.mode {
-  background: rgba(198, 183, 220, 0.22);
-  color: #6b5b95;
+  background: rgba(138, 154, 138, 0.22);
+  color: var(--sage-deep);
 }
 
 .logTeacher {

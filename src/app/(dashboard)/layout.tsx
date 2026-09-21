@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { logoutAction } from "@/app/login/actions";
+import { supervisorNoun } from "@/lib/text/gender";
 import { NavLinks } from "./NavLinks";
+import { GenderPrompt } from "./GenderPrompt";
 import styles from "./shell.module.css";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -11,8 +13,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     select: { name: true },
   });
 
+  const account =
+    session.role === "admin"
+      ? await prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true, genderPrompted: true } })
+      : await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true, genderPrompted: true } });
+
+  const genderPrompted = account?.genderPrompted ?? true;
+  const adminGender = session.role === "admin" ? (account?.gender ?? null) : null;
+
   return (
     <div className={styles.shell}>
+      <GenderPrompt initiallyPrompted={genderPrompted} />
       <div className={styles.bar}>
         <div className={styles.brand}>نماء 🌱</div>
         <NavLinks showSettings={session.role === "admin"} />
@@ -20,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <span>
             <b>{course?.name}</b>
             {session.role === "teacher" && <> · {session.teacherName}</>}
-            {session.role === "admin" && <> · مديرة الدورة</>}
+            {session.role === "admin" && <> · {supervisorNoun(adminGender)} الدورة</>}
           </span>
           <form action={logoutAction}>
             <button className={styles.logoutBtn} type="submit">

@@ -16,7 +16,7 @@ const tajawal = Tajawal({
 
 export const metadata: Metadata = {
   title: "نماء",
-  description: "منصّة متابعة تسميع وحفظ الطالبات",
+  description: "منصّة متابعة تسميع وحفظ الطلاب",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

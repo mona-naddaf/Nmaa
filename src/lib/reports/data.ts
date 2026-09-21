@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { parseDateOnlyInput, todayDateOnly } from "@/lib/attendance";
 import type { Session } from "@/lib/auth/session";
+import { NEUTRAL_GROUP_GENDER, type GroupGender } from "@/lib/text/gender";
 
 export interface ReportRow {
   studentId: string;
@@ -23,6 +24,9 @@ export interface ResolvedReportScope {
   visibleGroups: { id: string; name: string }[];
   visibleStudents: { id: string; name: string; groupId: string }[];
   courseName: string;
+  // the single group's gender when the scope narrows to one group/student,
+  // otherwise the neutral default (course-wide/mixed scope)
+  scopeGender: GroupGender;
 }
 
 /**
@@ -85,6 +89,14 @@ export async function resolveReportScope(
   const to = (fromParam && toParam && parseDateOnlyInput(toParam)) || todayDateOnly();
   const from = (fromParam && parseDateOnlyInput(fromParam)) || new Date(course.createdAt.toISOString().slice(0, 10));
 
+  const genderByGroupId = new Map(course.groups.map((g) => [g.id, g.gender]));
+  const scopeGender: GroupGender =
+    scope === "student"
+      ? (genderByGroupId.get(visibleStudents.find((s) => s.id === studentId)?.groupId ?? "") ?? NEUTRAL_GROUP_GENDER)
+      : scope === "group" && groupIds?.[0]
+        ? (genderByGroupId.get(groupIds[0]) ?? NEUTRAL_GROUP_GENDER)
+        : NEUTRAL_GROUP_GENDER;
+
   return {
     session,
     resolved: {
@@ -96,6 +108,7 @@ export async function resolveReportScope(
       visibleGroups: visibleGroups.map((g) => ({ id: g.id, name: g.name })),
       visibleStudents,
       courseName: course.name,
+      scopeGender,
     },
   };
 }

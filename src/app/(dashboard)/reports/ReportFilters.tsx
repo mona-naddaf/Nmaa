@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import styles from "./reports.module.css";
+import { studentNoun, studentNounDef, type GroupGender } from "@/lib/text/gender";
 
 function addDaysISO(iso: string, days: number): string {
   const d = new Date(iso + "T00:00:00Z");
@@ -19,6 +20,7 @@ export function ReportFilters({
   today,
   groups,
   students,
+  scopeGender,
 }: {
   scope: "course" | "group" | "student";
   groupId?: string;
@@ -29,6 +31,7 @@ export function ReportFilters({
   today: string;
   groups: { id: string; name: string }[];
   students: { id: string; name: string; groupId: string }[];
+  scopeGender: GroupGender;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -72,7 +75,7 @@ export function ReportFilters({
               مجموعة معيّنة
             </div>
             <div className={`${styles.pill} ${scope === "student" ? styles.sel : ""}`} onClick={() => setScope("student")}>
-              طالبة معيّنة
+              {studentNoun(scopeGender)} معيّن{scopeGender === "GIRLS" ? "ة" : ""}
             </div>
           </div>
         </div>
@@ -92,7 +95,7 @@ export function ReportFilters({
 
         {scope === "student" && (
           <div>
-            <label className={styles.label}>الطالبة</label>
+            <label className={styles.label}>{studentNounDef(scopeGender)}</label>
             <select className={styles.select} value={studentId} onChange={(e) => update({ studentId: e.target.value })}>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>

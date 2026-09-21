@@ -19,7 +19,7 @@ export async function teacherLoginAction(_prev: ActionState, formData: FormData)
 
   const course = await prisma.course.findUnique({ where: { code } });
   if (!course) {
-    return { error: "كود الدورة غير صحيح — يُرجى التأكد منه مع مديرة الدورة" };
+    return { error: "كود الدورة غير صحيح — يُرجى التأكد منه مع مشرف الدورة" };
   }
 
   const nameKey = name.toLowerCase();

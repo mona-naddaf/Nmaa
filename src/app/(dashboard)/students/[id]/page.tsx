@@ -12,9 +12,14 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
 
   const student = await prisma.student.findFirst({
     where: { id, courseId: session.courseId },
-    include: { planItems: { orderBy: { position: "asc" } } },
+    include: { planItems: { orderBy: { position: "asc" } }, group: { select: { gender: true } } },
   });
   if (!student) notFound();
+
+  const viewer =
+    session.role === "admin"
+      ? await prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true } })
+      : await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true } });
 
   const course = await prisma.course.findUniqueOrThrow({
     where: { id: session.courseId },
@@ -57,6 +62,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         age: student.age,
         attendance: attendanceStatusForDay(todayAttendance, today),
       }}
+      groupGender={student.group.gender}
+      viewerGender={viewer?.gender ?? null}
       plan={plan}
       furthest={furthest}
       cumPages={Math.round(cumPages * 1000) / 1000}

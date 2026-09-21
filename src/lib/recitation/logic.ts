@@ -1,4 +1,5 @@
 import { AYAH_COUNT, SURAH_NAME, getAyahPageEntries } from "@/lib/quran-data";
+import { pickByGroup, studentNounDef, thisDemonstrative, type GroupGender } from "@/lib/text/gender";
 
 export interface PageRangeResult {
   totalPages: number;
@@ -80,19 +81,22 @@ export function classifyRecitation(
   furthest: FurthestPosition | null,
   newSurah: number,
   newFromAyah: number,
+  groupGender: GroupGender = "MIXED",
 ): Classification {
   const newPos = plan.indexOf(newSurah);
   const furthestPos = furthest ? plan.indexOf(furthest.surahNumber) : -1;
   const furthestAyah = furthest?.ayah ?? 0;
   const name = SURAH_NAME[newSurah] ?? `سورة رقم ${newSurah}`;
+  const studentDef = studentNounDef(groupGender);
+  const studentReached = pickByGroup(groupGender, { m: "وصل", f: "وصلت" });
 
   if (newPos === -1) {
     return {
       situation: "SURAH_GAP",
       requiresReason: true,
       badgeVariant: "gap",
-      badgeText: "⚠️ سورة خارج خطة الطالبة",
-      warningMessage: `سورة ${name} ليست ضمن خطة هذه الطالبة الحالية. يُرجى إضافتها إلى الخطة أولًا أو التأكد من اختيار السورة الصحيحة.`,
+      badgeText: `⚠️ سورة خارج خطة ${studentDef}`,
+      warningMessage: `سورة ${name} ليست ضمن خطة ${thisDemonstrative(groupGender)} ${studentDef} الحالية. يُرجى إضافتها إلى الخطة أولًا أو التأكد من اختيار السورة الصحيحة.`,
     };
   }
 
@@ -155,7 +159,7 @@ export function classifyRecitation(
     const reachedInPrev = furthestPos === prevPos ? furthestAyah : 0;
     const message =
       furthestPos === prevPos
-        ? `لم تكتمل سورة ${prevName} بعد — وصلت الطالبة إلى الآية ${reachedInPrev} من أصل ${prevTotal}. يُرجى التأكد قبل تسجيل سورة ${name}.`
+        ? `لم تكتمل سورة ${prevName} بعد — ${studentReached} ${studentDef} إلى الآية ${reachedInPrev} من أصل ${prevTotal}. يُرجى التأكد قبل تسجيل سورة ${name}.`
         : `سورة ${prevName} (السابقة لسورة ${name} في الخطة) لم يُسجَّل فيها أي تقدّم بعد (${reachedInPrev} من ${prevTotal} آية). يُرجى التأكد إن كان هذا تجاوزًا مقصودًا أم خطأً.`;
     return {
       situation: "SURAH_GAP",

@@ -4,19 +4,39 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import styles from "./students.module.css";
 import type { StudentSummary } from "@/lib/students/summary";
+import {
+  presentWord,
+  absentWord,
+  studentNoun,
+  studentsNoun,
+  studentNounDef,
+  newAdj,
+  pickByGroup,
+  imperative,
+  type GroupGender,
+  type PersonGender,
+} from "@/lib/text/gender";
 
-const ATTENDANCE_LABEL: Record<string, string> = { IN: "حاضرة", OUT: "غائبة", PENDING: "قيد الانتظار" };
 const ATTENDANCE_CLASS: Record<string, string> = { IN: "present", OUT: "absent", PENDING: "pending" };
 
 export function StudentsList({
   groups,
   students,
+  canAddStudents,
+  viewerGender,
 }: {
-  groups: { id: string; name: string }[];
+  groups: { id: string; name: string; gender: GroupGender }[];
   students: StudentSummary[];
+  canAddStudents: boolean;
+  viewerGender: PersonGender;
 }) {
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id ?? "");
   const [query, setQuery] = useState("");
+
+  const activeGender: GroupGender = groups.find((g) => g.id === activeGroup)?.gender ?? "MIXED";
+
+  const attendanceLabel = (status: string) =>
+    status === "IN" ? presentWord(activeGender) : status === "OUT" ? absentWord(activeGender) : "قيد الانتظار";
 
   const filtered = useMemo(() => {
     const q = query.trim();
@@ -25,10 +45,18 @@ export function StudentsList({
 
   return (
     <div>
+      {canAddStudents && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <Link href="/students/new" className={styles.addBtn}>
+            + إضافة {studentNoun(activeGender)} {newAdj(activeGender)}
+          </Link>
+        </div>
+      )}
+
       <div className={styles.topRow}>
         <input
           className={styles.search}
-          placeholder="بحث باسم الطالبة..."
+          placeholder={`بحث باسم ${studentNounDef(activeGender)}...`}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -48,7 +76,7 @@ export function StudentsList({
       </div>
 
       {filtered.length === 0 ? (
-        <div className={styles.empty}>لا توجد طالبات في هذه المجموعة بعد</div>
+        <div className={styles.empty}>لا يوجد {studentsNoun(activeGender)} في هذه المجموعة بعد</div>
       ) : (
         <div className={styles.grid}>
           {filtered.map((s) => (
@@ -66,7 +94,7 @@ export function StudentsList({
               <div className={styles.gcFoot}>
                 <div className={styles.attendDot}>
                   <span className={`${styles.dot} ${styles[ATTENDANCE_CLASS[s.attendance]]}`} />
-                  {ATTENDANCE_LABEL[s.attendance]}
+                  {attendanceLabel(s.attendance)}
                 </div>
                 <div className={styles.pointsBadge}>{s.cumPoints}</div>
               </div>
@@ -75,7 +103,10 @@ export function StudentsList({
         </div>
       )}
 
-      <div className={styles.note}>اضغطي على بطاقة أي طالبة لفتح شاشة التسميع الخاصة بها</div>
+      <div className={styles.note}>
+        {imperative(viewerGender, { m: "اضغط", f: "اضغطي" })} على بطاقة أي {studentNoun(activeGender)} لفتح شاشة
+        التسميع الخاصة {pickByGroup(activeGender, { m: "به", f: "بها" })}
+      </div>
     </div>
   );
 }

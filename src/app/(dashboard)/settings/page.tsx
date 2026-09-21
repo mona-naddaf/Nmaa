@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
+import { supervisorNoun } from "@/lib/text/gender";
 import styles from "./settings.module.css";
 import { CourseCodeBox } from "./CourseCodeBox";
 import { PermissionsCard } from "./PermissionsCard";
@@ -10,26 +11,31 @@ import { PointsEditor } from "./PointsEditor";
 export default async function SettingsPage() {
   const session = await requireAdmin();
 
-  const course = await prisma.course.findUniqueOrThrow({
-    where: { id: session.courseId },
-    include: {
-      groups: { orderBy: { sortOrder: "asc" } },
-      pointsActivities: { orderBy: { sortOrder: "asc" } },
-      teachers: {
-        orderBy: { name: "asc" },
-        include: { groupAssignments: true },
+  const [course, admin] = await Promise.all([
+    prisma.course.findUniqueOrThrow({
+      where: { id: session.courseId },
+      include: {
+        groups: { orderBy: { sortOrder: "asc" } },
+        pointsActivities: { orderBy: { sortOrder: "asc" } },
+        teachers: {
+          orderBy: { name: "asc" },
+          include: { groupAssignments: true },
+        },
       },
-    },
-  });
+    }),
+    prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true } }),
+  ]);
 
   return (
     <div>
-      <div className={styles.subtitle}>إعدادات دورة {course.name} (تظهر للمديرة فقط)</div>
+      <div className={styles.subtitle}>
+        إعدادات دورة {course.name} (تظهر لل{supervisorNoun(admin?.gender ?? null)} فقط)
+      </div>
 
-      <CourseCodeBox courseName={course.name} code={course.code} />
+      <CourseCodeBox courseName={course.name} code={course.code} adminGender={admin?.gender ?? null} />
 
       <div className={styles.secTitle}>
-        <span className={styles.dot} /> صلاحيات المعلمات
+        <span className={styles.dot} /> صلاحيات المعلمين
       </div>
       <PermissionsCard
         addStudentsPermission={course.addStudentsPermission}
@@ -53,7 +59,7 @@ export default async function SettingsPage() {
         <span className={styles.dot} /> مجموعات الدورة
       </div>
       <div className={styles.card}>
-        <GroupsEditor groups={course.groups.map((g) => ({ id: g.id, name: g.name }))} />
+        <GroupsEditor groups={course.groups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))} />
       </div>
 
       <div className={styles.secTitle}>

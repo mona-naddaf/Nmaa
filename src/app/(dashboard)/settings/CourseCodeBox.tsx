@@ -2,8 +2,17 @@
 
 import { useState } from "react";
 import styles from "./settings.module.css";
+import { imperative, type PersonGender } from "@/lib/text/gender";
 
-export function CourseCodeBox({ courseName, code }: { courseName: string; code: string }) {
+export function CourseCodeBox({
+  courseName,
+  code,
+  adminGender,
+}: {
+  courseName: string;
+  code: string;
+  adminGender: PersonGender;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -20,7 +29,7 @@ export function CourseCodeBox({ courseName, code }: { courseName: string; code: 
     <div className={styles.card}>
       <div style={{ fontWeight: 800, fontSize: 17, textAlign: "center", marginBottom: 4 }}>{courseName}</div>
       <div style={{ fontSize: 12, color: "var(--ink-soft)", textAlign: "center", marginBottom: 20 }}>
-        شاركي هذا الكود مع معلمات دورتك ليتمكّنّ من الدخول
+        {imperative(adminGender, { m: "شارك", f: "شاركي" })} هذا الكود مع معلمي دورتك ليتمكّنوا من الدخول
       </div>
       <div className={styles.codeBox}>
         <div className={styles.codeLabel}>كود الدورة</div>

@@ -13,7 +13,7 @@ export function OnlineToggle({ enabled }: { enabled: boolean }) {
         <div className={styles.settingTitle}>التسميع الأونلاين</div>
         <div className={styles.settingDesc}>
           السماح بتسجيل تسميع تمّ عن بُعد (اتصال/مكالمة)، بنفس نظام السورة والآيات، مع تمييزه عن التسميع
-          الحضوري وإضافة عدّاد خاص به لكل طالبة.
+          الحضوري وإضافة عدّاد خاص به لكل طالب.
         </div>
       </div>
       <div className={styles.optionPills}>

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { deriveFurthestPosition } from "@/lib/recitation/logic";
 import { SURAH_NAME, AYAH_COUNT } from "@/lib/quran-data";
 import { attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/lib/attendance";
+import { pickByGroup } from "@/lib/text/gender";
 
 export interface StudentSummary {
   id: string;
@@ -19,7 +20,7 @@ export interface StudentSummary {
 export async function getStudentSummaries(courseId: string, groupIds?: string[]): Promise<StudentSummary[]> {
   const students = await prisma.student.findMany({
     where: { courseId, ...(groupIds ? { groupId: { in: groupIds } } : {}) },
-    include: { planItems: { orderBy: { position: "asc" } } },
+    include: { planItems: { orderBy: { position: "asc" } }, group: { select: { gender: true } } },
     orderBy: { name: "asc" },
   });
   if (students.length === 0) return [];
@@ -77,7 +78,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
     const lastPositionText = furthest
       ? `${SURAH_NAME[furthest.surahNumber]} — آية ${furthest.ayah} من ${AYAH_COUNT[furthest.surahNumber]}`
       : plan.length > 0
-        ? `لم تبدأ بعد — أول سورة في الخطة: ${SURAH_NAME[plan[0]]}`
+        ? `لم ${pickByGroup(student.group.gender, { m: "يبدأ", f: "تبدأ" })} بعد — أول سورة في الخطة: ${SURAH_NAME[plan[0]]}`
         : "لا توجد خطة بعد";
 
     return {

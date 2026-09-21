@@ -28,21 +28,21 @@ export function PermissionsCard({
     <div className={styles.card}>
       <div className={styles.settingRow}>
         <div className={styles.settingText}>
-          <div className={styles.settingTitle}>إضافة طالبات جديدات</div>
-          <div className={styles.settingDesc}>من يملك صلاحية إضافة طالبة جديدة إلى الدورة؟</div>
+          <div className={styles.settingTitle}>إضافة طلاب جدد</div>
+          <div className={styles.settingDesc}>من يملك صلاحية إضافة طالب جديد إلى الدورة؟</div>
         </div>
         <div className={styles.optionPills}>
           <div
             className={`${styles.optionPill} ${addStudentsPermission === "ADMIN_ONLY" ? styles.sel : ""}`}
             onClick={() => startTransition(() => setAddStudentsPermissionAction("ADMIN_ONLY"))}
           >
-            المديرة فقط
+            المشرف فقط
           </div>
           <div
             className={`${styles.optionPill} ${addStudentsPermission === "ALL_TEACHERS" ? styles.sel : ""}`}
             onClick={() => startTransition(() => setAddStudentsPermissionAction("ALL_TEACHERS"))}
           >
-            كل المعلمات
+            كل المعلمين
           </div>
         </div>
       </div>
@@ -50,31 +50,31 @@ export function PermissionsCard({
       <div className={styles.settingRow} style={{ flexDirection: "column", alignItems: "stretch" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
           <div className={styles.settingText}>
-            <div className={styles.settingTitle}>رؤية الطالبات</div>
-            <div className={styles.settingDesc}>هل تشاهد كل معلمة كل الطالبات، أم فقط الطالبات المخصّصات لها؟</div>
+            <div className={styles.settingTitle}>رؤية الطلاب</div>
+            <div className={styles.settingDesc}>هل يشاهد كل معلم كل الطلاب، أم فقط الطلاب المخصّصين له؟</div>
           </div>
           <div className={styles.optionPills}>
             <div
               className={`${styles.optionPill} ${visibilityMode === "ALL_TEACHERS" ? styles.sel : ""}`}
               onClick={() => startTransition(() => setVisibilityModeAction("ALL_TEACHERS"))}
             >
-              كل المعلمات لكل البنات
+              كل المعلمين لكل الطلاب
             </div>
             <div
               className={`${styles.optionPill} ${visibilityMode === "ASSIGNED" ? styles.sel : ""}`}
               onClick={() => startTransition(() => setVisibilityModeAction("ASSIGNED"))}
             >
-              تخصيص لكل معلمة
+              تخصيص لكل معلم
             </div>
           </div>
         </div>
 
         {visibilityMode === "ASSIGNED" && (
           <div className={styles.assignBox}>
-            <div className={styles.aTitle}>تخصيص المجموعات لكل معلمة</div>
+            <div className={styles.aTitle}>تخصيص المجموعات لكل معلم</div>
             {teachers.length === 0 && (
               <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-                لم تسجّل أي معلمة دخولها بعد — ستظهر هنا فور تسجيل دخولها لأول مرة
+                لم يسجّل أي معلم دخوله بعد — سيظهر هنا فور تسجيل دخوله لأول مرة
               </div>
             )}
             {teachers.map((t) => (

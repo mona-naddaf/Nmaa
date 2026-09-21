@@ -7,7 +7,7 @@ import styles from "./shell.module.css";
 export function NavLinks({ showSettings }: { showSettings: boolean }) {
   const pathname = usePathname();
   const links = [
-    { href: "/students", label: "قائمة الطالبات" },
+    { href: "/students", label: "قائمة الطلاب" },
     { href: "/leaderboard", label: "لوحة الإنجاز" },
     { href: "/reports", label: "التقارير" },
     ...(showSettings ? [{ href: "/settings", label: "الإعدادات" }] : []),

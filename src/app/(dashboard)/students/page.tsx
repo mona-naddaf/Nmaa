@@ -1,8 +1,6 @@
-import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { getStudentSummaries } from "@/lib/students/summary";
-import styles from "./students.module.css";
 import { StudentsList } from "./StudentsList";
 
 export default async function StudentsPage() {
@@ -32,19 +30,17 @@ export default async function StudentsPage() {
 
   const canAddStudents = session.role === "admin" || course.addStudentsPermission === "ALL_TEACHERS";
 
+  const viewer =
+    session.role === "admin"
+      ? await prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true } })
+      : await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true } });
+
   return (
-    <div>
-      {canAddStudents && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-          <Link href="/students/new" className={styles.addBtn}>
-            + إضافة طالبة جديدة
-          </Link>
-        </div>
-      )}
-      <StudentsList
-        groups={visibleGroups.map((g) => ({ id: g.id, name: g.name }))}
-        students={students}
-      />
-    </div>
+    <StudentsList
+      groups={visibleGroups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))}
+      students={students}
+      canAddStudents={canAddStudents}
+      viewerGender={viewer?.gender ?? null}
+    />
   );
 }

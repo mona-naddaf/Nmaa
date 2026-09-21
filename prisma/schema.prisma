@@ -20,10 +20,14 @@ datasource db {
 // ---------- Accounts ----------
 
 model Admin {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  // supervisor's own gender, used to conjugate UI text addressed to/about them
+  // (e.g. مشرف/مشرفة). Optional and asked only once — see genderPrompted.
+  gender         Gender?
+  genderPrompted Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   course Course?
 }
@@ -49,13 +53,17 @@ model Course {
 }
 
 model Teacher {
-  id        String   @id @default(cuid())
-  courseId  String
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  name      String
+  id             String   @id @default(cuid())
+  courseId       String
+  course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name           String
   // normalized (trimmed + lowercased) name used for case-insensitive login matching
-  nameKey   String
-  createdAt DateTime @default(now())
+  nameKey        String
+  // teacher's own gender, used to conjugate UI text addressed to them directly
+  // (e.g. سجّلي/سجّل). Optional and asked only once — see genderPrompted.
+  gender         Gender?
+  genderPrompted Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   groupAssignments TeacherGroupAssignment[]
   recitationLogs   RecitationSession[]
@@ -69,12 +77,16 @@ model Teacher {
 // ---------- Course structure ----------
 
 model Group {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   courseId  String
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course    Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
   name      String
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
+  // drives Arabic grammatical gender (طالب/طالبة, حاضر/حاضرة, ...) for every
+  // student in this group. Defaults to GIRLS so existing groups keep
+  // rendering exactly as before this field existed.
+  gender    GroupGender @default(GIRLS)
+  sortOrder Int         @default(0)
+  createdAt DateTime    @default(now())
 
   students           Student[]
   teacherAssignments TeacherGroupAssignment[]
@@ -211,6 +223,17 @@ model AttendanceLog {
 enum AddStudentsPermission {
   ADMIN_ONLY
   ALL_TEACHERS
+}
+
+enum GroupGender {
+  GIRLS
+  BOYS
+  MIXED
+}
+
+enum Gender {
+  MALE
+  FEMALE
 }
 
 enum VisibilityMode {

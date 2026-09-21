@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { resolveReportScope, getReportRows } from "@/lib/reports/data";
+import { studentNounDef } from "@/lib/text/gender";
 
 export async function GET(request: NextRequest) {
   const params = Object.fromEntries(request.nextUrl.searchParams.entries());
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
   const sheet = workbook.addWorksheet("التقرير", { views: [{ rightToLeft: true }] });
 
   sheet.columns = [
-    { header: "الطالبة", key: "name", width: 22 },
+    { header: studentNounDef(resolved.scopeGender), key: "name", width: 22 },
     { header: "المجموعة", key: "group", width: 18 },
     { header: "إجمالي الصفحات", key: "pages", width: 16 },
     { header: "أيام الحضور", key: "attendance", width: 14 },

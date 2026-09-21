@@ -5,13 +5,27 @@ import styles from "./new-student.module.css";
 import { createStudentAction } from "./actions";
 import { AYAH_COUNT, SURAHS, SURAH_BY_NUMBER, MUSHAF_ORDER, JUZ_AMMA_REVERSE_ORDER } from "@/lib/quran-data";
 import { calculatePageRange } from "@/lib/recitation/logic";
+import {
+  studentNounDef,
+  pickByGroup,
+  imperative,
+  type GroupGender,
+  type PersonGender,
+} from "@/lib/text/gender";
 
 type TemplateKey = "mushaf" | "juzamma" | "custom";
 
-export function NewStudentForm({ groups }: { groups: { id: string; name: string }[] }) {
+export function NewStudentForm({
+  groups,
+  viewerGender,
+}: {
+  groups: { id: string; name: string; gender: GroupGender }[];
+  viewerGender: PersonGender;
+}) {
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
+  const selectedGender: GroupGender = groups.find((g) => g.id === groupId)?.gender ?? "MIXED";
   const [template, setTemplate] = useState<TemplateKey>("mushaf");
   const [plan, setPlan] = useState<number[]>(MUSHAF_ORDER);
   const [addSurahNum, setAddSurahNum] = useState<number>(1);
@@ -134,12 +148,12 @@ export function NewStudentForm({ groups }: { groups: { id: string; name: string 
   return (
     <div>
       <div className={styles.secTitle}>
-        <span className={styles.dot} /> بيانات الطالبة
+        <span className={styles.dot} /> بيانات {studentNounDef(selectedGender)}
       </div>
       <div className={styles.card}>
         <div className={styles.fieldRow}>
           <div className={styles.field}>
-            <label htmlFor="girlName">اسم الطالبة</label>
+            <label htmlFor="girlName">اسم {studentNounDef(selectedGender)}</label>
             <input id="girlName" type="text" placeholder="مثال: سارة خالد" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className={styles.field}>
@@ -177,13 +191,16 @@ export function NewStudentForm({ groups }: { groups: { id: string; name: string 
           <div className={`${styles.templateCard} ${template === "juzamma" ? styles.sel : ""}`} onClick={() => applyTemplate("juzamma")}>
             <div className={styles.tIcon}>🌙</div>
             <div className={styles.tName}>جزء عمّ بالعكس</div>
-            <div className={styles.tDesc}>من سورة الناس إلى سورة النبأ — تبدأ الطالبة بأقصر السور.</div>
+            <div className={styles.tDesc}>
+              من سورة الناس إلى سورة النبأ — {pickByGroup(selectedGender, { m: "يبدأ", f: "تبدأ" })}{" "}
+              {studentNounDef(selectedGender)} بأقصر السور.
+            </div>
             <div className={styles.tCount}>37 سورة</div>
           </div>
           <div className={`${styles.templateCard} ${template === "custom" ? styles.sel : ""}`} onClick={() => applyTemplate("custom")}>
             <div className={styles.tIcon}>✏️</div>
             <div className={styles.tName}>خطة مخصّصة</div>
-            <div className={styles.tDesc}>تبدأ الخطة فارغة، وتختار المعلمة السور وترتيبها يدويًا بالكامل.</div>
+            <div className={styles.tDesc}>تبدأ الخطة فارغة، وتُختار السور وترتيبها يدويًا بالكامل.</div>
             <div className={styles.tCount}>حسب الاختيار</div>
           </div>
         </div>
@@ -195,7 +212,9 @@ export function NewStudentForm({ groups }: { groups: { id: string; name: string 
       <div className={styles.card}>
         <div className={styles.planList}>
           {plan.length === 0 ? (
-            <div className={`${styles.planRow} ${styles.emptyPlan}`}>الخطة فارغة حاليًا — أضيفي سورة من الأسفل</div>
+            <div className={`${styles.planRow} ${styles.emptyPlan}`}>
+              الخطة فارغة حاليًا — {imperative(viewerGender, { m: "أضف", f: "أضيفي" })} سورة من الأسفل
+            </div>
           ) : (
             plan.map((num, i) => (
               <div className={styles.planRow} key={`${num}-${i}`}>
@@ -282,12 +301,14 @@ export function NewStudentForm({ groups }: { groups: { id: string; name: string 
                 </button>
               </div>
               <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8 }}>
-                النطاق محسوب حسب ترتيب السور في خطة الطالبة، وليس ترتيب المصحف
+                النطاق محسوب حسب ترتيب السور في خطة {studentNounDef(selectedGender)}، وليس ترتيب المصحف
               </div>
             </div>
 
             <div className={styles.subCard}>
-              <div className={styles.subTitle}>أو اختاري سورًا منفردة كمحفوظة بالكامل</div>
+              <div className={styles.subTitle}>
+                أو {imperative(viewerGender, { m: "اختر", f: "اختاري" })} سورًا منفردة كمحفوظة بالكامل
+              </div>
               <div className={styles.checkList}>
                 {planSurahs.map((s) => (
                   <label className={styles.checkRow} key={s.number}>
@@ -316,7 +337,10 @@ export function NewStudentForm({ groups }: { groups: { id: string; name: string 
             )}
 
             <div className={styles.subCard} style={{ marginTop: 16 }}>
-              <div className={styles.subTitle}>سورة تحفظ منها الطالبة جزءًا حاليًا (اختياري، سورة واحدة فقط)</div>
+              <div className={styles.subTitle}>
+                سورة {pickByGroup(selectedGender, { m: "يحفظ", f: "تحفظ" })} منها {studentNounDef(selectedGender)}{" "}
+                جزءًا حاليًا (اختياري، سورة واحدة فقط)
+              </div>
               <div className={styles.fieldRow} style={{ marginBottom: 0 }}>
                 <div className={styles.field}>
                   <select value={partialSurah ?? ""} onChange={(e) => selectPartialSurah(e.target.value)}>
@@ -372,7 +396,7 @@ export function NewStudentForm({ groups }: { groups: { id: string; name: string 
 
       {error && <div className={styles.err}>{error}</div>}
       <button className={styles.saveBtn} onClick={submit} disabled={pending} type="button">
-        {pending ? "جارٍ الحفظ..." : "حفظ الطالبة والخطة"}
+        {pending ? "جارٍ الحفظ..." : `حفظ ${studentNounDef(selectedGender)} والخطة`}
       </button>
       <div className={styles.note}>يمكن اختيار قالب جاهز كبداية، ثم إعادة ترتيب السور أو حذف/إضافة أي سورة يدويًا قبل الحفظ</div>
     </div>

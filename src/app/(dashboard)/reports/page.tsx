@@ -1,4 +1,5 @@
 import { resolveReportScope, getReportRows } from "@/lib/reports/data";
+import { studentNoun, studentNounDef } from "@/lib/text/gender";
 import { ReportFilters } from "./ReportFilters";
 import styles from "./reports.module.css";
 
@@ -25,7 +26,10 @@ export default async function ReportsPage({
 
   return (
     <div>
-      <div className={styles.subtitle}>تقرير قابل للتنزيل — إجمالي الصفحات والحضور والنقاط لكل طالبة ضمن النطاق والفترة المحدَّدة</div>
+      <div className={styles.subtitle}>
+        تقرير قابل للتنزيل — إجمالي الصفحات والحضور والنقاط لكل {studentNoun(resolved.scopeGender)} ضمن النطاق
+        والفترة المحدَّدة
+      </div>
 
       <ReportFilters
         scope={resolved.scope}
@@ -37,6 +41,7 @@ export default async function ReportsPage({
         today={new Date().toISOString().slice(0, 10)}
         groups={resolved.visibleGroups}
         students={resolved.visibleStudents}
+        scopeGender={resolved.scopeGender}
       />
 
       <div className={styles.card}>
@@ -57,7 +62,7 @@ export default async function ReportsPage({
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>الطالبة</th>
+                <th>{studentNounDef(resolved.scopeGender)}</th>
                 <th>المجموعة</th>
                 <th>إجمالي الصفحات</th>
                 <th>أيام الحضور</th>

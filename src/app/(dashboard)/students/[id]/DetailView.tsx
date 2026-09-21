@@ -8,6 +8,16 @@ import { calculatePageRange, classifyRecitation, nextExpectedEntry, type Furthes
 import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
 import { todayISO } from "@/lib/attendance";
 import { saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
+import {
+  presentWord,
+  absentWord,
+  studentsNounDef,
+  thisDemonstrative,
+  pickByPerson,
+  pickByGroup,
+  type GroupGender,
+  type PersonGender,
+} from "@/lib/text/gender";
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
 type Mode = "IN_PERSON" | "ONLINE";
@@ -50,6 +60,8 @@ const QUALITY_BADGE: Record<Quality, string> = { EXCELLENT: "qGood", GOOD: "qMid
 
 export function DetailView({
   student,
+  groupGender,
+  viewerGender,
   plan,
   furthest,
   cumPages,
@@ -62,6 +74,8 @@ export function DetailView({
   history,
 }: {
   student: { id: string; name: string; age: number; attendance: Attendance };
+  groupGender: GroupGender;
+  viewerGender: PersonGender;
   plan: number[];
   furthest: FurthestPosition | null;
   cumPages: number;
@@ -104,8 +118,8 @@ export function DetailView({
   );
 
   const classification = useMemo(
-    () => classifyRecitation(plan, furthest, surahNumber, fromAyah),
-    [plan, furthest, surahNumber, fromAyah],
+    () => classifyRecitation(plan, furthest, surahNumber, fromAyah, groupGender),
+    [plan, furthest, surahNumber, fromAyah, groupGender],
   );
   const pageResult = useMemo(() => calculatePageRange(surahNumber, fromAyah, toAyah), [surahNumber, fromAyah, toAyah]);
 
@@ -181,7 +195,7 @@ export function DetailView({
   return (
     <div>
       <Link href="/students" className={styles.backBtn}>
-        → رجوع لقائمة الطالبات
+        → رجوع لقائمة {studentsNounDef(groupGender)}
       </Link>
 
       <div className={styles.girlCard}>
@@ -199,7 +213,7 @@ export function DetailView({
             disabled={attendancePending}
             type="button"
           >
-            حاضرة ✓
+            {presentWord(groupGender)} ✓
           </button>
           <button
             className={attendance === "OUT" ? styles.activeOut : ""}
@@ -207,7 +221,7 @@ export function DetailView({
             disabled={attendancePending}
             type="button"
           >
-            غائبة
+            {absentWord(groupGender)}
           </button>
         </div>
       </div>
@@ -217,7 +231,9 @@ export function DetailView({
         <div>
           <div className={styles.label}>آخر ما وصلت إليه (حسب الخطة)</div>
           <div className={styles.value}>
-            {furthest ? `${SURAH_NAME[furthest.surahNumber]} — الآية ${furthest.ayah} من ${AYAH_COUNT[furthest.surahNumber]}` : "لم تبدأ بعد"}
+            {furthest
+              ? `${SURAH_NAME[furthest.surahNumber]} — الآية ${furthest.ayah} من ${AYAH_COUNT[furthest.surahNumber]}`
+              : `لم ${pickByGroup(groupGender, { m: "يبدأ", f: "تبدأ" })} بعد`}
           </div>
           <div className={styles.sub}>
             {cumPages} صفحة تراكميًا · {onlineCount} تسميع أونلاين
@@ -326,7 +342,7 @@ export function DetailView({
         </div>
 
         {sessionDate !== today && (
-          <div className={styles.modeBadge} style={{ background: "rgba(198,183,220,0.28)", color: "#6B5B95" }}>
+          <div className={styles.modeBadge} style={{ background: "rgba(138,154,138,0.28)", color: "var(--sage-deep)" }}>
             ⏱️ جلسة مؤرَّخة بتاريخ سابق ({sessionDate}) — ستُنسب نقاطها إلى هذا التاريخ لا إلى اليوم
           </div>
         )}
@@ -343,7 +359,7 @@ export function DetailView({
             <label htmlFor="reasonText">سبب هذا التسجيل (إلزامي)</label>
             <textarea
               id="reasonText"
-              placeholder="مثال: تمت مراجعة هذه السورة بناءً على طلب المعلمة..."
+              placeholder={`مثال: تمت مراجعة هذه السورة بناءً على طلب ${pickByPerson(viewerGender, { m: "المعلم", f: "المعلمة" })}...`}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
@@ -421,7 +437,9 @@ export function DetailView({
       </div>
       <div className={styles.card}>
         {history.length === 0 ? (
-          <div className={styles.logEmpty}>لا يوجد تسميع مسجّل بعد لهذه الطالبة</div>
+          <div className={styles.logEmpty}>
+            لا يوجد تسميع مسجّل بعد ل{thisDemonstrative(groupGender)} {pickByGroup(groupGender, { m: "الطالب", f: "الطالبة" })}
+          </div>
         ) : (
           history.map((e) => (
             <div className={styles.logRow} key={e.id}>

@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth/require";
 import { calculatePageRange, classifyRecitation, deriveFurthestPosition } from "@/lib/recitation/logic";
 import { todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
+import { imperative, thisDemonstrative, pickByGroup } from "@/lib/text/gender";
 
 function addHoursUTC(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
@@ -14,9 +15,9 @@ function addHoursUTC(date: Date, hours: number): Date {
 async function loadStudentForCourse(studentId: string, courseId: string) {
   const student = await prisma.student.findFirst({
     where: { id: studentId, courseId },
-    include: { planItems: { orderBy: { position: "asc" } } },
+    include: { planItems: { orderBy: { position: "asc" } }, group: { select: { gender: true } } },
   });
-  if (!student) throw new Error("طالبة غير موجودة");
+  if (!student) throw new Error("طالب غير موجود");
   return student;
 }
 
@@ -43,7 +44,10 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
     if (course.visibilityMode === "ASSIGNED") {
       const assignments = await prisma.teacherGroupAssignment.findMany({ where: { teacherId: session.teacherId } });
       if (assignments.length > 0 && !assignments.some((a) => a.groupId === student.groupId)) {
-        return { error: "لا تملكين صلاحية الوصول إلى بيانات هذه الطالبة" };
+        const teacher = await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true } });
+        return {
+          error: `لا ${imperative(teacher?.gender ?? null, { m: "تملك", f: "تملكين" })} صلاحية الوصول إلى بيانات ${thisDemonstrative(student.group.gender)} ${pickByGroup(student.group.gender, { m: "الطالب", f: "الطالبة" })}`,
+        };
       }
     }
     if (!course.onlineRecitationEnabled && input.mode === "ONLINE") {
@@ -58,7 +62,7 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
   });
   const furthest = deriveFurthestPosition(plan, priorSessions);
 
-  const classification = classifyRecitation(plan, furthest, input.surahNumber, input.fromAyah);
+  const classification = classifyRecitation(plan, furthest, input.surahNumber, input.fromAyah, student.group.gender);
   if (classification.requiresReason && !input.reason.trim()) {
     return { error: "يُرجى كتابة سبب هذا التسجيل قبل الحفظ" };
   }

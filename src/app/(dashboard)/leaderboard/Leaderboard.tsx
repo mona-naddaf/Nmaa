@@ -95,7 +95,7 @@ export function Leaderboard({
 
   return (
     <div>
-      <div className={styles.subtitle}>لوحة إنجاز جميع الطالبات — تظهر لكل المعلمات معًا</div>
+      <div className={styles.subtitle}>لوحة إنجاز جميع الطلاب — تظهر لكل المعلمين معًا</div>
 
       <div className={styles.tabs}>
         <div className={`${styles.tab} ${tab === "last" ? styles.active : ""}`} onClick={() => setTab("last")}>
@@ -210,7 +210,7 @@ export function Leaderboard({
       </div>
 
       <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textAlign: "center", marginTop: 22 }}>
-        التبويب &quot;آخر جلسة&quot; يعرض أحدث تاريخ تسجيل مسجّل لكل الطالبات؛ التبويب &quot;فترة تراكمية&quot; يمكن ضبطه على أي مدى
+        التبويب &quot;آخر جلسة&quot; يعرض أحدث تاريخ تسجيل مسجّل لكل الطلاب؛ التبويب &quot;فترة تراكمية&quot; يمكن ضبطه على أي مدى
         تاريخ
       </div>
     </div>

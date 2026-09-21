@@ -31,7 +31,7 @@ export function LoginForm() {
           نماء <span>🌱</span>
         </div>
         <div className={styles.subtitle}>
-          {view === "teacher" ? "منصّة متابعة تسميع وحفظ الطالبات" : adminMode === "signup" ? "إنشاء دورة جديدة" : "دخول المديرة"}
+          {view === "teacher" ? "منصّة متابعة تسميع وحفظ الطلاب" : adminMode === "signup" ? "إنشاء دورة جديدة" : "دخول المشرف"}
         </div>
 
         {view === "teacher" && (
@@ -58,7 +58,7 @@ export function LoginForm() {
               </button>
             </form>
             <div className={styles.adminToggle}>
-              <a onClick={() => setView("admin")}>أنا مديرة الدورة ←</a>
+              <a onClick={() => setView("admin")}>أنا مشرف الدورة ←</a>
             </div>
           </div>
         )}
@@ -119,7 +119,7 @@ export function LoginForm() {
             )}
 
             <div className={styles.adminToggle}>
-              <a onClick={() => setView("teacher")}>→ رجوع لتسجيل دخول المعلمات</a>
+              <a onClick={() => setView("teacher")}>→ رجوع لتسجيل دخول المعلمين</a>
             </div>
           </div>
         )}

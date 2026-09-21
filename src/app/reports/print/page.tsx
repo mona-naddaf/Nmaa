@@ -1,4 +1,5 @@
 import { resolveReportScope, getReportRows } from "@/lib/reports/data";
+import { studentNounDef } from "@/lib/text/gender";
 import { PrintTrigger } from "./PrintTrigger";
 import styles from "./print.module.css";
 
@@ -13,7 +14,7 @@ export default async function ReportPrintPage({
 
   const scopeLabel =
     resolved.scope === "student"
-      ? `الطالبة: ${resolved.visibleStudents.find((s) => s.id === resolved.studentId)?.name ?? ""}`
+      ? `${studentNounDef(resolved.scopeGender)}: ${resolved.visibleStudents.find((s) => s.id === resolved.studentId)?.name ?? ""}`
       : resolved.scope === "group"
         ? `المجموعة: ${resolved.visibleGroups.find((g) => g.id === resolved.groupIds?.[0])?.name ?? ""}`
         : "الدورة كاملة";
@@ -38,7 +39,7 @@ export default async function ReportPrintPage({
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>الطالبة</th>
+              <th>{studentNounDef(resolved.scopeGender)}</th>
               <th>المجموعة</th>
               <th>إجمالي الصفحات</th>
               <th>أيام الحضور</th>

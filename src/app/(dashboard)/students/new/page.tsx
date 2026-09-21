@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { NewStudentForm } from "./NewStudentForm";
-import styles from "./new-student.module.css";
 
 export default async function NewStudentPage() {
   const session = await requireSession();
@@ -14,10 +13,15 @@ export default async function NewStudentPage() {
   const canAdd = session.role === "admin" || course.addStudentsPermission === "ALL_TEACHERS";
   if (!canAdd) redirect("/students");
 
+  const viewer =
+    session.role === "admin"
+      ? await prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true } })
+      : await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true } });
+
   return (
-    <div>
-      <div className={styles.subtitle}>إضافة طالبة جديدة وتحديد خطة الحفظ الخاصة بها</div>
-      <NewStudentForm groups={course.groups.map((g) => ({ id: g.id, name: g.name }))} />
-    </div>
+    <NewStudentForm
+      groups={course.groups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))}
+      viewerGender={viewer?.gender ?? null}
+    />
   );
 }

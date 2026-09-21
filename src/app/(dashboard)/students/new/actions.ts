@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth/require";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { AYAH_COUNT } from "@/lib/quran-data";
 import { calculatePageRange } from "@/lib/recitation/logic";
+import { imperative, studentNounDef, studentsNoun, NEUTRAL_GROUP_GENDER, type GroupGender } from "@/lib/text/gender";
 
 export type ActionState = { error?: string } | null;
 
@@ -23,7 +24,12 @@ export async function createStudentAction(_prev: ActionState, formData: FormData
   const course = await prisma.course.findUniqueOrThrow({ where: { id: session.courseId } });
   const canAdd = session.role === "admin" || course.addStudentsPermission === "ALL_TEACHERS";
   if (!canAdd) {
-    return { error: "لا تملكين صلاحية إضافة طالبات جديدات في هذه الدورة" };
+    // session.role is guaranteed "teacher" here — canAdd is only false when
+    // session.role !== "admin" (see the || above)
+    const teacher = await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true } });
+    return {
+      error: `لا ${imperative(teacher?.gender ?? null, { m: "تملك", f: "تملكين" })} صلاحية إضافة ${studentsNoun(NEUTRAL_GROUP_GENDER)} جدد في هذه الدورة`,
+    };
   }
 
   const name = String(formData.get("name") ?? "").trim();
@@ -32,11 +38,12 @@ export async function createStudentAction(_prev: ActionState, formData: FormData
   const templateKey = String(formData.get("template") ?? "custom") as keyof typeof TEMPLATE_MAP;
   const planRaw = String(formData.get("plan") ?? "[]");
 
-  if (!name) return { error: "يُرجى إدخال اسم الطالبة" };
-  if (!Number.isFinite(age) || age < 1 || age > 25) return { error: "يُرجى إدخال عمر صحيح" };
-
   const group = await prisma.group.findFirst({ where: { id: groupId, courseId: course.id } });
   if (!group) return { error: "يُرجى اختيار مجموعة صحيحة" };
+  const groupGender: GroupGender = group.gender;
+
+  if (!name) return { error: `يُرجى إدخال اسم ${studentNounDef(groupGender)}` };
+  if (!Number.isFinite(age) || age < 1 || age > 25) return { error: "يُرجى إدخال عمر صحيح" };
 
   let plan: number[];
   try {
@@ -63,7 +70,7 @@ export async function createStudentAction(_prev: ActionState, formData: FormData
     return { error: "توجد سورة مكرَّرة في قائمة السور المحفوظة سابقًا" };
   }
   if (priorCompletedSurahs.some((n) => !plan.includes(n))) {
-    return { error: "لا يمكن تحديد سورة محفوظة سابقًا غير موجودة في خطة الطالبة" };
+    return { error: `لا يمكن تحديد سورة محفوظة سابقًا غير موجودة في خطة ${studentNounDef(groupGender)}` };
   }
 
   let priorPartial: PriorPartial | null = null;
@@ -75,7 +82,7 @@ export async function createStudentAction(_prev: ActionState, formData: FormData
       return { error: "بيانات السورة الجارية غير صحيحة" };
     }
     if (!priorPartial || !plan.includes(priorPartial.surahNumber)) {
-      return { error: "لا يمكن تحديد سورة جارية غير موجودة في خطة الطالبة" };
+      return { error: `لا يمكن تحديد سورة جارية غير موجودة في خطة ${studentNounDef(groupGender)}` };
     }
     if (priorCompletedSurahs.includes(priorPartial.surahNumber)) {
       return { error: "لا يمكن أن تكون نفس السورة محفوظة بالكامل وجارية في آن واحد" };

@@ -138,7 +138,7 @@
   align-items: center;
   gap: 14px;
   padding: 14px 18px;
-  border-bottom: 1px solid #f1ebdd;
+  border-bottom: 1px solid var(--line);
 }
 
 .boardRow:last-child {

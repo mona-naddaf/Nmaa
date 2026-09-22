@@ -36,7 +36,7 @@
   border: 1px solid var(--line);
   border-radius: 20px;
   padding: 26px;
-  box-shadow: 0 4px 24px rgba(59, 50, 38, 0.06);
+  box-shadow: 0 4px 24px rgba(49, 46, 39, 0.06);
 }
 
 .roleSwitch {
@@ -106,7 +106,7 @@
 }
 
 .primaryBtn:hover {
-  background: #b36a6f;
+  filter: brightness(0.88);
 }
 
 .primaryBtn:disabled {
@@ -142,7 +142,7 @@
 }
 
 .codeBox {
-  background: linear-gradient(90deg, rgba(227, 181, 79, 0.16), rgba(227, 181, 79, 0.05));
+  background: linear-gradient(90deg, rgba(189, 122, 62, 0.16), rgba(189, 122, 62, 0.05));
   border: 1px dashed var(--gold-deep);
   border-radius: 14px;
   padding: 20px;

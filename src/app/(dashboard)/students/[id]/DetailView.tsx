@@ -342,7 +342,7 @@ export function DetailView({
         </div>
 
         {sessionDate !== today && (
-          <div className={styles.modeBadge} style={{ background: "rgba(138,154,138,0.28)", color: "var(--sage-deep)" }}>
+          <div className={styles.modeBadge} style={{ background: "rgba(156,148,132,0.28)", color: "var(--sage-deep)" }}>
             ⏱️ جلسة مؤرَّخة بتاريخ سابق ({sessionDate}) — ستُنسب نقاطها إلى هذا التاريخ لا إلى اليوم
           </div>
         )}

@@ -108,7 +108,7 @@
 .table td {
   padding: 12px 14px;
   text-align: right;
-  border-bottom: 1px solid #f1ebdd;
+  border-bottom: 1px solid var(--line);
   font-size: 13.5px;
 }
 

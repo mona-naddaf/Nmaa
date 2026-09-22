@@ -30,7 +30,7 @@
 }
 
 .codeBox {
-  background: linear-gradient(90deg, rgba(227, 181, 79, 0.16), rgba(227, 181, 79, 0.05));
+  background: linear-gradient(90deg, rgba(189, 122, 62, 0.16), rgba(189, 122, 62, 0.05));
   border: 1px dashed var(--gold-deep);
   border-radius: 14px;
   padding: 20px;
@@ -75,7 +75,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 14px 0;
-  border-bottom: 1px solid #f1ebdd;
+  border-bottom: 1px solid var(--line);
 }
 
 .settingRow:last-child {
@@ -144,7 +144,7 @@
   justify-content: space-between;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px solid #ede4d0;
+  border-bottom: 1px solid var(--line);
   font-size: 13px;
 }
 

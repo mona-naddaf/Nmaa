@@ -10,7 +10,7 @@
   font-family: var(--font-markazi), serif;
   font-weight: 700;
   font-size: 26px;
-  color: #b8862a;
+  color: var(--rose-deep);
   margin-bottom: 4px;
 }
 
@@ -22,7 +22,7 @@
 
 .printBtn {
   margin: 18px 0;
-  background: #b8862a;
+  background: var(--rose-deep);
   color: #fff;
   border: none;
   padding: 10px 20px;
@@ -47,7 +47,7 @@
 }
 
 .table th {
-  background: #f5f0e6;
+  background: var(--cream);
   font-weight: 800;
 }
 

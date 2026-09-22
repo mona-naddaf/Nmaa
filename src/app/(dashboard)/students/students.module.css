@@ -120,7 +120,7 @@
 .gcPos {
   font-size: 12px;
   color: var(--sage-deep);
-  background: rgba(159, 184, 151, 0.12);
+  background: rgba(143, 90, 80, 0.12);
   border-radius: 9px;
   padding: 6px 10px;
   margin-bottom: 10px;
@@ -156,7 +156,7 @@
 }
 
 .dot.pending {
-  background: #d8cbb0;
+  background: var(--lavender);
 }
 
 .pointsBadge {
@@ -164,7 +164,7 @@
   font-weight: 700;
   font-size: 16px;
   color: var(--gold-deep);
-  background: rgba(227, 181, 79, 0.15);
+  background: rgba(189, 122, 62, 0.15);
   padding: 3px 10px;
   border-radius: 9px;
 }

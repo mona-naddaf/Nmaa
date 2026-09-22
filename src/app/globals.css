@@ -1,16 +1,16 @@
 :root {
-  --cream: #f7f2e7;
-  --paper: #fffdf8;
-  --ink: #3b3226;
-  --ink-soft: #6e6355;
-  --rose: #a65d3f;
-  --rose-deep: #b8862a;
-  --sage: #c9d3cb;
-  --sage-deep: #4a6b52;
-  --lavender: #8a9a8a;
-  --gold: #ebe5c7;
-  --gold-deep: #ad961f;
-  --line: #e7dfcf;
+  --cream: #f5f2e8;
+  --paper: #fffef9;
+  --ink: #312e27;
+  --ink-soft: #6c685d;
+  --rose: #4c7862;
+  --rose-deep: #3f6650;
+  --sage: #8f5a50;
+  --sage-deep: #7c4a42;
+  --lavender: #9c9484;
+  --gold: #bd7a3e;
+  --gold-deep: #a85c36;
+  --line: #e6e0d2;
 }
 
 * {
@@ -25,8 +25,8 @@ body {
 
 body {
   background: var(--cream);
-  background-image: radial-gradient(circle at 12% 6%, rgba(166, 93, 63, 0.1), transparent 40%),
-    radial-gradient(circle at 92% 90%, rgba(138, 154, 138, 0.12), transparent 40%);
+  background-image: radial-gradient(circle at 12% 6%, rgba(76, 120, 98, 0.1), transparent 40%),
+    radial-gradient(circle at 92% 90%, rgba(156, 148, 132, 0.12), transparent 40%);
   background-attachment: fixed;
   font-family: var(--font-tajawal), "Tajawal", sans-serif;
   color: var(--ink);

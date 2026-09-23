@@ -36,6 +36,9 @@ export function getAyahPageEntries(surahNumber: number): AyahPageEntry[] | undef
 
 export const MUSHAF_ORDER: number[] = SURAHS.map((s) => s.number);
 
+// An-Nas (114) down to Al-Fatiha (1), as used by the "ترتيب المصحف بالعكس" template
+export const MUSHAF_REVERSE_ORDER: number[] = [...MUSHAF_ORDER].reverse();
+
 // shortest-surahs-first, as used by the "جزء عمّ بالعكس" template (juz 30, descending)
 export const JUZ_AMMA_REVERSE_ORDER: number[] = SURAHS.filter((s) => s.juz === 30)
   .map((s) => s.number)

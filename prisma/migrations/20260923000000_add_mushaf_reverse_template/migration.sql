@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "PlanTemplate" ADD VALUE 'MUSHAF_REVERSE';

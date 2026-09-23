@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import styles from "./new-student.module.css";
 import { createStudentAction } from "./actions";
-import { AYAH_COUNT, SURAHS, SURAH_BY_NUMBER, MUSHAF_ORDER, JUZ_AMMA_REVERSE_ORDER } from "@/lib/quran-data";
+import { AYAH_COUNT, SURAHS, SURAH_BY_NUMBER, MUSHAF_ORDER, MUSHAF_REVERSE_ORDER, JUZ_AMMA_REVERSE_ORDER } from "@/lib/quran-data";
 import { calculatePageRange } from "@/lib/recitation/logic";
 import {
   studentNounDef,
@@ -13,7 +13,7 @@ import {
   type PersonGender,
 } from "@/lib/text/gender";
 
-type TemplateKey = "mushaf" | "juzamma" | "custom";
+type TemplateKey = "mushafrev" | "mushaf" | "juzamma" | "custom";
 
 export function NewStudentForm({
   groups,
@@ -26,8 +26,8 @@ export function NewStudentForm({
   const [age, setAge] = useState("");
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
   const selectedGender: GroupGender = groups.find((g) => g.id === groupId)?.gender ?? "MIXED";
-  const [template, setTemplate] = useState<TemplateKey>("mushaf");
-  const [plan, setPlan] = useState<number[]>(MUSHAF_ORDER);
+  const [template, setTemplate] = useState<TemplateKey>("mushafrev");
+  const [plan, setPlan] = useState<number[]>(MUSHAF_REVERSE_ORDER);
   const [addSurahNum, setAddSurahNum] = useState<number>(1);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -42,7 +42,8 @@ export function NewStudentForm({
 
   function applyTemplate(key: TemplateKey) {
     setTemplate(key);
-    if (key === "mushaf") setPlan(MUSHAF_ORDER);
+    if (key === "mushafrev") setPlan(MUSHAF_REVERSE_ORDER);
+    else if (key === "mushaf") setPlan(MUSHAF_ORDER);
     else if (key === "juzamma") setPlan(JUZ_AMMA_REVERSE_ORDER);
     else setPlan([]);
   }
@@ -182,6 +183,12 @@ export function NewStudentForm({
       </div>
       <div className={styles.card}>
         <div className={styles.templateGrid}>
+          <div className={`${styles.templateCard} ${template === "mushafrev" ? styles.sel : ""}`} onClick={() => applyTemplate("mushafrev")}>
+            <div className={styles.tIcon}>🔁</div>
+            <div className={styles.tName}>ترتيب المصحف بالعكس</div>
+            <div className={styles.tDesc}>من سورة الناس إلى سورة الفاتحة، عكس ترتيب المصحف.</div>
+            <div className={styles.tCount}>114 سورة</div>
+          </div>
           <div className={`${styles.templateCard} ${template === "mushaf" ? styles.sel : ""}`} onClick={() => applyTemplate("mushaf")}>
             <div className={styles.tIcon}>📖</div>
             <div className={styles.tName}>ترتيب المصحف</div>

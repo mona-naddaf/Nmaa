@@ -10,7 +10,7 @@ import { imperative, studentNounDef, studentsNoun, NEUTRAL_GROUP_GENDER, type Gr
 
 export type ActionState = { error?: string } | null;
 
-const TEMPLATE_MAP = { mushaf: "MUSHAF_ORDER", juzamma: "JUZ_AMMA_REVERSE", custom: "CUSTOM" } as const;
+const TEMPLATE_MAP = { mushaf: "MUSHAF_ORDER", mushafrev: "MUSHAF_REVERSE", juzamma: "JUZ_AMMA_REVERSE", custom: "CUSTOM" } as const;
 
 interface PriorPartial {
   surahNumber: number;

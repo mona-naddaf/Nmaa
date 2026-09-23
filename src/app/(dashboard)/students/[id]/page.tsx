@@ -6,6 +6,7 @@ import { attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import { buildCoverage, computeProgressBars, coveredQuranPages } from "@/lib/students/progress";
 import { DetailView } from "./DetailView";
+import { ParentCodeCard } from "./ParentCodeCard";
 
 export default async function StudentDetailPage({ params }: PageProps<"/students/[id]">) {
   const { id } = await params;
@@ -58,48 +59,59 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const cumPoints = pointsLogs.reduce((sum, p) => sum + (p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime), 0);
 
   return (
-    <DetailView
-      student={{
-        id: student.id,
-        name: student.name,
-        age: student.age,
-        attendance: attendanceStatusForDay(todayAttendance, today),
-      }}
-      groupGender={student.group.gender}
-      viewerGender={viewer?.gender ?? null}
-      plan={plan}
-      furthest={furthest}
-      cumPages={Math.round(cumPages * 1000) / 1000}
-      cumPoints={cumPoints}
-      onlineCount={onlineCount}
-      coveredPages={coveredQuranPages(coverage)}
-      totalPages={TOTAL_PAGES}
-      progressBars={progressBars}
-      onlineRecitationEnabled={course.onlineRecitationEnabled}
-      pointsActivities={course.pointsActivities.map((a) => ({
-        id: a.id,
-        name: a.name,
-        value: a.value,
-        type: a.type,
-      }))}
-      pointsLogs={pointsLogs.map((p) => ({
-        activityId: p.activityId,
-        date: p.day.toISOString().slice(0, 10),
-        value: p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime,
-      }))}
-      history={sessions.map((s) => ({
-        id: s.id,
-        date: s.occurredAt.toISOString().slice(0, 10),
-        source: s.source,
-        surahNumber: s.surahNumber,
-        fromAyah: s.fromAyah,
-        toAyah: s.toAyah,
-        quality: s.quality,
-        mode: s.mode,
-        teacherName: s.teacher.name,
-        notes: s.notes,
-        reason: s.reason,
-      }))}
-    />
+    <>
+      <DetailView
+        student={{
+          id: student.id,
+          name: student.name,
+          age: student.age,
+          attendance: attendanceStatusForDay(todayAttendance, today),
+        }}
+        groupGender={student.group.gender}
+        viewerGender={viewer?.gender ?? null}
+        plan={plan}
+        furthest={furthest}
+        cumPages={Math.round(cumPages * 1000) / 1000}
+        cumPoints={cumPoints}
+        onlineCount={onlineCount}
+        coveredPages={coveredQuranPages(coverage)}
+        totalPages={TOTAL_PAGES}
+        progressBars={progressBars}
+        onlineRecitationEnabled={course.onlineRecitationEnabled}
+        pointsActivities={course.pointsActivities.map((a) => ({
+          id: a.id,
+          name: a.name,
+          value: a.value,
+          type: a.type,
+        }))}
+        pointsLogs={pointsLogs.map((p) => ({
+          activityId: p.activityId,
+          date: p.day.toISOString().slice(0, 10),
+          value: p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime,
+        }))}
+        history={sessions.map((s) => ({
+          id: s.id,
+          date: s.occurredAt.toISOString().slice(0, 10),
+          source: s.source,
+          surahNumber: s.surahNumber,
+          fromAyah: s.fromAyah,
+          toAyah: s.toAyah,
+          quality: s.quality,
+          mode: s.mode,
+          teacherName: s.teacher.name,
+          notes: s.notes,
+          reason: s.reason,
+        }))}
+      />
+      {/* supervisor only: the code is never sent to a teacher's browser */}
+      {session.role === "admin" && (
+        <ParentCodeCard
+          studentId={student.id}
+          groupGender={student.group.gender}
+          initialCode={student.parentCode}
+          initialCreatedAt={student.parentCodeCreatedAt?.toISOString() ?? null}
+        />
+      )}
+    </>
   );
 }

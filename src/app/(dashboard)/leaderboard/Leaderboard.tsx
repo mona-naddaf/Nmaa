@@ -3,16 +3,10 @@
 import { useMemo, useState } from "react";
 import styles from "./leaderboard.module.css";
 import type { LeaderboardStudent, DailyEntry } from "@/lib/leaderboard/data";
+import { useDateRange } from "@/components/date-range/useDateRange";
+import { DateRangeFilter } from "@/components/date-range/DateRangeFilter";
 
-type Tab = "last" | "range";
 type SortBy = "pages" | "points";
-type Preset = "all" | "4w" | "8w" | "custom";
-
-function addDaysISO(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 export function Leaderboard({
   students,
@@ -23,16 +17,9 @@ export function Leaderboard({
   groups: { id: string; name: string }[];
   dailyEntries: DailyEntry[];
 }) {
-  const allDates = useMemo(() => [...new Set(dailyEntries.map((e) => e.date))].sort(), [dailyEntries]);
-  const lastDate = allDates[allDates.length - 1];
-  const firstDate = allDates[0];
-
-  const [tab, setTab] = useState<Tab>("last");
+  const range = useDateRange(useMemo(() => dailyEntries.map((e) => e.date), [dailyEntries]));
   const [sortBy, setSortBy] = useState<SortBy>("pages");
   const [activeGroups, setActiveGroups] = useState<Set<string>>(new Set(groups.map((g) => g.id)));
-  const [preset, setPreset] = useState<Preset>("all");
-  const [fromDate, setFromDate] = useState(firstDate ?? "");
-  const [toDate, setToDate] = useState(lastDate ?? "");
 
   function toggleGroup(id: string) {
     setActiveGroups((prev) => {
@@ -46,31 +33,12 @@ export function Leaderboard({
     });
   }
 
-  function applyPreset(p: Preset) {
-    setPreset(p);
-    if (!lastDate) return;
-    if (p === "all") {
-      setFromDate(firstDate);
-      setToDate(lastDate);
-    } else if (p === "4w") {
-      setFromDate(addDaysISO(lastDate, -28));
-      setToDate(lastDate);
-    } else if (p === "8w") {
-      setFromDate(addDaysISO(lastDate, -56));
-      setToDate(lastDate);
-    }
-  }
-
+  const { matches } = range;
   const totals = useMemo(() => {
     const map = new Map<string, { pages: number; points: number }>();
     students.forEach((s) => map.set(s.id, { pages: 0, points: 0 }));
 
-    const matches =
-      tab === "last"
-        ? (e: DailyEntry) => e.date === lastDate
-        : (e: DailyEntry) => e.date >= fromDate && e.date <= toDate;
-
-    dailyEntries.filter(matches).forEach((e) => {
+    dailyEntries.filter((e) => matches(e.date)).forEach((e) => {
       const t = map.get(e.studentId);
       if (t) {
         t.pages += e.pages;
@@ -78,7 +46,7 @@ export function Leaderboard({
       }
     });
     return map;
-  }, [dailyEntries, tab, lastDate, fromDate, toDate, students]);
+  }, [dailyEntries, matches, students]);
 
   const board = useMemo(() => {
     const list = students
@@ -97,63 +65,7 @@ export function Leaderboard({
     <div>
       <div className={styles.subtitle}>لوحة إنجاز جميع الطلاب — تظهر لكل المعلمين معًا</div>
 
-      <div className={styles.tabs}>
-        <div className={`${styles.tab} ${tab === "last" ? styles.active : ""}`} onClick={() => setTab("last")}>
-          آخر جلسة
-        </div>
-        <div className={`${styles.tab} ${tab === "range" ? styles.active : ""}`} onClick={() => setTab("range")}>
-          فترة تراكمية
-        </div>
-      </div>
-
-      {tab === "range" && (
-        <div className={styles.filterCard}>
-          <div className={styles.presetRow} style={{ marginBottom: 12 }}>
-            {(
-              [
-                ["all", "الدورة كاملة"],
-                ["4w", "آخر 4 أسابيع"],
-                ["8w", "آخر 8 أسابيع"],
-                ["custom", "تحديد يدوي"],
-              ] as [Preset, string][]
-            ).map(([key, label]) => (
-              <div
-                key={key}
-                className={`${styles.presetPill} ${preset === key ? styles.sel : ""}`}
-                onClick={() => applyPreset(key)}
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-          <div className={styles.filterRow}>
-            <div className={styles.filterField}>
-              <label htmlFor="fromDate">من تاريخ</label>
-              <input
-                id="fromDate"
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
-                  setPreset("custom");
-                }}
-              />
-            </div>
-            <div className={styles.filterField}>
-              <label htmlFor="toDate">إلى تاريخ</label>
-              <input
-                id="toDate"
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setToDate(e.target.value);
-                  setPreset("custom");
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <DateRangeFilter range={range} />
 
       <div className={styles.sortRow}>
         <div className={styles.sortLabel}>المجموعات:</div>

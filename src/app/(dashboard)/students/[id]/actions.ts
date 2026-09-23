@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireSession } from "@/lib/auth/require";
+import { requireAdmin, requireSession } from "@/lib/auth/require";
+import { generateUniqueParentCode } from "@/lib/auth/parent-code";
 import { calculatePageRange, classifyRecitation, deriveFurthestPosition } from "@/lib/recitation/logic";
 import { todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
@@ -151,4 +152,39 @@ export async function togglePointAction(studentId: string, activityId: string, d
   }
 
   revalidatePath(`/students/${studentId}`);
+}
+
+// ---------- Parent access (supervisor only) ----------
+
+export type ParentAccessResult = { error: string } | { code: string | null; createdAt: string | null };
+
+async function adminStudentId(studentId: string) {
+  const session = await requireAdmin();
+  const student = await prisma.student.findFirst({ where: { id: studentId, courseId: session.courseId }, select: { id: true } });
+  if (!student) throw new Error("طالب غير موجود");
+  return student.id;
+}
+
+// Issues a fresh code. Bumping parentCodeVersion invalidates every session
+// opened with a previous code, so this doubles as "revoke and replace".
+export async function regenerateParentCodeAction(studentId: string): Promise<ParentAccessResult> {
+  const id = await adminStudentId(studentId);
+  const code = await generateUniqueParentCode();
+  const updated = await prisma.student.update({
+    where: { id },
+    data: { parentCode: code, parentCodeVersion: { increment: 1 }, parentCodeCreatedAt: new Date() },
+    select: { parentCode: true, parentCodeCreatedAt: true },
+  });
+  revalidatePath(`/students/${id}`);
+  return { code: updated.parentCode, createdAt: updated.parentCodeCreatedAt?.toISOString() ?? null };
+}
+
+export async function revokeParentCodeAction(studentId: string): Promise<ParentAccessResult> {
+  const id = await adminStudentId(studentId);
+  await prisma.student.update({
+    where: { id },
+    data: { parentCode: null, parentCodeVersion: { increment: 1 }, parentCodeCreatedAt: null },
+  });
+  revalidatePath(`/students/${id}`);
+  return { code: null, createdAt: null };
 }

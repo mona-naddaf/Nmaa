@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import styles from "./login.module.css";
 import { teacherLoginAction, adminLoginAction, adminSignupAction, type ActionState } from "./actions";
 
@@ -59,6 +60,9 @@ export function LoginForm() {
             </form>
             <div className={styles.adminToggle}>
               <a onClick={() => setView("admin")}>أنا مشرف الدورة ←</a>
+            </div>
+            <div className={styles.adminToggle}>
+              <Link href="/parent/login">دخول أولياء الأمور ←</Link>
             </div>
           </div>
         )}

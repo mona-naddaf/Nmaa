@@ -8,6 +8,10 @@ const secretKey = () => new TextEncoder().encode(process.env.SESSION_SECRET);
 export async function verifyToken(token: string): Promise<Session | null> {
   try {
     const { payload } = await jwtVerify(token, secretKey());
+    // Only ever accept staff roles here. Parent tokens are signed with a
+    // different key (parent-session.ts) and would already fail the signature
+    // check — this is the second guard, not the first.
+    if (payload.role !== "admin" && payload.role !== "teacher") return null;
     return payload as unknown as Session;
   } catch {
     return null;

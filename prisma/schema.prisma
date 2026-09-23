@@ -139,6 +139,14 @@ model Student {
   planTemplate PlanTemplate @default(CUSTOM)
   createdAt    DateTime     @default(now())
 
+  // Read-only parent access (see src/lib/auth/parent-session.ts). null =
+  // no parent can log in. Regenerating/revoking bumps parentCodeVersion,
+  // which every parent session is checked against, so old sessions die
+  // immediately rather than at cookie expiry.
+  parentCode          String?   @unique
+  parentCodeVersion   Int       @default(0)
+  parentCodeCreatedAt DateTime?
+
   planItems          PlanItem[]
   recitationSessions RecitationSession[]
   pointsLogs         PointsLog[]
@@ -222,6 +230,17 @@ model AttendanceLog {
 
   @@unique([studentId, day])
   @@index([studentId, day])
+}
+
+// One row per failed parent login, keyed by a salted hash of the client IP
+// (never the raw IP). Used only for the brute-force lockout on /parent/login;
+// rows older than a day are pruned opportunistically.
+model ParentLoginAttempt {
+  id        String   @id @default(cuid())
+  ipHash    String
+  createdAt DateTime @default(now())
+
+  @@index([ipHash, createdAt])
 }
 
 // ---------- Enums ----------

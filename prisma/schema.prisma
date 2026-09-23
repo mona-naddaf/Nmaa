@@ -44,7 +44,13 @@ model Course {
   addStudentsPermission   AddStudentsPermission @default(ADMIN_ONLY)
   visibilityMode          VisibilityMode        @default(ALL_TEACHERS)
   onlineRecitationEnabled Boolean               @default(true)
-  createdAt               DateTime              @default(now())
+  // optional progress bars on the student detail screen, each toggled
+  // course-wide by the supervisor. Off by default.
+  showSurahProgress       Boolean               @default(false)
+  showJuzProgress         Boolean               @default(false)
+  showQuranProgress       Boolean               @default(false)
+  showPlanProgress        Boolean               @default(false)
+  createdAt              DateTime              @default(now())
 
   teachers         Teacher[]
   groups           Group[]

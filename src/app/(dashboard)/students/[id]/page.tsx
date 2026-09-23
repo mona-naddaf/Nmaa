@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth/require";
 import { deriveFurthestPosition } from "@/lib/recitation/logic";
 import { attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
 import { TOTAL_PAGES } from "@/lib/quran-data";
+import { buildCoverage, computeProgressBars, coveredQuranPages } from "@/lib/students/progress";
 import { DetailView } from "./DetailView";
 
 export default async function StudentDetailPage({ params }: PageProps<"/students/[id]">) {
@@ -52,6 +53,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
 
   const cumPages = sessions.reduce((sum, s) => sum + Number(s.pagesCalculated), 0);
   const onlineCount = sessions.filter((s) => s.mode === "ONLINE").length;
+  const coverage = buildCoverage(sessions);
+  const progressBars = computeProgressBars({ settings: course, plan, furthest, coverage });
   const cumPoints = pointsLogs.reduce((sum, p) => sum + (p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime), 0);
 
   return (
@@ -69,7 +72,9 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       cumPages={Math.round(cumPages * 1000) / 1000}
       cumPoints={cumPoints}
       onlineCount={onlineCount}
+      coveredPages={coveredQuranPages(coverage)}
       totalPages={TOTAL_PAGES}
+      progressBars={progressBars}
       onlineRecitationEnabled={course.onlineRecitationEnabled}
       pointsActivities={course.pointsActivities.map((a) => ({
         id: a.id,

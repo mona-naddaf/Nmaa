@@ -6,6 +6,7 @@ import { CourseCodeBox } from "./CourseCodeBox";
 import { PermissionsCard } from "./PermissionsCard";
 import { OnlineToggle } from "./OnlineToggle";
 import { GroupsEditor } from "./GroupsEditor";
+import { ProgressBarsCard } from "./ProgressBarsCard";
 import { PointsEditor } from "./PointsEditor";
 
 export default async function SettingsPage() {
@@ -53,6 +54,20 @@ export default async function SettingsPage() {
       </div>
       <div className={styles.card}>
         <OnlineToggle enabled={course.onlineRecitationEnabled} />
+      </div>
+
+      <div className={styles.secTitle}>
+        <span className={styles.dot} /> أشرطة التقدّم
+      </div>
+      <div className={styles.card}>
+        <ProgressBarsCard
+          enabled={{
+            showSurahProgress: course.showSurahProgress,
+            showJuzProgress: course.showJuzProgress,
+            showQuranProgress: course.showQuranProgress,
+            showPlanProgress: course.showPlanProgress,
+          }}
+        />
       </div>
 
       <div className={styles.secTitle}>

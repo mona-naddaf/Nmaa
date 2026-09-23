@@ -27,6 +27,17 @@ export async function setOnlineRecitationEnabledAction(value: boolean) {
   revalidatePath("/settings");
 }
 
+const PROGRESS_BAR_FIELDS = ["showSurahProgress", "showJuzProgress", "showQuranProgress", "showPlanProgress"] as const;
+export type ProgressBarField = (typeof PROGRESS_BAR_FIELDS)[number];
+
+export async function setProgressBarAction(field: ProgressBarField, enabled: boolean) {
+  const cid = await currentCourseId();
+  if (!PROGRESS_BAR_FIELDS.includes(field)) throw new Error("إعداد غير معروف");
+  await prisma.course.update({ where: { id: cid }, data: { [field]: enabled } });
+  revalidatePath("/settings");
+  revalidatePath("/students/[id]", "page");
+}
+
 export async function setTeacherGroupAssignmentAction(teacherId: string, groupId: string | null) {
   const cid = await currentCourseId();
   const teacher = await prisma.teacher.findFirst({ where: { id: teacherId, courseId: cid } });

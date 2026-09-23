@@ -7,6 +7,7 @@ import styles from "./detail.module.css";
 import { calculatePageRange, classifyRecitation, nextExpectedEntry, type FurthestPosition } from "@/lib/recitation/logic";
 import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
 import { todayISO } from "@/lib/attendance";
+import type { ProgressBar } from "@/lib/students/progress";
 import { saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
 import {
   presentWord,
@@ -67,7 +68,9 @@ export function DetailView({
   cumPages,
   cumPoints,
   onlineCount,
+  coveredPages,
   totalPages,
+  progressBars,
   onlineRecitationEnabled,
   pointsActivities,
   pointsLogs: initialPointsLogs,
@@ -81,7 +84,9 @@ export function DetailView({
   cumPages: number;
   cumPoints: number;
   onlineCount: number;
+  coveredPages: number;
   totalPages: number;
+  progressBars: ProgressBar[];
   onlineRecitationEnabled: boolean;
   pointsActivities: PointsActivity[];
   pointsLogs: PointsLogEntry[];
@@ -240,6 +245,31 @@ export function DetailView({
           </div>
         </div>
       </div>
+
+      {progressBars.length > 0 && (
+        <div className={styles.progressList}>
+          {progressBars.map((bar) => (
+            <div key={bar.key} className={styles.progressItem}>
+              <div className={styles.progressHead}>
+                <span className={styles.progressLabel}>{bar.label}</span>
+                <span className={styles.progressDetail}>
+                  {bar.detail} · {bar.percent}٪
+                </span>
+              </div>
+              <div
+                className={styles.progressTrack}
+                role="progressbar"
+                aria-label={bar.label}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={bar.percent}
+              >
+                <div className={styles.progressFill} style={{ width: `${bar.percent}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className={styles.secTitle}>
         <span className={styles.dot} /> تسجيل تسميع جديد
@@ -427,7 +457,7 @@ export function DetailView({
           <div className={styles.lbl}>نقاط الدورة (تراكمي)</div>
         </div>
         <div className={`${styles.counter} ${styles.sage}`}>
-          <div className={styles.num}>{Math.round((cumPages / totalPages) * 1000) / 10}٪</div>
+          <div className={styles.num}>{Math.min(100, Math.round((coveredPages / totalPages) * 1000) / 10)}٪</div>
           <div className={styles.lbl}>من إنجاز القرآن كامل ({totalPages} صفحة)</div>
         </div>
       </div>

@@ -1,0 +1,92 @@
+/* Matches the course-code box in Settings and the save button on the
+   student page, so every access code in the app looks the same. */
+
+.codeBox {
+  background: linear-gradient(90deg, rgba(189, 122, 62, 0.16), rgba(189, 122, 62, 0.05));
+  border: 1px dashed var(--gold-deep);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+}
+
+.codeLabel {
+  font-size: 12px;
+  color: var(--gold-deep);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.codeVal {
+  font-family: var(--font-markazi), serif;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--ink);
+}
+
+.created {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.btn:hover {
+  border-color: var(--gold-deep);
+  color: var(--gold-deep);
+}
+
+.empty {
+  text-align: center;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 12px;
+}
+
+.createBtn {
+  background: var(--rose-deep);
+  color: #fff;
+  border: none;
+  padding: 13px 26px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.createBtn:hover {
+  filter: brightness(0.88);
+}
+
+.createBtn:disabled {
+  background: rgba(108, 104, 93, 0.35);
+  cursor: not-allowed;
+}
+
+.error {
+  color: var(--rose-deep);
+  font-size: 12.5px;
+  margin-top: 10px;
+}

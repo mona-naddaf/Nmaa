@@ -2,7 +2,10 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
+import type { LoginScope } from "@prisma/client";
 
+// Brute-force lockout for the code-only logins (parent, public board).
+// Counted per scope, so failures on one login never lock out the other.
 const MAX_FAILURES = 10;
 const WINDOW_MS = 15 * 60 * 1000;
 const RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -15,17 +18,17 @@ async function clientIpHash(): Promise<string> {
   return createHash("sha256").update(`${process.env.SESSION_SECRET}:${ip}`).digest("hex").slice(0, 32);
 }
 
-export async function isParentLoginLocked(): Promise<boolean> {
+export async function isLoginLocked(scope: LoginScope): Promise<boolean> {
   const ipHash = await clientIpHash();
-  const recent = await prisma.parentLoginAttempt.count({
-    where: { ipHash, createdAt: { gte: new Date(Date.now() - WINDOW_MS) } },
+  const recent = await prisma.loginAttempt.count({
+    where: { scope, ipHash, createdAt: { gte: new Date(Date.now() - WINDOW_MS) } },
   });
   return recent >= MAX_FAILURES;
 }
 
-export async function recordParentLoginFailure() {
+export async function recordLoginFailure(scope: LoginScope) {
   const ipHash = await clientIpHash();
-  await prisma.parentLoginAttempt.create({ data: { ipHash } });
+  await prisma.loginAttempt.create({ data: { scope, ipHash } });
   // keep the table small; nothing older than the window is ever read
-  await prisma.parentLoginAttempt.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - RETENTION_MS) } } });
+  await prisma.loginAttempt.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - RETENTION_MS) } } });
 }

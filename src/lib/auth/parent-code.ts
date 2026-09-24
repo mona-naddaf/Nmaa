@@ -1,35 +1,17 @@
 import "server-only";
-import { randomInt } from "node:crypto";
 import { prisma } from "@/lib/db";
-
-// Same unambiguous alphabet as the course code (no 0/O, 1/I/L), but drawn
-// with a CSPRNG: this code alone is what stands between a stranger and a
-// child's data, so Math.random isn't good enough here.
-const CHARSET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-
-function randomCode(): string {
-  let out = "";
-  for (let i = 0; i < 8; i++) {
-    if (i === 4) out += "-";
-    out += CHARSET[randomInt(CHARSET.length)];
-  }
-  return out;
-}
+import { normalizeAccessCode, randomAccessCode } from "./access-code";
 
 export async function generateUniqueParentCode(): Promise<string> {
   for (let attempt = 0; attempt < 10; attempt++) {
-    const code = randomCode();
+    const code = randomAccessCode();
     const existing = await prisma.student.findUnique({ where: { parentCode: code }, select: { id: true } });
     if (!existing) return code;
   }
   throw new Error("تعذّر توليد رمز فريد، يُرجى المحاولة مرة أخرى");
 }
 
-// accepts the code typed with or without the dash, in any case
-export function normalizeParentCode(raw: string): string {
-  const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return compact.length === 8 ? `${compact.slice(0, 4)}-${compact.slice(4)}` : compact;
-}
+export const normalizeParentCode = normalizeAccessCode;
 
 // Folds the spelling variations people commonly type for the same Arabic
 // name: diacritics/tatweel, hamza-carrying alef forms, alef maqsura vs ya,

@@ -50,6 +50,13 @@ model Course {
   showJuzProgress         Boolean               @default(false)
   showQuranProgress       Boolean               @default(false)
   showPlanProgress        Boolean               @default(false)
+  // Public read-only leaderboard access (see src/lib/auth/board-session.ts),
+  // independent of the teacher course code above. null = no public board.
+  // Regenerating/revoking bumps boardCodeVersion, which every board session
+  // is checked against, so old sessions die immediately.
+  boardCode               String?               @unique
+  boardCodeVersion        Int                   @default(0)
+  boardCodeCreatedAt      DateTime?
   createdAt              DateTime              @default(now())
 
   teachers         Teacher[]
@@ -232,18 +239,25 @@ model AttendanceLog {
   @@index([studentId, day])
 }
 
-// One row per failed parent login, keyed by a salted hash of the client IP
-// (never the raw IP). Used only for the brute-force lockout on /parent/login;
+// One row per failed code-only login (parent or public board), keyed by a
+// salted hash of the client IP (never the raw IP). Used only for the
+// brute-force lockout (src/lib/auth/login-lockout.ts), counted per scope;
 // rows older than a day are pruned opportunistically.
-model ParentLoginAttempt {
-  id        String   @id @default(cuid())
+model LoginAttempt {
+  id        String     @id @default(cuid())
+  scope     LoginScope
   ipHash    String
-  createdAt DateTime @default(now())
+  createdAt DateTime   @default(now())
 
-  @@index([ipHash, createdAt])
+  @@index([scope, ipHash, createdAt])
 }
 
 // ---------- Enums ----------
+
+enum LoginScope {
+  PARENT
+  BOARD
+}
 
 enum AddStudentsPermission {
   ADMIN_ONLY

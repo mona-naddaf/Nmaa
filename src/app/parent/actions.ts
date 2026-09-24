@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { createParentSession, destroyParentSession } from "@/lib/auth/parent-session";
 import { normalizeParentCode, parentNameMatches } from "@/lib/auth/parent-code";
-import { isParentLoginLocked, recordParentLoginFailure } from "@/lib/auth/parent-lockout";
+import { isLoginLocked, recordLoginFailure } from "@/lib/auth/login-lockout";
 
 export type ParentLoginState = { error?: string } | null;
 
@@ -19,7 +19,7 @@ export async function parentLoginAction(_prev: ParentLoginState, formData: FormD
     return { error: "يُرجى إدخال الاسم ورمز الدخول" };
   }
 
-  if (await isParentLoginLocked()) {
+  if (await isLoginLocked("PARENT")) {
     return { error: "محاولات دخول كثيرة غير صحيحة — يُرجى المحاولة مرة أخرى بعد ربع ساعة" };
   }
 
@@ -31,7 +31,7 @@ export async function parentLoginAction(_prev: ParentLoginState, formData: FormD
   // one generic message for every failure, so the form never reveals
   // whether a code exists
   if (!student || !parentNameMatches(name, student.name)) {
-    await recordParentLoginFailure();
+    await recordLoginFailure("PARENT");
     return { error: "الاسم أو رمز الدخول غير صحيح — يُرجى التأكد منهما مع مشرف الدورة" };
   }
 

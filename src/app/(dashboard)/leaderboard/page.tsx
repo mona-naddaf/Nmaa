@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { getLeaderboardData } from "@/lib/leaderboard/data";
-import { Leaderboard } from "./Leaderboard";
+import { Leaderboard } from "@/components/leaderboard/Leaderboard";
 
 export default async function LeaderboardPage() {
   const session = await requireSession();

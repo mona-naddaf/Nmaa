@@ -12,10 +12,12 @@ export function Leaderboard({
   students,
   groups,
   dailyEntries,
+  subtitle = "لوحة إنجاز جميع الطلاب — تظهر لكل المعلمين معًا",
 }: {
   students: LeaderboardStudent[];
   groups: { id: string; name: string }[];
   dailyEntries: DailyEntry[];
+  subtitle?: string;
 }) {
   const range = useDateRange(useMemo(() => dailyEntries.map((e) => e.date), [dailyEntries]));
   const [sortBy, setSortBy] = useState<SortBy>("pages");
@@ -63,7 +65,7 @@ export function Leaderboard({
 
   return (
     <div>
-      <div className={styles.subtitle}>لوحة إنجاز جميع الطلاب — تظهر لكل المعلمين معًا</div>
+      <div className={styles.subtitle}>{subtitle}</div>
 
       <DateRangeFilter range={range} />
 

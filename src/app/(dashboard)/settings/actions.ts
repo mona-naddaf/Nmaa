@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
+import { generateUniqueBoardCode } from "@/lib/auth/board-code";
 import { pickByGroup, studentsNoun, type GroupGender } from "@/lib/text/gender";
 
 async function currentCourseId() {
@@ -136,4 +137,33 @@ export async function deletePointsActivityAction(activityId: string) {
   const cid = await currentCourseId();
   await prisma.pointsActivity.delete({ where: { id: activityId, courseId: cid } });
   revalidatePath("/settings");
+}
+
+// ---------- Public board code ----------
+
+export type BoardCodeResult = { error: string } | { code: string | null; createdAt: string | null };
+
+// Issues a fresh board code. Bumping boardCodeVersion invalidates every
+// board session opened with a previous code, so this doubles as "revoke and
+// replace". Independent of the teacher course code and of parent codes.
+export async function regenerateBoardCodeAction(): Promise<BoardCodeResult> {
+  const cid = await currentCourseId();
+  const code = await generateUniqueBoardCode();
+  const updated = await prisma.course.update({
+    where: { id: cid },
+    data: { boardCode: code, boardCodeVersion: { increment: 1 }, boardCodeCreatedAt: new Date() },
+    select: { boardCode: true, boardCodeCreatedAt: true },
+  });
+  revalidatePath("/settings");
+  return { code: updated.boardCode, createdAt: updated.boardCodeCreatedAt?.toISOString() ?? null };
+}
+
+export async function revokeBoardCodeAction(): Promise<BoardCodeResult> {
+  const cid = await currentCourseId();
+  await prisma.course.update({
+    where: { id: cid },
+    data: { boardCode: null, boardCodeVersion: { increment: 1 }, boardCodeCreatedAt: null },
+  });
+  revalidatePath("/settings");
+  return { code: null, createdAt: null };
 }

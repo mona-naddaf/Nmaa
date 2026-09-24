@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/require";
 import { supervisorNoun } from "@/lib/text/gender";
 import styles from "./settings.module.css";
 import { CourseCodeBox } from "./CourseCodeBox";
+import { BoardCodeCard } from "./BoardCodeCard";
 import { PermissionsCard } from "./PermissionsCard";
 import { OnlineToggle } from "./OnlineToggle";
 import { GroupsEditor } from "./GroupsEditor";
@@ -34,6 +35,10 @@ export default async function SettingsPage() {
       </div>
 
       <CourseCodeBox courseName={course.name} code={course.code} adminGender={admin?.gender ?? null} />
+      <BoardCodeCard
+        initialCode={course.boardCode}
+        initialCreatedAt={course.boardCodeCreatedAt?.toISOString() ?? null}
+      />
 
       <div className={styles.secTitle}>
         <span className={styles.dot} /> صلاحيات المعلمين

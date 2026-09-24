@@ -12,6 +12,7 @@ import { parentLogoutAction } from "./actions";
 
 const QUALITY_LABEL = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" } as const;
 const QUALITY_BADGE = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" } as const;
+const SESSION_TYPE_LABEL = { NEW: "حفظ جديد", REVIEW: "مراجعة", LINK: "ربط" } as const;
 
 // Read-only by construction: no inputs besides the date filter, and the only
 // server action reachable from here is logout.
@@ -166,6 +167,9 @@ export function ParentView({ data }: { data: ParentViewData }) {
                               {QUALITY_LABEL[e.quality]}
                             </span>
                           )
+                        )}
+                        {e.type !== "NEW" && (
+                          <span className={`${styles.logBadge} ${styles.typeBadge}`}>↺ {SESSION_TYPE_LABEL[e.type]}</span>
                         )}
                         <span className={styles.logTeacher}>بواسطة {e.teacherName}</span>
                       </div>

@@ -1,15 +1,19 @@
 import { AYAH_COUNT, SURAH_NAME, TOTAL_PAGES, getAyahPageEntries } from "@/lib/quran-data";
 import { juzOf, juzSegments, juzTotalPages } from "@/lib/quran-data/juz";
-import type { FurthestPosition } from "@/lib/recitation/logic";
+import { advancesPosition, type FurthestPosition, type SessionType } from "@/lib/recitation/logic";
 
 // Which ayat a student has recited at least once, by surah — overlapping and
 // repeated sessions collapse, so page totals built on this can't exceed 100%
-// the way a plain SUM(pagesCalculated) can.
+// the way a plain SUM(pagesCalculated) can. Only NEW sessions count: a
+// REVIEW/LINK of never-memorized ayat must not inflate her coverage.
 export type Coverage = Map<number, Set<number>>;
 
-export function buildCoverage(sessions: { surahNumber: number; fromAyah: number; toAyah: number }[]): Coverage {
+export function buildCoverage(
+  sessions: { surahNumber: number; fromAyah: number; toAyah: number; type: SessionType }[],
+): Coverage {
   const coverage: Coverage = new Map();
   for (const s of sessions) {
+    if (!advancesPosition(s)) continue;
     const count = AYAH_COUNT[s.surahNumber];
     if (!count) continue;
     const ayat = coverage.get(s.surahNumber) ?? new Set<number>();
@@ -17,6 +21,33 @@ export function buildCoverage(sessions: { surahNumber: number; fromAyah: number;
     coverage.set(s.surahNumber, ayat);
   }
   return coverage;
+}
+
+/** Compact form for the client: surah → sorted, merged [from, to] ayah ranges. */
+export function coverageToRanges(coverage: Coverage): Record<number, [number, number][]> {
+  const out: Record<number, [number, number][]> = {};
+  for (const [surah, ayat] of coverage) {
+    const sorted = [...ayat].sort((a, b) => a - b);
+    const ranges: [number, number][] = [];
+    for (const a of sorted) {
+      const last = ranges[ranges.length - 1];
+      if (last && a === last[1] + 1) last[1] = a;
+      else ranges.push([a, a]);
+    }
+    out[surah] = ranges;
+  }
+  return out;
+}
+
+/** True when every ayah in [from, to] lies inside the given (sorted, merged) ranges. */
+export function rangeIsMemorized(ranges: [number, number][] | undefined, from: number, to: number): boolean {
+  let next = from;
+  for (const [a, b] of ranges ?? []) {
+    if (a > next) break;
+    if (b >= next) next = b + 1;
+    if (next > to) return true;
+  }
+  return next > to;
 }
 
 function pagesOf(surahNumber: number, fromAyah: number, toAyah: number, onlyCovered?: Set<number>): number {

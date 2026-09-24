@@ -182,3 +182,19 @@
   text-align: center;
   margin-top: 24px;
 }
+
+.footRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reviewBadge {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: rgba(189, 122, 62, 0.16);
+  color: var(--gold-deep);
+  white-space: nowrap;
+}

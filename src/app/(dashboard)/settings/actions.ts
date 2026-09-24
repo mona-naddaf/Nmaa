@@ -167,3 +167,17 @@ export async function revokeBoardCodeAction(): Promise<BoardCodeResult> {
   revalidatePath("/settings");
   return { code: null, createdAt: null };
 }
+
+// ---------- Review reminders ----------
+
+// null turns reminders off; turning them on pre-fills 14 days
+export async function setReviewReminderDaysAction(days: number | null): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  if (days !== null && (!Number.isInteger(days) || days < 1 || days > 365)) {
+    return { error: "يُرجى إدخال عدد أيام بين 1 و365" };
+  }
+  await prisma.course.update({ where: { id: cid }, data: { reviewReminderDays: days } });
+  revalidatePath("/settings");
+  revalidatePath("/students", "layout");
+  return {};
+}

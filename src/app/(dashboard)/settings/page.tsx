@@ -8,6 +8,7 @@ import { PermissionsCard } from "./PermissionsCard";
 import { OnlineToggle } from "./OnlineToggle";
 import { GroupsEditor } from "./GroupsEditor";
 import { ProgressBarsCard } from "./ProgressBarsCard";
+import { ReviewReminderCard } from "./ReviewReminderCard";
 import { PointsEditor } from "./PointsEditor";
 
 export default async function SettingsPage() {
@@ -73,6 +74,13 @@ export default async function SettingsPage() {
             showPlanProgress: course.showPlanProgress,
           }}
         />
+      </div>
+
+      <div className={styles.secTitle}>
+        <span className={styles.dot} /> تذكير المراجعة
+      </div>
+      <div className={styles.card}>
+        <ReviewReminderCard days={course.reviewReminderDays} />
       </div>
 
       <div className={styles.secTitle}>

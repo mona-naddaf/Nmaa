@@ -4,7 +4,16 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin, requireSession } from "@/lib/auth/require";
 import { generateUniqueParentCode } from "@/lib/auth/parent-code";
-import { calculatePageRange, classifyRecitation, deriveFurthestPosition } from "@/lib/recitation/logic";
+import {
+  advancesPosition,
+  calculatePageRange,
+  classifyRecitation,
+  deriveFurthestPosition,
+  type RecitationSituation,
+  type SessionType,
+} from "@/lib/recitation/logic";
+
+const SESSION_TYPES: SessionType[] = ["NEW", "REVIEW", "LINK"];
 import { todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { imperative, thisDemonstrative, pickByGroup } from "@/lib/text/gender";
@@ -29,6 +38,7 @@ export type SaveRecitationInput = {
   toAyah: number;
   quality: "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
   mode: "IN_PERSON" | "ONLINE";
+  type: SessionType;
   notes: string;
   reason: string;
   sessionDate: string; // "YYYY-MM-DD", defaults to today but can be backdated
@@ -56,16 +66,29 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
     }
   }
 
-  const plan = student.planItems.map((pi) => pi.surahNumber);
-  const priorSessions = await prisma.recitationSession.findMany({
-    where: { studentId: student.id },
-    select: { surahNumber: true, toAyah: true },
-  });
-  const furthest = deriveFurthestPosition(plan, priorSessions);
+  if (!SESSION_TYPES.includes(input.type)) {
+    return { error: "نوع الجلسة غير صحيح" };
+  }
 
-  const classification = classifyRecitation(plan, furthest, input.surahNumber, input.fromAyah, student.group.gender);
-  if (classification.requiresReason && !input.reason.trim()) {
-    return { error: "يُرجى كتابة سبب هذا التسجيل قبل الحفظ" };
+  // Only new memorization goes through gap detection (and may need a
+  // reason). A review/link revisits covered material by definition: it gets
+  // no situation and can never advance her position (deriveFurthestPosition
+  // ignores it), whatever range it names.
+  let situation: RecitationSituation | null = null;
+  let requiresReason = false;
+  if (advancesPosition(input)) {
+    const plan = student.planItems.map((pi) => pi.surahNumber);
+    const priorSessions = await prisma.recitationSession.findMany({
+      where: { studentId: student.id },
+      select: { surahNumber: true, toAyah: true, type: true },
+    });
+    const furthest = deriveFurthestPosition(plan, priorSessions);
+    const classification = classifyRecitation(plan, furthest, input.surahNumber, input.fromAyah, student.group.gender);
+    situation = classification.situation;
+    requiresReason = classification.requiresReason;
+    if (requiresReason && !input.reason.trim()) {
+      return { error: "يُرجى كتابة سبب هذا التسجيل قبل الحفظ" };
+    }
   }
 
   const pages = calculatePageRange(input.surahNumber, input.fromAyah, input.toAyah);
@@ -93,8 +116,9 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
       pagesCalculated: pages.totalPages,
       quality: input.quality,
       mode: input.mode,
-      situation: classification.situation,
-      reason: classification.requiresReason ? input.reason.trim() : null,
+      type: input.type,
+      situation,
+      reason: requiresReason ? input.reason.trim() : null,
       notes: input.notes.trim() || null,
       occurredAt,
     },

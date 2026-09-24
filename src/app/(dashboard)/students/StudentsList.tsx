@@ -96,7 +96,18 @@ export function StudentsList({
                   <span className={`${styles.dot} ${styles[ATTENDANCE_CLASS[s.attendance]]}`} />
                   {attendanceLabel(s.attendance)}
                 </div>
-                <div className={styles.pointsBadge}>{s.cumPoints}</div>
+                <div className={styles.footRight}>
+                  {s.overdueReviewCount > 0 && (
+                    <span
+                      className={styles.reviewBadge}
+                      title={`${s.overdueReviewCount} سورة تحتاج مراجعة`}
+                      aria-label={`${s.overdueReviewCount} سورة تحتاج مراجعة`}
+                    >
+                      🔁 {s.overdueReviewCount}
+                    </span>
+                  )}
+                  <div className={styles.pointsBadge}>{s.cumPoints}</div>
+                </div>
               </div>
             </Link>
           ))}

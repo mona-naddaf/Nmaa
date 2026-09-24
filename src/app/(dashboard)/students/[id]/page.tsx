@@ -4,7 +4,8 @@ import { requireSession } from "@/lib/auth/require";
 import { deriveFurthestPosition } from "@/lib/recitation/logic";
 import { attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
 import { TOTAL_PAGES } from "@/lib/quran-data";
-import { buildCoverage, computeProgressBars, coveredQuranPages } from "@/lib/students/progress";
+import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages } from "@/lib/students/progress";
+import { computeOverdueSurahs } from "@/lib/students/review";
 import { DetailView } from "./DetailView";
 import { ParentCodeCard } from "./ParentCodeCard";
 
@@ -47,15 +48,13 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   ]);
 
   const plan = student.planItems.map((pi) => pi.surahNumber);
-  const furthest = deriveFurthestPosition(
-    plan,
-    sessions.map((s) => ({ surahNumber: s.surahNumber, toAyah: s.toAyah })),
-  );
+  const furthest = deriveFurthestPosition(plan, sessions);
 
   const cumPages = sessions.reduce((sum, s) => sum + Number(s.pagesCalculated), 0);
   const onlineCount = sessions.filter((s) => s.mode === "ONLINE").length;
   const coverage = buildCoverage(sessions);
   const progressBars = computeProgressBars({ settings: course, plan, furthest, coverage });
+  const overdueSurahs = computeOverdueSurahs(sessions, course.reviewReminderDays, today);
   const cumPoints = pointsLogs.reduce((sum, p) => sum + (p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime), 0);
 
   return (
@@ -77,6 +76,9 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         coveredPages={coveredQuranPages(coverage)}
         totalPages={TOTAL_PAGES}
         progressBars={progressBars}
+        memorizedRanges={coverageToRanges(coverage)}
+        overdueSurahs={overdueSurahs}
+        reviewReminderDays={course.reviewReminderDays}
         onlineRecitationEnabled={course.onlineRecitationEnabled}
         pointsActivities={course.pointsActivities.map((a) => ({
           id: a.id,
@@ -98,6 +100,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           toAyah: s.toAyah,
           quality: s.quality,
           mode: s.mode,
+          type: s.type,
           teacherName: s.teacher.name,
           notes: s.notes,
           reason: s.reason,

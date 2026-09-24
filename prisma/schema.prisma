@@ -57,6 +57,9 @@ model Course {
   boardCode               String?               @unique
   boardCodeVersion        Int                   @default(0)
   boardCodeCreatedAt      DateTime?
+  // Days a completed surah may go without a REVIEW/LINK session before the
+  // student is flagged (src/lib/students/review.ts). null = reminders off.
+  reviewReminderDays      Int?
   createdAt              DateTime              @default(now())
 
   teachers         Teacher[]
@@ -186,6 +189,11 @@ model RecitationSession {
   teacherId       String
   teacher         Teacher              @relation(fields: [teacherId], references: [id])
   source          RecitationSource     @default(LOGGED)
+  // Only NEW sessions (and PRIOR baselines, which are always NEW) advance
+  // the student's position / coverage and go through gap detection.
+  // REVIEW/LINK revisit covered material: logged and counted as practice
+  // volume, but never move her forward. They feed the review reminders.
+  type            SessionType          @default(NEW)
   surahNumber     Int
   fromAyah        Int
   toAyah          Int
@@ -316,6 +324,15 @@ enum RecitationSituation {
   SURAH_GAP
   AYAH_GAP
   EDIT
+}
+
+enum SessionType {
+  // حفظ جديد — new memorization
+  NEW
+  // مراجعة — review of already-memorized material
+  REVIEW
+  // ربط — linking recently memorized portions together
+  LINK
 }
 
 enum RecitationSource {

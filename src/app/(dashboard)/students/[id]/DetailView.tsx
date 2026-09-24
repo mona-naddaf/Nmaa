@@ -4,10 +4,17 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./detail.module.css";
-import { calculatePageRange, classifyRecitation, nextExpectedEntry, type FurthestPosition } from "@/lib/recitation/logic";
+import {
+  calculatePageRange,
+  classifyRecitation,
+  nextExpectedEntry,
+  type FurthestPosition,
+  type SessionType,
+} from "@/lib/recitation/logic";
 import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
 import { todayISO } from "@/lib/attendance";
-import type { ProgressBar } from "@/lib/students/progress";
+import { rangeIsMemorized, type ProgressBar } from "@/lib/students/progress";
+import type { OverdueSurah } from "@/lib/students/review";
 import { saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
 import {
   presentWord,
@@ -47,6 +54,7 @@ interface HistoryEntry {
   toAyah: number;
   quality: Quality | null;
   mode: Mode | null;
+  type: SessionType;
   teacherName: string;
   notes: string | null;
   reason: string | null;
@@ -58,6 +66,7 @@ const QUALITY_LABEL: Record<Quality, string> = {
   NEEDS_REPEAT: "يحتاج إعادة",
 };
 const QUALITY_BADGE: Record<Quality, string> = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" };
+const SESSION_TYPE_LABEL: Record<SessionType, string> = { NEW: "حفظ جديد", REVIEW: "مراجعة", LINK: "ربط" };
 
 export function DetailView({
   student,
@@ -71,6 +80,9 @@ export function DetailView({
   coveredPages,
   totalPages,
   progressBars,
+  memorizedRanges,
+  overdueSurahs,
+  reviewReminderDays,
   onlineRecitationEnabled,
   pointsActivities,
   pointsLogs: initialPointsLogs,
@@ -87,6 +99,9 @@ export function DetailView({
   coveredPages: number;
   totalPages: number;
   progressBars: ProgressBar[];
+  memorizedRanges: Record<number, [number, number][]>;
+  overdueSurahs: OverdueSurah[];
+  reviewReminderDays: number | null;
   onlineRecitationEnabled: boolean;
   pointsActivities: PointsActivity[];
   pointsLogs: PointsLogEntry[];
@@ -103,6 +118,7 @@ export function DetailView({
   const [toAyah, setToAyah] = useState(initialEntry.toAyah);
   const [quality, setQuality] = useState<Quality>("EXCELLENT");
   const [mode, setMode] = useState<Mode>("IN_PERSON");
+  const [sessionType, setSessionType] = useState<SessionType>("NEW");
   const [notes, setNotes] = useState("");
   const [reason, setReason] = useState("");
   const [sessionDate, setSessionDate] = useState(today);
@@ -128,9 +144,22 @@ export function DetailView({
   );
   const pageResult = useMemo(() => calculatePageRange(surahNumber, fromAyah, toAyah), [surahNumber, fromAyah, toAyah]);
 
+  // gap detection (and its mandatory reason) applies to new memorization only
+  const isNew = sessionType === "NEW";
+  const requiresReason = isNew && classification.requiresReason;
+  const reviewOfUnmemorized = !isNew && !rangeIsMemorized(memorizedRanges[surahNumber], fromAyah, toAyah);
+
   const reasonFilled = reason.trim().length > 0;
   const hasRangeError = "error" in pageResult;
-  const saveDisabled = hasRangeError || (classification.requiresReason && !reasonFilled) || savePending;
+  const saveDisabled = hasRangeError || (requiresReason && !reasonFilled) || savePending;
+
+  function startReview(surah: number) {
+    setSessionType("REVIEW");
+    setSurahNumber(surah);
+    setFromAyah(1);
+    setToAyah(AYAH_COUNT[surah]);
+    document.getElementById("recitationForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   function toggleAttendance(next: "IN" | "OUT") {
     setAttendanceState(next);
@@ -164,8 +193,9 @@ export function DetailView({
         toAyah,
         quality,
         mode,
+        type: sessionType,
         notes,
-        reason,
+        reason: requiresReason ? reason : "",
         sessionDate,
       });
       if ("error" in result) {
@@ -177,9 +207,9 @@ export function DetailView({
       router.refresh();
 
       // advance the form to the next natural entry, unless this was a
-      // review of already-covered material (EDIT), where staying put lets
-      // the teacher keep adjusting
-      if (classification.situation !== "EDIT") {
+      // review/link or a re-recording of covered material (EDIT), where
+      // staying put lets the teacher keep adjusting
+      if (isNew && classification.situation !== "EDIT") {
         const next = nextExpectedEntry(plan, { surahNumber, ayah: toAyah });
         setSurahNumber(next.surahNumber);
         setFromAyah(next.fromAyah);
@@ -187,9 +217,11 @@ export function DetailView({
       }
 
       setToast(
-        classification.situation === "SURAH_GAP" || classification.situation === "AYAH_GAP"
-          ? "تم الحفظ مع تسجيل ملاحظة الفجوة ✓"
-          : "تم حفظ التسميع ✓",
+        !isNew
+          ? `تم حفظ جلسة ال${SESSION_TYPE_LABEL[sessionType]} ✓`
+          : classification.situation === "SURAH_GAP" || classification.situation === "AYAH_GAP"
+            ? "تم الحفظ مع تسجيل ملاحظة الفجوة ✓"
+            : "تم حفظ التسميع ✓",
       );
       setTimeout(() => setToast(null), 2200);
     });
@@ -271,10 +303,44 @@ export function DetailView({
         </div>
       )}
 
-      <div className={styles.secTitle}>
+      {overdueSurahs.length > 0 && (
+        <div className={styles.reviewCard}>
+          <div className={styles.reviewHead}>
+            🔁 سور تحتاج مراجعة
+            <span className={styles.reviewHint}>لم تُراجع كاملةً منذ أكثر من {reviewReminderDays} يومًا</span>
+          </div>
+          {overdueSurahs.map((o) => (
+            <button key={o.surahNumber} type="button" className={styles.reviewRow} onClick={() => startReview(o.surahNumber)}>
+              <span className={styles.reviewSurah}>{SURAH_NAME[o.surahNumber]}</span>
+              <span className={styles.reviewMeta}>
+                {/* bdi keeps the YYYY-MM-DD date from being reordered by the RTL sentence around it */}
+                {o.neverReviewed ? "لم تُراجع منذ الإتمام" : "أقدم جزء رُوجع في"} <bdi dir="ltr">{o.since}</bdi> · منذ{" "}
+                {o.daysSince} يومًا
+              </span>
+              <span className={styles.reviewAction}>تسجيل مراجعة ←</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.secTitle} id="recitationForm">
         <span className={styles.dot} /> تسجيل تسميع جديد
       </div>
       <div className={styles.card}>
+        <div className={styles.typePills} role="radiogroup" aria-label="نوع الجلسة">
+          {(["NEW", "REVIEW", "LINK"] as SessionType[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="radio"
+              aria-checked={sessionType === t}
+              className={`${styles.typePill} ${sessionType === t ? styles.sel : ""}`}
+              onClick={() => setSessionType(t)}
+            >
+              {SESSION_TYPE_LABEL[t]}
+            </button>
+          ))}
+        </div>
         <div className={styles.fieldRow}>
           <div className={styles.field}>
             <label htmlFor="surahSel">السورة</label>
@@ -376,15 +442,27 @@ export function DetailView({
             ⏱️ جلسة مؤرَّخة بتاريخ سابق ({sessionDate}) — ستُنسب نقاطها إلى هذا التاريخ لا إلى اليوم
           </div>
         )}
-        <div className={`${styles.modeBadge} ${styles[classification.badgeVariant]}`}>{classification.badgeText}</div>
+        {isNew ? (
+          <div className={`${styles.modeBadge} ${styles[classification.badgeVariant]}`}>{classification.badgeText}</div>
+        ) : (
+          <div className={`${styles.modeBadge} ${styles.next}`}>
+            ↺ {SESSION_TYPE_LABEL[sessionType]} — لا تغيّر موضع {pickByGroup(groupGender, { m: "الطالب", f: "الطالبة" })} ولا تخضع لفحص الفجوات
+          </div>
+        )}
 
-        {classification.warningMessage && (
+        {isNew && classification.warningMessage && (
           <div className={styles.gapWarning}>
             ⚠️ <div>{classification.warningMessage}</div>
           </div>
         )}
 
-        {classification.requiresReason && (
+        {reviewOfUnmemorized && !hasRangeError && (
+          <div className={styles.gapWarning}>
+            ⚠️ <div>هذه الآيات لم تُسجَّل كحفظ جديد بعد — سيُحفظ التسجيل كـ{SESSION_TYPE_LABEL[sessionType]} دون أن يغيّر الموضع. {pickByPerson(viewerGender, { m: "تأكّد", f: "تأكّدي" })} من نوع الجلسة.</div>
+          </div>
+        )}
+
+        {requiresReason && (
           <div className={styles.reasonBox}>
             <label htmlFor="reasonText">سبب هذا التسجيل (إلزامي)</label>
             <textarea
@@ -491,6 +569,9 @@ export function DetailView({
                       <span className={`${styles.logBadge} ${styles.mode}`}>
                         {e.mode === "ONLINE" ? "أونلاين" : "حضوري"}
                       </span>
+                      {e.type !== "NEW" && (
+                        <span className={`${styles.logBadge} ${styles.typeBadge}`}>↺ {SESSION_TYPE_LABEL[e.type]}</span>
+                      )}
                     </>
                   )}
                   <span className={styles.logTeacher}>بواسطة {e.teacherName}</span>

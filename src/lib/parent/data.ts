@@ -14,6 +14,7 @@ export interface ParentHistoryEntry {
   id: string;
   date: string; // YYYY-MM-DD
   source: "LOGGED" | "PRIOR";
+  type: "NEW" | "REVIEW" | "LINK";
   surahNumber: number;
   fromAyah: number;
   toAyah: number;
@@ -54,6 +55,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
         id: true,
         occurredAt: true,
         source: true,
+        type: true,
         surahNumber: true,
         fromAyah: true,
         toAyah: true,
@@ -86,6 +88,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
       id: s.id,
       date: s.occurredAt.toISOString().slice(0, 10),
       source: s.source,
+      type: s.type,
       surahNumber: s.surahNumber,
       fromAyah: s.fromAyah,
       toAyah: s.toAyah,

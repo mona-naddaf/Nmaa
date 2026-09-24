@@ -50,6 +50,17 @@ export function calculatePageRange(
   };
 }
 
+export type SessionType = "NEW" | "REVIEW" | "LINK";
+
+/**
+ * Whether a session moves the student forward. Only new memorization does
+ * (PRIOR baselines are stored as NEW); REVIEW/LINK revisit covered material
+ * and must never advance her position or coverage, whatever range they name.
+ */
+export function advancesPosition(session: { type: SessionType }): boolean {
+  return session.type === "NEW";
+}
+
 export type RecitationSituation = "CONTINUE" | "NEXT" | "SURAH_GAP" | "AYAH_GAP" | "EDIT";
 
 export interface FurthestPosition {
@@ -228,13 +239,15 @@ export function nextExpectedEntry(plan: number[], furthest: FurthestPosition | n
  * The furthest point reached anywhere in the student's plan, derived from
  * all of her recitation sessions (not just the most recent one — an "edit"
  * session that reviews an earlier surah must not move this backward).
+ * REVIEW/LINK sessions are ignored entirely, so they can never move it forward.
  */
 export function deriveFurthestPosition(
   plan: number[],
-  sessions: { surahNumber: number; toAyah: number }[],
+  sessions: { surahNumber: number; toAyah: number; type: SessionType }[],
 ): FurthestPosition | null {
   let best: { pos: number; ayah: number; surahNumber: number } | null = null;
   for (const s of sessions) {
+    if (!advancesPosition(s)) continue;
     const pos = plan.indexOf(s.surahNumber);
     if (pos === -1) continue;
     if (!best || pos > best.pos || (pos === best.pos && s.toAyah > best.ayah)) {

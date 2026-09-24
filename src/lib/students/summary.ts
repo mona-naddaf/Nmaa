@@ -4,6 +4,7 @@ import { deriveFurthestPosition } from "@/lib/recitation/logic";
 import { SURAH_NAME, AYAH_COUNT } from "@/lib/quran-data";
 import { attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/lib/attendance";
 import { pickByGroup } from "@/lib/text/gender";
+import { computeOverdueSurahs } from "@/lib/students/review";
 
 export interface StudentSummary {
   id: string;
@@ -15,6 +16,8 @@ export interface StudentSummary {
   cumPoints: number;
   onlineCount: number;
   lastPositionText: string;
+  // completed surahs past the course review window (0 when reminders are off)
+  overdueReviewCount: number;
 }
 
 export async function getStudentSummaries(courseId: string, groupIds?: string[]): Promise<StudentSummary[]> {
@@ -25,13 +28,25 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
   });
   if (students.length === 0) return [];
 
+  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { reviewReminderDays: true } });
+  const reviewDays = course?.reviewReminderDays ?? null;
+
   const studentIds = students.map((s) => s.id);
 
   const today = todayDateOnly();
   const [sessions, pointsLogs, attendanceLogs] = await Promise.all([
     prisma.recitationSession.findMany({
       where: { studentId: { in: studentIds } },
-      select: { studentId: true, surahNumber: true, toAyah: true, pagesCalculated: true, mode: true },
+      select: {
+        studentId: true,
+        surahNumber: true,
+        fromAyah: true,
+        toAyah: true,
+        pagesCalculated: true,
+        mode: true,
+        type: true,
+        occurredAt: true,
+      },
     }),
     prisma.pointsLog.findMany({
       where: { studentId: { in: studentIds } },
@@ -67,10 +82,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
     const plan = student.planItems.map((pi) => pi.surahNumber);
     const studentSessions = sessionsByStudent.get(student.id) ?? [];
 
-    const furthest = deriveFurthestPosition(
-      plan,
-      studentSessions.map((s) => ({ surahNumber: s.surahNumber, toAyah: s.toAyah })),
-    );
+    const furthest = deriveFurthestPosition(plan, studentSessions);
 
     const cumPages = studentSessions.reduce((sum, s) => sum + Number(s.pagesCalculated), 0);
     const onlineCount = studentSessions.filter((s) => s.mode === "ONLINE").length;
@@ -91,6 +103,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
       cumPoints: pointsByStudent.get(student.id) ?? 0,
       onlineCount,
       lastPositionText,
+      overdueReviewCount: computeOverdueSurahs(studentSessions, reviewDays, today).length,
     };
   });
 }

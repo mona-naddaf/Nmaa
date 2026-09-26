@@ -40,6 +40,7 @@ export default async function StudentsPage() {
       groups={visibleGroups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))}
       students={students}
       canAddStudents={canAddStudents}
+      canImport={session.role === "admin"}
       viewerGender={viewer?.gender ?? null}
     />
   );

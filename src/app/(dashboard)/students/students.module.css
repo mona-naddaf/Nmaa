@@ -198,3 +198,9 @@
   color: var(--gold-deep);
   white-space: nowrap;
 }
+
+.secondaryBtn {
+  background: var(--paper);
+  color: var(--sage-deep);
+  border: 1px solid var(--sage-deep);
+}

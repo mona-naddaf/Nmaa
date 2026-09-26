@@ -3,7 +3,9 @@ import { COOKIE_NAME, verifyToken } from "@/lib/auth/session";
 import { PARENT_COOKIE_NAME, verifyParentToken } from "@/lib/auth/parent-token";
 import { BOARD_COOKIE_NAME, verifyBoardToken } from "@/lib/auth/board-token";
 
-const ADMIN_ONLY_PATHS = ["/settings"];
+// /students/import: bulk import is supervisor-only regardless of the
+// course add-students permission (the page and action re-check too)
+const ADMIN_ONLY_PATHS = ["/settings", "/students/import"];
 
 const CODE_AREAS = [
   { base: "/parent", cookie: PARENT_COOKIE_NAME, verify: verifyParentToken },

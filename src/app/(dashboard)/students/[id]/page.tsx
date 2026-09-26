@@ -64,6 +64,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           id: student.id,
           name: student.name,
           age: student.age,
+          grade: student.grade,
           attendance: attendanceStatusForDay(todayAttendance, today),
         }}
         groupGender={student.group.gender}

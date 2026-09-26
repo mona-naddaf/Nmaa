@@ -146,6 +146,9 @@ model Student {
   group        Group        @relation(fields: [groupId], references: [id])
   name         String
   age          Int
+  // school grade (الصف), free text as the supervisor writes it (e.g. الخامس).
+  // Optional: students added before this field existed have none.
+  grade        String?
   planTemplate PlanTemplate @default(CUSTOM)
   createdAt    DateTime     @default(now())
 

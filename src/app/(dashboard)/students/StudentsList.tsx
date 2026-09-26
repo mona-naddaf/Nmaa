@@ -23,11 +23,13 @@ export function StudentsList({
   groups,
   students,
   canAddStudents,
+  canImport,
   viewerGender,
 }: {
   groups: { id: string; name: string; gender: GroupGender }[];
   students: StudentSummary[];
   canAddStudents: boolean;
+  canImport: boolean;
   viewerGender: PersonGender;
 }) {
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id ?? "");
@@ -45,11 +47,18 @@ export function StudentsList({
 
   return (
     <div>
-      {canAddStudents && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-          <Link href="/students/new" className={styles.addBtn}>
-            + إضافة {studentNoun(activeGender)} {newAdj(activeGender)}
-          </Link>
+      {(canAddStudents || canImport) && (
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+          {canImport && (
+            <Link href="/students/import" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
+              ⬆ استيراد من Excel
+            </Link>
+          )}
+          {canAddStudents && (
+            <Link href="/students/new" className={styles.addBtn}>
+              + إضافة {studentNoun(activeGender)} {newAdj(activeGender)}
+            </Link>
+          )}
         </div>
       )}
 

@@ -88,7 +88,7 @@ export function DetailView({
   pointsLogs: initialPointsLogs,
   history,
 }: {
-  student: { id: string; name: string; age: number; attendance: Attendance };
+  student: { id: string; name: string; age: number; grade: string | null; attendance: Attendance };
   groupGender: GroupGender;
   viewerGender: PersonGender;
   plan: number[];
@@ -240,7 +240,10 @@ export function DetailView({
           <div className={styles.avatarLg}>{student.name.charAt(0)}</div>
           <div>
             <div className={styles.girlName}>{student.name}</div>
-            <div className={styles.girlMeta}>{student.age} سنوات</div>
+            <div className={styles.girlMeta}>
+              {student.age} سنوات
+              {student.grade && ` · ${student.grade.startsWith("الصف") ? student.grade : `الصف ${student.grade}`}`}
+            </div>
           </div>
         </div>
         <div className={styles.attendanceToggle}>

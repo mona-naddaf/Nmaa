@@ -5,6 +5,7 @@ import styles from "./new-student.module.css";
 import { createStudentAction } from "./actions";
 import { AYAH_COUNT, SURAHS, SURAH_BY_NUMBER, MUSHAF_ORDER, MUSHAF_REVERSE_ORDER, JUZ_AMMA_REVERSE_ORDER } from "@/lib/quran-data";
 import { calculatePageRange } from "@/lib/recitation/logic";
+import { planRange } from "@/lib/students/new-student";
 import {
   studentNounDef,
   pickByGroup,
@@ -24,6 +25,7 @@ export function NewStudentForm({
 }) {
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
+  const [grade, setGrade] = useState("");
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
   const selectedGender: GroupGender = groups.find((g) => g.id === groupId)?.gender ?? "MIXED";
   const [template, setTemplate] = useState<TemplateKey>("mushafrev");
@@ -76,11 +78,8 @@ export function NewStudentForm({
 
   function addRange() {
     if (rangeFrom == null || rangeTo == null) return;
-    const posFrom = plan.indexOf(rangeFrom);
-    const posTo = plan.indexOf(rangeTo);
-    if (posFrom === -1 || posTo === -1) return;
-    const [lo, hi] = posFrom <= posTo ? [posFrom, posTo] : [posTo, posFrom];
-    const rangeSurahs = plan.slice(lo, hi + 1);
+    const rangeSurahs = planRange(plan, rangeFrom, rangeTo);
+    if (!rangeSurahs) return;
     setCompletedSurahs((prev) => [...new Set([...prev, ...rangeSurahs])]);
     if (partialSurah != null && rangeSurahs.includes(partialSurah)) setPartialSurah(null);
   }
@@ -130,6 +129,7 @@ export function NewStudentForm({
     const formData = new FormData();
     formData.set("name", name);
     formData.set("age", age);
+    formData.set("grade", grade);
     formData.set("groupId", groupId);
     formData.set("template", template);
     formData.set("plan", JSON.stringify(plan));
@@ -160,6 +160,10 @@ export function NewStudentForm({
           <div className={styles.field}>
             <label htmlFor="girlAge">العمر</label>
             <input id="girlAge" type="number" placeholder="مثال: 10" value={age} onChange={(e) => setAge(e.target.value)} />
+          </div>
+          <div className={styles.field}>
+            <label htmlFor="girlGrade">الصف (اختياري)</label>
+            <input id="girlGrade" type="text" placeholder="مثال: الخامس" value={grade} onChange={(e) => setGrade(e.target.value)} />
           </div>
         </div>
         <div className={styles.field}>

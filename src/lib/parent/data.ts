@@ -5,6 +5,7 @@ import { buildCoverage, coveredQuranPages } from "@/lib/students/progress";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import type { GroupGender } from "@/lib/text/gender";
 import { getActiveMistakes } from "@/lib/students/mistakes";
+import { BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 
 // The ONLY data source for the parent view. Every query here is keyed on the
@@ -107,7 +108,9 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     })),
     points: pointsLogs.map((p) => ({
       date: p.day.toISOString().slice(0, 10),
-      activityName: p.activity.name,
+      // bonus rows group under one label; their notes are teacher-written
+      // and deliberately not selected for parents
+      activityName: p.activity?.name ?? BONUS_POINTS_LABEL,
       value: p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime,
     })),
   };

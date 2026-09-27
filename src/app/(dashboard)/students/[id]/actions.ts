@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin, requireSession } from "@/lib/auth/require";
-import { generateUniqueParentCode } from "@/lib/auth/parent-code";
+import { issueParentCode } from "@/lib/auth/parent-code";
 import {
   advancesPosition,
   calculatePageRange,
@@ -20,6 +20,7 @@ import { imperative, thisDemonstrative, pickByGroup, type GroupGender } from "@/
 import type { Session } from "@/lib/auth/session";
 import { wordAt } from "@/lib/quran-data/quran-text";
 import { MISTAKE_TYPES, type MistakeType } from "@/lib/students/mistake-types";
+import { BONUS_NOTE_MAX_LENGTH } from "@/lib/points/bonus";
 
 function addHoursUTC(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
@@ -35,8 +36,20 @@ async function loadStudentForCourse(studentId: string, courseId: string) {
 }
 
 // In an ASSIGNED-visibility course, a teacher may only act on students in
-// the groups assigned to her (when she has any assignments). The same rule
-// gates logging recitation and resolving flagged mistakes.
+// the groups assigned to her (when she has any assignments). Every
+// per-student action a teacher can take goes through studentAccessError:
+// recitation, resolving mistakes, attendance, fixed points and bonus points.
+// (The student page itself also redirects, but these server actions can be
+// called directly, so each re-checks.)
+async function studentAccessError(
+  session: Session,
+  student: { groupId: string; group: { gender: GroupGender } },
+): Promise<string | null> {
+  if (session.role !== "teacher") return null;
+  const course = await prisma.course.findUniqueOrThrow({ where: { id: session.courseId }, select: { visibilityMode: true } });
+  return assignedGroupError(session, student, course);
+}
+
 async function assignedGroupError(
   session: Extract<Session, { role: "teacher" }>,
   student: { groupId: string; group: { gender: GroupGender } },
@@ -200,11 +213,8 @@ export async function resolveMistakeAction(
 ): Promise<SaveRecitationResult> {
   const session = await requireSession();
   const student = await loadStudentForCourse(studentId, session.courseId);
-  if (session.role === "teacher") {
-    const course = await prisma.course.findUniqueOrThrow({ where: { id: session.courseId } });
-    const denied = await assignedGroupError(session, student, course);
-    if (denied) return { error: denied };
-  }
+  const denied = await studentAccessError(session, student);
+  if (denied) return { error: denied };
 
   const teacherId = await resolveTeacherId(session);
   await prisma.recitationMistake.updateMany({
@@ -216,9 +226,11 @@ export async function resolveMistakeAction(
   return { ok: true };
 }
 
-export async function setAttendanceAction(studentId: string, status: "IN" | "OUT") {
+export async function setAttendanceAction(studentId: string, status: "IN" | "OUT"): Promise<{ error?: string }> {
   const session = await requireSession();
-  await loadStudentForCourse(studentId, session.courseId);
+  const student = await loadStudentForCourse(studentId, session.courseId);
+  const denied = await studentAccessError(session, student);
+  if (denied) return { error: denied };
   const teacherId = await resolveTeacherId(session);
   const day = todayDateOnly();
 
@@ -228,11 +240,14 @@ export async function setAttendanceAction(studentId: string, status: "IN" | "OUT
     create: { studentId, day, status, teacherId },
   });
   revalidatePath(`/students/${studentId}`);
+  return {};
 }
 
-export async function togglePointAction(studentId: string, activityId: string, dayInput: string) {
+export async function togglePointAction(studentId: string, activityId: string, dayInput: string): Promise<{ error?: string }> {
   const session = await requireSession();
   const student = await loadStudentForCourse(studentId, session.courseId);
+  const denied = await studentAccessError(session, student);
+  if (denied) return { error: denied };
 
   const activity = await prisma.pointsActivity.findFirst({
     where: { id: activityId, courseId: session.courseId },
@@ -264,6 +279,39 @@ export async function togglePointAction(studentId: string, activityId: string, d
   }
 
   revalidatePath(`/students/${studentId}`);
+  return {};
+}
+
+// ---------- Bonus points ----------
+
+export type BonusPointResult = { error: string } | { id: string; note: string; teacherName: string };
+
+/**
+ * Adds exactly one bonus point for the given day, with its required note.
+ * Each press is its own PointsLog row (no activity), so it has a full trail
+ * and every points total picks it up. Same access rule as logging
+ * recitation for this student.
+ */
+export async function addBonusPointAction(studentId: string, dayInput: string, noteInput: string): Promise<BonusPointResult> {
+  const session = await requireSession();
+  const student = await loadStudentForCourse(studentId, session.courseId);
+  const denied = await studentAccessError(session, student);
+  if (denied) return { error: denied };
+
+  const note = noteInput.trim();
+  if (!note) return { error: "يُرجى كتابة سبب النقطة الإضافية" };
+  if (note.length > BONUS_NOTE_MAX_LENGTH) return { error: "السبب طويل جدًا" };
+  const day = parseDateOnlyInput(dayInput);
+  if (!day) return { error: "تاريخ غير صحيح" };
+
+  const teacherId = await resolveTeacherId(session);
+  const row = await prisma.pointsLog.create({
+    data: { studentId: student.id, activityId: null, note, teacherId, valueAtTime: 1, typeAtTime: "ADD", day },
+    select: { id: true, note: true, teacher: { select: { name: true } } },
+  });
+
+  revalidatePath(`/students/${studentId}`);
+  return { id: row.id, note: row.note ?? note, teacherName: row.teacher.name };
 }
 
 // ---------- Parent access (supervisor only) ----------
@@ -281,14 +329,10 @@ async function adminStudentId(studentId: string) {
 // opened with a previous code, so this doubles as "revoke and replace".
 export async function regenerateParentCodeAction(studentId: string): Promise<ParentAccessResult> {
   const id = await adminStudentId(studentId);
-  const code = await generateUniqueParentCode();
-  const updated = await prisma.student.update({
-    where: { id },
-    data: { parentCode: code, parentCodeVersion: { increment: 1 }, parentCodeCreatedAt: new Date() },
-    select: { parentCode: true, parentCodeCreatedAt: true },
-  });
+  const issued = await issueParentCode(id);
+  if (!issued) return { error: "تعذّر إنشاء الرمز، يُرجى المحاولة مرة أخرى" };
   revalidatePath(`/students/${id}`);
-  return { code: updated.parentCode, createdAt: updated.parentCodeCreatedAt?.toISOString() ?? null };
+  return { code: issued.code, createdAt: issued.createdAt.toISOString() };
 }
 
 export async function revokeParentCodeAction(studentId: string): Promise<ParentAccessResult> {

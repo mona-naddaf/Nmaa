@@ -632,3 +632,106 @@
   font-weight: 700;
   color: var(--sage-deep);
 }
+
+/* ---------- bonus points ("+ نقاط إضافية") ---------- */
+
+.bonusBox {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.bonusOpen {
+  background: var(--cream);
+  border: 1px dashed var(--gold-deep);
+  color: var(--gold-deep);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 800;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.bonusForm {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bonusForm input {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.bonusAdd {
+  min-width: 64px;
+  background: var(--gold-deep);
+  color: #fff;
+  border: none;
+  border-radius: 11px;
+  padding: 10px 16px;
+  font-family: var(--font-markazi), serif;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bonusAdd:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.bonusCancel {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.bonusList {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bonusList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-size: 13px;
+}
+
+.bonusPending {
+  opacity: 0.55;
+}
+
+.bonusPlus {
+  font-weight: 800;
+  color: var(--gold-deep);
+}
+
+.bonusNote {
+  color: var(--ink);
+}
+
+.bonusBy {
+  font-size: 12px;
+  color: var(--ink-soft);
+}

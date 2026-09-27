@@ -45,7 +45,11 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       include: { teacher: { select: { name: true } } },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     }),
-    prisma.pointsLog.findMany({ where: { studentId: student.id } }),
+    prisma.pointsLog.findMany({
+      where: { studentId: student.id },
+      include: { teacher: { select: { name: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
     prisma.attendanceLog.findMany({ where: { studentId: student.id, day: today } }),
   ]);
 
@@ -111,6 +115,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           activityId: p.activityId,
           date: p.day.toISOString().slice(0, 10),
           value: p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime,
+          bonus: p.activityId === null ? { id: p.id, note: p.note ?? "", teacherName: p.teacher.name } : undefined,
         }))}
         history={sessions.map((s) => ({
           id: s.id,

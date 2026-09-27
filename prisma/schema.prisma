@@ -259,8 +259,15 @@ model PointsLog {
   id          String         @id @default(cuid())
   studentId   String
   student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  activityId  String
-  activity    PointsActivity @relation(fields: [activityId], references: [id])
+  // null = a bonus point ("+ نقاط إضافية"): no activity, value 1, and a
+  // required note (enforced by a CHECK constraint in the migration). Several
+  // bonus rows per student per day are fine: Postgres treats NULLs as
+  // distinct in the unique index below. Restrict (not Prisma's SetNull
+  // default for optional relations) keeps deleting an activity from turning
+  // its past entries into bonus points.
+  activityId  String?
+  activity    PointsActivity? @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  note        String?
   teacherId   String
   teacher     Teacher        @relation(fields: [teacherId], references: [id])
   // snapshot of the activity's value/type at the moment it was logged, so

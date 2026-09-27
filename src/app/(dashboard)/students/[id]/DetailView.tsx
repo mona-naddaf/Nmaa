@@ -18,7 +18,8 @@ import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
 import { todayISO } from "@/lib/attendance";
 import { rangeIsMemorized, type ProgressBar } from "@/lib/students/progress";
 import type { OverdueSurah } from "@/lib/students/review";
-import { resolveMistakeAction, saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
+import { addBonusPointAction, resolveMistakeAction, saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
+import { BONUS_NOTE_MAX_LENGTH, BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { WordFlagger, type WordFlags } from "@/components/mistakes/WordFlagger";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
@@ -47,9 +48,11 @@ interface PointsActivity {
 }
 
 interface PointsLogEntry {
-  activityId: string;
+  // null for a bonus point
+  activityId: string | null;
   date: string;
   value: number;
+  bonus?: { id: string; note: string; teacherName: string };
 }
 
 interface HistoryEntry {
@@ -144,6 +147,11 @@ export function DetailView({
   const [toast, setToast] = useState<string | null>(null);
 
   const [pointsLogs, setPointsLogs] = useState(initialPointsLogs);
+  // "+ نقاط إضافية": the note stays after each press so the same reason can
+  // be given again straight away
+  const [bonusOpen, setBonusOpen] = useState(false);
+  const [bonusNote, setBonusNote] = useState("");
+  const [bonusError, setBonusError] = useState<string | null>(null);
   const [, startPointsTransition] = useTransition();
 
   const doneForSelectedDate = useMemo(
@@ -178,24 +186,64 @@ export function DetailView({
     document.getElementById("recitationForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function showError(message: string) {
+    setToast(`⚠️ ${message}`);
+    setTimeout(() => setToast(null), 3500);
+  }
+
   function toggleAttendance(next: "IN" | "OUT") {
+    const previous = attendance;
     setAttendanceState(next);
     startAttendanceTransition(async () => {
-      await setAttendanceAction(student.id, next);
+      const result = await setAttendanceAction(student.id, next);
+      if (result.error) {
+        setAttendanceState(previous);
+        showError(result.error);
+        return;
+      }
       router.refresh();
+    });
+  }
+
+  const bonusForSelectedDate = pointsLogs.filter((p) => p.bonus && p.date === sessionDate);
+
+  // Optimistic, and never blocked while a previous press is in flight: each
+  // press is its own request and its own row.
+  function addBonusPoint() {
+    const note = bonusNote.trim();
+    if (!note) return;
+    const tempId = `pending-${Date.now()}-${Math.random()}`;
+    const date = sessionDate;
+    setBonusError(null);
+    setPointsLogs((prev) => [...prev, { activityId: null, date, value: 1, bonus: { id: tempId, note, teacherName: "" } }]);
+    startPointsTransition(async () => {
+      const result = await addBonusPointAction(student.id, date, note);
+      setPointsLogs((prev) =>
+        "error" in result
+          ? prev.filter((p) => p.bonus?.id !== tempId)
+          : prev.map((p) => (p.bonus?.id === tempId ? { ...p, bonus: result } : p)),
+      );
+      if ("error" in result) setBonusError(result.error);
+      else router.refresh();
     });
   }
 
   function togglePoint(activity: PointsActivity) {
     const delta = activity.type === "ADD" ? activity.value : -activity.value;
     const isDone = doneForSelectedDate.has(activity.id);
+    const before = pointsLogs;
     setPointsLogs((prev) =>
       isDone
         ? prev.filter((p) => !(p.activityId === activity.id && p.date === sessionDate))
         : [...prev, { activityId: activity.id, date: sessionDate, value: delta }],
     );
     startPointsTransition(async () => {
-      await togglePointAction(student.id, activity.id, sessionDate);
+      const result = await togglePointAction(student.id, activity.id, sessionDate);
+      if (result.error) {
+        setPointsLogs(before);
+        showError(result.error);
+        return;
+      }
       router.refresh();
     });
   }
@@ -578,6 +626,47 @@ export function DetailView({
               </div>
             );
           })}
+        </div>
+
+        <div className={styles.bonusBox}>
+          {bonusOpen ? (
+            <div className={styles.bonusForm}>
+              <input
+                type="text"
+                autoFocus
+                maxLength={BONUS_NOTE_MAX_LENGTH}
+                placeholder="سبب النقطة الإضافية (إلزامي)..."
+                value={bonusNote}
+                onChange={(e) => setBonusNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addBonusPoint();
+                }}
+                aria-label="سبب النقطة الإضافية"
+              />
+              <button type="button" className={styles.bonusAdd} onClick={addBonusPoint} disabled={!bonusNote.trim()}>
+                +1
+              </button>
+              <button type="button" className={styles.bonusCancel} onClick={() => setBonusOpen(false)}>
+                إغلاق
+              </button>
+            </div>
+          ) : (
+            <button type="button" className={styles.bonusOpen} onClick={() => setBonusOpen(true)}>
+              + {BONUS_POINTS_LABEL}
+            </button>
+          )}
+          {bonusError && <div className={styles.err}>{bonusError}</div>}
+          {bonusForSelectedDate.length > 0 && (
+            <ul className={styles.bonusList}>
+              {bonusForSelectedDate.map((p) => (
+                <li key={p.bonus!.id} className={p.bonus!.id.startsWith("pending-") ? styles.bonusPending : undefined}>
+                  <span className={styles.bonusPlus}>+1</span>
+                  <span className={styles.bonusNote}>{p.bonus!.note}</span>
+                  {p.bonus!.teacherName && <span className={styles.bonusBy}>بواسطة {p.bonus!.teacherName}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 

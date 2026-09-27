@@ -88,8 +88,8 @@ export function ParentView({ data }: { data: ParentViewData }) {
               آخر ما {pickByGroup(g, { m: "وصل", f: "وصلت" })} إليه (حسب الخطة)
             </div>
             <div className={styles.value}>
-              {data.furthest
-                ? `${SURAH_NAME[data.furthest.surahNumber]} — الآية ${data.furthest.ayah} من ${AYAH_COUNT[data.furthest.surahNumber]}`
+              {data.position
+                ? `${SURAH_NAME[data.position.surahNumber]} — الآية ${data.position.ayah} من ${AYAH_COUNT[data.position.surahNumber]}`
                 : `لم ${pickByGroup(g, { m: "يبدأ", f: "تبدأ" })} بعد`}
             </div>
             <div className={styles.sub}>{data.quranPercent}٪ من إنجاز القرآن كامل</div>

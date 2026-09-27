@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { deriveFurthestPosition, type FurthestPosition } from "@/lib/recitation/logic";
+import { deriveCurrentPosition, deriveReach, type PlanPosition } from "@/lib/recitation/logic";
 import { buildCoverage, coveredQuranPages } from "@/lib/students/progress";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import type { GroupGender } from "@/lib/text/gender";
@@ -28,7 +28,7 @@ export interface ParentViewData {
   groupName: string;
   groupGender: GroupGender;
   courseName: string;
-  furthest: FurthestPosition | null;
+  position: PlanPosition | null;
   quranPercent: number;
   history: ParentHistoryEntry[];
   attendance: { date: string; status: "IN" | "OUT" }[];
@@ -82,7 +82,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     groupName: student.group.name,
     groupGender: student.group.gender,
     courseName: student.course.name,
-    furthest: deriveFurthestPosition(plan, sessions),
+    position: deriveCurrentPosition(plan, deriveReach(plan, sessions)),
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
     history: sessions.map((s) => ({
       id: s.id,

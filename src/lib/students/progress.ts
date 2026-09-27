@@ -1,6 +1,6 @@
 import { AYAH_COUNT, SURAH_NAME, TOTAL_PAGES, getAyahPageEntries } from "@/lib/quran-data";
 import { juzOf, juzSegments, juzTotalPages } from "@/lib/quran-data/juz";
-import { advancesPosition, type FurthestPosition, type SessionType } from "@/lib/recitation/logic";
+import { advancesPosition, type PlanPosition, type SessionType } from "@/lib/recitation/logic";
 
 // Which ayat a student has recited at least once, by surah — overlapping and
 // repeated sessions collapse, so page totals built on this can't exceed 100%
@@ -99,24 +99,24 @@ export interface ProgressBarSettings {
 export function computeProgressBars({
   settings,
   plan,
-  furthest,
+  position,
   coverage,
 }: {
   settings: ProgressBarSettings;
   plan: number[];
-  furthest: FurthestPosition | null;
+  position: PlanPosition | null;
   coverage: Coverage;
 }): ProgressBar[] {
   const bars: ProgressBar[] = [];
 
-  if (settings.showSurahProgress && furthest) {
-    const total = AYAH_COUNT[furthest.surahNumber];
+  if (settings.showSurahProgress && position) {
+    const total = AYAH_COUNT[position.surahNumber];
     if (total) {
       bars.push({
         key: "surah",
-        label: `حتى نهاية سورة ${SURAH_NAME[furthest.surahNumber]}`,
-        detail: `الآية ${furthest.ayah} من ${total}`,
-        percent: toPercent(furthest.ayah, total),
+        label: `حتى نهاية سورة ${SURAH_NAME[position.surahNumber]}`,
+        detail: `الآية ${position.ayah} من ${total}`,
+        percent: toPercent(position.ayah, total),
       });
     }
   }
@@ -124,8 +124,8 @@ export function computeProgressBars({
   // Coverage within the juz rather than "position within the juz": reverse
   // plans walk a juz from its last surah back to its first, so a linear
   // position would read near-100% on day one.
-  if (settings.showJuzProgress && furthest) {
-    const juz = juzOf(furthest.surahNumber, furthest.ayah);
+  if (settings.showJuzProgress && position) {
+    const juz = juzOf(position.surahNumber, position.ayah);
     const total = juz ? juzTotalPages(juz) : 0;
     if (juz && total > 0) {
       let covered = 0;

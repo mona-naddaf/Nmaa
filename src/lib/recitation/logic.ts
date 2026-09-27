@@ -63,10 +63,129 @@ export function advancesPosition(session: { type: SessionType }): boolean {
 
 export type RecitationSituation = "CONTINUE" | "NEXT" | "SURAH_GAP" | "AYAH_GAP" | "EDIT";
 
-export interface FurthestPosition {
+export interface PlanPosition {
   surahNumber: number;
   ayah: number;
 }
+
+// ---------- reach: what the student has covered or consciously passed ----------
+
+/**
+ * Everything position and gap detection need to know about a student's
+ * progress, in a serializable form so the recitation form can classify
+ * entries client-side exactly like the server does:
+ *  - `covered`: per surah, the sorted/merged ayah ranges recited in NEW
+ *    sessions (PRIOR baselines are NEW). REVIEW/LINK never count.
+ *  - `passedThrough`: the latest point in plan order that an approved gap
+ *    skipped over. A NEW session saved as SURAH_GAP/AYAH_GAP with a reason
+ *    means a teacher consciously approved skipping to it, so everything in
+ *    the plan before its start counts as passed for position purposes —
+ *    permanently, not just for that one entry. Passed ayat are NOT covered:
+ *    recording them later is filling the skip, not a re-recording.
+ */
+export interface Reach {
+  covered: Record<number, [number, number][]>;
+  passedThrough: PlanPosition | null;
+}
+
+export interface PositionSession {
+  surahNumber: number;
+  fromAyah: number;
+  toAyah: number;
+  type: SessionType;
+  situation?: RecitationSituation | null;
+  reason?: string | null;
+}
+
+export function deriveReach(plan: number[], sessions: PositionSession[]): Reach {
+  return sessions.reduce((reach, s) => withSession(plan, reach, s), { covered: {}, passedThrough: null } as Reach);
+}
+
+/** `reach` plus one more session (also used for an entry just saved in the form). */
+export function withSession(plan: number[], reach: Reach, s: PositionSession): Reach {
+  if (!advancesPosition(s)) return reach;
+  let next = withCoveredRange(reach, s.surahNumber, s.fromAyah, s.toAyah);
+  if ((s.situation === "SURAH_GAP" || s.situation === "AYAH_GAP") && s.reason?.trim()) {
+    const before = pointBefore(plan, s.surahNumber, s.fromAyah);
+    if (before && (!next.passedThrough || comparePlanPoints(plan, before, next.passedThrough) > 0)) {
+      next = { ...next, passedThrough: before };
+    }
+  }
+  return next;
+}
+
+function withCoveredRange(reach: Reach, surahNumber: number, fromAyah: number, toAyah: number): Reach {
+  const count = AYAH_COUNT[surahNumber];
+  if (!count) return reach;
+  const from = Math.max(1, fromAyah);
+  const to = Math.min(count, toAyah);
+  if (from > to) return reach;
+  const merged: [number, number][] = [];
+  for (const [a, b] of [...(reach.covered[surahNumber] ?? []), [from, to] as [number, number]].sort((x, y) => x[0] - y[0])) {
+    const last = merged[merged.length - 1];
+    if (last && a <= last[1] + 1) last[1] = Math.max(last[1], b);
+    else merged.push([a, b]);
+  }
+  return { ...reach, covered: { ...reach.covered, [surahNumber]: merged } };
+}
+
+function isCovered(reach: Reach, surahNumber: number, ayah: number): boolean {
+  return (reach.covered[surahNumber] ?? []).some(([a, b]) => ayah >= a && ayah <= b);
+}
+
+/** Covered, or at/before the point approved gaps have passed through. */
+function isReached(plan: number[], reach: Reach, surahNumber: number, ayah: number): boolean {
+  if (isCovered(reach, surahNumber, ayah)) return true;
+  const passed = reach.passedThrough;
+  return !!passed && comparePlanPoints(plan, { surahNumber, ayah }, passed) <= 0;
+}
+
+/** Last ayah of `surahNumber` reached contiguously from ayah 1 (0 if none). */
+function reachedFromStart(plan: number[], reach: Reach, surahNumber: number): number {
+  const count = AYAH_COUNT[surahNumber] ?? 0;
+  let a = 0;
+  while (a < count && isReached(plan, reach, surahNumber, a + 1)) a++;
+  return a;
+}
+
+function comparePlanPoints(plan: number[], x: PlanPosition, y: PlanPosition): number {
+  const dx = plan.indexOf(x.surahNumber);
+  const dy = plan.indexOf(y.surahNumber);
+  return dx !== dy ? dx - dy : x.ayah - y.ayah;
+}
+
+/** The point just before (surah, ayah) in plan order; null at the very start or outside the plan. */
+function pointBefore(plan: number[], surahNumber: number, ayah: number): PlanPosition | null {
+  const pos = plan.indexOf(surahNumber);
+  if (pos === -1) return null;
+  if (ayah > 1) return { surahNumber, ayah: ayah - 1 };
+  if (pos === 0) return null;
+  const prev = plan[pos - 1];
+  return { surahNumber: prev, ayah: AYAH_COUNT[prev] };
+}
+
+// ---------- current position ----------
+
+/**
+ * The student's current position: walking her plan in order, the last ayah
+ * reached before the first one that isn't — i.e. where she continues from.
+ * Not the furthest surah she has touched: surahs covered further ahead (e.g.
+ * scattered prior memorization) are simply stepped over once she reaches
+ * them. null when nothing at the start of the plan is reached yet; the last
+ * ayah of the plan once all of it is (khatm).
+ */
+export function deriveCurrentPosition(plan: number[], reach: Reach): PlanPosition | null {
+  let last: PlanPosition | null = null;
+  for (const surahNumber of plan) {
+    const count = AYAH_COUNT[surahNumber] ?? 0;
+    const reached = reachedFromStart(plan, reach, surahNumber);
+    if (reached > 0) last = { surahNumber, ayah: reached };
+    if (reached < count) break;
+  }
+  return last;
+}
+
+// ---------- gap detection ----------
 
 export interface Classification {
   situation: RecitationSituation;
@@ -77,26 +196,21 @@ export interface Classification {
 }
 
 /**
- * Classifies a new recitation entry against the student's plan (spec §5).
- *
- * The prototype compared raw surah numbers and assumed the plan is Mushaf
- * order. Real plans can be reverse-Juz-Amma or fully custom, so this walks
- * the student's actual ordered `plan` (surah numbers by position) instead.
- * `furthest` is the furthest point reached anywhere in the plan so far
- * (by plan position, not simply the most recent session) — reviewing an
- * earlier surah must not move this pointer backward. Same 5 outcomes and
- * messages as the prototype's calc(), generalized to plan position.
+ * Classifies a new-memorization entry against the student's plan (spec §5):
+ * same 5 outcomes and messages as the prototype's calc(), but judged locally
+ * — by whether the ayah right before the entry (in plan order) is reached —
+ * rather than against a single "furthest" pointer, so covered material
+ * further ahead never makes a natural continuation look like an edit, and a
+ * surah already covered ahead is recognised as done rather than as a gap.
  */
 export function classifyRecitation(
   plan: number[],
-  furthest: FurthestPosition | null,
+  reach: Reach,
   newSurah: number,
   newFromAyah: number,
   groupGender: GroupGender = "MIXED",
 ): Classification {
   const newPos = plan.indexOf(newSurah);
-  const furthestPos = furthest ? plan.indexOf(furthest.surahNumber) : -1;
-  const furthestAyah = furthest?.ayah ?? 0;
   const name = SURAH_NAME[newSurah] ?? `سورة رقم ${newSurah}`;
   const studentDef = studentNounDef(groupGender);
   const studentReached = pickByGroup(groupGender, { m: "وصل", f: "وصلت" });
@@ -111,27 +225,25 @@ export function classifyRecitation(
     };
   }
 
-  // same surah as the furthest point reached
-  if (newPos === furthestPos) {
-    const expectedFrom = furthestAyah + 1;
-    if (newFromAyah > expectedFrom) {
-      return {
-        situation: "AYAH_GAP",
-        requiresReason: true,
-        badgeVariant: "gap",
-        badgeText: "⚠️ فجوة داخل السورة نفسها",
-        warningMessage: `تم تجاوز الآيات من ${expectedFrom} إلى ${newFromAyah - 1} في سورة ${name} دون تسجيلها. يُرجى التأكد إن كان هذا تجاوزًا مقصودًا أم خطأً.`,
-      };
-    }
-    if (newFromAyah <= furthestAyah) {
-      return {
-        situation: "EDIT",
-        requiresReason: true,
-        badgeVariant: "edit",
-        badgeText: "✏️ إعادة تسجيل لآيات سُمِّعت سابقًا في نفس السورة",
-        warningMessage: null,
-      };
-    }
+  // starts on an ayah she has already recited: a re-recording
+  if (isCovered(reach, newSurah, newFromAyah)) {
+    const surahComplete = reachedFromStart(plan, { covered: reach.covered, passedThrough: null }, newSurah) >= AYAH_COUNT[newSurah];
+    return {
+      situation: "EDIT",
+      requiresReason: true,
+      badgeVariant: "edit",
+      badgeText: surahComplete
+        ? `✏️ تعديل على سورة مكتملة سابقًا (سورة ${name})`
+        : "✏️ إعادة تسجيل لآيات سُمِّعت سابقًا في نفس السورة",
+      warningMessage: null,
+    };
+  }
+
+  // the nearest reached ayah before the entry within the same surah
+  let lastReachedBefore = newFromAyah - 1;
+  while (lastReachedBefore >= 1 && !isReached(plan, reach, newSurah, lastReachedBefore)) lastReachedBefore--;
+
+  if (lastReachedBefore === newFromAyah - 1 && newFromAyah > 1) {
     return {
       situation: "CONTINUE",
       requiresReason: false,
@@ -141,63 +253,44 @@ export function classifyRecitation(
     };
   }
 
-  // an earlier surah in the plan than the furthest point reached
-  if (newPos < furthestPos) {
-    return {
-      situation: "EDIT",
-      requiresReason: true,
-      badgeVariant: "edit",
-      badgeText: `✏️ تعديل على سورة سابقة مكتملة (سورة ${name})`,
-      warningMessage: null,
-    };
+  if (lastReachedBefore === 0) {
+    // nothing reached in this surah before the entry: the previous surah in
+    // the plan must be complete for this to be a natural next step
+    const prevPos = newPos - 1;
+    const prevSurah = prevPos >= 0 ? plan[prevPos] : null;
+    const prevTotal = prevSurah ? AYAH_COUNT[prevSurah] : 0;
+    const reachedInPrev = prevSurah ? reachedFromStart(plan, reach, prevSurah) : 0;
+    if (prevSurah && reachedInPrev < prevTotal) {
+      const prevName = SURAH_NAME[prevSurah] ?? `سورة رقم ${prevSurah}`;
+      return {
+        situation: "SURAH_GAP",
+        requiresReason: true,
+        badgeVariant: "gap",
+        badgeText: "⚠️ فجوة في الخطة قبل هذه السورة",
+        warningMessage:
+          reachedInPrev > 0
+            ? `لم تكتمل سورة ${prevName} بعد — ${studentReached} ${studentDef} إلى الآية ${reachedInPrev} من أصل ${prevTotal}. يُرجى التأكد قبل تسجيل سورة ${name}.`
+            : `سورة ${prevName} (السابقة لسورة ${name} في الخطة) لم يُسجَّل فيها أي تقدّم بعد (0 من ${prevTotal} آية). يُرجى التأكد إن كان هذا تجاوزًا مقصودًا أم خطأً.`,
+      };
+    }
+    if (newFromAyah === 1) {
+      return {
+        situation: "NEXT",
+        requiresReason: false,
+        badgeVariant: "next",
+        badgeText: "✓ تقدّم طبيعي للسورة التالية بالخطة",
+        warningMessage: null,
+      };
+    }
   }
 
-  // moving forward to a later surah in the plan
-  const prevPos = newPos - 1;
-  const prevCompleted =
-    prevPos < 0
-      ? true
-      : furthestPos > prevPos
-        ? true
-        : furthestPos === prevPos
-          ? furthestAyah >= (AYAH_COUNT[plan[prevPos]] ?? Infinity)
-          : false;
-
-  if (!prevCompleted) {
-    const prevSurahNumber = plan[prevPos];
-    const prevName = SURAH_NAME[prevSurahNumber] ?? `سورة رقم ${prevSurahNumber}`;
-    const prevTotal = AYAH_COUNT[prevSurahNumber];
-    const reachedInPrev = furthestPos === prevPos ? furthestAyah : 0;
-    const message =
-      furthestPos === prevPos
-        ? `لم تكتمل سورة ${prevName} بعد — ${studentReached} ${studentDef} إلى الآية ${reachedInPrev} من أصل ${prevTotal}. يُرجى التأكد قبل تسجيل سورة ${name}.`
-        : `سورة ${prevName} (السابقة لسورة ${name} في الخطة) لم يُسجَّل فيها أي تقدّم بعد (${reachedInPrev} من ${prevTotal} آية). يُرجى التأكد إن كان هذا تجاوزًا مقصودًا أم خطأً.`;
-    return {
-      situation: "SURAH_GAP",
-      requiresReason: true,
-      badgeVariant: "gap",
-      badgeText: "⚠️ فجوة في الخطة قبل هذه السورة",
-      warningMessage: message,
-    };
-  }
-
-  const expectedFrom = 1;
-  if (newFromAyah > expectedFrom) {
-    return {
-      situation: "AYAH_GAP",
-      requiresReason: true,
-      badgeVariant: "gap",
-      badgeText: "⚠️ فجوة داخل هذه السورة",
-      warningMessage: `تم تجاوز الآيات من ${expectedFrom} إلى ${newFromAyah - 1} في سورة ${name} دون تسجيلها. يُرجى التأكد إن كان هذا تجاوزًا مقصودًا أم خطأً.`,
-    };
-  }
-
+  const expectedFrom = lastReachedBefore + 1;
   return {
-    situation: "NEXT",
-    requiresReason: false,
-    badgeVariant: "next",
-    badgeText: "✓ تقدّم طبيعي للسورة التالية بالخطة",
-    warningMessage: null,
+    situation: "AYAH_GAP",
+    requiresReason: true,
+    badgeVariant: "gap",
+    badgeText: lastReachedBefore > 0 ? "⚠️ فجوة داخل السورة نفسها" : "⚠️ فجوة داخل هذه السورة",
+    warningMessage: `تم تجاوز الآيات من ${expectedFrom} إلى ${newFromAyah - 1} في سورة ${name} دون تسجيلها. يُرجى التأكد إن كان هذا تجاوزًا مقصودًا أم خطأً.`,
   };
 }
 
@@ -209,50 +302,28 @@ export interface NextEntryDefaults {
 
 /**
  * A sensible default next entry to pre-fill the recitation form with: right
- * after the furthest point reached, rolling over to the next surah in the
- * plan when the current one is already complete. Caps the range at 15 ayat,
+ * after the current position, rolling over to the next surah in the plan
+ * when the current one is already complete. Caps the range at 15 ayat,
  * matching the prototype's default window.
  */
-export function nextExpectedEntry(plan: number[], furthest: FurthestPosition | null): NextEntryDefaults {
-  if (!furthest) {
+export function nextExpectedEntry(plan: number[], position: PlanPosition | null): NextEntryDefaults {
+  if (!position) {
     const surahNumber = plan[0] ?? 1;
     return { surahNumber, fromAyah: 1, toAyah: Math.min(15, AYAH_COUNT[surahNumber] ?? 1) };
   }
 
-  const ayahCount = AYAH_COUNT[furthest.surahNumber] ?? furthest.ayah;
-  if (furthest.ayah < ayahCount) {
-    const fromAyah = furthest.ayah + 1;
-    return { surahNumber: furthest.surahNumber, fromAyah, toAyah: Math.min(fromAyah + 14, ayahCount) };
+  const ayahCount = AYAH_COUNT[position.surahNumber] ?? position.ayah;
+  if (position.ayah < ayahCount) {
+    const fromAyah = position.ayah + 1;
+    return { surahNumber: position.surahNumber, fromAyah, toAyah: Math.min(fromAyah + 14, ayahCount) };
   }
 
-  const pos = plan.indexOf(furthest.surahNumber);
+  const pos = plan.indexOf(position.surahNumber);
   const nextSurah = pos >= 0 ? plan[pos + 1] : undefined;
   if (nextSurah) {
     return { surahNumber: nextSurah, fromAyah: 1, toAyah: Math.min(15, AYAH_COUNT[nextSurah]) };
   }
 
   // plan fully complete (khatm) — leave pointed at the last ayah of the last surah
-  return { surahNumber: furthest.surahNumber, fromAyah: furthest.ayah, toAyah: furthest.ayah };
-}
-
-/**
- * The furthest point reached anywhere in the student's plan, derived from
- * all of her recitation sessions (not just the most recent one — an "edit"
- * session that reviews an earlier surah must not move this backward).
- * REVIEW/LINK sessions are ignored entirely, so they can never move it forward.
- */
-export function deriveFurthestPosition(
-  plan: number[],
-  sessions: { surahNumber: number; toAyah: number; type: SessionType }[],
-): FurthestPosition | null {
-  let best: { pos: number; ayah: number; surahNumber: number } | null = null;
-  for (const s of sessions) {
-    if (!advancesPosition(s)) continue;
-    const pos = plan.indexOf(s.surahNumber);
-    if (pos === -1) continue;
-    if (!best || pos > best.pos || (pos === best.pos && s.toAyah > best.ayah)) {
-      best = { pos, ayah: s.toAyah, surahNumber: s.surahNumber };
-    }
-  }
-  return best ? { surahNumber: best.surahNumber, ayah: best.ayah } : null;
+  return { surahNumber: position.surahNumber, fromAyah: position.ayah, toAyah: position.ayah };
 }

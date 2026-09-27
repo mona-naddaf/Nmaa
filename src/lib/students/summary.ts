@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { deriveFurthestPosition } from "@/lib/recitation/logic";
+import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
 import { SURAH_NAME, AYAH_COUNT } from "@/lib/quran-data";
 import { attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/lib/attendance";
 import { pickByGroup } from "@/lib/text/gender";
@@ -45,6 +45,8 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
         pagesCalculated: true,
         mode: true,
         type: true,
+        situation: true,
+        reason: true,
         occurredAt: true,
       },
     }),
@@ -82,13 +84,13 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
     const plan = student.planItems.map((pi) => pi.surahNumber);
     const studentSessions = sessionsByStudent.get(student.id) ?? [];
 
-    const furthest = deriveFurthestPosition(plan, studentSessions);
+    const position = deriveCurrentPosition(plan, deriveReach(plan, studentSessions));
 
     const cumPages = studentSessions.reduce((sum, s) => sum + Number(s.pagesCalculated), 0);
     const onlineCount = studentSessions.filter((s) => s.mode === "ONLINE").length;
 
-    const lastPositionText = furthest
-      ? `${SURAH_NAME[furthest.surahNumber]} — آية ${furthest.ayah} من ${AYAH_COUNT[furthest.surahNumber]}`
+    const lastPositionText = position
+      ? `${SURAH_NAME[position.surahNumber]} — آية ${position.ayah} من ${AYAH_COUNT[position.surahNumber]}`
       : plan.length > 0
         ? `لم ${pickByGroup(student.group.gender, { m: "يبدأ", f: "تبدأ" })} بعد — أول سورة في الخطة: ${SURAH_NAME[plan[0]]}`
         : "لا توجد خطة بعد";

@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
-import { deriveFurthestPosition } from "@/lib/recitation/logic";
+import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
 import { attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages } from "@/lib/students/progress";
@@ -48,12 +48,13 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   ]);
 
   const plan = student.planItems.map((pi) => pi.surahNumber);
-  const furthest = deriveFurthestPosition(plan, sessions);
+  const reach = deriveReach(plan, sessions);
+  const position = deriveCurrentPosition(plan, reach);
 
   const cumPages = sessions.reduce((sum, s) => sum + Number(s.pagesCalculated), 0);
   const onlineCount = sessions.filter((s) => s.mode === "ONLINE").length;
   const coverage = buildCoverage(sessions);
-  const progressBars = computeProgressBars({ settings: course, plan, furthest, coverage });
+  const progressBars = computeProgressBars({ settings: course, plan, position, coverage });
   const overdueSurahs = computeOverdueSurahs(sessions, course.reviewReminderDays, today);
   const cumPoints = pointsLogs.reduce((sum, p) => sum + (p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime), 0);
 
@@ -70,7 +71,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         groupGender={student.group.gender}
         viewerGender={viewer?.gender ?? null}
         plan={plan}
-        furthest={furthest}
+        position={position}
+        reach={reach}
         cumPages={Math.round(cumPages * 1000) / 1000}
         cumPoints={cumPoints}
         onlineCount={onlineCount}

@@ -8,7 +8,7 @@ import {
   advancesPosition,
   calculatePageRange,
   classifyRecitation,
-  deriveFurthestPosition,
+  deriveReach,
   type RecitationSituation,
   type SessionType,
 } from "@/lib/recitation/logic";
@@ -72,18 +72,23 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
 
   // Only new memorization goes through gap detection (and may need a
   // reason). A review/link revisits covered material by definition: it gets
-  // no situation and can never advance her position (deriveFurthestPosition
-  // ignores it), whatever range it names.
+  // no situation and can never advance her position (deriveReach ignores
+  // it), whatever range it names.
   let situation: RecitationSituation | null = null;
   let requiresReason = false;
   if (advancesPosition(input)) {
     const plan = student.planItems.map((pi) => pi.surahNumber);
     const priorSessions = await prisma.recitationSession.findMany({
       where: { studentId: student.id },
-      select: { surahNumber: true, toAyah: true, type: true },
+      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true },
     });
-    const furthest = deriveFurthestPosition(plan, priorSessions);
-    const classification = classifyRecitation(plan, furthest, input.surahNumber, input.fromAyah, student.group.gender);
+    const classification = classifyRecitation(
+      plan,
+      deriveReach(plan, priorSessions),
+      input.surahNumber,
+      input.fromAyah,
+      student.group.gender,
+    );
     situation = classification.situation;
     requiresReason = classification.requiresReason;
     if (requiresReason && !input.reason.trim()) {

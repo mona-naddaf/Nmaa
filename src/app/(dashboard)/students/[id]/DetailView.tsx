@@ -7,8 +7,11 @@ import styles from "./detail.module.css";
 import {
   calculatePageRange,
   classifyRecitation,
+  deriveCurrentPosition,
   nextExpectedEntry,
-  type FurthestPosition,
+  withSession,
+  type PlanPosition,
+  type Reach,
   type SessionType,
 } from "@/lib/recitation/logic";
 import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
@@ -73,7 +76,8 @@ export function DetailView({
   groupGender,
   viewerGender,
   plan,
-  furthest,
+  position,
+  reach,
   cumPages,
   cumPoints,
   onlineCount,
@@ -92,7 +96,8 @@ export function DetailView({
   groupGender: GroupGender;
   viewerGender: PersonGender;
   plan: number[];
-  furthest: FurthestPosition | null;
+  position: PlanPosition | null;
+  reach: Reach;
   cumPages: number;
   cumPoints: number;
   onlineCount: number;
@@ -112,7 +117,7 @@ export function DetailView({
   const [attendance, setAttendanceState] = useState(student.attendance);
   const [attendancePending, startAttendanceTransition] = useTransition();
 
-  const initialEntry = nextExpectedEntry(plan, furthest);
+  const initialEntry = nextExpectedEntry(plan, position);
   const [surahNumber, setSurahNumber] = useState(initialEntry.surahNumber);
   const [fromAyah, setFromAyah] = useState(initialEntry.fromAyah);
   const [toAyah, setToAyah] = useState(initialEntry.toAyah);
@@ -139,8 +144,8 @@ export function DetailView({
   );
 
   const classification = useMemo(
-    () => classifyRecitation(plan, furthest, surahNumber, fromAyah, groupGender),
-    [plan, furthest, surahNumber, fromAyah, groupGender],
+    () => classifyRecitation(plan, reach, surahNumber, fromAyah, groupGender),
+    [plan, reach, surahNumber, fromAyah, groupGender],
   );
   const pageResult = useMemo(() => calculatePageRange(surahNumber, fromAyah, toAyah), [surahNumber, fromAyah, toAyah]);
 
@@ -210,7 +215,10 @@ export function DetailView({
       // review/link or a re-recording of covered material (EDIT), where
       // staying put lets the teacher keep adjusting
       if (isNew && classification.situation !== "EDIT") {
-        const next = nextExpectedEntry(plan, { surahNumber, ayah: toAyah });
+        // from where she stands with this entry included — which may skip
+        // past surahs already covered further ahead
+        const saved = { surahNumber, fromAyah, toAyah, type: sessionType, situation: classification.situation, reason };
+        const next = nextExpectedEntry(plan, deriveCurrentPosition(plan, withSession(plan, reach, saved)));
         setSurahNumber(next.surahNumber);
         setFromAyah(next.fromAyah);
         setToAyah(next.toAyah);
@@ -271,8 +279,8 @@ export function DetailView({
         <div>
           <div className={styles.label}>آخر ما وصلت إليه (حسب الخطة)</div>
           <div className={styles.value}>
-            {furthest
-              ? `${SURAH_NAME[furthest.surahNumber]} — الآية ${furthest.ayah} من ${AYAH_COUNT[furthest.surahNumber]}`
+            {position
+              ? `${SURAH_NAME[position.surahNumber]} — الآية ${position.ayah} من ${AYAH_COUNT[position.surahNumber]}`
               : `لم ${pickByGroup(groupGender, { m: "يبدأ", f: "تبدأ" })} بعد`}
           </div>
           <div className={styles.sub}>

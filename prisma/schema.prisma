@@ -60,7 +60,7 @@ model Course {
   // Days a completed surah may go without a REVIEW/LINK session before the
   // student is flagged (src/lib/students/review.ts). null = reminders off.
   reviewReminderDays      Int?
-  createdAt              DateTime              @default(now())
+  createdAt               DateTime              @default(now())
 
   teachers         Teacher[]
   groups           Group[]
@@ -85,6 +85,8 @@ model Teacher {
   recitationLogs   RecitationSession[]
   pointsLogs       PointsLog[]
   attendanceLogs   AttendanceLog[]
+  mistakesFlagged  RecitationMistake[]      @relation("MistakeFlaggedBy")
+  mistakesResolved RecitationMistake[]      @relation("MistakeResolvedBy")
 
   @@unique([courseId, nameKey])
   @@index([courseId])
@@ -164,6 +166,7 @@ model Student {
   recitationSessions RecitationSession[]
   pointsLogs         PointsLog[]
   attendanceLogs     AttendanceLog[]
+  mistakes           RecitationMistake[]
 
   @@index([courseId])
   @@index([groupId])
@@ -210,7 +213,43 @@ model RecitationSession {
   notes           String?
   occurredAt      DateTime             @default(now())
 
+  mistakes RecitationMistake[]
+
   @@index([studentId, occurredAt])
+}
+
+// One word a teacher flagged as a mistake during a recitation session, for
+// targeted review later. Word positions follow the bundled Tanzil text as
+// split by src/lib/quran-data/words.ts (1-based, words only — pause marks and
+// the basmala prefix aren't counted). The same word flagged in several
+// sessions is several rows; the lists merge them per word
+// (src/lib/students/mistakes.ts). Resolving never deletes: it stamps
+// resolvedAt/resolvedById so the row drops off the active list but keeps its
+// history.
+model RecitationMistake {
+  id           String            @id @default(cuid())
+  // denormalized from the session, for the per-student active lists
+  studentId    String
+  student      Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sessionId    String
+  session      RecitationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  surahNumber  Int
+  ayah         Int
+  wordPosition Int
+  // the word as shown when it was flagged
+  wordText     String
+  type         MistakeType
+  teacherId    String
+  teacher      Teacher           @relation("MistakeFlaggedBy", fields: [teacherId], references: [id])
+  // the session's date, so a backdated session dates its mistakes correctly
+  flaggedAt    DateTime
+  resolvedAt   DateTime?
+  resolvedById String?
+  resolvedBy   Teacher?          @relation("MistakeResolvedBy", fields: [resolvedById], references: [id])
+  createdAt    DateTime          @default(now())
+
+  @@unique([sessionId, surahNumber, ayah, wordPosition])
+  @@index([studentId, resolvedAt])
 }
 
 model PointsLog {
@@ -336,6 +375,19 @@ enum SessionType {
   REVIEW
   // ربط — linking recently memorized portions together
   LINK
+}
+
+// Labels live in src/lib/students/mistake-types.ts (gendered by group).
+// Values are never renamed: stored rows keep the type they were saved with.
+enum MistakeType {
+  // خطأ تشكيل
+  PRONUNCIATION
+  // خطأ تجويد
+  TAJWEED
+  // تم ردّها — forgot the word, the teacher prompted it
+  FORGOT_PROMPTED
+  // تعثّرت وصححت بنفسها — hesitated, then self-corrected
+  HESITATED_SELF_CORRECTED
 }
 
 enum RecitationSource {

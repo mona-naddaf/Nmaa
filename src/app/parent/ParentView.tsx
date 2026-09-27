@@ -9,6 +9,7 @@ import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import { pickByGroup, presentWord, absentWord } from "@/lib/text/gender";
 import type { ParentViewData } from "@/lib/parent/data";
 import { parentLogoutAction } from "./actions";
+import { MistakesList } from "@/components/mistakes/MistakesList";
 
 const QUALITY_LABEL = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" } as const;
 const QUALITY_BADGE = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" } as const;
@@ -95,6 +96,17 @@ export function ParentView({ data }: { data: ParentViewData }) {
             <div className={styles.sub}>{data.quranPercent}٪ من إنجاز القرآن كامل</div>
           </div>
         </div>
+
+        {data.mistakes.length > 0 && (
+          <>
+            <div className={styles.secTitle}>
+              <span className={styles.dot} /> 🔖 كلمات للتدرّب عليها في البيت ({data.mistakes.length})
+            </div>
+            <div className={styles.card}>
+              <MistakesList mistakes={data.mistakes} groupGender={g} />
+            </div>
+          </>
+        )}
 
         {hasAnyData ? (
           <>

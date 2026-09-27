@@ -4,6 +4,8 @@ import { deriveCurrentPosition, deriveReach, type PlanPosition } from "@/lib/rec
 import { buildCoverage, coveredQuranPages } from "@/lib/students/progress";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import type { GroupGender } from "@/lib/text/gender";
+import { getActiveMistakes } from "@/lib/students/mistakes";
+import type { ActiveMistake } from "@/lib/students/mistake-types";
 
 // The ONLY data source for the parent view. Every query here is keyed on the
 // single studentId from the parent session — never a courseId or groupId —
@@ -30,6 +32,8 @@ export interface ParentViewData {
   courseName: string;
   position: PlanPosition | null;
   quranPercent: number;
+  // unresolved flagged words to practise at home (word, place, type, date — no teacher details)
+  mistakes: ActiveMistake[];
   history: ParentHistoryEntry[];
   attendance: { date: string; status: "IN" | "OUT" }[];
   points: { date: string; activityName: string; value: number }[];
@@ -83,6 +87,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     groupGender: student.group.gender,
     courseName: student.course.name,
     position: deriveCurrentPosition(plan, deriveReach(plan, sessions)),
+    mistakes: await getActiveMistakes(studentId, plan),
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
     history: sessions.map((s) => ({
       id: s.id,

@@ -128,6 +128,12 @@ export function LoginForm() {
           </div>
         )}
       </div>
+      <p className={styles.credit}>
+        نص القرآن الكريم من{" "}
+        <a href="https://tanzil.net" target="_blank" rel="noopener noreferrer">
+          مشروع تنزيل (Tanzil Project)
+        </a>
+      </p>
     </div>
   );
 }

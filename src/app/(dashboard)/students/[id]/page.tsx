@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
+import { getActiveMistakes } from "@/lib/students/mistakes";
 import { attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages } from "@/lib/students/progress";
@@ -56,6 +57,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const coverage = buildCoverage(sessions);
   const progressBars = computeProgressBars({ settings: course, plan, position, coverage });
   const overdueSurahs = computeOverdueSurahs(sessions, course.reviewReminderDays, today);
+  const mistakes = await getActiveMistakes(student.id, plan);
   const cumPoints = pointsLogs.reduce((sum, p) => sum + (p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime), 0);
 
   return (
@@ -81,6 +83,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         progressBars={progressBars}
         memorizedRanges={coverageToRanges(coverage)}
         overdueSurahs={overdueSurahs}
+        mistakes={mistakes}
         reviewReminderDays={course.reviewReminderDays}
         onlineRecitationEnabled={course.onlineRecitationEnabled}
         pointsActivities={course.pointsActivities.map((a) => ({

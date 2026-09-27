@@ -18,7 +18,10 @@ import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
 import { todayISO } from "@/lib/attendance";
 import { rangeIsMemorized, type ProgressBar } from "@/lib/students/progress";
 import type { OverdueSurah } from "@/lib/students/review";
-import { saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
+import { resolveMistakeAction, saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
+import { MistakesList } from "@/components/mistakes/MistakesList";
+import { WordFlagger, type WordFlags } from "@/components/mistakes/WordFlagger";
+import type { ActiveMistake } from "@/lib/students/mistake-types";
 import {
   presentWord,
   absentWord,
@@ -86,6 +89,7 @@ export function DetailView({
   progressBars,
   memorizedRanges,
   overdueSurahs,
+  mistakes,
   reviewReminderDays,
   onlineRecitationEnabled,
   pointsActivities,
@@ -106,6 +110,7 @@ export function DetailView({
   progressBars: ProgressBar[];
   memorizedRanges: Record<number, [number, number][]>;
   overdueSurahs: OverdueSurah[];
+  mistakes: ActiveMistake[];
   reviewReminderDays: number | null;
   onlineRecitationEnabled: boolean;
   pointsActivities: PointsActivity[];
@@ -128,6 +133,9 @@ export function DetailView({
   const [reason, setReason] = useState("");
   const [sessionDate, setSessionDate] = useState(today);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // words flagged as mistakes, keyed "surah:ayah:word"; only those inside
+  // the current surah and range are submitted
+  const [wordFlags, setWordFlags] = useState<WordFlags>({});
   const [savePending, startSaveTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
 
@@ -201,6 +209,10 @@ export function DetailView({
         type: sessionType,
         notes,
         reason: requiresReason ? reason : "",
+        mistakes: Object.entries(wordFlags).flatMap(([key, type]) => {
+          const [s, ayah, wordPosition] = key.split(":").map(Number);
+          return s === surahNumber && ayah >= fromAyah && ayah <= toAyah ? [{ ayah, wordPosition, type }] : [];
+        }),
         sessionDate,
       });
       if ("error" in result) {
@@ -208,6 +220,7 @@ export function DetailView({
         return;
       }
       setNotes("");
+      setWordFlags({});
       setReason("");
       router.refresh();
 
@@ -332,6 +345,25 @@ export function DetailView({
             </button>
           ))}
         </div>
+      )}
+
+      {mistakes.length > 0 && (
+        <>
+          <div className={styles.secTitle}>
+            <span className={styles.dot} /> 🔖 كلمات تحتاج مراجعة ({mistakes.length})
+          </div>
+          <div className={styles.card}>
+            <MistakesList
+              mistakes={mistakes}
+              groupGender={groupGender}
+              onResolve={async (m) => {
+                const result = await resolveMistakeAction(student.id, m.surahNumber, m.ayah, m.wordPosition);
+                if (!("error" in result)) router.refresh();
+                return result;
+              }}
+            />
+          </div>
+        </>
       )}
 
       <div className={styles.secTitle} id="recitationForm">
@@ -471,6 +503,18 @@ export function DetailView({
           <div className={styles.gapWarning}>
             ⚠️ <div>هذه الآيات لم تُسجَّل كحفظ جديد بعد — سيُحفظ التسجيل كـ{SESSION_TYPE_LABEL[sessionType]} دون أن يغيّر الموضع. {pickByPerson(viewerGender, { m: "تأكّد", f: "تأكّدي" })} من نوع الجلسة.</div>
           </div>
+        )}
+
+        {!hasRangeError && (
+          <WordFlagger
+            surahNumber={surahNumber}
+            fromAyah={fromAyah}
+            toAyah={toAyah}
+            startCollapsed={pageResult.totalPages > 3}
+            flags={wordFlags}
+            onChange={setWordFlags}
+            groupGender={groupGender}
+          />
         )}
 
         {requiresReason && (

@@ -16,7 +16,10 @@ import {
 const SESSION_TYPES: SessionType[] = ["NEW", "REVIEW", "LINK"];
 import { todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
-import { imperative, thisDemonstrative, pickByGroup } from "@/lib/text/gender";
+import { imperative, thisDemonstrative, pickByGroup, type GroupGender } from "@/lib/text/gender";
+import type { Session } from "@/lib/auth/session";
+import { wordAt } from "@/lib/quran-data/quran-text";
+import { MISTAKE_TYPES, type MistakeType } from "@/lib/students/mistake-types";
 
 function addHoursUTC(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
@@ -31,6 +34,30 @@ async function loadStudentForCourse(studentId: string, courseId: string) {
   return student;
 }
 
+// In an ASSIGNED-visibility course, a teacher may only act on students in
+// the groups assigned to her (when she has any assignments). The same rule
+// gates logging recitation and resolving flagged mistakes.
+async function assignedGroupError(
+  session: Extract<Session, { role: "teacher" }>,
+  student: { groupId: string; group: { gender: GroupGender } },
+  course: { visibilityMode: string },
+): Promise<string | null> {
+  if (course.visibilityMode !== "ASSIGNED") return null;
+  const assignments = await prisma.teacherGroupAssignment.findMany({ where: { teacherId: session.teacherId } });
+  if (assignments.length === 0 || assignments.some((a) => a.groupId === student.groupId)) return null;
+  const teacher = await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true } });
+  return `لا ${imperative(teacher?.gender ?? null, { m: "تملك", f: "تملكين" })} صلاحية الوصول إلى بيانات ${thisDemonstrative(student.group.gender)} ${pickByGroup(student.group.gender, { m: "الطالب", f: "الطالبة" })}`;
+}
+
+// a whole long surah is ~6000 words; anything beyond this isn't a real entry
+const MAX_MISTAKES_PER_SESSION = 2000;
+
+export interface FlaggedWordInput {
+  ayah: number;
+  wordPosition: number;
+  type: MistakeType;
+}
+
 export type SaveRecitationInput = {
   studentId: string;
   surahNumber: number;
@@ -42,6 +69,8 @@ export type SaveRecitationInput = {
   notes: string;
   reason: string;
   sessionDate: string; // "YYYY-MM-DD", defaults to today but can be backdated
+  // words flagged as mistakes, within this surah and ayah range
+  mistakes: FlaggedWordInput[];
 };
 
 export type SaveRecitationResult = { error: string } | { ok: true };
@@ -52,15 +81,8 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
 
   if (session.role === "teacher") {
     const course = await prisma.course.findUniqueOrThrow({ where: { id: session.courseId } });
-    if (course.visibilityMode === "ASSIGNED") {
-      const assignments = await prisma.teacherGroupAssignment.findMany({ where: { teacherId: session.teacherId } });
-      if (assignments.length > 0 && !assignments.some((a) => a.groupId === student.groupId)) {
-        const teacher = await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true } });
-        return {
-          error: `لا ${imperative(teacher?.gender ?? null, { m: "تملك", f: "تملكين" })} صلاحية الوصول إلى بيانات ${thisDemonstrative(student.group.gender)} ${pickByGroup(student.group.gender, { m: "الطالب", f: "الطالبة" })}`,
-        };
-      }
-    }
+    const denied = await assignedGroupError(session, student, course);
+    if (denied) return { error: denied };
     if (!course.onlineRecitationEnabled && input.mode === "ONLINE") {
       return { error: "التسميع الأونلاين غير مفعّل في هذه الدورة" };
     }
@@ -101,6 +123,22 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
     return { error: pages.error };
   }
 
+  // flagged words: each must be a real word inside this session's range
+  const flagged = Array.isArray(input.mistakes) ? input.mistakes : [];
+  if (flagged.length > MAX_MISTAKES_PER_SESSION) return { error: "عدد الكلمات المحدّدة كبير جدًا" };
+  const flaggedWords: (FlaggedWordInput & { wordText: string })[] = [];
+  const seenWords = new Set<string>();
+  for (const m of flagged) {
+    const key = `${m?.ayah}:${m?.wordPosition}`;
+    const inRange = Number.isInteger(m?.ayah) && m.ayah >= input.fromAyah && m.ayah <= input.toAyah;
+    const wordText = inRange && Number.isInteger(m.wordPosition) ? wordAt(input.surahNumber, m.ayah, m.wordPosition) : null;
+    if (!wordText || !MISTAKE_TYPES.includes(m.type) || seenWords.has(key)) {
+      return { error: "بيانات الكلمات المحدّدة كأخطاء غير صحيحة" };
+    }
+    seenWords.add(key);
+    flaggedWords.push({ ayah: m.ayah, wordPosition: m.wordPosition, type: m.type, wordText });
+  }
+
   const sessionDay = parseDateOnlyInput(input.sessionDate);
   if (!sessionDay) {
     return { error: "تاريخ الجلسة غير صحيح — لا يمكن أن يكون في المستقبل" };
@@ -126,7 +164,52 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
       reason: requiresReason ? input.reason.trim() : null,
       notes: input.notes.trim() || null,
       occurredAt,
+      // same statement as the session, so they're saved together or not at all
+      mistakes: {
+        createMany: {
+          data: flaggedWords.map((m) => ({
+            studentId: student.id,
+            surahNumber: input.surahNumber,
+            ayah: m.ayah,
+            wordPosition: m.wordPosition,
+            wordText: m.wordText,
+            type: m.type,
+            teacherId,
+            flaggedAt: occurredAt,
+          })),
+        },
+      },
     },
+  });
+
+  revalidatePath(`/students/${student.id}`);
+  return { ok: true };
+}
+
+/**
+ * Marks every unresolved flag on one word as resolved — the student no
+ * longer makes this mistake. Nothing is deleted: the rows keep their
+ * history and just drop off the active lists. Same permission as logging
+ * recitation for this student.
+ */
+export async function resolveMistakeAction(
+  studentId: string,
+  surahNumber: number,
+  ayah: number,
+  wordPosition: number,
+): Promise<SaveRecitationResult> {
+  const session = await requireSession();
+  const student = await loadStudentForCourse(studentId, session.courseId);
+  if (session.role === "teacher") {
+    const course = await prisma.course.findUniqueOrThrow({ where: { id: session.courseId } });
+    const denied = await assignedGroupError(session, student, course);
+    if (denied) return { error: denied };
+  }
+
+  const teacherId = await resolveTeacherId(session);
+  await prisma.recitationMistake.updateMany({
+    where: { studentId: student.id, surahNumber, ayah, wordPosition, resolvedAt: null },
+    data: { resolvedAt: new Date(), resolvedById: teacherId },
   });
 
   revalidatePath(`/students/${student.id}`);

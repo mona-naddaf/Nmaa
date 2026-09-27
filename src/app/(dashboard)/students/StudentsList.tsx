@@ -24,13 +24,14 @@ export function StudentsList({
   groups,
   students,
   canAddStudents,
-  canImport,
+  isSupervisor,
   viewerGender,
 }: {
   groups: { id: string; name: string; gender: GroupGender }[];
   students: StudentSummary[];
   canAddStudents: boolean;
-  canImport: boolean;
+  // bulk import and parent codes are supervisor-only
+  isSupervisor: boolean;
   viewerGender: PersonGender;
 }) {
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id ?? "");
@@ -48,12 +49,17 @@ export function StudentsList({
 
   return (
     <div>
-      {(canAddStudents || canImport) && (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
-          {canImport && (
-            <Link href="/students/import" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
-              ⬆ استيراد من Excel
-            </Link>
+      {(canAddStudents || isSupervisor) && (
+        <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+          {isSupervisor && (
+            <>
+              <Link href="/students/parent-codes" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
+                🔑 أكواد أولياء الأمور
+              </Link>
+              <Link href="/students/import" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
+                ⬆ استيراد من Excel
+              </Link>
+            </>
           )}
           {canAddStudents && (
             <Link href="/students/new" className={styles.addBtn}>

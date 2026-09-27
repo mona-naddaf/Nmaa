@@ -64,4 +64,7 @@
   .page {
     padding: 0;
   }
+  .table tr {
+    break-inside: avoid;
+  }
 }

@@ -9,6 +9,7 @@ import { OnlineToggle } from "./OnlineToggle";
 import { GroupsEditor } from "./GroupsEditor";
 import { ProgressBarsCard } from "./ProgressBarsCard";
 import { ReviewReminderCard } from "./ReviewReminderCard";
+import { StreakCard } from "./StreakCard";
 import { PointsEditor } from "./PointsEditor";
 
 export default async function SettingsPage() {
@@ -81,6 +82,13 @@ export default async function SettingsPage() {
       </div>
       <div className={styles.card}>
         <ReviewReminderCard days={course.reviewReminderDays} />
+      </div>
+
+      <div className={styles.secTitle}>
+        <span className={styles.dot} /> الأسابيع المتتالية 🔥
+      </div>
+      <div className={styles.card}>
+        <StreakCard mode={course.streakMode} />
       </div>
 
       <div className={styles.secTitle}>

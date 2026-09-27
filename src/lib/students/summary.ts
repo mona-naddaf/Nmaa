@@ -5,6 +5,7 @@ import { SURAH_NAME, AYAH_COUNT } from "@/lib/quran-data";
 import { attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/lib/attendance";
 import { pickByGroup } from "@/lib/text/gender";
 import { computeOverdueSurahs } from "@/lib/students/review";
+import { computeStreaks } from "@/lib/students/streak-data";
 
 export interface StudentSummary {
   id: string;
@@ -18,6 +19,8 @@ export interface StudentSummary {
   lastPositionText: string;
   // completed surahs past the course review window (0 when reminders are off)
   overdueReviewCount: number;
+  // consecutive qualifying weeks (null when the course has streaks off)
+  streak: number | null;
 }
 
 export async function getStudentSummaries(courseId: string, groupIds?: string[]): Promise<StudentSummary[]> {
@@ -28,8 +31,10 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
   });
   if (students.length === 0) return [];
 
-  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { reviewReminderDays: true } });
+  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { reviewReminderDays: true, streakMode: true } });
   const reviewDays = course?.reviewReminderDays ?? null;
+  // the list always shows whole groups, so each group's full membership is here
+  const streaks = course?.streakMode ? await computeStreaks(course.streakMode, students) : null;
 
   const studentIds = students.map((s) => s.id);
 
@@ -106,6 +111,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
       onlineCount,
       lastPositionText,
       overdueReviewCount: computeOverdueSurahs(studentSessions, reviewDays, today).length,
+      streak: streaks ? (streaks.get(student.id) ?? 0) : null,
     };
   });
 }

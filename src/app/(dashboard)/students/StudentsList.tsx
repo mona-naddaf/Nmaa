@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import styles from "./students.module.css";
 import type { StudentSummary } from "@/lib/students/summary";
+import { streakText } from "@/lib/students/streak";
 import {
   presentWord,
   absentWord,
@@ -106,6 +107,15 @@ export function StudentsList({
                   {attendanceLabel(s.attendance)}
                 </div>
                 <div className={styles.footRight}>
+                  {!!s.streak && (
+                    <span
+                      className={styles.streakBadge}
+                      title={streakText(s.streak)}
+                      aria-label={streakText(s.streak)}
+                    >
+                      🔥 {s.streak}
+                    </span>
+                  )}
                   {s.overdueReviewCount > 0 && (
                     <span
                       className={styles.reviewBadge}

@@ -22,6 +22,7 @@ import { resolveMistakeAction, saveRecitationAction, setAttendanceAction, toggle
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { WordFlagger, type WordFlags } from "@/components/mistakes/WordFlagger";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
+import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
 import {
   presentWord,
   absentWord,
@@ -83,6 +84,7 @@ export function DetailView({
   reach,
   cumPages,
   cumPoints,
+  streak,
   onlineCount,
   coveredPages,
   totalPages,
@@ -104,6 +106,8 @@ export function DetailView({
   reach: Reach;
   cumPages: number;
   cumPoints: number;
+  // null when the course has streaks off
+  streak: { mode: StreakMode; weeks: number } | null;
   onlineCount: number;
   coveredPages: number;
   totalPages: number;
@@ -593,6 +597,14 @@ export function DetailView({
           <div className={styles.num}>{Math.min(100, Math.round((coveredPages / totalPages) * 1000) / 10)}٪</div>
           <div className={styles.lbl}>من إنجاز القرآن كامل ({totalPages} صفحة)</div>
         </div>
+        {streak && (
+          <div className={`${styles.counter} ${styles.gold}`}>
+            <div className={styles.num}>🔥 {streak.weeks}</div>
+            <div className={styles.lbl}>
+              {streakText(streak.weeks)} · {STREAK_MODE_LABEL[streak.mode]}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className={styles.secTitle}>

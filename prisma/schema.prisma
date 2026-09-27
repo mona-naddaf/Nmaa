@@ -60,6 +60,9 @@ model Course {
   // Days a completed surah may go without a REVIEW/LINK session before the
   // student is flagged (src/lib/students/review.ts). null = reminders off.
   reviewReminderDays      Int?
+  // What makes a week count toward a student's streak (see
+  // src/lib/students/streak.ts). null = streaks off (the default).
+  streakMode              StreakMode?
   createdAt               DateTime              @default(now())
 
   teachers         Teacher[]
@@ -303,6 +306,13 @@ model LoginAttempt {
 }
 
 // ---------- Enums ----------
+
+enum StreakMode {
+  // present (IN) at least once that week
+  ATTENDANCE
+  // at least one logged NEW/REVIEW/LINK session that week (PRIOR baselines don't count)
+  RECITATION
+}
 
 enum LoginScope {
   PARENT

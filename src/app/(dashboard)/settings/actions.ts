@@ -171,6 +171,17 @@ export async function revokeBoardCodeAction(): Promise<BoardCodeResult> {
 // ---------- Review reminders ----------
 
 // null turns reminders off; turning them on pre-fills 14 days
+export async function setStreakModeAction(mode: "ATTENDANCE" | "RECITATION" | null): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  if (mode !== null && mode !== "ATTENDANCE" && mode !== "RECITATION") {
+    return { error: "خيار غير صحيح" };
+  }
+  await prisma.course.update({ where: { id: cid }, data: { streakMode: mode } });
+  revalidatePath("/settings");
+  revalidatePath("/students", "layout");
+  return {};
+}
+
 export async function setReviewReminderDaysAction(days: number | null): Promise<{ error?: string }> {
   const cid = await currentCourseId();
   if (days !== null && (!Number.isInteger(days) || days < 1 || days > 365)) {

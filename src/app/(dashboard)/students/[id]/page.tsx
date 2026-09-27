@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
 import { getActiveMistakes } from "@/lib/students/mistakes";
+import { computeStreaks } from "@/lib/students/streak-data";
 import { attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages } from "@/lib/students/progress";
@@ -58,6 +59,19 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const progressBars = computeProgressBars({ settings: course, plan, position, coverage });
   const overdueSurahs = computeOverdueSurahs(sessions, course.reviewReminderDays, today);
   const mistakes = await getActiveMistakes(student.id, plan);
+  // the whole group is needed: a week with no class for the group is neutral
+  const streak = course.streakMode
+    ? {
+        mode: course.streakMode,
+        weeks:
+          (
+            await computeStreaks(
+              course.streakMode,
+              await prisma.student.findMany({ where: { groupId: student.groupId }, select: { id: true, groupId: true } }),
+            )
+          ).get(student.id) ?? 0,
+      }
+    : null;
   const cumPoints = pointsLogs.reduce((sum, p) => sum + (p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime), 0);
 
   return (
@@ -77,6 +91,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         reach={reach}
         cumPages={Math.round(cumPages * 1000) / 1000}
         cumPoints={cumPoints}
+        streak={streak}
         onlineCount={onlineCount}
         coveredPages={coveredQuranPages(coverage)}
         totalPages={TOTAL_PAGES}

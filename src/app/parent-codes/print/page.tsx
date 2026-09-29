@@ -2,16 +2,18 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
 import { getParentCodeRows } from "@/lib/parent/codes";
-import { pickByGroup, studentNounDef } from "@/lib/text/gender";
+import { studentNounDef, studentsNoun, NEUTRAL_GROUP_GENDER } from "@/lib/text/gender";
 import { todayISO } from "@/lib/attendance";
 import { PrintTrigger } from "@/app/reports/print/PrintTrigger";
 import styles from "@/app/reports/print/print.module.css";
 
 // Printable list of every student's parent code, for handing out to
 // families. Supervisor-only, like everything else touching parent codes.
+// Course-wide, so student words use the app's neutral convention.
 export default async function ParentCodesPrintPage() {
   const session = await requireAdmin();
-  const [{ rows, courseGender: g }, course, h] = await Promise.all([
+  const g = NEUTRAL_GROUP_GENDER;
+  const [rows, course, h] = await Promise.all([
     getParentCodeRows(session.courseId),
     prisma.course.findUniqueOrThrow({ where: { id: session.courseId }, select: { name: true } }),
     headers(),
@@ -24,25 +26,24 @@ export default async function ParentCodesPrintPage() {
     <div className={styles.page}>
       <div className={styles.brand}>نماء 🌱</div>
       <div className={styles.meta}>{course.name}</div>
-      <div className={styles.meta}>رموز دخول أولياء الأمور — {todayISO()}</div>
+      <div className={styles.meta}>أكواد دخول أولياء الأمور — {todayISO()}</div>
       {loginUrl && (
         <div className={styles.meta}>
-          صفحة الدخول: <bdi dir="ltr">{loginUrl}</bdi> — {pickByGroup(g, { m: "باسم الطالب", f: "باسم الطالبة" })}{" "}
-          والرمز
+          يسجّل وليّ الأمر دخوله من الصفحة <bdi dir="ltr">{loginUrl}</bdi> باسم {studentNounDef(g)} والكود
         </div>
       )}
 
       <PrintTrigger />
 
       {rows.length === 0 ? (
-        <div className={styles.emptyMsg}>لا يوجد {pickByGroup(g, { m: "طلاب", f: "طالبات" })} في الدورة بعد</div>
+        <div className={styles.emptyMsg}>لا يوجد {studentsNoun(g)} في الدورة بعد</div>
       ) : (
         <table className={styles.table}>
           <thead>
             <tr>
               <th>{studentNounDef(g)}</th>
               <th>المجموعة</th>
-              <th>رمز وليّ الأمر</th>
+              <th>كود وليّ الأمر</th>
             </tr>
           </thead>
           <tbody>

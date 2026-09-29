@@ -16,7 +16,7 @@ export async function parentLoginAction(_prev: ParentLoginState, formData: FormD
   const code = normalizeParentCode(String(formData.get("code") ?? ""));
 
   if (!name.trim() || !code) {
-    return { error: "يُرجى إدخال الاسم ورمز الدخول" };
+    return { error: "يُرجى إدخال الاسم وكود الدخول" };
   }
 
   if (await isLoginLocked("PARENT")) {
@@ -32,7 +32,7 @@ export async function parentLoginAction(_prev: ParentLoginState, formData: FormD
   // whether a code exists
   if (!student || !parentNameMatches(name, student.name)) {
     await recordLoginFailure("PARENT");
-    return { error: "الاسم أو رمز الدخول غير صحيح — يُرجى التأكد منهما مع مشرف الدورة" };
+    return { error: "الاسم أو كود الدخول غير صحيح — يُرجى التأكد منهما مع مشرف الدورة" };
   }
 
   await createParentSession({ studentId: student.id, v: student.parentCodeVersion });

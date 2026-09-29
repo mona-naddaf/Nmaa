@@ -5,24 +5,20 @@ import Link from "next/link";
 import styles from "./parent-codes.module.css";
 import { generateMissingParentCodesAction } from "./actions";
 import type { ParentCodeRow } from "@/lib/parent/codes";
-import { imperative, pickByGroup, studentNounDef, type GroupGender, type PersonGender } from "@/lib/text/gender";
+import { imperative, studentNounDef, studentsNounDef, NEUTRAL_GROUP_GENDER, type PersonGender } from "@/lib/text/gender";
 
-// Arabic number agreement: رمز واحد، رمزان، 3–10 رموز، 11+ رمزًا
+// Arabic number agreement: كود واحد، كودان، 3–10 أكواد، 11+ كودًا
 function codesText(n: number): string {
-  if (n === 1) return "رمز واحد";
-  if (n === 2) return "رمزان";
-  return `${n} ${n <= 10 ? "رموز" : "رمزًا"}`;
+  if (n === 1) return "كود واحد";
+  if (n === 2) return "كودان";
+  return `${n} ${n <= 10 ? "أكواد" : "كودًا"}`;
 }
 
-export function ParentCodesView({
-  rows,
-  courseGender: g,
-  viewerGender,
-}: {
-  rows: ParentCodeRow[];
-  courseGender: GroupGender;
-  viewerGender: PersonGender;
-}) {
+// This page always covers the whole course, which can mix girls' and boys'
+// groups, so student-facing words use the app's course-wide neutral
+// convention (NEUTRAL_GROUP_GENDER), as the reports do. Only the verb
+// addressed to the supervisor follows her own gender.
+export function ParentCodesView({ rows, viewerGender }: { rows: ParentCodeRow[]; viewerGender: PersonGender }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -33,7 +29,7 @@ export function ParentCodesView({
     setMessage(null);
     startTransition(async () => {
       const result = await generateMissingParentCodesAction();
-      setMessage("error" in result ? { ok: false, text: result.error } : { ok: true, text: result.created === 0 ? "لا يوجد من يحتاج رمزًا جديدًا" : `تم إنشاء ${codesText(result.created)} ✓` });
+      setMessage("error" in result ? { ok: false, text: result.error } : { ok: true, text: result.created === 0 ? "لا يوجد من يحتاج كودًا جديدًا" : `تم إنشاء ${codesText(result.created)} ✓` });
     });
   }
 
@@ -46,14 +42,14 @@ export function ParentCodesView({
       <div className={styles.card}>
         <div className={styles.stats}>
           <span>
-            <b>{rows.length - missing - revoked.length}</b> {pickByGroup(g, { m: "لديهم رمز", f: "لديهن رمز" })}
+            <b>{rows.length - missing - revoked.length}</b> لديهم كود
           </span>
           <span>
-            <b>{missing}</b> بدون رمز
+            <b>{missing}</b> لا يملكون كودًا
           </span>
           {revoked.length > 0 && (
             <span>
-              <b>{revoked.length}</b> {pickByGroup(g, { m: "أُلغي رمزهم", f: "أُلغي رمزهن" })}
+              <b>{revoked.length}</b> أُلغي كودهم
             </span>
           )}
         </div>
@@ -62,10 +58,7 @@ export function ParentCodesView({
           <button type="button" className={styles.primary} onClick={generate} disabled={pending || missing === 0}>
             {pending
               ? "جارٍ الإنشاء..."
-              : pickByGroup(g, {
-                  m: "إنشاء أكواد لكل الطلاب اللي ما إلهم كود",
-                  f: "إنشاء أكواد لكل الطالبات اللي ما إلهن كود",
-                })}
+              : `إنشاء أكواد لجميع ${studentsNounDef(NEUTRAL_GROUP_GENDER)} الذين لا يملكون رمزًا (كود)`}
           </button>
           <a className={styles.secondary} href="/parent-codes/print" target="_blank" rel="noopener">
             🖨️ طباعة القائمة
@@ -76,9 +69,8 @@ export function ParentCodesView({
 
         {revoked.length > 0 && (
           <p className={styles.note}>
-            لا تُنشأ أكواد تلقائيًا لمن أُلغي {pickByGroup(g, { m: "رمزهم", f: "رمزهن" })} سابقًا (
-            {revoked.map((r) => r.name).join("، ")}) — لإعادة إصدار رمز {pickByGroup(g, { m: "لأحدهم", f: "لإحداهن" })}{" "}
-            {imperative(viewerGender, { m: "افتح", f: "افتحي" })} {pickByGroup(g, { m: "صفحته", f: "صفحتها" })}.
+            لا تُنشأ أكواد تلقائيًا لمن أُلغي كودهم سابقًا ({revoked.map((r) => r.name).join("، ")}) — لإعادة
+            إصدار كود لأحدهم {imperative(viewerGender, { m: "افتح", f: "افتحي" })} صفحته.
           </p>
         )}
       </div>
@@ -88,9 +80,9 @@ export function ParentCodesView({
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>{studentNounDef(g)}</th>
+                <th>{studentNounDef(NEUTRAL_GROUP_GENDER)}</th>
                 <th>المجموعة</th>
-                <th>رمز وليّ الأمر</th>
+                <th>كود وليّ الأمر</th>
               </tr>
             </thead>
             <tbody>

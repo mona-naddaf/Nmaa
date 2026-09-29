@@ -8,7 +8,7 @@ export async function generateUniqueParentCode(): Promise<string> {
     const existing = await prisma.student.findUnique({ where: { parentCode: code }, select: { id: true } });
     if (!existing) return code;
   }
-  throw new Error("تعذّر توليد رمز فريد، يُرجى المحاولة مرة أخرى");
+  throw new Error("تعذّر توليد كود فريد، يُرجى المحاولة مرة أخرى");
 }
 
 /**

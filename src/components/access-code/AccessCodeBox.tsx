@@ -80,15 +80,15 @@ export function AccessCodeBox({
           {createdAt && <div className={styles.created}>أُنشئ في {createdAt.slice(0, 10)}</div>}
           <div className={styles.actions}>
             <button className={styles.btn} onClick={copy} type="button">
-              {copied ? "تم النسخ ✓" : "نسخ الرمز 📋"}
+              {copied ? "تم النسخ ✓" : "نسخ الكود 📋"}
             </button>
             {confirming === "regenerate" ? (
               <button className={styles.btn} onClick={() => run("regenerate")} type="button" disabled={pending}>
-                تأكيد: الرمز القديم سيتوقف فورًا
+                تأكيد: الكود القديم سيتوقف فورًا
               </button>
             ) : (
               <button className={styles.btn} onClick={() => setConfirming("regenerate")} type="button" disabled={pending}>
-                رمز جديد 🔄
+                كود جديد 🔄
               </button>
             )}
             {confirming === "revoke" ? (

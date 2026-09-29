@@ -8,8 +8,8 @@ import { teacherLoginAction, adminLoginAction, adminSignupAction, type ActionSta
 type View = "teacher" | "admin";
 type AdminMode = "login" | "signup";
 
-export function LoginForm() {
-  const [view, setView] = useState<View>("teacher");
+export function LoginForm({ initialView = "teacher" }: { initialView?: View }) {
+  const [view, setView] = useState<View>(initialView);
   const [adminMode, setAdminMode] = useState<AdminMode>("login");
 
   const [teacherState, teacherFormAction, teacherPending] = useActionState<ActionState, FormData>(

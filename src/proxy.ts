@@ -34,7 +34,8 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
   const session = token ? await verifyToken(token) : null;
 
-  if (pathname === "/login") {
+  // Public entry points: the landing page and the staff login.
+  if (pathname === "/" || pathname === "/login") {
     if (session) {
       const dest = session.role === "admin" ? "/settings" : "/students";
       return NextResponse.redirect(new URL(dest, request.url));

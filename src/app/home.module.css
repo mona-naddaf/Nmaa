@@ -1,0 +1,220 @@
+/* Landing page, from design/namaa-homepage.html. Colors map onto the app
+   tokens: --rose(-deep) green, --gold(-deep) rust, --sage(-deep) brick. */
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 64px 20px 48px;
+}
+
+/* The landing page's own backdrop, on body so it runs behind the shared
+   footer too instead of stopping above it. */
+:global(body):has(.page) {
+  background-image: radial-gradient(circle at 10% 8%, rgba(63, 102, 80, 0.1), transparent 42%),
+    radial-gradient(circle at 90% 12%, rgba(168, 92, 54, 0.08), transparent 40%),
+    radial-gradient(circle at 85% 92%, rgba(124, 74, 66, 0.08), transparent 42%),
+    radial-gradient(circle at 8% 90%, rgba(63, 102, 80, 0.06), transparent 40%);
+}
+
+.hero {
+  max-width: 600px;
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+.logoRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.logoIcon {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 10px rgba(63, 102, 80, 0.18));
+}
+
+.brand {
+  margin: 0;
+  font-family: var(--font-markazi), "Markazi Text", serif;
+  font-weight: 700;
+  font-size: 46px;
+  line-height: 1.2;
+  color: var(--rose-deep);
+}
+
+.tagline {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--rose-deep);
+  font-weight: 700;
+  background: rgba(63, 102, 80, 0.09);
+  padding: 6px 18px;
+  border-radius: 20px;
+  margin-bottom: 24px;
+}
+
+.intro {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 2.1;
+  color: var(--ink-soft);
+}
+
+.sectionLabel {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--lavender);
+  margin-bottom: 18px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 20px;
+  max-width: 900px;
+  width: 100%;
+  margin-bottom: 44px;
+}
+
+.card {
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 32px 24px 26px;
+  text-align: center;
+  cursor: pointer;
+  transition: 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  text-decoration: none;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 4px;
+  background: var(--accent-bar, var(--rose-deep));
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.25s ease;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 36px rgba(63, 50, 38, 0.1);
+  border-color: transparent;
+}
+
+.card:hover::before {
+  transform: scaleX(1);
+}
+
+.staff {
+  --accent-bar: var(--rose-deep);
+}
+.supervisor {
+  --accent-bar: var(--gold-deep);
+}
+.parent {
+  --accent-bar: var(--sage-deep);
+}
+.board {
+  --accent-bar: var(--gold);
+}
+
+.cardIcon {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 18px;
+  transition: 0.2s;
+}
+
+.staff .cardIcon {
+  background: rgba(63, 102, 80, 0.12);
+}
+.supervisor .cardIcon {
+  background: rgba(168, 92, 54, 0.14);
+}
+.parent .cardIcon {
+  background: rgba(124, 74, 66, 0.12);
+}
+.board .cardIcon {
+  background: rgba(189, 122, 62, 0.16);
+}
+
+.card:hover .cardIcon {
+  transform: scale(1.08);
+}
+
+.cardTitle {
+  font-weight: 800;
+  font-size: 17.5px;
+  margin-bottom: 8px;
+}
+
+.cardDesc {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  min-height: 36px;
+}
+
+.cardArrow {
+  margin-top: 16px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--rose-deep);
+  opacity: 0;
+  transform: translateX(6px);
+  transition: 0.2s;
+}
+
+.card:hover .cardArrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.helpLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 1.5px solid var(--line);
+  border-radius: 18px;
+  padding: 13px 26px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: 0.2s;
+}
+
+.helpLink:hover {
+  border-color: var(--gold-deep);
+  color: var(--gold-deep);
+  background: rgba(168, 92, 54, 0.06);
+}
+
+.footerNote {
+  margin-top: 48px;
+  font-size: 16px;
+  opacity: 0.5;
+  text-align: center;
+}

@@ -24,6 +24,10 @@ body {
 }
 
 body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--cream);
   background-image: radial-gradient(circle at 12% 6%, rgba(76, 120, 98, 0.1), transparent 40%),
     radial-gradient(circle at 92% 90%, rgba(156, 148, 132, 0.12), transparent 40%);
@@ -41,4 +45,16 @@ textarea {
 
 a {
   color: inherit;
+}
+
+/* Page content grows to fill the viewport so the site footer (root layout)
+   sits at the bottom even on short pages. */
+.site-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-main > * {
+  flex-shrink: 0;
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Markazi_Text, Tajawal } from "next/font/google";
 import "./globals.css";
+import { SiteFooter } from "@/components/site-footer/SiteFooter";
 
 const markaziText = Markazi_Text({
   variable: "--font-markazi",
@@ -22,7 +23,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ar" dir="rtl" className={`${markaziText.variable} ${tajawal.variable}`}>
-      <body>{children}</body>
+      <body>
+        <div className="site-main">{children}</div>
+        <SiteFooter />
+      </body>
     </html>
   );
 }

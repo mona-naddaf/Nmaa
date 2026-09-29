@@ -14,12 +14,12 @@ export async function teacherLoginAction(_prev: ActionState, formData: FormData)
   const code = normalizeCourseCode(String(formData.get("code") ?? ""));
 
   if (!name || !code) {
-    return { error: "يُرجى إدخال الاسم وكود الدورة" };
+    return { error: "يُرجى إدخال الاسم ورمز الدورة" };
   }
 
   const course = await prisma.course.findUnique({ where: { code } });
   if (!course) {
-    return { error: "كود الدورة غير صحيح — يُرجى التأكد منه مع مشرف الدورة" };
+    return { error: "رمز الدورة غير صحيح — يُرجى التأكد منه مع مشرف الدورة" };
   }
 
   const nameKey = name.toLowerCase();

@@ -26,10 +26,10 @@ export default async function ParentCodesPrintPage() {
     <div className={styles.page}>
       <div className={styles.brand}>نماء 🌱</div>
       <div className={styles.meta}>{course.name}</div>
-      <div className={styles.meta}>أكواد دخول أولياء الأمور — {todayISO()}</div>
+      <div className={styles.meta}>رموز دخول أولياء الأمور — {todayISO()}</div>
       {loginUrl && (
         <div className={styles.meta}>
-          يسجّل وليّ الأمر دخوله من الصفحة <bdi dir="ltr">{loginUrl}</bdi> باسم {studentNounDef(g)} والكود
+          يسجّل وليّ الأمر دخوله من الصفحة <bdi dir="ltr">{loginUrl}</bdi> باسم {studentNounDef(g)} والرمز
         </div>
       )}
 
@@ -43,7 +43,7 @@ export default async function ParentCodesPrintPage() {
             <tr>
               <th>{studentNounDef(g)}</th>
               <th>المجموعة</th>
-              <th>كود وليّ الأمر</th>
+              <th>رمز وليّ الأمر</th>
             </tr>
           </thead>
           <tbody>

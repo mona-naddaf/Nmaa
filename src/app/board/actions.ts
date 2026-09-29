@@ -14,7 +14,7 @@ export type BoardLoginState = { error?: string } | null;
 export async function boardLoginAction(_prev: BoardLoginState, formData: FormData): Promise<BoardLoginState> {
   const code = normalizeAccessCode(String(formData.get("code") ?? ""));
   if (!code) {
-    return { error: "يُرجى إدخال كود لوحة الإنجاز" };
+    return { error: "يُرجى إدخال رمز لوحة الإنجاز" };
   }
 
   if (await isLoginLocked("BOARD")) {
@@ -27,7 +27,7 @@ export async function boardLoginAction(_prev: BoardLoginState, formData: FormDat
   });
   if (!course) {
     await recordLoginFailure("BOARD");
-    return { error: "الكود غير صحيح — يُرجى التأكد منه مع مشرف الدورة" };
+    return { error: "الرمز غير صحيح — يُرجى التأكد منه مع مشرف الدورة" };
   }
 
   await createBoardSession({ courseId: course.id, v: course.boardCodeVersion });

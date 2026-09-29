@@ -330,7 +330,7 @@ async function adminStudentId(studentId: string) {
 export async function regenerateParentCodeAction(studentId: string): Promise<ParentAccessResult> {
   const id = await adminStudentId(studentId);
   const issued = await issueParentCode(id);
-  if (!issued) return { error: "تعذّر إنشاء الكود، يُرجى المحاولة مرة أخرى" };
+  if (!issued) return { error: "تعذّر إنشاء الرمز، يُرجى المحاولة مرة أخرى" };
   revalidatePath(`/students/${id}`);
   return { code: issued.code, createdAt: issued.createdAt.toISOString() };
 }

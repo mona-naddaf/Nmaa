@@ -19,7 +19,7 @@ export async function generateUniqueCourseCode(): Promise<string> {
     const existing = await prisma.course.findUnique({ where: { code } });
     if (!existing) return code;
   }
-  throw new Error("تعذّر توليد كود فريد للدورة، يُرجى المحاولة مرة أخرى");
+  throw new Error("تعذّر توليد رمز فريد للدورة، يُرجى المحاولة مرة أخرى");
 }
 
 export function normalizeCourseCode(raw: string): string {

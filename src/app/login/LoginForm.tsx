@@ -43,7 +43,7 @@ export function LoginForm() {
                 <input id="teacherName" name="name" type="text" placeholder="مثال: سارة أحمد" required />
               </div>
               <div className={styles.field}>
-                <label htmlFor="courseCode">كود الدورة</label>
+                <label htmlFor="courseCode">رمز الدورة</label>
                 <input
                   id="courseCode"
                   name="code"

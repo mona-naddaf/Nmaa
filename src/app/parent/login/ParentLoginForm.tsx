@@ -23,7 +23,7 @@ export function ParentLoginForm() {
               <input id="childName" name="name" type="text" placeholder="كما هو مسجّل في الدورة" required />
             </div>
             <div className={styles.field}>
-              <label htmlFor="parentCode">كود الدخول</label>
+              <label htmlFor="parentCode">رمز الدخول</label>
               <input
                 id="parentCode"
                 name="code"

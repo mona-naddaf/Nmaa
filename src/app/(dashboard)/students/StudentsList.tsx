@@ -54,7 +54,7 @@ export function StudentsList({
           {isSupervisor && (
             <>
               <Link href="/students/parent-codes" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
-                🔑 أكواد أولياء الأمور
+                🔑 رموز أولياء الأمور
               </Link>
               <Link href="/students/import" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
                 ⬆ استيراد من Excel

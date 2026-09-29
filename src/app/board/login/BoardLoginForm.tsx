@@ -18,7 +18,7 @@ export function BoardLoginForm() {
         <div className={styles.card}>
           <form action={formAction}>
             <div className={styles.field}>
-              <label htmlFor="boardCode">كود لوحة الإنجاز</label>
+              <label htmlFor="boardCode">رمز لوحة الإنجاز</label>
               <input
                 id="boardCode"
                 name="code"

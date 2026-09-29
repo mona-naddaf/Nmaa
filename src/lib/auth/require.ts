@@ -4,7 +4,7 @@ import { getSession, type Session } from "@/lib/auth/session";
 
 export async function requireSession(): Promise<Session> {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/");
   return session;
 }
 

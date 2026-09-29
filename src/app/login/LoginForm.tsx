@@ -9,7 +9,8 @@ type View = "teacher" | "admin";
 type AdminMode = "login" | "signup";
 
 export function LoginForm({ initialView = "teacher" }: { initialView?: View }) {
-  const [view, setView] = useState<View>(initialView);
+  // Fixed by the entry point (the homepage links supervisors to ?role=supervisor).
+  const view = initialView;
   const [adminMode, setAdminMode] = useState<AdminMode>("login");
 
   const [teacherState, teacherFormAction, teacherPending] = useActionState<ActionState, FormData>(
@@ -59,10 +60,7 @@ export function LoginForm({ initialView = "teacher" }: { initialView?: View }) {
               </button>
             </form>
             <div className={styles.adminToggle}>
-              <a onClick={() => setView("admin")}>أنا مشرف الدورة ←</a>
-            </div>
-            <div className={styles.adminToggle}>
-              <Link href="/parent/login">دخول أولياء الأمور ←</Link>
+              <Link href="/">→ رجوع للصفحة الرئيسية</Link>
             </div>
           </div>
         )}
@@ -123,7 +121,7 @@ export function LoginForm({ initialView = "teacher" }: { initialView?: View }) {
             )}
 
             <div className={styles.adminToggle}>
-              <a onClick={() => setView("teacher")}>→ رجوع لتسجيل دخول المعلمين</a>
+              <Link href="/">→ رجوع للصفحة الرئيسية</Link>
             </div>
           </div>
         )}

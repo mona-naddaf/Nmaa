@@ -105,5 +105,5 @@ export async function adminLoginAction(_prev: ActionState, formData: FormData): 
 
 export async function logoutAction() {
   await destroySession();
-  redirect("/login");
+  redirect("/");
 }

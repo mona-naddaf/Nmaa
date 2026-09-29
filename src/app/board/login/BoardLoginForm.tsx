@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import styles from "@/app/login/login.module.css";
 import { boardLoginAction, type BoardLoginState } from "../actions";
 
@@ -34,6 +35,9 @@ export function BoardLoginForm() {
               {pending ? "جارٍ الدخول..." : "عرض لوحة الإنجاز"}
             </button>
           </form>
+          <div className={styles.adminToggle}>
+            <Link href="/">→ رجوع للصفحة الرئيسية</Link>
+          </div>
         </div>
       </div>
     </div>

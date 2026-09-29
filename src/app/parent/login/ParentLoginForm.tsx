@@ -40,7 +40,7 @@ export function ParentLoginForm() {
             </button>
           </form>
           <div className={styles.adminToggle}>
-            <Link href="/login">→ دخول المعلمين والمشرفين</Link>
+            <Link href="/">→ رجوع للصفحة الرئيسية</Link>
           </div>
         </div>
       </div>

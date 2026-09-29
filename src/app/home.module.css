@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 64px 20px 48px;
+  padding: 44px 18px 40px;
 }
 
 /* The landing page's own backdrop, on body so it runs behind the shared
@@ -20,20 +20,20 @@
 .hero {
   max-width: 600px;
   text-align: center;
-  margin-bottom: 56px;
+  margin-bottom: 36px;
 }
 
 .logoRow {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  margin-bottom: 22px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .logoIcon {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
   filter: drop-shadow(0 4px 10px rgba(63, 102, 80, 0.18));
 }
@@ -42,26 +42,26 @@
   margin: 0;
   font-family: var(--font-markazi), "Markazi Text", serif;
   font-weight: 700;
-  font-size: 46px;
+  font-size: clamp(30px, 7vw, 40px);
   line-height: 1.2;
   color: var(--rose-deep);
 }
 
 .tagline {
   display: inline-block;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--rose-deep);
   font-weight: 700;
   background: rgba(63, 102, 80, 0.09);
-  padding: 6px 18px;
+  padding: 5px 16px;
   border-radius: 20px;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .intro {
   margin: 0;
-  font-size: 15.5px;
-  line-height: 2.1;
+  font-size: 14px;
+  line-height: 1.9;
   color: var(--ink-soft);
 }
 
@@ -72,24 +72,32 @@
   margin-bottom: 18px;
 }
 
+/* Two columns at every width, four from 860px up. */
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 20px;
-  max-width: 900px;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  max-width: 760px;
   width: 100%;
-  margin-bottom: 44px;
+  margin-bottom: 40px;
+}
+
+@media (min-width: 860px) {
+  .cards {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
 }
 
 .card {
   position: relative;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 22px;
-  padding: 32px 24px 26px;
+  border-radius: 16px;
+  padding: 20px 16px 18px;
   text-align: center;
   cursor: pointer;
-  transition: 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
   text-decoration: none;
   color: var(--ink);
   display: flex;
@@ -104,7 +112,7 @@
   top: 0;
   right: 0;
   left: 0;
-  height: 4px;
+  height: 3px;
   background: var(--accent-bar, var(--rose-deep));
   transform: scaleX(0);
   transform-origin: center;
@@ -112,8 +120,8 @@
 }
 
 .card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 36px rgba(63, 50, 38, 0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px rgba(63, 50, 38, 0.09);
   border-color: transparent;
 }
 
@@ -135,14 +143,14 @@
 }
 
 .cardIcon {
-  width: 68px;
-  height: 68px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-  margin-bottom: 18px;
+  font-size: 19px;
+  margin-bottom: 12px;
   transition: 0.2s;
 }
 
@@ -165,20 +173,20 @@
 
 .cardTitle {
   font-weight: 800;
-  font-size: 17.5px;
-  margin-bottom: 8px;
+  font-size: 14.5px;
+  margin-bottom: 5px;
 }
 
 .cardDesc {
-  font-size: 12.5px;
+  font-size: 11px;
   color: var(--ink-soft);
-  line-height: 1.7;
-  min-height: 36px;
+  line-height: 1.6;
+  min-height: 30px;
 }
 
 .cardArrow {
-  margin-top: 16px;
-  font-size: 12px;
+  margin-top: 10px;
+  font-size: 10.5px;
   font-weight: 800;
   color: var(--rose-deep);
   opacity: 0;
@@ -194,12 +202,12 @@
 .helpLink {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: transparent;
   border: 1.5px solid var(--line);
-  border-radius: 18px;
-  padding: 13px 26px;
-  font-size: 13.5px;
+  border-radius: 16px;
+  padding: 10px 22px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--ink-soft);
   text-decoration: none;

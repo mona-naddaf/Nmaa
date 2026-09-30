@@ -23,6 +23,8 @@ export default async function SettingsPage() {
         groups: { orderBy: { sortOrder: "asc" } },
         pointsActivities: { orderBy: { sortOrder: "asc" } },
         teachers: {
+          // the supervisor's own stand-in row isn't a teacher to assign groups to
+          where: { isSupervisorProxy: false },
           orderBy: { name: "asc" },
           include: { groupAssignments: true },
         },

@@ -6,6 +6,7 @@ import { createSession, destroySession } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { generateUniqueCourseCode, normalizeCourseCode } from "@/lib/auth/course-code";
 import { DEFAULT_GROUP_NAMES, DEFAULT_POINTS_ACTIVITIES } from "@/lib/points/defaults";
+import { isReservedTeacherName, RESERVED_NAME_MESSAGE } from "@/lib/auth/reserved-names";
 
 export type ActionState = { error?: string } | null;
 
@@ -22,12 +23,22 @@ export async function teacherLoginAction(_prev: ActionState, formData: FormData)
     return { error: "رمز الدورة غير صحيح — يُرجى التأكد منه مع مشرف الدورة" };
   }
 
+  // supervisor titles are never a teacher's login name (see reserved-names.ts)
+  if (isReservedTeacherName(name)) {
+    return { error: RESERVED_NAME_MESSAGE };
+  }
+
   const nameKey = name.toLowerCase();
   const teacher = await prisma.teacher.upsert({
     where: { courseId_nameKey: { courseId: course.id, nameKey } },
     update: {},
     create: { courseId: course.id, name, nameKey },
   });
+  // second guard, independent of the name rules: never a session on the
+  // supervisor's stand-in row (the upsert above doesn't write to it)
+  if (teacher.isSupervisorProxy) {
+    return { error: RESERVED_NAME_MESSAGE };
+  }
 
   await createSession({
     role: "teacher",

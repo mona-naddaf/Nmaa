@@ -92,6 +92,11 @@ model Teacher {
   // (e.g. سجّلي/سجّل). Optional and asked only once — see genderPrompted.
   gender         Gender?
   genderPrompted Boolean  @default(false)
+  // true only for the per-course stand-in row that the supervisor's own
+  // entries are attributed to (src/lib/auth/teacher-identity.ts). Found by
+  // this flag, never by name, and no login can ever reach it. At most one
+  // per course (partial unique index in the migration).
+  isSupervisorProxy Boolean @default(false)
   createdAt      DateTime @default(now())
 
   groupAssignments TeacherGroupAssignment[]

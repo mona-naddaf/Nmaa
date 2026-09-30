@@ -41,7 +41,7 @@ export async function setProgressBarAction(field: ProgressBarField, enabled: boo
 
 export async function setTeacherGroupAssignmentAction(teacherId: string, groupId: string | null) {
   const cid = await currentCourseId();
-  const teacher = await prisma.teacher.findFirst({ where: { id: teacherId, courseId: cid } });
+  const teacher = await prisma.teacher.findFirst({ where: { id: teacherId, courseId: cid, isSupervisorProxy: false } });
   if (!teacher) throw new Error("معلم غير موجود");
 
   await prisma.teacherGroupAssignment.deleteMany({ where: { teacherId } });

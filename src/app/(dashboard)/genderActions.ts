@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
+import { syncSupervisorProxyName } from "@/lib/auth/teacher-identity";
 
 // Records the current teacher's/admin's own gender (or that they chose to
 // skip) so the one-time prompt never shows again for them. `gender: null`
@@ -16,6 +17,8 @@ export async function setPersonGenderAction(gender: "MALE" | "FEMALE" | null) {
       where: { id: session.adminId },
       data: { gender, genderPrompted: true },
     });
+    // past supervisor entries display as مشرف/مشرفة الدورة: follow the new gender
+    await syncSupervisorProxyName(session.courseId, gender);
   } else {
     await prisma.teacher.update({
       where: { id: session.teacherId },

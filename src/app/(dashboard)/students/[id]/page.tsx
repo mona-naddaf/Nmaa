@@ -12,9 +12,15 @@ import { computeOverdueSurahs } from "@/lib/students/review";
 import { DetailView } from "./DetailView";
 import { ParentCodeCard } from "./ParentCodeCard";
 import { StudentManageBar } from "./StudentManageBar";
+import { requestOrigin } from "@/lib/request-origin";
 import styles from "./manage.module.css";
 import { canArchiveStudents, canEditStudents, teacherGroupLimit } from "@/lib/students/manage";
 import { pickByGroup, studentNounDef } from "@/lib/text/gender";
+
+async function parentLoginUrl() {
+  const origin = await requestOrigin();
+  return origin ? `${origin}/parent/login` : null;
+}
 
 export default async function StudentDetailPage({ params }: PageProps<"/students/[id]">) {
   const { id } = await params;
@@ -189,6 +195,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           groupGender={student.group.gender}
           initialCode={student.parentCode}
           initialCreatedAt={student.parentCodeCreatedAt?.toISOString() ?? null}
+          loginUrl={await parentLoginUrl()}
         />
       )}
     </>

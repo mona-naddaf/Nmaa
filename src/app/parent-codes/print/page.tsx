@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { requestOrigin } from "@/lib/request-origin";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
@@ -14,14 +14,12 @@ import styles from "@/app/reports/print/print.module.css";
 export default async function ParentCodesPrintPage() {
   const session = await requireAdmin();
   const g = NEUTRAL_GROUP_GENDER;
-  const [rows, course, h] = await Promise.all([
+  const [rows, course, origin] = await Promise.all([
     getParentCodeRows(session.courseId),
     prisma.course.findUniqueOrThrow({ where: { id: session.courseId }, select: { name: true } }),
-    headers(),
+    requestOrigin(),
   ]);
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? (host?.startsWith("localhost") ? "http" : "https");
-  const loginUrl = host ? `${proto}://${host}/parent/login` : null;
+  const loginUrl = origin ? `${origin}/parent/login` : null;
 
   return (
     <div className={styles.page}>

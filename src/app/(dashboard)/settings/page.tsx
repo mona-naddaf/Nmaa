@@ -12,11 +12,12 @@ import { ReviewReminderCard } from "./ReviewReminderCard";
 import { StreakCard } from "./StreakCard";
 import { PointsEditor } from "./PointsEditor";
 import { CalendarCard } from "./CalendarCard";
+import { requestOrigin } from "@/lib/request-origin";
 
 export default async function SettingsPage() {
   const session = await requireAdmin();
 
-  const [course, admin] = await Promise.all([
+  const [course, admin, origin] = await Promise.all([
     prisma.course.findUniqueOrThrow({
       where: { id: session.courseId },
       include: {
@@ -31,6 +32,7 @@ export default async function SettingsPage() {
       },
     }),
     prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true } }),
+    requestOrigin(),
   ]);
 
   return (
@@ -43,6 +45,7 @@ export default async function SettingsPage() {
       <BoardCodeCard
         initialCode={course.boardCode}
         initialCreatedAt={course.boardCodeCreatedAt?.toISOString() ?? null}
+        loginUrl={origin ? `${origin}/board/login` : null}
       />
 
       <div className={styles.secTitle}>

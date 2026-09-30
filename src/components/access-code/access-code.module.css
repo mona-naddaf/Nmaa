@@ -90,3 +90,28 @@
   font-size: 12.5px;
   margin-top: 10px;
 }
+
+.linkRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+}
+
+.linkLabel {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.linkVal {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 10px;
+  color: var(--ink);
+  word-break: break-all;
+  user-select: all;
+}

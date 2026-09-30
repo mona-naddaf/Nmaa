@@ -25,7 +25,7 @@ export interface StudentSummary {
 
 export async function getStudentSummaries(courseId: string, groupIds?: string[]): Promise<StudentSummary[]> {
   const students = await prisma.student.findMany({
-    where: { courseId, ...(groupIds ? { groupId: { in: groupIds } } : {}) },
+    where: { courseId, archivedAt: null, ...(groupIds ? { groupId: { in: groupIds } } : {}) },
     include: { planItems: { orderBy: { position: "asc" } }, group: { select: { gender: true } } },
     orderBy: { name: "asc" },
   });

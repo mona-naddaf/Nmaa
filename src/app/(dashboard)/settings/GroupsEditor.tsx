@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./settings.module.css";
 import { addGroupAction, deleteGroupAction, renameGroupAction, setGroupGenderAction } from "./actions";
-import type { GroupGender } from "@/lib/text/gender";
+import { pickByGroup, studentsNoun, type GroupGender } from "@/lib/text/gender";
 
 const GENDER_LABEL: Record<GroupGender, string> = { GIRLS: "بنات", BOYS: "بنين", MIXED: "مختلطة" };
 const GENDER_OPTIONS: GroupGender[] = ["GIRLS", "BOYS", "MIXED"];
@@ -15,6 +15,8 @@ export function GroupsEditor({ groups }: { groups: { id: string; name: string; g
   const [error, setError] = useState<string | null>(null);
   const newNameRef = useRef<HTMLInputElement>(null);
   const [newGender, setNewGender] = useState<GroupGender>("GIRLS");
+  // a delete that first needs a destination for the group's archived students
+  const [moving, setMoving] = useState<{ groupId: string; count: number; target: string } | null>(null);
 
   function commitRename(id: string, value: string, original: string) {
     if (value.trim() === original || !value.trim()) return;
@@ -31,17 +33,24 @@ export function GroupsEditor({ groups }: { groups: { id: string; name: string; g
     });
   }
 
-  function remove(id: string) {
+  function remove(id: string, moveArchivedTo?: string) {
     startTransition(async () => {
-      const result = await deleteGroupAction(id);
+      const result = await deleteGroupAction(id, moveArchivedTo);
       if (result?.error) {
         setError(result.error);
+      } else if (result?.archivedToMove) {
+        setError(null);
+        const firstOther = groups.find((g) => g.id !== id)?.id ?? "";
+        setMoving({ groupId: id, count: result.archivedToMove, target: firstOther });
       } else {
         setError(null);
+        setMoving(null);
         router.refresh();
       }
     });
   }
+
+  const movingGroup = moving ? groups.find((g) => g.id === moving.groupId) : null;
 
   function add() {
     const value = newNameRef.current?.value ?? "";
@@ -72,6 +81,32 @@ export function GroupsEditor({ groups }: { groups: { id: string; name: string; g
           </div>
         ))}
       </div>
+      {moving && movingGroup && (
+        <div className={styles.assignBox} style={{ marginBottom: 12 }}>
+          <div className={styles.aTitle}>
+            في مجموعة «{movingGroup.name}» {moving.count} من {studentsNoun(movingGroup.gender)} الأرشيف. إلى أي
+            مجموعة يُنقَل{pickByGroup(movingGroup.gender, { m: "ون", f: "ن" })} قبل حذفها؟ (تبقى بيانات
+            {pickByGroup(movingGroup.gender, { m: "هم", f: "هنّ" })} محفوظة، وتظهر في المجموعة الجديدة عند الاستعادة)
+          </div>
+          <div className={styles.editRow}>
+            <select value={moving.target} onChange={(e) => setMoving({ ...moving, target: e.target.value })}>
+              {groups
+                .filter((g) => g.id !== moving.groupId)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+            </select>
+            <button className={styles.addBtn} style={{ padding: "8px 14px" }} type="button" onClick={() => remove(moving.groupId, moving.target)}>
+              نقل وحذف المجموعة
+            </button>
+            <button className={styles.copyBtn} style={{ marginTop: 0 }} type="button" onClick={() => setMoving(null)}>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
       {error && <div className={styles.err}>{error}</div>}
       <div className={styles.addNewRow}>
         <input ref={newNameRef} type="text" placeholder="اسم مجموعة جديدة..." />

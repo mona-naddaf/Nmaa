@@ -41,7 +41,7 @@ export async function issueParentCode(
  */
 export async function issueMissingParentCodes(courseId: string): Promise<{ created: number; needed: number; failed: boolean }> {
   const missing = await prisma.student.findMany({
-    where: { courseId, parentCode: null, parentCodeVersion: 0 },
+    where: { courseId, parentCode: null, parentCodeVersion: 0, archivedAt: null },
     select: { id: true },
   });
   let created = 0;

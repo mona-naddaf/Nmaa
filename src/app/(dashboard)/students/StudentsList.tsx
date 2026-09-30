@@ -26,6 +26,7 @@ export function StudentsList({
   canAddStudents,
   isSupervisor,
   viewerGender,
+  archivedCount = 0,
 }: {
   groups: { id: string; name: string; gender: GroupGender }[];
   students: StudentSummary[];
@@ -33,6 +34,8 @@ export function StudentsList({
   // bulk import and parent codes are supervisor-only
   isSupervisor: boolean;
   viewerGender: PersonGender;
+  // supervisor only: how many students are in the archive
+  archivedCount?: number;
 }) {
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id ?? "");
   const [query, setQuery] = useState("");
@@ -53,6 +56,9 @@ export function StudentsList({
         <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
           {isSupervisor && (
             <>
+              <Link href="/students/archive" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
+                🗄 الأرشيف ({archivedCount})
+              </Link>
               <Link href="/students/parent-codes" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
                 🔑 رموز أولياء الأمور
               </Link>

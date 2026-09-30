@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth/require";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { studentCreateData, validateNewStudent, type PriorPartial } from "@/lib/students/new-student";
 import { imperative, studentsNoun, NEUTRAL_GROUP_GENDER } from "@/lib/text/gender";
+import { duplicateNameMessage, studentNameTaken } from "@/lib/students/manage";
 
 export type ActionState = { error?: string } | null;
 
@@ -72,6 +73,10 @@ export async function createStudentAction(_prev: ActionState, formData: FormData
     group.gender,
   );
   if ("error" in result) return { error: result.error };
+  // same rule as the Excel import, and archived students' names count too
+  if (await studentNameTaken(course.id, result.student.name)) {
+    return { error: duplicateNameMessage(group.gender) };
+  }
 
   const teacherId = await resolveTeacherId(session);
   const student = await prisma.student.create({

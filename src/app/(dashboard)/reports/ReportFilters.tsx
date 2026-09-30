@@ -30,7 +30,7 @@ export function ReportFilters({
   courseCreatedAt: string;
   today: string;
   groups: { id: string; name: string }[];
-  students: { id: string; name: string; groupId: string }[];
+  students: { id: string; name: string; groupId: string; archived: boolean }[];
   scopeGender: GroupGender;
 }) {
   const router = useRouter();
@@ -100,6 +100,7 @@ export function ReportFilters({
               {students.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
+                  {s.archived && " (في الأرشيف)"}
                 </option>
               ))}
             </select>

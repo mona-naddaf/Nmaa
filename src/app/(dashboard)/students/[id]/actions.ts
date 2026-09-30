@@ -27,8 +27,9 @@ function addHoursUTC(date: Date, hours: number): Date {
 }
 
 async function loadStudentForCourse(studentId: string, courseId: string) {
+  // archived students can't be acted on (their history stays as it was)
   const student = await prisma.student.findFirst({
-    where: { id: studentId, courseId },
+    where: { id: studentId, courseId, archivedAt: null },
     include: { planItems: { orderBy: { position: "asc" } }, group: { select: { gender: true } } },
   });
   if (!student) throw new Error("طالب غير موجود");
@@ -320,7 +321,10 @@ export type ParentAccessResult = { error: string } | { code: string | null; crea
 
 async function adminStudentId(studentId: string) {
   const session = await requireAdmin();
-  const student = await prisma.student.findFirst({ where: { id: studentId, courseId: session.courseId }, select: { id: true } });
+  const student = await prisma.student.findFirst({
+    where: { id: studentId, courseId: session.courseId, archivedAt: null },
+    select: { id: true },
+  });
   if (!student) throw new Error("طالب غير موجود");
   return student.id;
 }

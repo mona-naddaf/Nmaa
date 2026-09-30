@@ -21,7 +21,10 @@ export async function getParentCodeRows(courseId: string): Promise<ParentCodeRow
     orderBy: { sortOrder: "asc" },
     select: {
       name: true,
-      students: { select: { id: true, name: true, parentCode: true, parentCodeVersion: true } },
+      students: {
+        where: { archivedAt: null },
+        select: { id: true, name: true, parentCode: true, parentCodeVersion: true },
+      },
     },
   });
 

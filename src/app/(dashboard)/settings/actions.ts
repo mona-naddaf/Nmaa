@@ -16,6 +16,18 @@ export async function setAddStudentsPermissionAction(value: "ADMIN_ONLY" | "ALL_
   revalidatePath("/settings");
 }
 
+const STUDENT_PERMISSION_FIELDS = ["editStudentsPermission", "archiveStudentsPermission"] as const;
+export type StudentPermissionField = (typeof STUDENT_PERMISSION_FIELDS)[number];
+
+export async function setStudentPermissionAction(field: StudentPermissionField, value: "ADMIN_ONLY" | "ALL_TEACHERS") {
+  const cid = await currentCourseId();
+  if (!STUDENT_PERMISSION_FIELDS.includes(field)) throw new Error("إعداد غير معروف");
+  if (value !== "ADMIN_ONLY" && value !== "ALL_TEACHERS") throw new Error("خيار غير صحيح");
+  await prisma.course.update({ where: { id: cid }, data: { [field]: value } });
+  revalidatePath("/settings");
+  revalidatePath("/students", "layout");
+}
+
 export async function setVisibilityModeAction(value: "ALL_TEACHERS" | "ASSIGNED") {
   const cid = await currentCourseId();
   await prisma.course.update({ where: { id: cid }, data: { visibilityMode: value } });
@@ -78,22 +90,41 @@ export async function setGroupGenderAction(groupId: string, gender: GroupGender)
   revalidatePath("/settings");
 }
 
-export async function deleteGroupAction(groupId: string): Promise<{ error?: string }> {
+export type DeleteGroupResult = { error?: string; archivedToMove?: number };
+
+// A group with active students can't be deleted (move them first, from each
+// student's page). One that only has archived students can: they're moved to
+// `moveArchivedTo` in the same transaction — the caller asks for it when the
+// first attempt returns archivedToMove.
+export async function deleteGroupAction(groupId: string, moveArchivedTo?: string): Promise<DeleteGroupResult> {
   const cid = await currentCourseId();
   const count = await prisma.group.count({ where: { courseId: cid } });
   if (count <= 1) {
-    return { error: "لازم يبقى مجموعة واحدة على الأقل" };
+    return { error: "لا بدّ من بقاء مجموعة واحدة على الأقل" };
   }
   const group = await prisma.group.findFirst({ where: { id: groupId, courseId: cid }, select: { gender: true } });
-  const studentsInGroup = await prisma.student.count({ where: { groupId, courseId: cid } });
+  if (!group) return { error: "المجموعة غير موجودة" };
+  const studentsInGroup = await prisma.student.count({ where: { groupId, courseId: cid, archivedAt: null } });
   if (studentsInGroup > 0) {
     const g = group?.gender ?? "GIRLS";
     return {
       error: `لا يمكن حذف مجموعة بها ${studentsNoun(g)} — يُرجى نقل${pickByGroup(g, { m: "هم", f: "هنّ" })} أولًا`,
     };
   }
-  await prisma.group.delete({ where: { id: groupId, courseId: cid } });
+  const archivedInGroup = await prisma.student.count({ where: { groupId, courseId: cid, archivedAt: { not: null } } });
+  if (archivedInGroup > 0) {
+    if (!moveArchivedTo) return { archivedToMove: archivedInGroup };
+    const target = await prisma.group.findFirst({ where: { id: moveArchivedTo, courseId: cid }, select: { id: true } });
+    if (!target || target.id === groupId) return { error: "يُرجى اختيار مجموعة أخرى" };
+    await prisma.$transaction([
+      prisma.student.updateMany({ where: { groupId, courseId: cid, archivedAt: { not: null } }, data: { groupId: target.id } }),
+      prisma.group.delete({ where: { id: groupId, courseId: cid } }),
+    ]);
+  } else {
+    await prisma.group.delete({ where: { id: groupId, courseId: cid } });
+  }
   revalidatePath("/settings");
+  revalidatePath("/students", "layout");
   return {};
 }
 

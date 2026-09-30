@@ -25,12 +25,14 @@ export async function parentLoginAction(_prev: ParentLoginState, formData: FormD
 
   const student = await prisma.student.findUnique({
     where: { parentCode: code },
-    select: { id: true, name: true, parentCodeVersion: true },
+    select: { id: true, name: true, parentCodeVersion: true, archivedAt: true },
   });
 
   // one generic message for every failure, so the form never reveals
   // whether a code exists
-  if (!student || !parentNameMatches(name, student.name)) {
+  // an archived student's code is paused (kept, so a restore brings it back);
+  // it fails exactly like a wrong code
+  if (!student || student.archivedAt || !parentNameMatches(name, student.name)) {
     await recordLoginFailure("PARENT");
     return { error: "الاسم أو رمز الدخول غير صحيح — يُرجى التأكد منهما مع مشرف الدورة" };
   }

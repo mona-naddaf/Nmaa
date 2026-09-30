@@ -42,6 +42,10 @@ model Course {
   adminId                 String                @unique
   admin                   Admin                 @relation(fields: [adminId], references: [id], onDelete: Cascade)
   addStudentsPermission   AddStudentsPermission @default(ADMIN_ONLY)
+  // who may edit a student's name/age/grade/group, and who may archive one.
+  // Restoring and permanently deleting are always supervisor-only.
+  editStudentsPermission    AddStudentsPermission @default(ADMIN_ONLY)
+  archiveStudentsPermission AddStudentsPermission @default(ADMIN_ONLY)
   visibilityMode          VisibilityMode        @default(ALL_TEACHERS)
   onlineRecitationEnabled Boolean               @default(true)
   // optional progress bars on the student detail screen, each toggled
@@ -181,6 +185,14 @@ model Student {
   parentCodeVersion   Int       @default(0)
   parentCodeCreatedAt DateTime?
 
+  // Archived instead of deleted: null = active. An archived student drops out
+  // of every list, count, board and streak, can't be acted on, and her parent
+  // code stops working (it's kept, so restoring brings it back). Her history
+  // is untouched. keepInReports decides, while archived, whether her history
+  // still counts in reports (and she's listed there, marked as archived).
+  archivedAt    DateTime?
+  keepInReports Boolean   @default(true)
+
   planItems          PlanItem[]
   recitationSessions RecitationSession[]
   pointsLogs         PointsLog[]
@@ -189,6 +201,7 @@ model Student {
 
   @@index([courseId])
   @@index([groupId])
+  @@index([courseId, archivedAt])
 }
 
 // A student's memorization plan: an ordered list of surahs, built from a

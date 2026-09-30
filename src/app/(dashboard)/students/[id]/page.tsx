@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
@@ -10,6 +11,10 @@ import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages
 import { computeOverdueSurahs } from "@/lib/students/review";
 import { DetailView } from "./DetailView";
 import { ParentCodeCard } from "./ParentCodeCard";
+import { StudentManageBar } from "./StudentManageBar";
+import styles from "./manage.module.css";
+import { canArchiveStudents, canEditStudents, teacherGroupLimit } from "@/lib/students/manage";
+import { pickByGroup, studentNounDef } from "@/lib/text/gender";
 
 export default async function StudentDetailPage({ params }: PageProps<"/students/[id]">) {
   const { id } = await params;
@@ -20,6 +25,9 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     include: { planItems: { orderBy: { position: "asc" } }, group: { select: { gender: true } } },
   });
   if (!student) notFound();
+  // an archived student's page is the supervisor's read-only view (from the archive)
+  const archived = student.archivedAt !== null;
+  if (archived && session.role !== "admin") redirect("/students");
 
   const viewer =
     session.role === "admin"
@@ -28,8 +36,14 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
 
   const course = await prisma.course.findUniqueOrThrow({
     where: { id: session.courseId },
-    include: { pointsActivities: { orderBy: { sortOrder: "asc" } } },
+    include: {
+      pointsActivities: { orderBy: { sortOrder: "asc" } },
+      groups: { orderBy: { sortOrder: "asc" }, select: { id: true, name: true, gender: true } },
+    },
   });
+  const groupLimit = await teacherGroupLimit(session, course);
+  const canEdit = !archived && canEditStudents(session, course);
+  const canArchive = !archived && canArchiveStudents(session, course);
 
   if (session.role === "teacher" && course.visibilityMode === "ASSIGNED") {
     const assignments = await prisma.teacherGroupAssignment.findMany({ where: { teacherId: session.teacherId } });
@@ -71,15 +85,18 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           (
             await computeStreaks(
               course.streakMode,
-              await prisma.student.findMany({ where: { groupId: student.groupId }, select: { id: true, groupId: true } }),
+              await prisma.student.findMany({
+                where: { groupId: student.groupId, archivedAt: null },
+                select: { id: true, groupId: true },
+              }),
             )
           ).get(student.id) ?? 0,
       }
     : null;
   const cumPoints = pointsLogs.reduce((sum, p) => sum + (p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime), 0);
 
-  return (
-    <>
+  const g = student.group.gender;
+  const view = (
       <DetailView
         student={{
           id: student.id,
@@ -131,7 +148,40 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           notes: s.notes,
           reason: s.reason,
         }))}
+        headerActions={
+          canEdit || canArchive ? (
+            <StudentManageBar
+              student={{ id: student.id, name: student.name, age: student.age, grade: student.grade, groupId: student.groupId }}
+              groups={groupLimit ? course.groups.filter((x) => groupLimit.includes(x.id)) : course.groups}
+              canEdit={canEdit}
+              canArchive={canArchive}
+            />
+          ) : null
+        }
       />
+  );
+
+  if (archived) {
+    return (
+      <>
+        <div className={styles.archivedBanner}>
+          <span>
+            🗄 {studentNounDef(g)} في الأرشيف منذ {student.archivedAt!.toISOString().slice(0, 10)} — هذه الصفحة للاطلاع
+            فقط، ورمز ولي الأمر {pickByGroup(g, { m: "الخاص به", f: "الخاص بها" })} متوقف.
+          </span>
+          <Link href="/students/archive">→ العودة إلى الأرشيف</Link>
+        </div>
+        {/* inert: everything stays readable, nothing can be clicked or submitted */}
+        <div inert className={styles.readOnly}>
+          {view}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {view}
       {/* supervisor only: the code is never sent to a teacher's browser */}
       {session.role === "admin" && (
         <ParentCodeCard

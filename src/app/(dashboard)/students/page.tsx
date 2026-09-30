@@ -28,9 +28,12 @@ export default async function StudentsPage() {
     ? course.groups.filter((g) => visibleGroupIds!.includes(g.id))
     : course.groups;
 
-  const [students, calendar] = await Promise.all([
+  const [students, calendar, archivedCount] = await Promise.all([
     getStudentSummaries(course.id, visibleGroupIds),
     getCalendarData(session),
+    session.role === "admin"
+      ? prisma.student.count({ where: { courseId: course.id, archivedAt: { not: null } } })
+      : Promise.resolve(0),
   ]);
 
   const canAddStudents = session.role === "admin" || course.addStudentsPermission === "ALL_TEACHERS";
@@ -55,6 +58,7 @@ export default async function StudentsPage() {
         canAddStudents={canAddStudents}
         isSupervisor={session.role === "admin"}
         viewerGender={viewer?.gender ?? null}
+        archivedCount={archivedCount}
       />
     </>
   );

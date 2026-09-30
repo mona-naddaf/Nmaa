@@ -47,9 +47,9 @@ export async function getParentStudentId(): Promise<string | null> {
 
   const student = await prisma.student.findUnique({
     where: { id: payload.studentId },
-    select: { parentCode: true, parentCodeVersion: true },
+    select: { parentCode: true, parentCodeVersion: true, archivedAt: true },
   });
-  if (!student?.parentCode || student.parentCodeVersion !== payload.v) return null;
+  if (!student?.parentCode || student.parentCodeVersion !== payload.v || student.archivedAt) return null;
   return payload.studentId;
 }
 

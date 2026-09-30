@@ -100,6 +100,7 @@ export function DetailView({
   pointsActivities,
   pointsLogs: initialPointsLogs,
   history,
+  headerActions,
 }: {
   student: { id: string; name: string; age: number; grade: string | null; attendance: Attendance };
   groupGender: GroupGender;
@@ -123,6 +124,8 @@ export function DetailView({
   pointsActivities: PointsActivity[];
   pointsLogs: PointsLogEntry[];
   history: HistoryEntry[];
+  // edit/archive buttons, rendered under the name (null when not allowed)
+  headerActions?: React.ReactNode;
 }) {
   const router = useRouter();
   const today = todayISO();
@@ -317,6 +320,7 @@ export function DetailView({
               {student.age} سنوات
               {student.grade && ` · ${student.grade.startsWith("الصف") ? student.grade : `الصف ${student.grade}`}`}
             </div>
+            {headerActions}
           </div>
         </div>
         <div className={styles.attendanceToggle}>

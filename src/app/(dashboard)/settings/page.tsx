@@ -50,6 +50,9 @@ export default async function SettingsPage() {
       </div>
       <PermissionsCard
         addStudentsPermission={course.addStudentsPermission}
+        editStudentsPermission={course.editStudentsPermission}
+        archiveStudentsPermission={course.archiveStudentsPermission}
+        adminGender={admin?.gender ?? null}
         visibilityMode={course.visibilityMode}
         groups={course.groups.map((g) => ({ id: g.id, name: g.name }))}
         teachers={course.teachers.map((t) => ({

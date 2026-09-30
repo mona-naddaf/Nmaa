@@ -5,6 +5,10 @@ import { parseDateOnlyInput, todayDateOnly } from "@/lib/attendance";
 import type { Session } from "@/lib/auth/session";
 import { NEUTRAL_GROUP_GENDER, type GroupGender } from "@/lib/text/gender";
 
+// Active students, plus archived ones whose supervisor kept them in reports.
+const IN_REPORTS = { OR: [{ archivedAt: null }, { keepInReports: true }] };
+const ARCHIVED_MARK = " (في الأرشيف)";
+
 export interface ReportRow {
   studentId: string;
   name: string;
@@ -22,7 +26,7 @@ export interface ResolvedReportScope {
   to: Date;
   // for rendering the filter UI with the right options
   visibleGroups: { id: string; name: string }[];
-  visibleStudents: { id: string; name: string; groupId: string }[];
+  visibleStudents: { id: string; name: string; groupId: string; archived: boolean }[];
   courseName: string;
   // the single group's gender when the scope narrows to one group/student,
   // otherwise the neutral default (course-wide/mixed scope)
@@ -58,11 +62,13 @@ export async function resolveReportScope(
     ? course.groups.filter((g) => allowedGroupIds!.includes(g.id))
     : course.groups;
 
-  const visibleStudents = await prisma.student.findMany({
-    where: { courseId: course.id, ...(allowedGroupIds ? { groupId: { in: allowedGroupIds } } : {}) },
-    select: { id: true, name: true, groupId: true },
-    orderBy: { name: "asc" },
-  });
+  const visibleStudents = (
+    await prisma.student.findMany({
+      where: { courseId: course.id, ...IN_REPORTS, ...(allowedGroupIds ? { groupId: { in: allowedGroupIds } } : {}) },
+      select: { id: true, name: true, groupId: true, archivedAt: true },
+      orderBy: { name: "asc" },
+    })
+  ).map(({ archivedAt, ...s }) => ({ ...s, archived: archivedAt !== null }));
 
   const single = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const scopeParam = single(searchParams.scope) ?? "course";
@@ -117,6 +123,7 @@ export async function getReportRows(courseId: string, resolved: ResolvedReportSc
   const students = await prisma.student.findMany({
     where: {
       courseId,
+      ...IN_REPORTS,
       ...(resolved.studentId ? { id: resolved.studentId } : {}),
       ...(resolved.groupIds ? { groupId: { in: resolved.groupIds } } : {}),
     },
@@ -160,12 +167,17 @@ export async function getReportRows(courseId: string, resolved: ResolvedReportSc
     attendanceByStudent.set(a.studentId, (attendanceByStudent.get(a.studentId) ?? 0) + 1);
   }
 
-  return students.map((s) => ({
-    studentId: s.id,
-    name: s.name,
-    groupName: s.group.name,
-    totalPages: Math.round((pagesByStudent.get(s.id) ?? 0) * 1000) / 1000,
-    attendanceDays: attendanceByStudent.get(s.id) ?? 0,
-    totalPoints: pointsByStudent.get(s.id) ?? 0,
-  }));
+  return (
+    students
+      // an archived student only appears for ranges where she has data
+      .filter((s) => !s.archivedAt || pagesByStudent.has(s.id) || attendanceByStudent.has(s.id) || pointsByStudent.has(s.id))
+      .map((s) => ({
+        studentId: s.id,
+        name: s.archivedAt ? s.name + ARCHIVED_MARK : s.name,
+        groupName: s.group.name,
+        totalPages: Math.round((pagesByStudent.get(s.id) ?? 0) * 1000) / 1000,
+        attendanceDays: attendanceByStudent.get(s.id) ?? 0,
+        totalPoints: pointsByStudent.get(s.id) ?? 0,
+      }))
+  );
 }

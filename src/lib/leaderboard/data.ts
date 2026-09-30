@@ -17,7 +17,7 @@ export interface DailyEntry {
 
 export async function getLeaderboardData(courseId: string) {
   const students = await prisma.student.findMany({
-    where: { courseId },
+    where: { courseId, archivedAt: null },
     include: { group: true },
     orderBy: { name: "asc" },
   });

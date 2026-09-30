@@ -4,25 +4,58 @@ import { useTransition } from "react";
 import styles from "./settings.module.css";
 import {
   setAddStudentsPermissionAction,
+  setStudentPermissionAction,
   setVisibilityModeAction,
   setTeacherGroupAssignmentAction,
+  type StudentPermissionField,
 } from "./actions";
+import { pickByPerson, supervisorNoun, type PersonGender } from "@/lib/text/gender";
 
 type AddStudentsPermission = "ADMIN_ONLY" | "ALL_TEACHERS";
 type VisibilityMode = "ALL_TEACHERS" | "ASSIGNED";
 
 export function PermissionsCard({
   addStudentsPermission,
+  editStudentsPermission,
+  archiveStudentsPermission,
+  adminGender,
   visibilityMode,
   groups,
   teachers,
 }: {
   addStudentsPermission: AddStudentsPermission;
+  editStudentsPermission: AddStudentsPermission;
+  archiveStudentsPermission: AddStudentsPermission;
+  adminGender: PersonGender;
   visibilityMode: VisibilityMode;
   groups: { id: string; name: string }[];
   teachers: { id: string; name: string; groupId: string | null }[];
 }) {
   const [, startTransition] = useTransition();
+  const supervisorOnly = `ال${supervisorNoun(adminGender)} فقط`;
+
+  const studentPermissionRow = (field: StudentPermissionField, value: AddStudentsPermission, title: string, desc: string) => (
+    <div className={styles.settingRow}>
+      <div className={styles.settingText}>
+        <div className={styles.settingTitle}>{title}</div>
+        <div className={styles.settingDesc}>{desc}</div>
+      </div>
+      <div className={styles.optionPills}>
+        <div
+          className={`${styles.optionPill} ${value === "ADMIN_ONLY" ? styles.sel : ""}`}
+          onClick={() => startTransition(() => setStudentPermissionAction(field, "ADMIN_ONLY"))}
+        >
+          {supervisorOnly}
+        </div>
+        <div
+          className={`${styles.optionPill} ${value === "ALL_TEACHERS" ? styles.sel : ""}`}
+          onClick={() => startTransition(() => setStudentPermissionAction(field, "ALL_TEACHERS"))}
+        >
+          كل المعلمين
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className={styles.card}>
@@ -36,7 +69,7 @@ export function PermissionsCard({
             className={`${styles.optionPill} ${addStudentsPermission === "ADMIN_ONLY" ? styles.sel : ""}`}
             onClick={() => startTransition(() => setAddStudentsPermissionAction("ADMIN_ONLY"))}
           >
-            المشرف فقط
+            {supervisorOnly}
           </div>
           <div
             className={`${styles.optionPill} ${addStudentsPermission === "ALL_TEACHERS" ? styles.sel : ""}`}
@@ -46,6 +79,19 @@ export function PermissionsCard({
           </div>
         </div>
       </div>
+
+      {studentPermissionRow(
+        "editStudentsPermission",
+        editStudentsPermission,
+        "تعديل بيانات الطلاب",
+        "من يملك صلاحية تعديل الاسم والعمر والصف والمجموعة؟",
+      )}
+      {studentPermissionRow(
+        "archiveStudentsPermission",
+        archiveStudentsPermission,
+        "أرشفة الطلاب",
+        `من يملك صلاحية أرشفة طالب؟ أما الاستعادة من الأرشيف والحذف النهائي فهما لل${supervisorNoun(adminGender)} ${pickByPerson(adminGender, { m: "وحده", f: "وحدها" })} دائمًا.`,
+      )}
 
       <div className={styles.settingRow} style={{ flexDirection: "column", alignItems: "stretch" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>

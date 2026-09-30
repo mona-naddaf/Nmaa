@@ -11,6 +11,7 @@ export function NavLinks({ showSettings, showCalendar }: { showSettings: boolean
     { href: "/leaderboard", label: "لوحة الإنجاز" },
     { href: "/reports", label: "التقارير" },
     ...(showCalendar ? [{ href: "/calendar", label: "التقويم" }] : []),
+    { href: "/resources", label: "بنك الوسائل" },
     ...(showSettings ? [{ href: "/settings", label: "الإعدادات" }] : []),
   ];
 

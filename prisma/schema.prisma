@@ -29,7 +29,9 @@ model Admin {
   genderPrompted Boolean  @default(false)
   createdAt      DateTime @default(now())
 
-  course Course?
+  course          Course?
+  resources       Resource[]
+  resourceReports ResourceReport[]
 }
 
 // A course (دورة) is the multi-tenant boundary. Every other model hangs off
@@ -110,6 +112,8 @@ model Teacher {
   mistakesFlagged  RecitationMistake[]      @relation("MistakeFlaggedBy")
   mistakesResolved RecitationMistake[]      @relation("MistakeResolvedBy")
   calendarEvents   CalendarEvent[]
+  resources        Resource[]
+  resourceReports  ResourceReport[]
 
   @@unique([courseId, nameKey])
   @@index([courseId])
@@ -367,6 +371,93 @@ model CalendarEvent {
   updatedAt          DateTime @updatedAt
 
   @@index([courseId, date])
+}
+
+// ---------- Resource bank (shared across ALL courses) ----------
+//
+// The only data in Namaa that isn't scoped to one course. Nothing here has a
+// courseId: the course is reachable only through the creator, and bank
+// queries never select the creator (src/lib/resources/data.ts) — only the
+// site owner's moderation view does.
+
+// Owner-extensible list of resource types (seeded with seven).
+model ResourceType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  resources Resource[]
+}
+
+model Resource {
+  id          String       @id @default(cuid())
+  // http(s) only, validated server-side (src/lib/resources/validate.ts)
+  url         String
+  title       String
+  description String?
+  ageFrom     Int
+  ageTo       Int
+  typeId      String
+  type        ResourceType @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  // normalized title + description for diacritic-insensitive search
+  searchKey   String
+  // exactly one creator while it has one; both null once the creator's
+  // account is gone (then only the site owner can edit/delete it)
+  createdByAdminId   String?
+  createdByAdmin     Admin?   @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdByTeacherId String?
+  createdByTeacher   Teacher? @relation(fields: [createdByTeacherId], references: [id], onDelete: SetNull)
+  // set automatically at 3 open reports from different people, cleared when
+  // the owner dismisses them; hidden resources show only to their creator
+  hiddenAt    DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tags    ResourceTag[]
+  reports ResourceReport[]
+
+  @@index([createdAt])
+  @@index([typeId])
+  @@index([createdByAdminId])
+  @@index([createdByTeacherId])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  // as first written; key is its normalized form (src/lib/resources/normalize.ts)
+  name      String
+  key       String   @unique
+  createdAt DateTime @default(now())
+
+  resources ResourceTag[]
+}
+
+model ResourceTag {
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  tagId      String
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, tagId])
+  @@index([tagId])
+}
+
+// One open report per person per resource (partial unique indexes in the
+// migration). Resolved reports are kept with resolvedAt set.
+model ResourceReport {
+  id                String    @id @default(cuid())
+  resourceId        String
+  resource          Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  reason            String?
+  reporterAdminId   String?
+  reporterAdmin     Admin?    @relation(fields: [reporterAdminId], references: [id], onDelete: SetNull)
+  reporterTeacherId String?
+  reporterTeacher   Teacher?  @relation(fields: [reporterTeacherId], references: [id], onDelete: SetNull)
+  createdAt         DateTime  @default(now())
+  resolvedAt        DateTime?
+
+  @@index([resourceId, resolvedAt])
 }
 
 // One row per failed code-only login (parent or public board), keyed by a

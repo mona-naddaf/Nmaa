@@ -10,7 +10,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await requireSession();
   const course = await prisma.course.findUnique({
     where: { id: session.courseId },
-    select: { name: true },
+    select: { name: true, calendarEnabled: true },
   });
 
   const account =
@@ -26,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <GenderPrompt initiallyPrompted={genderPrompted} />
       <div className={styles.bar}>
         <div className={styles.brand}>نماء 🌱</div>
-        <NavLinks showSettings={session.role === "admin"} />
+        <NavLinks showSettings={session.role === "admin"} showCalendar={course?.calendarEnabled ?? false} />
         <div className={styles.who}>
           <span>
             <b>{course?.name}</b>

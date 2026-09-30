@@ -100,7 +100,7 @@ export async function adminLoginAction(_prev: ActionState, formData: FormData): 
   }
 
   await createSession({ role: "admin", adminId: admin.id, courseId: admin.course.id });
-  redirect("/settings");
+  redirect("/students");
 }
 
 export async function logoutAction() {

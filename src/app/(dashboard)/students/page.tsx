@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { getStudentSummaries } from "@/lib/students/summary";
 import { StudentsList } from "./StudentsList";
+import { getCalendarData } from "@/lib/calendar/data";
+import { CalendarBanner } from "@/components/calendar/CalendarBanner";
 
 export default async function StudentsPage() {
   const session = await requireSession();
@@ -26,7 +28,10 @@ export default async function StudentsPage() {
     ? course.groups.filter((g) => visibleGroupIds!.includes(g.id))
     : course.groups;
 
-  const students = await getStudentSummaries(course.id, visibleGroupIds);
+  const [students, calendar] = await Promise.all([
+    getStudentSummaries(course.id, visibleGroupIds),
+    getCalendarData(session),
+  ]);
 
   const canAddStudents = session.role === "admin" || course.addStudentsPermission === "ALL_TEACHERS";
 
@@ -36,12 +41,21 @@ export default async function StudentsPage() {
       : await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true } });
 
   return (
-    <StudentsList
-      groups={visibleGroups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))}
-      students={students}
-      canAddStudents={canAddStudents}
-      isSupervisor={session.role === "admin"}
-      viewerGender={viewer?.gender ?? null}
-    />
+    <>
+      {calendar?.bannerEnabled && (
+        <CalendarBanner
+          enabledOccasions={calendar.enabledOccasions}
+          adjustments={calendar.adjustments}
+          events={calendar.events}
+        />
+      )}
+      <StudentsList
+        groups={visibleGroups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))}
+        students={students}
+        canAddStudents={canAddStudents}
+        isSupervisor={session.role === "admin"}
+        viewerGender={viewer?.gender ?? null}
+      />
+    </>
   );
 }

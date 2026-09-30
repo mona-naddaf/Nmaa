@@ -63,12 +63,22 @@ model Course {
   // What makes a week count toward a student's streak (see
   // src/lib/students/streak.ts). null = streaks off (the default).
   streakMode              StreakMode?
-  createdAt               DateTime              @default(now())
+  // Islamic calendar (/calendar), staff-only. Off by default; the banner is
+  // only shown while the calendar itself is enabled. The core occasions
+  // (Ramadan, both Eids, Arafah) are always on; enabledOccasions lists only
+  // the optional presets the course turned on (src/lib/calendar/occasions.ts).
+  calendarEnabled         Boolean                @default(false)
+  calendarBannerEnabled   Boolean                @default(false)
+  calendarEditPermission  CalendarEditPermission @default(ADMIN_ONLY)
+  enabledOccasions        Occasion[]             @default([])
+  createdAt               DateTime               @default(now())
 
-  teachers         Teacher[]
-  groups           Group[]
-  students         Student[]
-  pointsActivities PointsActivity[]
+  teachers            Teacher[]
+  groups              Group[]
+  students            Student[]
+  pointsActivities    PointsActivity[]
+  calendarAdjustments CalendarAdjustment[]
+  calendarEvents      CalendarEvent[]
 }
 
 model Teacher {
@@ -90,6 +100,7 @@ model Teacher {
   attendanceLogs   AttendanceLog[]
   mistakesFlagged  RecitationMistake[]      @relation("MistakeFlaggedBy")
   mistakesResolved RecitationMistake[]      @relation("MistakeResolvedBy")
+  calendarEvents   CalendarEvent[]
 
   @@unique([courseId, nameKey])
   @@index([courseId])
@@ -299,6 +310,47 @@ model AttendanceLog {
   @@index([studentId, day])
 }
 
+// ---------- Islamic calendar ----------
+
+// A supervisor's moon-sighting correction for ONE occurrence of a core or
+// optional occasion (e.g. Eid al-Fitr 1448 moved +1 day). Other years keep
+// the plain Umm al-Qura date. offsetDays is limited to ±1/±2 by a CHECK
+// constraint in the migration; resetting to 0 deletes the row.
+model CalendarAdjustment {
+  id         String   @id @default(cuid())
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  occasion   Occasion
+  hijriYear  Int
+  offsetDays Int
+  createdAt  DateTime @default(now())
+
+  @@unique([courseId, occasion, hijriYear])
+}
+
+// A course's own one-time event, past or future: upcoming plans as well as a
+// record of what the course did (a khatm ceremony, a trip, ...).
+model CalendarEvent {
+  id                 String   @id @default(cuid())
+  courseId           String
+  course             Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title              String
+  description        String?
+  date               DateTime @db.Date
+  // null = created by the supervisor. Deliberately not resolveTeacherId's
+  // synthetic supervisor row: that row is looked up by name, so a teacher
+  // who logged in under the same name would share it. A teacher may edit an
+  // event only when this equals her own session teacherId, so a supervisor's
+  // event is never editable by any teacher. Deleting a teacher keeps her
+  // events and hands them to the supervisor (SetNull).
+  createdByTeacherId String?
+  createdByTeacher   Teacher? @relation(fields: [createdByTeacherId], references: [id], onDelete: SetNull)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([courseId, date])
+}
+
 // One row per failed code-only login (parent or public board), keyed by a
 // salted hash of the client IP (never the raw IP). Used only for the
 // brute-force lockout (src/lib/auth/login-lockout.ts), counted per scope;
@@ -313,6 +365,27 @@ model LoginAttempt {
 }
 
 // ---------- Enums ----------
+
+enum CalendarEditPermission {
+  ADMIN_ONLY
+  ALL_TEACHERS
+}
+
+// Recurring Hijri occasions. Names, Hijri month/day and core-vs-optional live
+// in src/lib/calendar/occasions.ts. Values are never renamed: adjustments and
+// Course.enabledOccasions store them.
+enum Occasion {
+  // core: always shown while the calendar is enabled
+  RAMADAN_START
+  EID_FITR
+  ARAFAH
+  EID_ADHA
+  // optional presets, off until the course enables them
+  HIJRI_NEW_YEAR
+  ASHURA
+  ISRA_MIRAJ
+  MID_SHABAN
+}
 
 enum StreakMode {
   // present (IN) at least once that week

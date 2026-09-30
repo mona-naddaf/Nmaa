@@ -9,7 +9,7 @@ export default async function LoginPage({
 }) {
   const session = await getSession();
   if (session) {
-    redirect(session.role === "admin" ? "/settings" : "/students");
+    redirect("/students");
   }
   // The homepage's supervisor card links here with ?role=supervisor.
   const { role } = await searchParams;

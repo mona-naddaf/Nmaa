@@ -37,8 +37,7 @@ export async function proxy(request: NextRequest) {
   // Public entry points: the landing page and the staff login.
   if (pathname === "/" || pathname === "/login") {
     if (session) {
-      const dest = session.role === "admin" ? "/settings" : "/students";
-      return NextResponse.redirect(new URL(dest, request.url));
+      return NextResponse.redirect(new URL("/students", request.url));
     }
     return NextResponse.next();
   }

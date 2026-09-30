@@ -11,7 +11,7 @@ const HELP_URL = "#";
 export default async function Home() {
   const session = await getSession();
   if (session) {
-    redirect(session.role === "admin" ? "/settings" : "/students");
+    redirect("/students");
   }
 
   return (

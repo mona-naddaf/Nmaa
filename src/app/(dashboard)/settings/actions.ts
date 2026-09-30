@@ -192,3 +192,33 @@ export async function setReviewReminderDaysAction(days: number | null): Promise<
   revalidatePath("/students", "layout");
   return {};
 }
+
+// ---------- Islamic calendar ----------
+
+// The nav link, the /calendar page and the home banner all depend on these,
+// so refresh the whole dashboard.
+function refreshCalendarEverywhere() {
+  revalidatePath("/", "layout");
+}
+
+export async function setCalendarEnabledAction(enabled: boolean) {
+  const cid = await currentCourseId();
+  await prisma.course.update({ where: { id: cid }, data: { calendarEnabled: enabled } });
+  refreshCalendarEverywhere();
+}
+
+export async function setCalendarBannerEnabledAction(enabled: boolean): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  const course = await prisma.course.findUniqueOrThrow({ where: { id: cid }, select: { calendarEnabled: true } });
+  if (enabled && !course.calendarEnabled) return { error: "يُرجى تفعيل التقويم أولًا" };
+  await prisma.course.update({ where: { id: cid }, data: { calendarBannerEnabled: enabled } });
+  refreshCalendarEverywhere();
+  return {};
+}
+
+export async function setCalendarEditPermissionAction(value: "ADMIN_ONLY" | "ALL_TEACHERS") {
+  const cid = await currentCourseId();
+  if (value !== "ADMIN_ONLY" && value !== "ALL_TEACHERS") throw new Error("خيار غير صحيح");
+  await prisma.course.update({ where: { id: cid }, data: { calendarEditPermission: value } });
+  refreshCalendarEverywhere();
+}

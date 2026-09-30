@@ -11,6 +11,7 @@ import { ProgressBarsCard } from "./ProgressBarsCard";
 import { ReviewReminderCard } from "./ReviewReminderCard";
 import { StreakCard } from "./StreakCard";
 import { PointsEditor } from "./PointsEditor";
+import { CalendarCard } from "./CalendarCard";
 
 export default async function SettingsPage() {
   const session = await requireAdmin();
@@ -89,6 +90,18 @@ export default async function SettingsPage() {
       </div>
       <div className={styles.card}>
         <StreakCard mode={course.streakMode} />
+      </div>
+
+      <div className={styles.secTitle}>
+        <span className={styles.dot} /> التقويم الهجري
+      </div>
+      <div className={styles.card}>
+        <CalendarCard
+          enabled={course.calendarEnabled}
+          bannerEnabled={course.calendarBannerEnabled}
+          editPermission={course.calendarEditPermission}
+          adminGender={admin?.gender ?? null}
+        />
       </div>
 
       <div className={styles.secTitle}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import Link from "next/link";
 import styles from "@/app/login/login.module.css";
 import { parentLoginAction, type ParentLoginState } from "../actions";
@@ -12,7 +13,7 @@ export function ParentLoginForm() {
     <div className={styles.page}>
       <div className={styles.wrap}>
         <div className={styles.brand}>
-          نماء <span>🌱</span>
+          <BrandLogo variant="login" priority />
         </div>
         <div className={styles.subtitle}>متابعة وليّ الأمر</div>
 

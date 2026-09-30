@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Markazi_Text, Tajawal } from "next/font/google";
 import "./globals.css";
 import { SiteFooter } from "@/components/site-footer/SiteFooter";
@@ -16,8 +16,13 @@ const tajawal = Tajawal({
 });
 
 export const metadata: Metadata = {
-  title: "نماء",
+  title: "على مُكث",
+  applicationName: "على مُكث",
   description: "منصّة متابعة تسميع وحفظ الطلاب",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#3f6650",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

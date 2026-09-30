@@ -1,4 +1,5 @@
 import { resolveReportScope, getReportRows } from "@/lib/reports/data";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { studentNounDef } from "@/lib/text/gender";
 import { PrintTrigger } from "./PrintTrigger";
 import styles from "./print.module.css";
@@ -24,7 +25,9 @@ export default async function ReportPrintPage({
 
   return (
     <div className={styles.page}>
-      <div className={styles.brand}>نماء 🌱</div>
+      <div className={styles.brand}>
+        <BrandLogo variant="print" priority />
+      </div>
       <div className={styles.meta}>{resolved.courseName}</div>
       <div className={styles.meta}>النطاق: {scopeLabel}</div>
       <div className={styles.meta}>

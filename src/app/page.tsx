@@ -2,6 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import styles from "./home.module.css";
+import { BrandLogo } from "@/components/brand/BrandLogo";
+import { quranFont } from "@/components/mistakes/quran-font";
+
+// The name comes from al-Isra 17:106 — Uthmani text as in the bundled Tanzil
+// copy, so it matches the Mushaf.
+const NAME_VERSE = "وَقُرْءَانًا فَرَقْنَـٰهُ لِتَقْرَأَهُۥ عَلَى ٱلنَّاسِ عَلَىٰ مُكْثٍ";
 
 // TODO: replace with the usage-guide URL once it's available.
 const HELP_URL = "#";
@@ -17,17 +23,15 @@ export default async function Home() {
   return (
     <div className={styles.page}>
       <div className={styles.hero}>
-        <div className={styles.logoRow}>
-          <svg className={styles.logoIcon} viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <rect width="256" height="256" rx="56" fill="#F5F2E8" />
-            <circle cx="128" cy="128" r="88" fill="#EDE7D6" />
-            <line x1="128" y1="180" x2="128" y2="100" stroke="#3F6650" strokeWidth="8" strokeLinecap="round" />
-            <path d="M128 148 C 92 138, 82 106, 92 78 C 122 90, 132 120, 128 148 Z" fill="#3F6650" />
-            <path d="M128 128 C 164 118, 174 86, 164 58 C 134 70, 124 100, 128 128 Z" fill="#5F9178" />
-            <ellipse cx="128" cy="182" rx="26" ry="8" fill="#A85C36" opacity="0.3" />
-          </svg>
-          <h1 className={styles.brand}>نماء</h1>
-        </div>
+        <h1 className={styles.brand}>
+          <BrandLogo variant="home" priority />
+        </h1>
+        <figure className={styles.verse}>
+          <blockquote className={quranFont.className} lang="ar">
+            ﴿{NAME_VERSE}﴾
+          </blockquote>
+          <figcaption>(الإسراء: ١٠٦)</figcaption>
+        </figure>
         <div className={styles.tagline}>منصّة متابعة تسميع وحفظ الطالبات والطلاب</div>
         <p className={styles.intro}>
           تتيح المنصّة للمعلمين والمعلمات تسجيل التسميع والحضور والنقاط أولًا بأول، وتمنح المشرف أو المشرفة تحكمًا
@@ -67,9 +71,6 @@ export default async function Home() {
         📖 شروحات استخدام الموقع
       </a>
 
-      <div className={styles.footerNote} aria-hidden="true">
-        🌱
-      </div>
     </div>
   );
 }

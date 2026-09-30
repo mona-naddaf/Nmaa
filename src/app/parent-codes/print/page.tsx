@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
 import { getParentCodeRows } from "@/lib/parent/codes";
@@ -24,7 +25,9 @@ export default async function ParentCodesPrintPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.brand}>نماء 🌱</div>
+      <div className={styles.brand}>
+        <BrandLogo variant="print" priority />
+      </div>
       <div className={styles.meta}>{course.name}</div>
       <div className={styles.meta}>رموز دخول أولياء الأمور — {todayISO()}</div>
       {loginUrl && (

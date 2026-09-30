@@ -5,6 +5,7 @@ import { supervisorNoun } from "@/lib/text/gender";
 import { NavLinks } from "./NavLinks";
 import { GenderPrompt } from "./GenderPrompt";
 import styles from "./shell.module.css";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
@@ -25,7 +26,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className={styles.shell}>
       <GenderPrompt initiallyPrompted={genderPrompted} />
       <div className={styles.bar}>
-        <div className={styles.brand}>نماء 🌱</div>
+        <div className={styles.brand}>
+          <BrandLogo variant="header" priority />
+        </div>
         <NavLinks showSettings={session.role === "admin"} showCalendar={course?.calendarEnabled ?? false} />
         <div className={styles.who}>
           <span>

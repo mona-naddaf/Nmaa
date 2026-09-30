@@ -23,28 +23,34 @@
   margin-bottom: 36px;
 }
 
-.logoRow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.logoIcon {
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  filter: drop-shadow(0 4px 10px rgba(63, 102, 80, 0.18));
-}
-
 .brand {
+  margin: 0 0 10px;
+  line-height: 0;
+}
+
+/* the verse the name comes from, small under the wordmark */
+.verse {
+  margin: 0 auto 18px;
+  max-width: 420px;
+}
+
+.verse blockquote {
   margin: 0;
-  font-family: var(--font-markazi), "Markazi Text", serif;
-  font-weight: 700;
-  font-size: clamp(30px, 7vw, 40px);
-  line-height: 1.2;
+  font-size: 17px;
+  line-height: 2;
   color: var(--rose-deep);
+}
+
+.verse figcaption {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+@media (max-width: 480px) {
+  .verse blockquote {
+    font-size: 15px;
+  }
 }
 
 .tagline {
@@ -220,9 +226,3 @@
   background: rgba(168, 92, 54, 0.06);
 }
 
-.footerNote {
-  margin-top: 48px;
-  font-size: 16px;
-  opacity: 0.5;
-  text-align: center;
-}

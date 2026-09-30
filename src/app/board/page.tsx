@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import shell from "@/app/(dashboard)/shell.module.css";
 import { requireBoardCourseId } from "@/lib/auth/board-session";
 import { getBoardData } from "@/lib/board/data";
@@ -15,7 +16,9 @@ export default async function BoardPage() {
   return (
     <div className={shell.shell}>
       <div className={shell.bar}>
-        <div className={shell.brand}>نماء 🌱</div>
+        <div className={shell.brand}>
+          <BrandLogo variant="header" priority />
+        </div>
         <div className={shell.who}>
           <span>
             لوحة إنجاز · <b>{data.courseName}</b>

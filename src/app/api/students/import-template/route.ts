@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="namaa-import-template-${variant}.xlsx"`,
+      "Content-Disposition": `attachment; filename="ala-mukth-import-template-${variant}.xlsx"`,
       "Cache-Control": "no-store",
     },
   });

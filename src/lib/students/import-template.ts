@@ -89,7 +89,7 @@ export async function buildImportTemplate({
   const hasPrior = pickByGroup(g, { m: "بالطالب حفظ سابق قبل ما ينضم", f: "بالطالبة حفظ سابق قبل ما تنضم" });
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "نماء";
+  wb.creator = "على مُكث";
 
   // ---------- main sheet ----------
   const ws = wb.addWorksheet(MAIN_SHEET_NAMES[variant], {
@@ -98,7 +98,7 @@ export async function buildImportTemplate({
   ws.columns = COLUMN_WIDTHS.map((width) => ({ width }));
 
   const title = ws.getCell("A1");
-  title.value = `قالب استيراد ${studentsNounDef(g)} — نماء 🌱`;
+  title.value = `قالب استيراد ${studentsNounDef(g)} — على مُكث`;
   title.font = { name: "Arial", bold: true, color: { argb: "003F6650" }, size: 14 };
   title.alignment = { horizontal: "center" };
   ws.mergeCells("A1:K1");

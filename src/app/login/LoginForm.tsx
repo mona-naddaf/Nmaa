@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import Link from "next/link";
 import styles from "./login.module.css";
 import { teacherLoginAction, adminLoginAction, adminSignupAction, type ActionState } from "./actions";
@@ -30,7 +31,7 @@ export function LoginForm({ initialView = "teacher" }: { initialView?: View }) {
     <div className={styles.page}>
       <div className={styles.wrap}>
         <div className={styles.brand}>
-          نماء <span>🌱</span>
+          <BrandLogo variant="login" priority />
         </div>
         <div className={styles.subtitle}>
           {view === "teacher" ? "منصّة متابعة تسميع وحفظ الطلاب" : adminMode === "signup" ? "إنشاء دورة جديدة" : "دخول المشرف"}

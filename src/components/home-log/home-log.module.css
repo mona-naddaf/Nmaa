@@ -1,0 +1,492 @@
+/* «حفظي في البيت» — shared by the student, staff and parent views.
+   Phone-first: tap targets are at least 56px for the main counters. */
+
+.section {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  margin: 4px 4px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.muted {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+.empty {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 13px;
+  padding: 18px 0;
+}
+
+/* ---------- segment cards (lists) ---------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.segCard {
+  display: block;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+a.segCard:hover {
+  border-color: var(--rose-deep);
+}
+
+.segCard.done {
+  border-color: rgba(63, 102, 80, 0.45);
+  background: linear-gradient(90deg, rgba(76, 120, 98, 0.1), rgba(76, 120, 98, 0.02));
+}
+
+.segTitle {
+  font-family: var(--font-markazi), serif;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.segMeta {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 4px 0 10px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 3px 9px;
+  margin-inline-start: 6px;
+  vertical-align: middle;
+  background: rgba(76, 120, 98, 0.14);
+  color: var(--rose-deep);
+}
+
+.badge.teacher {
+  background: rgba(189, 122, 62, 0.16);
+  color: var(--gold-deep);
+}
+
+/* ---------- progress toward targets ---------- */
+
+.progressRow {
+  display: grid;
+  grid-template-columns: 92px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  margin: 6px 0;
+}
+
+.progressRow .lbl {
+  font-weight: 700;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.track {
+  height: 10px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: var(--rose);
+  border-radius: 999px;
+  transition: width 0.25s;
+}
+
+.fill.full {
+  background: var(--rose-deep);
+}
+
+.frac {
+  font-weight: 800;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.celebrate {
+  background: linear-gradient(90deg, rgba(76, 120, 98, 0.18), rgba(189, 122, 62, 0.12));
+  border: 1px solid rgba(63, 102, 80, 0.4);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--rose-deep);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+/* ---------- big counters (student) ---------- */
+
+.counters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.counter {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.counter.met {
+  border-color: var(--rose-deep);
+  background: rgba(76, 120, 98, 0.1);
+}
+
+.counterLabel {
+  font-weight: 800;
+  font-size: 13.5px;
+}
+
+.counterNum {
+  font-family: var(--font-markazi), serif;
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.counterTarget {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.plusBtn {
+  width: 100%;
+  min-height: 56px;
+  border: none;
+  border-radius: 14px;
+  background: var(--rose-deep);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+.plusBtn:active {
+  transform: scale(0.97);
+}
+
+.undoBtn {
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  min-height: 36px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.undoBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (max-width: 380px) {
+  .counters {
+    gap: 6px;
+  }
+  .counterLabel {
+    font-size: 12.5px;
+  }
+}
+
+/* ---------- ayat ---------- */
+
+.ayah {
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+}
+
+.ayah:first-of-type {
+  border-top: none;
+}
+
+.ayahText {
+  font-size: 22px;
+  line-height: 2.1;
+  color: var(--ink);
+}
+
+.ayahNum {
+  color: var(--gold-deep);
+  font-size: 18px;
+  margin-inline-start: 4px;
+}
+
+.ayahCounters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.miniCounter {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 2px;
+}
+
+.miniPlus {
+  min-width: 48px;
+  min-height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: var(--paper);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--rose-deep);
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0 10px;
+  touch-action: manipulation;
+}
+
+.miniMinus {
+  min-width: 34px;
+  min-height: 44px;
+  border: none;
+  background: none;
+  font-size: 16px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.miniMinus:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ---------- forms + buttons ---------- */
+
+.primaryBtn {
+  background: var(--rose-deep);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ghostBtn {
+  background: var(--paper);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.smallBtn {
+  background: var(--sage-deep);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--rose-deep);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 480px) {
+  .formGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .formGrid > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.field label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 5px;
+}
+
+.select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 15px;
+  color: var(--ink);
+  font-family: inherit;
+}
+
+.preview {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 19px;
+  line-height: 2;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.err {
+  color: var(--rose-deep);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.ok {
+  color: var(--rose-deep);
+  font-size: 12.5px;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 10px;
+}
+
+/* ---------- targets editor ---------- */
+
+.targetInputs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.targetInput {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.targetInput input {
+  width: 92px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 14px;
+  color: var(--ink);
+  text-align: center;
+  font-family: inherit;
+}
+
+.editorButtons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* ---------- staff/parent per-ayah table ---------- */
+
+.ayahTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  margin-top: 8px;
+}
+
+.ayahTable th,
+.ayahTable td {
+  border-bottom: 1px solid var(--line);
+  padding: 5px 6px;
+  text-align: center;
+}
+
+.ayahTable th {
+  color: var(--ink-soft);
+  font-weight: 700;
+}

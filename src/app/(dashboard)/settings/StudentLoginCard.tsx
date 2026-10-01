@@ -2,9 +2,26 @@
 
 import { useState, useTransition } from "react";
 import styles from "./settings.module.css";
-import { setStudentBoardEnabledAction, setStudentLoginEnabledAction } from "./actions";
+import {
+  setHomeDefaultTargetsAction,
+  setHomeLogEnabledAction,
+  setStudentBoardEnabledAction,
+  setStudentLoginEnabledAction,
+} from "./actions";
+import { TargetsEditor } from "@/components/home-log/TargetsEditor";
+import type { HomeTargets } from "@/lib/home-log/rules";
 
-export function StudentLoginCard({ enabled, boardEnabled }: { enabled: boolean; boardEnabled: boolean }) {
+export function StudentLoginCard({
+  enabled,
+  boardEnabled,
+  homeLogEnabled,
+  homeTargets,
+}: {
+  enabled: boolean;
+  boardEnabled: boolean;
+  homeLogEnabled: boolean;
+  homeTargets: HomeTargets;
+}) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   // the board option only means something while student login is on
@@ -63,6 +80,39 @@ export function StudentLoginCard({ enabled, boardEnabled }: { enabled: boolean; 
           <div
             className={`${styles.optionPill} ${!boardEnabled ? styles.sel : ""}`}
             onClick={() => boardEnabled && !pending && run(() => setStudentBoardEnabledAction(false))}
+          >
+            غير مفعّل
+          </div>
+        </div>
+      </div>
+      <div className={styles.settingRow} style={dependent} aria-disabled={!enabled}>
+        <div className={styles.settingText}>
+          <div className={styles.settingTitle}>حفظي في البيت</div>
+          <div className={styles.settingDesc}>
+            يسجّل الطالب ما يحفظه في البيت: مقطعًا من السورة مع عدّادات للسماع والتكرار والتسميع لأحد، ويتابع تقدّمه نحو
+            الأهداف. سجلّ منفصل لا يغيّر موقعه الرسمي في الخطة؛ لا يتقدّم الموقع إلا بتسميع يسجّله المعلم. ويظهر
+            للمعلمين في صفحة الطالب، ولوليّ الأمر للعرض فقط.
+            {!enabled && " (يتاح بعد تفعيل دخول الطلاب)"}
+          </div>
+          {enabled && homeLogEnabled && (
+            <div style={{ marginTop: 12 }}>
+              <div className={styles.settingDesc} style={{ fontWeight: 700, marginBottom: 6 }}>
+                الأهداف الافتراضية لكل مقطع جديد (يمكن للمعلم تعديلها لكل طالب):
+              </div>
+              <TargetsEditor initial={homeTargets} onSave={setHomeDefaultTargetsAction} />
+            </div>
+          )}
+        </div>
+        <div className={styles.optionPills}>
+          <div
+            className={`${styles.optionPill} ${homeLogEnabled ? styles.sel : ""}`}
+            onClick={() => !homeLogEnabled && !pending && run(() => setHomeLogEnabledAction(true))}
+          >
+            مفعّل
+          </div>
+          <div
+            className={`${styles.optionPill} ${!homeLogEnabled ? styles.sel : ""}`}
+            onClick={() => homeLogEnabled && !pending && run(() => setHomeLogEnabledAction(false))}
           >
             غير مفعّل
           </div>

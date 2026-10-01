@@ -20,7 +20,7 @@ export default async function StudentAreaLayout({ children }: { children: React.
         <div className={shell.brand}>
           <BrandLogo variant="header" priority />
         </div>
-        <StudentTabs boardEnabled={access.boardEnabled} />
+        <StudentTabs boardEnabled={access.boardEnabled} homeLogEnabled={access.homeLogEnabled} />
         <div className={shell.who}>
           <span>
             <b>{student.name}</b> · {student.group.name} · {student.course.name}

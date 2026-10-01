@@ -107,7 +107,12 @@ export default async function SettingsPage() {
         <span className={styles.dot} /> دخول الطلاب
       </div>
       <div className={styles.card}>
-        <StudentLoginCard enabled={course.studentLoginEnabled} boardEnabled={course.studentBoardEnabled} />
+        <StudentLoginCard
+          enabled={course.studentLoginEnabled}
+          boardEnabled={course.studentBoardEnabled}
+          homeLogEnabled={course.homeLogEnabled}
+          homeTargets={{ listen: course.homeTargetListen, repeat: course.homeTargetRepeat, recite: course.homeTargetRecite }}
+        />
       </div>
 
       <div className={styles.secTitle}>

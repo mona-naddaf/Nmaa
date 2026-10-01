@@ -11,6 +11,7 @@ import { pickByGroup, presentWord, absentWord } from "@/lib/text/gender";
 import type { ParentViewData } from "@/lib/parent/data";
 import { parentLogoutAction } from "./actions";
 import { MistakesList } from "@/components/mistakes/MistakesList";
+import { HomeLogSummary } from "@/components/home-log/HomeLogSummary";
 
 const QUALITY_LABEL = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" } as const;
 const QUALITY_BADGE = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" } as const;
@@ -107,6 +108,17 @@ export function ParentView({ data }: { data: ParentViewData }) {
             </div>
             <div className={styles.card}>
               <MistakesList mistakes={data.mistakes} groupGender={g} />
+            </div>
+          </>
+        )}
+
+        {data.homeLog && (
+          <>
+            <div className={styles.secTitle}>
+              <span className={styles.dot} /> 🏠 حفظ البيت
+            </div>
+            <div className={styles.card}>
+              <HomeLogSummary log={data.homeLog} groupGender={g} />
             </div>
           </>
         )}

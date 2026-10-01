@@ -27,6 +27,24 @@ export interface StudentHomeData {
   points: { date: string; activityName: string; value: number }[];
 }
 
+/**
+ * Her plan and OFFICIAL position (teacher recitations only) — used to suggest
+ * the next portion for a home segment. The home log itself never feeds this.
+ */
+export async function getPlanAndPosition(studentId: string) {
+  const [planItems, sessions, student] = await Promise.all([
+    prisma.planItem.findMany({ where: { studentId }, orderBy: { position: "asc" }, select: { surahNumber: true } }),
+    prisma.recitationSession.findMany({
+      where: { studentId },
+      orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true },
+    }),
+    prisma.student.findUniqueOrThrow({ where: { id: studentId }, select: { group: { select: { gender: true } } } }),
+  ]);
+  const plan = planItems.map((p) => p.surahNumber);
+  return { plan, position: deriveCurrentPosition(plan, deriveReach(plan, sessions)), groupGender: student.group.gender };
+}
+
 export async function getStudentHomeData(studentId: string): Promise<StudentHomeData | null> {
   const student = await prisma.student.findUnique({
     where: { id: studentId },

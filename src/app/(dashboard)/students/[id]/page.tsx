@@ -12,6 +12,8 @@ import { computeOverdueSurahs } from "@/lib/students/review";
 import { DetailView } from "./DetailView";
 import { ParentCodeCard } from "./ParentCodeCard";
 import { StudentCodeCard } from "./StudentCodeCard";
+import { StaffHomeLog } from "./StaffHomeLog";
+import { effectiveTargets, getHomeLog } from "@/lib/home-log/data";
 import { inScope, studentCodeAccess } from "@/lib/students/student-codes";
 import { StudentManageBar } from "./StudentManageBar";
 import { requestOrigin } from "@/lib/request-origin";
@@ -187,9 +189,22 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     );
   }
 
+  // home log: shown to every staff member who can see this student
+  // (the page already sends teachers outside their groups away)
+  const homeLog = course.homeLogEnabled && course.studentLoginEnabled ? await getHomeLog(student.id) : null;
+
   return (
     <>
       {view}
+      {homeLog && (
+        <StaffHomeLog
+          studentId={student.id}
+          groupGender={g}
+          log={homeLog}
+          targets={await effectiveTargets(student.id)}
+          hasOwnTargets={student.homeTargetListen !== null || student.homeTargetRepeat !== null || student.homeTargetRecite !== null}
+        />
+      )}
       {/* supervisor only: the code is never sent to a teacher's browser */}
       {session.role === "admin" && (
         <ParentCodeCard

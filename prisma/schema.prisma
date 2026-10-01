@@ -56,6 +56,13 @@ model Course {
   studentBoardEnabled         Boolean               @default(false)
   // who may issue/regenerate/revoke student codes (teachers: own groups only)
   issueStudentCodesPermission AddStudentsPermission @default(ADMIN_ONLY)
+  // «حفظي في البيت» (src/lib/home-log): only works while student login is
+  // on. Default consolidation targets for new home segments (a student may
+  // have her own, see Student.homeTarget*).
+  homeLogEnabled              Boolean               @default(false)
+  homeTargetListen            Int                   @default(5)
+  homeTargetRepeat            Int                   @default(10)
+  homeTargetRecite            Int                   @default(3)
   visibilityMode          VisibilityMode        @default(ALL_TEACHERS)
   onlineRecitationEnabled Boolean               @default(true)
   // optional progress bars on the student detail screen, each toggled
@@ -204,6 +211,11 @@ model Student {
   studentCodeVersion   Int       @default(0)
   studentCodeCreatedAt DateTime?
 
+  // per-student home-log targets set by staff; null = the course default
+  homeTargetListen Int?
+  homeTargetRepeat Int?
+  homeTargetRecite Int?
+
   // Archived instead of deleted: null = active. An archived student drops out
   // of every list, count, board and streak, can't be acted on, and her parent
   // code stops working (it's kept, so restoring brings it back). Her history
@@ -217,6 +229,8 @@ model Student {
   pointsLogs         PointsLog[]
   attendanceLogs     AttendanceLog[]
   mistakes           RecitationMistake[]
+  homeSegments       HomeSegment[]
+  homeTaps           HomeTap[]
 
   @@index([courseId])
   @@index([groupId])
@@ -475,6 +489,55 @@ model ResourceReport {
   @@index([resourceId, resolvedAt])
 }
 
+// ---------- Home memorization log («حفظي في البيت») ----------
+//
+// A SEPARATE record from official recitations: nothing that computes the
+// student's position, gap warnings, the leaderboard, streaks or reports
+// reads these tables. Only a teacher-recorded RecitationSession moves her.
+
+// A portion the student is memorizing at home, within one surah. Its
+// targets are copied in when it's created (later default changes don't
+// rewrite it); staff may adjust them while it's active.
+model HomeSegment {
+  id           String          @id @default(cuid())
+  studentId    String
+  student      Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  surahNumber  Int
+  fromAyah     Int
+  toAyah       Int
+  targetListen Int
+  targetRepeat Int
+  targetRecite Int
+  createdAt    DateTime        @default(now())
+  // set when she marks it done, or when a teacher's official recitation
+  // covers the whole segment (finishedBy says which)
+  finishedAt   DateTime?
+  finishedBy   HomeSegmentEnd?
+
+  taps HomeTap[]
+
+  @@index([studentId, finishedAt])
+}
+
+// One "+" tap. Counts are always derived from taps, never stored. ayah null
+// = a whole-segment counter (the ones with targets); otherwise a per-ayah
+// counter. day = the student's local date, for daily activity (phase 3).
+model HomeTap {
+  id        String      @id @default(cuid())
+  segmentId String
+  segment   HomeSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  ayah      Int?
+  kind      HomeTapKind
+  day       DateTime    @db.Date
+  createdAt DateTime    @default(now())
+
+  @@index([segmentId, kind, ayah])
+  @@index([studentId, day])
+  @@index([studentId, createdAt])
+}
+
 // One row per failed code-only login (parent or public board), keyed by a
 // salted hash of the client IP (never the raw IP). Used only for the
 // brute-force lockout (src/lib/auth/login-lockout.ts), counted per scope;
@@ -516,6 +579,22 @@ enum StreakMode {
   ATTENDANCE
   // at least one logged NEW/REVIEW/LINK session that week (PRIOR baselines don't count)
   RECITATION
+}
+
+enum HomeTapKind {
+  // سماع
+  LISTEN
+  // تكرار
+  REPEAT
+  // تسميع لأحد
+  RECITE
+}
+
+enum HomeSegmentEnd {
+  // she marked it «أتممتُ هذا المقطع»
+  STUDENT
+  // a teacher's official recitation covered the whole segment
+  TEACHER_RECITED
 }
 
 enum LoginScope {

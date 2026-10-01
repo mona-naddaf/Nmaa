@@ -7,6 +7,7 @@ import type { GroupGender } from "@/lib/text/gender";
 import { getActiveMistakes } from "@/lib/students/mistakes";
 import { BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
+import { getHomeLog, type HomeLogView } from "@/lib/home-log/data";
 
 // The ONLY data source for the parent view. Every query here is keyed on the
 // single studentId from the parent session — never a courseId or groupId —
@@ -38,6 +39,8 @@ export interface ParentViewData {
   history: ParentHistoryEntry[];
   attendance: { date: string; status: "IN" | "OUT" }[];
   points: { date: string; activityName: string; value: number }[];
+  // read-only home memorization log (D4); null when the course has it off
+  homeLog: HomeLogView | null;
 }
 
 export async function getParentViewData(studentId: string): Promise<ParentViewData | null> {
@@ -46,7 +49,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     select: {
       name: true,
       group: { select: { name: true, gender: true } },
-      course: { select: { name: true } },
+      course: { select: { name: true, homeLogEnabled: true, studentLoginEnabled: true } },
       planItems: { orderBy: { position: "asc" }, select: { surahNumber: true } },
     },
   });
@@ -106,6 +109,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
       date: a.day.toISOString().slice(0, 10),
       status: a.status as "IN" | "OUT",
     })),
+    homeLog: student.course.homeLogEnabled && student.course.studentLoginEnabled ? await getHomeLog(studentId) : null,
     points: pointsLogs.map((p) => ({
       date: p.day.toISOString().slice(0, 10),
       // bonus rows group under one label; their notes are teacher-written

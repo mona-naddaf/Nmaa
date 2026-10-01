@@ -21,6 +21,7 @@ import type { Session } from "@/lib/auth/session";
 import { wordAt } from "@/lib/quran-data/quran-text";
 import { MISTAKE_TYPES, type MistakeType } from "@/lib/students/mistake-types";
 import { BONUS_NOTE_MAX_LENGTH } from "@/lib/points/bonus";
+import { markSegmentsRecited } from "@/lib/home-log/data";
 
 function addHoursUTC(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
@@ -195,6 +196,10 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
       },
     },
   });
+
+  // Home log (D3): a home segment this recitation covers entirely is marked
+  // as recited. One-way only — the home log never feeds the official record.
+  await markSegmentsRecited(student.id, input.surahNumber, input.fromAyah, input.toAyah, occurredAt);
 
   revalidatePath(`/students/${student.id}`);
   return { ok: true };

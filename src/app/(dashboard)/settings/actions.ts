@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
 import { generateUniqueBoardCode } from "@/lib/auth/board-code";
 import { pickByGroup, studentsNoun, type GroupGender } from "@/lib/text/gender";
+import { validateTargets, type HomeTargets } from "@/lib/home-log/rules";
 
 async function currentCourseId() {
   return (await requireAdmin()).courseId;
@@ -240,6 +241,30 @@ export async function setStudentBoardEnabledAction(enabled: boolean): Promise<{ 
   if (enabled && !course.studentLoginEnabled) return { error: "يُرجى تفعيل دخول الطلاب أولًا" };
   await prisma.course.update({ where: { id: cid }, data: { studentBoardEnabled: enabled === true } });
   revalidatePath("/", "layout");
+  return {};
+}
+
+// Home memorization log: needs student login on. Turning it off hides the
+// tab and refuses its actions; segments and taps are kept.
+export async function setHomeLogEnabledAction(enabled: boolean): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  const course = await prisma.course.findUniqueOrThrow({ where: { id: cid }, select: { studentLoginEnabled: true } });
+  if (enabled && !course.studentLoginEnabled) return { error: "يُرجى تفعيل دخول الطلاب أولًا" };
+  await prisma.course.update({ where: { id: cid }, data: { homeLogEnabled: enabled === true } });
+  revalidatePath("/", "layout");
+  return {};
+}
+
+/** Defaults for new segments (students with their own targets keep them). */
+export async function setHomeDefaultTargetsAction(targets: HomeTargets): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  const t = validateTargets(targets);
+  if (!t) return { error: "يُرجى إدخال أهداف صحيحة بين 1 و100" };
+  await prisma.course.update({
+    where: { id: cid },
+    data: { homeTargetListen: t.listen, homeTargetRepeat: t.repeat, homeTargetRecite: t.recite },
+  });
+  revalidatePath("/settings");
   return {};
 }
 

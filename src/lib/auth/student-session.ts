@@ -34,7 +34,7 @@ export async function destroyStudentSession() {
   store.set(STUDENT_COOKIE_NAME, "", { path: STUDENT_COOKIE_PATH, maxAge: 0 });
 }
 
-export type StudentAccess = { studentId: string; courseId: string; boardEnabled: boolean };
+export type StudentAccess = { studentId: string; courseId: string; boardEnabled: boolean; homeLogEnabled: boolean };
 
 /** The signed-in student, or null. One lookup per request (cached). */
 export const getStudentAccess = cache(async (): Promise<StudentAccess | null> => {
@@ -51,7 +51,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
       studentCodeVersion: true,
       archivedAt: true,
       courseId: true,
-      course: { select: { studentLoginEnabled: true, studentBoardEnabled: true } },
+      course: { select: { studentLoginEnabled: true, studentBoardEnabled: true, homeLogEnabled: true } },
     },
   });
   if (
@@ -62,7 +62,12 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
   ) {
     return null;
   }
-  return { studentId: payload.studentId, courseId: student.courseId, boardEnabled: student.course.studentBoardEnabled };
+  return {
+    studentId: payload.studentId,
+    courseId: student.courseId,
+    boardEnabled: student.course.studentBoardEnabled,
+    homeLogEnabled: student.course.homeLogEnabled,
+  };
 });
 
 export async function requireStudentAccess(): Promise<StudentAccess> {

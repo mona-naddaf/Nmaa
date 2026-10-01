@@ -21,6 +21,8 @@ export interface HomeSegmentView {
   finishedAt: string | null;
   finishedBy: "STUDENT" | "TEACHER_RECITED" | null;
   lastActivity: string | null; // YYYY-MM-DD (her local day of the latest tap)
+  // set when a teacher's QURAN assignment created it (shown as «واجب»)
+  assignmentId: string | null;
 }
 
 export interface HomeLogView {
@@ -100,6 +102,7 @@ export async function getHomeLog(studentId: string, { pastLimit = 30 }: { pastLi
       finishedAt: r.finishedAt ? day(r.finishedAt) : null,
       finishedBy: r.finishedBy,
       lastActivity: lastBySegment.get(r.id) ?? null,
+      assignmentId: r.assignmentId,
     };
   };
 

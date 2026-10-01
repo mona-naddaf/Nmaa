@@ -63,6 +63,11 @@ model Course {
   homeTargetListen            Int                   @default(5)
   homeTargetRepeat            Int                   @default(10)
   homeTargetRecite            Int                   @default(3)
+  // «الواجبات» (src/lib/assignments) and «جدول المتابعة» (src/lib/tracker):
+  // each only works while student login is on. While off, the tabs are
+  // hidden and every page and action refuses.
+  assignmentsEnabled          Boolean               @default(false)
+  trackerEnabled              Boolean               @default(false)
   visibilityMode          VisibilityMode        @default(ALL_TEACHERS)
   onlineRecitationEnabled Boolean               @default(true)
   // optional progress bars on the student detail screen, each toggled
@@ -100,6 +105,8 @@ model Course {
   pointsActivities    PointsActivity[]
   calendarAdjustments CalendarAdjustment[]
   calendarEvents      CalendarEvent[]
+  assignments         Assignment[]
+  trackerItems        TrackerItem[]
 }
 
 model Teacher {
@@ -129,6 +136,8 @@ model Teacher {
   calendarEvents   CalendarEvent[]
   resources        Resource[]
   resourceReports  ResourceReport[]
+  assignments      Assignment[]
+  trackerItems     TrackerItem[]
 
   @@unique([courseId, nameKey])
   @@index([courseId])
@@ -150,6 +159,8 @@ model Group {
 
   students           Student[]
   teacherAssignments TeacherGroupAssignment[]
+  assignments        Assignment[]
+  trackerItems       TrackerItem[]
 
   @@unique([courseId, name])
   @@index([courseId])
@@ -231,6 +242,11 @@ model Student {
   mistakes           RecitationMistake[]
   homeSegments       HomeSegment[]
   homeTaps           HomeTap[]
+  assignmentTargets  AssignmentStudent[]
+  assignmentsDone    AssignmentCompletion[]
+  trackerTargets     TrackerItemStudent[]
+  trackerItemsOwn    TrackerItem[]          @relation("TrackerItemByStudent")
+  trackerChecks      TrackerCheck[]
 
   @@index([courseId])
   @@index([groupId])
@@ -513,9 +529,16 @@ model HomeSegment {
   // covers the whole segment (finishedBy says which)
   finishedAt   DateTime?
   finishedBy   HomeSegmentEnd?
+  // set when a QURAN assignment created this segment (shown as «واجب»; not
+  // counted toward the active-segment limit). Deleting the assignment
+  // removes its untouched segments first; practised ones are kept as hers
+  // and unlinked (SetNull).
+  assignmentId String?
+  assignment   Assignment?     @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
 
   taps HomeTap[]
 
+  @@unique([assignmentId, studentId])
   @@index([studentId, finishedAt])
 }
 
@@ -536,6 +559,133 @@ model HomeTap {
   @@index([segmentId, kind, ayah])
   @@index([studentId, day])
   @@index([studentId, createdAt])
+}
+
+// ---------- Assignments («الواجبات») ----------
+//
+// No points are given automatically; teachers award points in class with
+// the existing PointsLog system.
+
+// Targets either a whole group (targetGroupId set: includes students added
+// later, archived students drop out) or specific students (targetGroupId
+// null, one AssignmentStudent row each). surahNumber/fromAyah/toAyah are
+// set only for QURAN. Ownership like CalendarEvent: createdByTeacherId null
+// = the supervisor; a teacher edits/deletes only her own.
+model Assignment {
+  id                 String         @id @default(cuid())
+  courseId           String
+  course             Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title              String
+  description        String?
+  type               AssignmentType
+  dueDate            DateTime?      @db.Date
+  surahNumber        Int?
+  fromAyah           Int?
+  toAyah             Int?
+  targetGroupId      String?
+  targetGroup        Group?         @relation(fields: [targetGroupId], references: [id], onDelete: Cascade)
+  createdByTeacherId String?
+  createdByTeacher   Teacher?       @relation(fields: [createdByTeacherId], references: [id], onDelete: SetNull)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  students     AssignmentStudent[]
+  completions  AssignmentCompletion[]
+  homeSegments HomeSegment[]
+
+  @@index([courseId, createdAt])
+  @@index([targetGroupId])
+}
+
+model AssignmentStudent {
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([assignmentId, studentId])
+  @@index([studentId])
+}
+
+// She ticked it done (unticking deletes the row). answer is unused for now:
+// room for written answers later.
+model AssignmentCompletion {
+  id           String     @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answer       String?
+  doneAt       DateTime   @default(now())
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId])
+}
+
+// ---------- Daily tracker («جدول المتابعة») ----------
+//
+// Scores are always calculated from TrackerCheck rows, never stored
+// (src/lib/tracker/data.ts).
+
+// A daily item. Targets a whole group (targetGroupId) or specific students
+// (TrackerItemStudent rows). Created by staff (createdByTeacherId; both
+// creator fields null = the supervisor) or by a student for herself
+// (createdByStudentId, always PENDING until staff approve and set value).
+// days is a weekday bitmask, bit 0 = Sunday … bit 6 = Saturday (127 =
+// every day). Archived instead of deleted: it stops counting from the day
+// it was archived; earlier days keep it.
+model TrackerItem {
+  id                 String            @id @default(cuid())
+  courseId           String
+  course             Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title              String
+  // 1–10; null only while a student's own item awaits approval
+  value              Int?
+  days               Int               @default(127)
+  targetGroupId      String?
+  targetGroup        Group?            @relation(fields: [targetGroupId], references: [id], onDelete: Cascade)
+  status             TrackerItemStatus @default(APPROVED)
+  createdByTeacherId String?
+  createdByTeacher   Teacher?          @relation(fields: [createdByTeacherId], references: [id], onDelete: SetNull)
+  createdByStudentId String?
+  createdByStudent   Student?          @relation("TrackerItemByStudent", fields: [createdByStudentId], references: [id], onDelete: Cascade)
+  // when staff approved or rejected it (a rejection shows for a week)
+  reviewedAt         DateTime?
+  archivedAt         DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  students TrackerItemStudent[]
+  checks   TrackerCheck[]
+
+  @@index([courseId, status])
+  @@index([targetGroupId])
+  @@index([createdByStudentId])
+}
+
+model TrackerItemStudent {
+  itemId    String
+  item      TrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, studentId])
+  @@index([studentId])
+}
+
+// One tick: item × student × her local day. Only today and yesterday can be
+// ticked or unticked.
+model TrackerCheck {
+  id        String      @id @default(cuid())
+  itemId    String
+  item      TrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  day       DateTime    @db.Date
+  createdAt DateTime    @default(now())
+
+  @@unique([itemId, studentId, day])
+  @@index([studentId, day])
 }
 
 // One row per failed code-only login (parent or public board), keyed by a
@@ -595,6 +745,25 @@ enum HomeSegmentEnd {
   STUDENT
   // a teacher's official recitation covered the whole segment
   TEACHER_RECITED
+}
+
+enum AssignmentType {
+  // حفظ/مراجعة من القرآن: creates a «واجب» segment in the home log
+  QURAN
+  // سؤال
+  QUESTION
+  // بحث
+  RESEARCH
+  // أخرى
+  OTHER
+}
+
+enum TrackerItemStatus {
+  APPROVED
+  // a student's own item awaiting staff approval (can be ticked, doesn't count)
+  PENDING
+  // shown as «لم يُعتمد» for a week after reviewedAt, then hidden
+  REJECTED
 }
 
 enum LoginScope {

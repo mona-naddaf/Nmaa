@@ -12,6 +12,8 @@ import type { ParentViewData } from "@/lib/parent/data";
 import { parentLogoutAction } from "./actions";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { HomeLogSummary } from "@/components/home-log/HomeLogSummary";
+import { AssignmentList } from "@/components/student-work/AssignmentList";
+import { TrackerWeek } from "@/components/student-work/TrackerWeek";
 
 const QUALITY_LABEL = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" } as const;
 const QUALITY_BADGE = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" } as const;
@@ -119,6 +121,28 @@ export function ParentView({ data }: { data: ParentViewData }) {
             </div>
             <div className={styles.card}>
               <HomeLogSummary log={data.homeLog} groupGender={g} />
+            </div>
+          </>
+        )}
+
+        {data.assignments && (
+          <>
+            <div className={styles.secTitle}>
+              <span className={styles.dot} /> 📝 الواجبات
+            </div>
+            <div className={styles.card}>
+              <AssignmentList assignments={data.assignments} groupGender={g} />
+            </div>
+          </>
+        )}
+
+        {data.tracker && (
+          <>
+            <div className={styles.secTitle}>
+              <span className={styles.dot} /> ✅ جدول المتابعة
+            </div>
+            <div className={styles.card}>
+              <TrackerWeek sheet={data.tracker} />
             </div>
           </>
         )}

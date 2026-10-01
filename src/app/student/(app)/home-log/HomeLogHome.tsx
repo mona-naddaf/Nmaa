@@ -26,7 +26,8 @@ export function HomeLogHome({
 }) {
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const [adding, setAdding] = useState(false);
-  const full = log.active.length >= HOME_LIMITS.maxActiveSegments;
+  // D4: «واجب» segments don't count toward her limit
+  const full = log.active.filter((s) => !s.assignmentId).length >= HOME_LIMITS.maxActiveSegments;
 
   return (
     <div>
@@ -84,6 +85,7 @@ function SegmentCard({ s, g }: { s: HomeSegmentView; g: GroupGender }) {
     <>
       <div className={styles.segTitle}>
         {segmentTitle(s)}
+        {s.assignmentId && <span className={`${styles.badge} ${styles.teacher}`}>📌 واجب</span>}
         {s.targetsMet && <span className={styles.badge}>🎉 {pickByGroup(g, { m: "أنجزتَ الأهداف", f: "أنجزتِ الأهداف" })}</span>}
         {s.finishedBy === "TEACHER_RECITED" && <span className={`${styles.badge} ${styles.teacher}`}>سُمِّع للمعلم ✓</span>}
       </div>

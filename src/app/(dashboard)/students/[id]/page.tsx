@@ -20,6 +20,10 @@ import { requestOrigin } from "@/lib/request-origin";
 import styles from "./manage.module.css";
 import { canArchiveStudents, canEditStudents, teacherGroupLimit } from "@/lib/students/manage";
 import { pickByGroup, studentNounDef } from "@/lib/text/gender";
+import { getStudentAssignments } from "@/lib/assignments/data";
+import { StaffStudentAssignments } from "./StaffStudentAssignments";
+import { getStudentTracker } from "@/lib/tracker/data";
+import { StaffStudentTracker } from "./StaffStudentTracker";
 
 async function loginUrl(path: "/parent/login" | "/student/login") {
   const origin = await requestOrigin();
@@ -192,6 +196,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   // home log: shown to every staff member who can see this student
   // (the page already sends teachers outside their groups away)
   const homeLog = course.homeLogEnabled && course.studentLoginEnabled ? await getHomeLog(student.id) : null;
+  const assignments = course.assignmentsEnabled && course.studentLoginEnabled ? await getStudentAssignments(student.id) : null;
+  const tracker = course.trackerEnabled && course.studentLoginEnabled ? await getStudentTracker(student.id) : null;
 
   return (
     <>
@@ -205,6 +211,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           hasOwnTargets={student.homeTargetListen !== null || student.homeTargetRepeat !== null || student.homeTargetRecite !== null}
         />
       )}
+      {assignments && <StaffStudentAssignments assignments={assignments} groupGender={g} />}
+      {tracker && <StaffStudentTracker sheet={tracker} groupId={student.groupId} />}
       {/* supervisor only: the code is never sent to a teacher's browser */}
       {session.role === "admin" && (
         <ParentCodeCard

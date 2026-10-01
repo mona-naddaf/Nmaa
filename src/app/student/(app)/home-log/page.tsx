@@ -3,6 +3,7 @@ import { requireStudentAccess } from "@/lib/auth/student-session";
 import { getHomeLog } from "@/lib/home-log/data";
 import { getPlanAndPosition } from "@/lib/student-portal/data";
 import { nextExpectedEntry } from "@/lib/recitation/logic";
+import { syncStudentAssignmentSegments } from "@/lib/assignments/segments";
 import { HomeLogHome } from "./HomeLogHome";
 
 // «حفظي في البيت»: her segments and the "new segment" form. Refused (not
@@ -10,6 +11,8 @@ import { HomeLogHome } from "./HomeLogHome";
 export default async function HomeLogPage() {
   const { studentId, homeLogEnabled } = await requireStudentAccess();
   if (!homeLogEnabled) redirect("/student");
+  // «واجب» segments of group assignments set before she joined (no-op when assignments are off)
+  await syncStudentAssignmentSegments(studentId);
 
   const [log, { plan, position, groupGender }] = await Promise.all([getHomeLog(studentId), getPlanAndPosition(studentId)]);
   // default: the portion right after her official position in her plan

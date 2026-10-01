@@ -34,7 +34,15 @@ export async function destroyStudentSession() {
   store.set(STUDENT_COOKIE_NAME, "", { path: STUDENT_COOKIE_PATH, maxAge: 0 });
 }
 
-export type StudentAccess = { studentId: string; courseId: string; boardEnabled: boolean; homeLogEnabled: boolean };
+export type StudentAccess = {
+  studentId: string;
+  courseId: string;
+  groupId: string;
+  boardEnabled: boolean;
+  homeLogEnabled: boolean;
+  assignmentsEnabled: boolean;
+  trackerEnabled: boolean;
+};
 
 /** The signed-in student, or null. One lookup per request (cached). */
 export const getStudentAccess = cache(async (): Promise<StudentAccess | null> => {
@@ -51,7 +59,16 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
       studentCodeVersion: true,
       archivedAt: true,
       courseId: true,
-      course: { select: { studentLoginEnabled: true, studentBoardEnabled: true, homeLogEnabled: true } },
+      groupId: true,
+      course: {
+        select: {
+          studentLoginEnabled: true,
+          studentBoardEnabled: true,
+          homeLogEnabled: true,
+          assignmentsEnabled: true,
+          trackerEnabled: true,
+        },
+      },
     },
   });
   if (
@@ -65,8 +82,11 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
   return {
     studentId: payload.studentId,
     courseId: student.courseId,
+    groupId: student.groupId,
     boardEnabled: student.course.studentBoardEnabled,
     homeLogEnabled: student.course.homeLogEnabled,
+    assignmentsEnabled: student.course.assignmentsEnabled,
+    trackerEnabled: student.course.trackerEnabled,
   };
 });
 

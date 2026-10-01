@@ -11,7 +11,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await requireSession();
   const course = await prisma.course.findUnique({
     where: { id: session.courseId },
-    select: { name: true, calendarEnabled: true },
+    select: { name: true, calendarEnabled: true, studentLoginEnabled: true, assignmentsEnabled: true, trackerEnabled: true },
   });
 
   const account =
@@ -29,7 +29,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className={styles.brand}>
           <BrandLogo variant="header" priority />
         </div>
-        <NavLinks showSettings={session.role === "admin"} showCalendar={course?.calendarEnabled ?? false} />
+        <NavLinks
+          showSettings={session.role === "admin"}
+          showCalendar={course?.calendarEnabled ?? false}
+          showAssignments={!!course?.studentLoginEnabled && course.assignmentsEnabled}
+          showTracker={!!course?.studentLoginEnabled && course.trackerEnabled}
+        />
         <div className={styles.who}>
           <span>
             <b>{course?.name}</b>

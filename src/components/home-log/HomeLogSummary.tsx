@@ -52,6 +52,7 @@ function SegmentList({
           <div key={s.id} className={`${styles.segCard} ${s.targetsMet ? styles.done : ""}`}>
             <div className={styles.segTitle}>
               {segmentTitle(s)}
+              {s.assignmentId && <span className={`${styles.badge} ${styles.teacher}`}>📌 واجب</span>}
               {s.targetsMet && <span className={styles.badge}>أُنجزت الأهداف</span>}
               {s.finishedBy === "TEACHER_RECITED" && <span className={`${styles.badge} ${styles.teacher}`}>سُمِّع للمعلم ✓</span>}
               {s.finishedBy === "STUDENT" && <span className={styles.badge}>أُتمّ</span>}

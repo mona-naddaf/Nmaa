@@ -4,11 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./shell.module.css";
 
-export function NavLinks({ showSettings, showCalendar }: { showSettings: boolean; showCalendar: boolean }) {
+export function NavLinks({
+  showSettings,
+  showCalendar,
+  showAssignments,
+  showTracker,
+}: {
+  showSettings: boolean;
+  showCalendar: boolean;
+  showAssignments: boolean;
+  showTracker: boolean;
+}) {
   const pathname = usePathname();
   const links = [
     { href: "/students", label: "قائمة الطلاب" },
     { href: "/leaderboard", label: "لوحة الإنجاز" },
+    ...(showAssignments ? [{ href: "/assignments", label: "الواجبات" }] : []),
+    ...(showTracker ? [{ href: "/tracker", label: "جدول المتابعة" }] : []),
     { href: "/reports", label: "التقارير" },
     ...(showCalendar ? [{ href: "/calendar", label: "التقويم" }] : []),
     { href: "/resources", label: "بنك الوسائل" },

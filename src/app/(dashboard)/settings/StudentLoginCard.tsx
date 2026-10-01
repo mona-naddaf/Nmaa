@@ -6,6 +6,7 @@ import {
   setHomeDefaultTargetsAction,
   setHomeLogEnabledAction,
   setStudentBoardEnabledAction,
+  setStudentFeatureEnabledAction,
   setStudentLoginEnabledAction,
 } from "./actions";
 import { TargetsEditor } from "@/components/home-log/TargetsEditor";
@@ -16,11 +17,15 @@ export function StudentLoginCard({
   boardEnabled,
   homeLogEnabled,
   homeTargets,
+  assignmentsEnabled,
+  trackerEnabled,
 }: {
   enabled: boolean;
   boardEnabled: boolean;
   homeLogEnabled: boolean;
   homeTargets: HomeTargets;
+  assignmentsEnabled: boolean;
+  trackerEnabled: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +123,48 @@ export function StudentLoginCard({
           </div>
         </div>
       </div>
+      <div className={styles.settingRow} style={dependent} aria-disabled={!enabled}>
+        <div className={styles.settingText}>
+          <div className={styles.settingTitle}>الواجبات</div>
+          <div className={styles.settingDesc}>
+            يكلّف المعلم مجموعة كاملة أو طلابًا محدّدين بواجب (حفظ من القرآن، سؤال، بحث، أو غير ذلك) مع موعد تسليم
+            اختياري، ويعلّم الطالب ما أنجزه. ويرى المعلمون من أنجز ومن لم ينجز، ووليّ الأمر للعرض فقط. لا تُمنح نقاط
+            تلقائيًا.
+            {enabled && !homeLogEnabled && " واجبات الحفظ تحتاج إلى تفعيل «حفظي في البيت»."}
+            {!enabled && " (يتاح بعد تفعيل دخول الطلاب)"}
+          </div>
+        </div>
+        <OnOffPills
+          on={assignmentsEnabled}
+          onChange={(v) => !pending && run(() => setStudentFeatureEnabledAction("assignments", v))}
+        />
+      </div>
+
+      <div className={styles.settingRow} style={dependent} aria-disabled={!enabled}>
+        <div className={styles.settingText}>
+          <div className={styles.settingTitle}>جدول المتابعة</div>
+          <div className={styles.settingDesc}>
+            بنود يومية يعلّمها الطالب (مثل الورد أو أذكار الصباح)، لكل بند درجة، مع مجموع لليوم وللأسبوع. ويمكن للطالب
+            اقتراح بنود خاصة به يعتمدها المعلم. ويظهر للمعلمين في صفحة الطالب وجدول للمجموعة، ولوليّ الأمر للعرض فقط.
+            {!enabled && " (يتاح بعد تفعيل دخول الطلاب)"}
+          </div>
+        </div>
+        <OnOffPills on={trackerEnabled} onChange={(v) => !pending && run(() => setStudentFeatureEnabledAction("tracker", v))} />
+      </div>
       {error && <div className={styles.err}>{error}</div>}
     </>
+  );
+}
+
+function OnOffPills({ on, onChange }: { on: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <div className={styles.optionPills}>
+      <div className={`${styles.optionPill} ${on ? styles.sel : ""}`} onClick={() => !on && onChange(true)}>
+        مفعّل
+      </div>
+      <div className={`${styles.optionPill} ${!on ? styles.sel : ""}`} onClick={() => on && onChange(false)}>
+        غير مفعّل
+      </div>
+    </div>
   );
 }

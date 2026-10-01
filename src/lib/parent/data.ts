@@ -8,6 +8,8 @@ import { getActiveMistakes } from "@/lib/students/mistakes";
 import { BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { getHomeLog, type HomeLogView } from "@/lib/home-log/data";
+import { getStudentAssignments, type StudentAssignment } from "@/lib/assignments/data";
+import { getStudentTracker, type TrackerSheet } from "@/lib/tracker/data";
 
 // The ONLY data source for the parent view. Every query here is keyed on the
 // single studentId from the parent session — never a courseId or groupId —
@@ -41,6 +43,10 @@ export interface ParentViewData {
   points: { date: string; activityName: string; value: number }[];
   // read-only home memorization log (D4); null when the course has it off
   homeLog: HomeLogView | null;
+  // read-only assignments (D1); null when the course has them off
+  assignments: StudentAssignment[] | null;
+  // read-only daily tracker (D1); null when the course has it off
+  tracker: TrackerSheet | null;
 }
 
 export async function getParentViewData(studentId: string): Promise<ParentViewData | null> {
@@ -49,7 +55,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     select: {
       name: true,
       group: { select: { name: true, gender: true } },
-      course: { select: { name: true, homeLogEnabled: true, studentLoginEnabled: true } },
+      course: { select: { name: true, homeLogEnabled: true, studentLoginEnabled: true, assignmentsEnabled: true, trackerEnabled: true } },
       planItems: { orderBy: { position: "asc" }, select: { surahNumber: true } },
     },
   });
@@ -110,6 +116,8 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
       status: a.status as "IN" | "OUT",
     })),
     homeLog: student.course.homeLogEnabled && student.course.studentLoginEnabled ? await getHomeLog(studentId) : null,
+    assignments: student.course.assignmentsEnabled && student.course.studentLoginEnabled ? await getStudentAssignments(studentId) : null,
+    tracker: student.course.trackerEnabled && student.course.studentLoginEnabled ? await getStudentTracker(studentId) : null,
     points: pointsLogs.map((p) => ({
       date: p.day.toISOString().slice(0, 10),
       // bonus rows group under one label; their notes are teacher-written

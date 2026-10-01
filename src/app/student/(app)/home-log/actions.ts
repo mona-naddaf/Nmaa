@@ -41,8 +41,9 @@ export async function createSegmentAction(input: { surahNumber: number; fromAyah
   if (bad) return { error: bad };
 
   const [active, today] = await Promise.all([
-    prisma.homeSegment.count({ where: { studentId, finishedAt: null } }),
-    prisma.homeSegment.count({ where: { studentId, createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) } } }),
+    // D4: «واجب» segments (set by a teacher) don't count toward her limit
+    prisma.homeSegment.count({ where: { studentId, finishedAt: null, assignmentId: null } }),
+    prisma.homeSegment.count({ where: { studentId, assignmentId: null, createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) } } }),
   ]);
   if (active >= HOME_LIMITS.maxActiveSegments) {
     return { error: `يمكن أن تكون ${HOME_LIMITS.maxActiveSegments} مقاطع على الأكثر قيد الحفظ في وقت واحد — يُرجى إتمام أحدها أولًا` };
@@ -116,9 +117,10 @@ export async function deleteSegmentAction(segmentId: string): Promise<HomeResult
   if (!studentId) return OFF;
   const segment = await prisma.homeSegment.findFirst({
     where: { id: String(segmentId ?? ""), studentId },
-    select: { id: true, _count: { select: { taps: true } } },
+    select: { id: true, assignmentId: true, _count: { select: { taps: true } } },
   });
   if (!segment) return { error: "هذا المقطع غير متاح" };
+  if (segment.assignmentId) return { error: "هذا المقطع واجب من المعلم، ولا يمكن حذفه — يمكن إتمامه بدلًا من ذلك" };
   if (segment._count.taps > 0) return { error: "لا يمكن حذف مقطع سُجّل فيه تدريب — يمكن إتمامه بدلًا من ذلك" };
   await prisma.homeSegment.delete({ where: { id: segment.id } });
   refresh();

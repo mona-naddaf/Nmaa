@@ -255,6 +255,25 @@ export async function setHomeLogEnabledAction(enabled: boolean): Promise<{ error
   return {};
 }
 
+// Assignments and the daily tracker: each needs student login on. Turning
+// one off hides its tab and staff page and refuses its actions; nothing is
+// deleted, so turning it back on brings everything back.
+const STUDENT_FEATURE_FIELDS = { assignments: "assignmentsEnabled", tracker: "trackerEnabled" } as const;
+
+export async function setStudentFeatureEnabledAction(
+  feature: keyof typeof STUDENT_FEATURE_FIELDS,
+  enabled: boolean,
+): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  if (!Object.hasOwn(STUDENT_FEATURE_FIELDS, feature)) return { error: "إعداد غير معروف" };
+  const field = STUDENT_FEATURE_FIELDS[feature];
+  const course = await prisma.course.findUniqueOrThrow({ where: { id: cid }, select: { studentLoginEnabled: true } });
+  if (enabled && !course.studentLoginEnabled) return { error: "يُرجى تفعيل دخول الطلاب أولًا" };
+  await prisma.course.update({ where: { id: cid }, data: { [field]: enabled === true } });
+  revalidatePath("/", "layout");
+  return {};
+}
+
 /** Defaults for new segments (students with their own targets keep them). */
 export async function setHomeDefaultTargetsAction(targets: HomeTargets): Promise<{ error?: string }> {
   const cid = await currentCourseId();

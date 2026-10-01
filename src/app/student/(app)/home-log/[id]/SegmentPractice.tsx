@@ -79,7 +79,10 @@ export function SegmentPractice({ segment: s, groupGender: g }: { segment: HomeS
       </Link>
 
       <div className={styles.section}>
-        <div className={styles.segTitle}>{segmentTitle(s)}</div>
+        <div className={styles.segTitle}>
+          {segmentTitle(s)}
+          {s.assignmentId && <span className={`${styles.badge} ${styles.teacher}`}>📌 واجب</span>}
+        </div>
         <div className={styles.segMeta}>بدأ {s.createdAt}</div>
 
         {done && (
@@ -181,7 +184,7 @@ export function SegmentPractice({ segment: s, groupGender: g }: { segment: HomeS
             <button type="button" className={styles.ghostBtn} onClick={() => setConfirm("finish")}>
               ✓ أتممتُ هذا المقطع
             </button>
-            {!hasTaps && (
+            {!hasTaps && !s.assignmentId && (
               <button type="button" className={styles.ghostBtn} onClick={() => setConfirm("delete")}>
                 حذف المقطع
               </button>

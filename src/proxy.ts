@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME, verifyToken } from "@/lib/auth/session";
 import { PARENT_COOKIE_NAME, verifyParentToken } from "@/lib/auth/parent-token";
 import { BOARD_COOKIE_NAME, verifyBoardToken } from "@/lib/auth/board-token";
+import { STUDENT_COOKIE_NAME, verifyStudentToken } from "@/lib/auth/student-token";
 
 // /students/import: bulk import is supervisor-only regardless of the
 // course add-students permission. Parent codes and the student archive are
@@ -12,12 +13,14 @@ const ADMIN_ONLY_PATHS = ["/settings", "/students/import", "/students/parent-cod
 const CODE_AREAS = [
   { base: "/parent", cookie: PARENT_COOKIE_NAME, verify: verifyParentToken },
   { base: "/board", cookie: BOARD_COOKIE_NAME, verify: verifyBoardToken },
+  // note: "/students" (staff) is not this area — only "/student" and "/student/…"
+  { base: "/student", cookie: STUDENT_COOKIE_NAME, verify: verifyStudentToken },
 ];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Code-only areas (parent, public board): each handled entirely on its own
+  // Code-only areas (parent, public board, student): each handled entirely on its own
   // cookie and never falling through to the staff rules below — a staff
   // session grants nothing there, and their sessions grant nothing anywhere
   // else. (Each page also re-checks the code version against the DB.)

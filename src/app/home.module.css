@@ -78,20 +78,43 @@
   margin-bottom: 18px;
 }
 
-/* Two columns at every width, four from 860px up. */
+/* Five cards: two columns on phones (the fifth spans the row), 3 + 2 on
+   tablets, one row of five on wide screens. */
 .cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  max-width: 760px;
+  max-width: 980px;
   width: 100%;
   margin-bottom: 40px;
 }
 
-@media (min-width: 860px) {
+.cards > :last-child {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 640px) {
   .cards {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .cards > * {
+    grid-column: span 2;
+  }
+  .cards > :nth-child(n + 4),
+  .cards > :last-child {
+    grid-column: span 3;
+  }
+}
+
+@media (min-width: 1000px) {
+  .cards {
+    grid-template-columns: repeat(5, 1fr);
     gap: 14px;
+  }
+  .cards > *,
+  .cards > :nth-child(n + 4),
+  .cards > :last-child {
+    grid-column: auto;
   }
 }
 
@@ -141,6 +164,9 @@
 .supervisor {
   --accent-bar: var(--gold-deep);
 }
+.student {
+  --accent-bar: var(--rose);
+}
 .parent {
   --accent-bar: var(--sage-deep);
 }
@@ -165,6 +191,9 @@
 }
 .supervisor .cardIcon {
   background: rgba(168, 92, 54, 0.14);
+}
+.student .cardIcon {
+  background: rgba(76, 120, 98, 0.16);
 }
 .parent .cardIcon {
   background: rgba(124, 74, 66, 0.12);

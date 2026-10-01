@@ -27,6 +27,7 @@ export function StudentsList({
   isSupervisor,
   viewerGender,
   archivedCount = 0,
+  canIssueStudentCodes = false,
 }: {
   groups: { id: string; name: string; gender: GroupGender }[];
   students: StudentSummary[];
@@ -36,6 +37,8 @@ export function StudentsList({
   viewerGender: PersonGender;
   // supervisor only: how many students are in the archive
   archivedCount?: number;
+  // student login on and the viewer may issue student codes
+  canIssueStudentCodes?: boolean;
 }) {
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id ?? "");
   const [query, setQuery] = useState("");
@@ -52,7 +55,7 @@ export function StudentsList({
 
   return (
     <div>
-      {(canAddStudents || isSupervisor) && (
+      {(canAddStudents || isSupervisor || canIssueStudentCodes) && (
         <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
           {isSupervisor && (
             <>
@@ -66,6 +69,11 @@ export function StudentsList({
                 ⬆ استيراد من Excel
               </Link>
             </>
+          )}
+          {canIssueStudentCodes && (
+            <Link href="/students/student-codes" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
+              🎓 رموز الطلاب
+            </Link>
           )}
           {canAddStudents && (
             <Link href="/students/new" className={styles.addBtn}>

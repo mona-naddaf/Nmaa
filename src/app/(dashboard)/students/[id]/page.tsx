@@ -11,15 +11,17 @@ import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages
 import { computeOverdueSurahs } from "@/lib/students/review";
 import { DetailView } from "./DetailView";
 import { ParentCodeCard } from "./ParentCodeCard";
+import { StudentCodeCard } from "./StudentCodeCard";
+import { inScope, studentCodeAccess } from "@/lib/students/student-codes";
 import { StudentManageBar } from "./StudentManageBar";
 import { requestOrigin } from "@/lib/request-origin";
 import styles from "./manage.module.css";
 import { canArchiveStudents, canEditStudents, teacherGroupLimit } from "@/lib/students/manage";
 import { pickByGroup, studentNounDef } from "@/lib/text/gender";
 
-async function parentLoginUrl() {
+async function loginUrl(path: "/parent/login" | "/student/login") {
   const origin = await requestOrigin();
-  return origin ? `${origin}/parent/login` : null;
+  return origin ? `${origin}${path}` : null;
 }
 
 export default async function StudentDetailPage({ params }: PageProps<"/students/[id]">) {
@@ -195,7 +197,17 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           groupGender={student.group.gender}
           initialCode={student.parentCode}
           initialCreatedAt={student.parentCodeCreatedAt?.toISOString() ?? null}
-          loginUrl={await parentLoginUrl()}
+          loginUrl={await loginUrl("/parent/login")}
+        />
+      )}
+      {/* student login on, and the viewer may issue codes for this group */}
+      {inScope(await studentCodeAccess(session), student.groupId) && (
+        <StudentCodeCard
+          studentId={student.id}
+          groupGender={student.group.gender}
+          initialCode={student.studentCode}
+          initialCreatedAt={student.studentCodeCreatedAt?.toISOString() ?? null}
+          loginUrl={await loginUrl("/student/login")}
         />
       )}
     </>

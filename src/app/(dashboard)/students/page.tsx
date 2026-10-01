@@ -4,6 +4,7 @@ import { getStudentSummaries } from "@/lib/students/summary";
 import { StudentsList } from "./StudentsList";
 import { getCalendarData } from "@/lib/calendar/data";
 import { CalendarBanner } from "@/components/calendar/CalendarBanner";
+import { studentCodeAccess } from "@/lib/students/student-codes";
 
 export default async function StudentsPage() {
   const session = await requireSession();
@@ -28,12 +29,13 @@ export default async function StudentsPage() {
     ? course.groups.filter((g) => visibleGroupIds!.includes(g.id))
     : course.groups;
 
-  const [students, calendar, archivedCount] = await Promise.all([
+  const [students, calendar, archivedCount, codeAccess] = await Promise.all([
     getStudentSummaries(course.id, visibleGroupIds),
     getCalendarData(session),
     session.role === "admin"
       ? prisma.student.count({ where: { courseId: course.id, archivedAt: { not: null } } })
       : Promise.resolve(0),
+    studentCodeAccess(session),
   ]);
 
   const canAddStudents = session.role === "admin" || course.addStudentsPermission === "ALL_TEACHERS";
@@ -59,6 +61,7 @@ export default async function StudentsPage() {
         isSupervisor={session.role === "admin"}
         viewerGender={viewer?.gender ?? null}
         archivedCount={archivedCount}
+        canIssueStudentCodes={codeAccess.allowed}
       />
     </>
   );

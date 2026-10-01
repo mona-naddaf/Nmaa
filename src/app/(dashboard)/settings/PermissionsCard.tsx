@@ -18,6 +18,8 @@ export function PermissionsCard({
   addStudentsPermission,
   editStudentsPermission,
   archiveStudentsPermission,
+  issueStudentCodesPermission,
+  studentLoginEnabled,
   adminGender,
   visibilityMode,
   groups,
@@ -26,6 +28,8 @@ export function PermissionsCard({
   addStudentsPermission: AddStudentsPermission;
   editStudentsPermission: AddStudentsPermission;
   archiveStudentsPermission: AddStudentsPermission;
+  issueStudentCodesPermission: AddStudentsPermission;
+  studentLoginEnabled: boolean;
   adminGender: PersonGender;
   visibilityMode: VisibilityMode;
   groups: { id: string; name: string }[];
@@ -92,6 +96,14 @@ export function PermissionsCard({
         "أرشفة الطلاب",
         `من يملك صلاحية أرشفة طالب؟ أما الاستعادة من الأرشيف والحذف النهائي فهما لل${supervisorNoun(adminGender)} ${pickByPerson(adminGender, { m: "وحده", f: "وحدها" })} دائمًا.`,
       )}
+
+      {studentLoginEnabled &&
+        studentPermissionRow(
+          "issueStudentCodesPermission",
+          issueStudentCodesPermission,
+          "إصدار رموز الطلاب",
+          "من يملك صلاحية إنشاء رموز دخول الطلاب وتجديدها وإلغائها؟ عند اختيار \"كل المعلمين\" يصدر كل معلم رموز طلاب مجموعاته المخصّصة فقط.",
+        )}
 
       <div className={styles.settingRow} style={{ flexDirection: "column", alignItems: "stretch" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>

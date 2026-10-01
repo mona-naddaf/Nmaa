@@ -48,6 +48,14 @@ model Course {
   // Restoring and permanently deleting are always supervisor-only.
   editStudentsPermission    AddStudentsPermission @default(ADMIN_ONLY)
   archiveStudentsPermission AddStudentsPermission @default(ADMIN_ONLY)
+  // Student login (src/lib/auth/student-session.ts). Off by default; while
+  // off, student codes are hidden and every student session is refused.
+  // studentBoardEnabled separately allows the course board tab for students
+  // (independent of the public board code).
+  studentLoginEnabled         Boolean               @default(false)
+  studentBoardEnabled         Boolean               @default(false)
+  // who may issue/regenerate/revoke student codes (teachers: own groups only)
+  issueStudentCodesPermission AddStudentsPermission @default(ADMIN_ONLY)
   visibilityMode          VisibilityMode        @default(ALL_TEACHERS)
   onlineRecitationEnabled Boolean               @default(true)
   // optional progress bars on the student detail screen, each toggled
@@ -188,6 +196,13 @@ model Student {
   parentCode          String?   @unique
   parentCodeVersion   Int       @default(0)
   parentCodeCreatedAt DateTime?
+
+  // The student's own login code, separate from the parent code (same
+  // version mechanism: regenerating/revoking bumps the version and ends
+  // every session opened with the old code).
+  studentCode          String?   @unique
+  studentCodeVersion   Int       @default(0)
+  studentCodeCreatedAt DateTime?
 
   // Archived instead of deleted: null = active. An archived student drops out
   // of every list, count, board and streak, can't be acted on, and her parent
@@ -506,6 +521,7 @@ enum StreakMode {
 enum LoginScope {
   PARENT
   BOARD
+  STUDENT
 }
 
 enum AddStudentsPermission {

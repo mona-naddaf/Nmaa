@@ -16,7 +16,7 @@ export async function setAddStudentsPermissionAction(value: "ADMIN_ONLY" | "ALL_
   revalidatePath("/settings");
 }
 
-const STUDENT_PERMISSION_FIELDS = ["editStudentsPermission", "archiveStudentsPermission"] as const;
+const STUDENT_PERMISSION_FIELDS = ["editStudentsPermission", "archiveStudentsPermission", "issueStudentCodesPermission"] as const;
 export type StudentPermissionField = (typeof STUDENT_PERMISSION_FIELDS)[number];
 
 export async function setStudentPermissionAction(field: StudentPermissionField, value: "ADMIN_ONLY" | "ALL_TEACHERS") {
@@ -221,6 +221,25 @@ export async function setReviewReminderDaysAction(days: number | null): Promise<
   await prisma.course.update({ where: { id: cid }, data: { reviewReminderDays: days } });
   revalidatePath("/settings");
   revalidatePath("/students", "layout");
+  return {};
+}
+
+// ---------- Student login ----------
+
+// Turning login off ends every open student session on its next request
+// (src/lib/auth/student-session.ts); codes are kept for when it's back on.
+export async function setStudentLoginEnabledAction(enabled: boolean) {
+  const cid = await currentCourseId();
+  await prisma.course.update({ where: { id: cid }, data: { studentLoginEnabled: enabled === true } });
+  revalidatePath("/", "layout");
+}
+
+export async function setStudentBoardEnabledAction(enabled: boolean): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  const course = await prisma.course.findUniqueOrThrow({ where: { id: cid }, select: { studentLoginEnabled: true } });
+  if (enabled && !course.studentLoginEnabled) return { error: "يُرجى تفعيل دخول الطلاب أولًا" };
+  await prisma.course.update({ where: { id: cid }, data: { studentBoardEnabled: enabled === true } });
+  revalidatePath("/", "layout");
   return {};
 }
 

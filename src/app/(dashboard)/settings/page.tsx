@@ -12,6 +12,7 @@ import { ReviewReminderCard } from "./ReviewReminderCard";
 import { StreakCard } from "./StreakCard";
 import { PointsEditor } from "./PointsEditor";
 import { CalendarCard } from "./CalendarCard";
+import { StudentLoginCard } from "./StudentLoginCard";
 import { requestOrigin } from "@/lib/request-origin";
 
 export default async function SettingsPage() {
@@ -55,6 +56,8 @@ export default async function SettingsPage() {
         addStudentsPermission={course.addStudentsPermission}
         editStudentsPermission={course.editStudentsPermission}
         archiveStudentsPermission={course.archiveStudentsPermission}
+        issueStudentCodesPermission={course.issueStudentCodesPermission}
+        studentLoginEnabled={course.studentLoginEnabled}
         adminGender={admin?.gender ?? null}
         visibilityMode={course.visibilityMode}
         groups={course.groups.map((g) => ({ id: g.id, name: g.name }))}
@@ -98,6 +101,13 @@ export default async function SettingsPage() {
       </div>
       <div className={styles.card}>
         <StreakCard mode={course.streakMode} />
+      </div>
+
+      <div className={styles.secTitle}>
+        <span className={styles.dot} /> دخول الطلاب
+      </div>
+      <div className={styles.card}>
+        <StudentLoginCard enabled={course.studentLoginEnabled} boardEnabled={course.studentBoardEnabled} />
       </div>
 
       <div className={styles.secTitle}>

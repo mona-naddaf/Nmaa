@@ -53,6 +53,12 @@ export default async function Home() {
           <div className={styles.cardDesc}>تسجيل الدخول بالبريد الإلكتروني وكلمة المرور</div>
           <div className={styles.cardArrow}>دخول ←</div>
         </Link>
+        <Link href="/student/login" className={`${styles.card} ${styles.student}`}>
+          <div className={styles.cardIcon} aria-hidden="true">🎓</div>
+          <div className={styles.cardTitle}>طالب / طالبة</div>
+          <div className={styles.cardDesc}>الدخول بالاسم ورمز الطالب</div>
+          <div className={styles.cardArrow}>دخول ←</div>
+        </Link>
         <Link href="/parent/login" className={`${styles.card} ${styles.parent}`}>
           <div className={styles.cardIcon} aria-hidden="true">🏠</div>
           <div className={styles.cardTitle}>وليّ الأمر</div>

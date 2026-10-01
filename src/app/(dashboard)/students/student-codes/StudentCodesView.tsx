@@ -1,0 +1,124 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import styles from "../parent-codes/parent-codes.module.css";
+import { generateMissingStudentCodesAction } from "./actions";
+import type { StudentCodeRow } from "@/lib/students/student-codes";
+import { CopyLink } from "@/components/access-code/CopyLink";
+import { imperative, studentNounDef, studentsNoun, studentsNounDef, NEUTRAL_GROUP_GENDER, type PersonGender } from "@/lib/text/gender";
+
+// Arabic number agreement: رمز واحد، رمزان، 3–10 رموز، 11+ رمزًا
+function codesText(n: number): string {
+  if (n === 1) return "رمز واحد";
+  if (n === 2) return "رمزان";
+  return `${n} ${n % 100 >= 3 && n % 100 <= 10 ? "رموز" : "رمزًا"}`;
+}
+
+// Course- (or multi-group-) wide, so student words use the neutral convention;
+// only the verb addressed to the viewer follows the viewer's own gender.
+export function StudentCodesView({
+  rows,
+  viewerGender,
+  loginUrl,
+  limitedToGroups,
+}: {
+  rows: StudentCodeRow[];
+  viewerGender: PersonGender;
+  loginUrl: string | null;
+  limitedToGroups: boolean;
+}) {
+  const g = NEUTRAL_GROUP_GENDER;
+  const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const missing = rows.filter((r) => r.status === "none").length;
+  const revoked = rows.filter((r) => r.status === "revoked");
+
+  function generate() {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await generateMissingStudentCodesAction();
+      setMessage(
+        "error" in result
+          ? { ok: false, text: result.error }
+          : { ok: true, text: result.created === 0 ? "لا يوجد من يحتاج رمزًا جديدًا" : `تم إنشاء ${codesText(result.created)} ✓` },
+      );
+    });
+  }
+
+  return (
+    <div>
+      <Link href="/students" className={styles.back}>
+        → رجوع للقائمة
+      </Link>
+
+      <div className={styles.card}>
+        {limitedToGroups && (
+          <p className={styles.note} style={{ marginTop: 0 }}>
+            يظهر هنا {studentsNoun(g)} مجموعاتك فقط.
+          </p>
+        )}
+        {loginUrl && <CopyLink url={loginUrl} label={`رابط دخول ${studentsNounDef(g)}:`} />}
+        <div className={styles.stats}>
+          <span>
+            <b>{rows.length - missing - revoked.length}</b> لديهم رمز
+          </span>
+          <span>
+            <b>{missing}</b> لا يملكون رمزًا
+          </span>
+          {revoked.length > 0 && (
+            <span>
+              <b>{revoked.length}</b> أُلغي رمزهم
+            </span>
+          )}
+        </div>
+
+        <div className={styles.actions}>
+          <button type="button" className={styles.primary} onClick={generate} disabled={pending || missing === 0}>
+            {pending ? "جارٍ الإنشاء..." : `إنشاء رموز لجميع ${studentsNounDef(g)} الذين لا يملكون رمزًا`}
+          </button>
+          <a className={styles.secondary} href="/student-codes/print" target="_blank" rel="noopener">
+            🖨️ طباعة القائمة
+          </a>
+        </div>
+
+        {message && <div className={message.ok ? styles.ok : styles.err}>{message.text}</div>}
+
+        {revoked.length > 0 && (
+          <p className={styles.note}>
+            لا تُنشأ رموز تلقائيًا لمن أُلغي رمزهم سابقًا ({revoked.map((r) => r.name).join("، ")}) — لإعادة
+            إصدار رمز لأحدهم {imperative(viewerGender, { m: "افتح", f: "افتحي" })} صفحته.
+          </p>
+        )}
+      </div>
+
+      {rows.length > 0 && (
+        <div className={styles.card}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>{studentNounDef(g)}</th>
+                <th>المجموعة</th>
+                <th>رمز الدخول</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <Link href={`/students/${r.id}`}>{r.name}</Link>
+                  </td>
+                  <td>{r.groupName}</td>
+                  <td className={r.code ? styles.code : styles.noCode}>
+                    {r.code ?? (r.status === "revoked" ? "أُلغي" : "—")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

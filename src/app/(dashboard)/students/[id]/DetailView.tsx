@@ -135,8 +135,8 @@ export function DetailView({
   headerBadge?: React.ReactNode;
   // «معلومات إضافية» (a Collapsible), after the review reminders
   infoSection?: React.ReactNode;
-  // open every collapsible section: the archive's read-only (inert) view,
-  // where nothing can be clicked open
+  // open every collapsible section (and don't remember anything): the
+  // archive's read-only (inert) view, where nothing can be clicked open
   expandAll?: boolean;
 }) {
   const router = useRouter();
@@ -316,6 +316,11 @@ export function DetailView({
   }
 
   const ayahCount = AYAH_COUNT[surahNumber];
+
+  // Collapsible sections: open/closed is remembered per device across every
+  // student (same keys on every page); the archive's read-only view instead
+  // shows them all open, since nothing there can be clicked.
+  const section = (key: string) => (expandAll ? { defaultOpen: true } : { persistKey: `student.${key}` });
 
   // short hints for the collapsed headers
   const mainBar = progressBars.find((b) => b.key === "plan") ?? progressBars.find((b) => b.key === "quran");
@@ -576,7 +581,7 @@ export function DetailView({
       <Collapsible
         title={sessionDate === today ? "النقاط اليوم" : `النقاط ليوم ${sessionDate}`}
         tag={`${pointsForSelectedDate} نقطة`}
-        defaultOpen={expandAll}
+        {...section("points")}
       >
         <div className={styles.pointsGrid}>
           {pointsActivities.map((a) => {
@@ -640,7 +645,7 @@ export function DetailView({
       </Collapsible>
 
       {mistakes.length > 0 && (
-        <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakes.length, WORDS)} defaultOpen={expandAll}>
+        <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakes.length, WORDS)} {...section("mistakes")}>
           <MistakesList
             mistakes={mistakes}
             groupGender={groupGender}
@@ -654,7 +659,7 @@ export function DetailView({
       )}
 
       {overdueSurahs.length > 0 && (
-        <Collapsible title="🔁 سور تحتاج مراجعة" tag={countLabel(overdueSurahs.length, SURAHS_COUNT)} defaultOpen={expandAll}>
+        <Collapsible title="🔁 سور تحتاج مراجعة" tag={countLabel(overdueSurahs.length, SURAHS_COUNT)} {...section("review")}>
           <div className={styles.reviewHint} style={{ marginBottom: 8 }}>
             لم تُراجع كاملةً منذ أكثر من {reviewReminderDays} يومًا
           </div>
@@ -675,7 +680,7 @@ export function DetailView({
       {infoSection}
 
       {progressBars.length > 0 && (
-        <Collapsible title="أشرطة التقدّم" tag={progressHint} defaultOpen={expandAll}>
+        <Collapsible title="أشرطة التقدّم" tag={progressHint} {...section("progress")}>
           <div className={styles.progressListBare}>
             {progressBars.map((bar) => (
               <div key={bar.key} className={styles.progressItem}>
@@ -701,7 +706,7 @@ export function DetailView({
         </Collapsible>
       )}
 
-      <Collapsible title="الإنجاز" tag={`${cumPoints} نقطة تراكميًا`} defaultOpen={expandAll}>
+      <Collapsible title="الإنجاز" tag={`${cumPoints} نقطة تراكميًا`} {...section("achievement")}>
         <div className={styles.counters}>
           <div className={styles.counter}>
             <div className={styles.num}>{pointsForSelectedDate}</div>
@@ -726,7 +731,7 @@ export function DetailView({
         </div>
       </Collapsible>
 
-      <Collapsible title="سجل التسميع" tag={historyHint} defaultOpen={expandAll}>
+      <Collapsible title="سجل التسميع" tag={historyHint} {...section("history")}>
         {history.length === 0 ? (
           <div className={styles.logEmpty}>
             لا يوجد تسميع مسجّل بعد ل{thisDemonstrative(groupGender)} {pickByGroup(groupGender, { m: "الطالب", f: "الطالبة" })}

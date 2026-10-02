@@ -190,7 +190,11 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         headerBadge={<MissingInfoBadge key="info-badge" missing={missingInfo} />}
         infoSection={
           infoItems.length > 0 ? (
-            <Collapsible key="info-section" title="معلومات إضافية" defaultOpen={archived}>
+            <Collapsible
+              key="info-section"
+              title="معلومات إضافية"
+              {...(archived ? { defaultOpen: true } : { persistKey: "student.info" })}
+            >
               <StudentInfoList bare title="معلومات إضافية" items={infoItems} />
             </Collapsible>
           ) : null
@@ -243,6 +247,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       {homeLog && (
         <Collapsible
           title="🏠 حفظ البيت"
+          persistKey="student.homeLog"
           tag={homeLog.active.length > 0 ? `${countLabel(homeLog.active.length, SEGMENTS)} قيد الحفظ` : "لا توجد مقاطع قيد الحفظ"}
         >
           <StaffHomeLog
@@ -257,6 +262,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       {assignments && (
         <Collapsible
           title="📝 الواجبات"
+          persistKey="student.assignments"
           tag={
             assignments.length > 0
               ? `${assignments.filter((a) => !a.done).length} مفتوحة · ${assignments.filter((a) => a.done).length} منجزة`
@@ -267,13 +273,13 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         </Collapsible>
       )}
       {tracker && (
-        <Collapsible title="✅ جدول المتابعة">
+        <Collapsible title="✅ جدول المتابعة" persistKey="student.tracker">
           <StaffStudentTracker sheet={tracker} groupId={student.groupId} />
         </Collapsible>
       )}
       {/* supervisor only: the code is never sent to a teacher's browser */}
       {session.role === "admin" && (
-        <Collapsible title="رمز دخول وليّ الأمر">
+        <Collapsible title="رمز دخول وليّ الأمر" persistKey="student.parentCode">
           <ParentCodeCard
             studentId={student.id}
             groupGender={student.group.gender}
@@ -285,7 +291,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       )}
       {/* student login on, and the viewer may issue codes for this group */}
       {inScope(await studentCodeAccess(session), student.groupId) && (
-        <Collapsible title={`رمز دخول ${studentNounDef(g)}`}>
+        <Collapsible title={`رمز دخول ${studentNounDef(g)}`} persistKey="student.studentCode">
           <StudentCodeCard
             studentId={student.id}
             groupGender={student.group.gender}

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import styles from "./manage.module.css";
 import { archiveStudentAction, updateStudentAction } from "./manage-actions";
 import { pickByGroup, studentNoun, studentNounDef, type GroupGender } from "@/lib/text/gender";
+import { InfoFieldsInputs } from "@/components/student-info/InfoFieldsInputs";
+import type { InfoField } from "@/lib/students/extra-info-rules";
 
 type Group = { id: string; name: string; gender: GroupGender };
 
@@ -17,12 +19,17 @@ export function StudentManageBar({
   groups,
   canEdit,
   canArchive,
+  infoFields = [],
+  infoValues = {},
 }: {
   student: { id: string; name: string; age: number; grade: string | null; groupId: string };
   // the groups the viewer may move the student into (assigned-groups rule)
   groups: Group[];
   canEdit: boolean;
   canArchive: boolean;
+  // the extra-info fields the viewer may edit, and their stored values
+  infoFields?: InfoField[];
+  infoValues?: Record<string, string>;
 }) {
   const [open, setOpen] = useState<"edit" | "archive" | null>(null);
   if (!canEdit && !canArchive) return null;
@@ -42,7 +49,15 @@ export function StudentManageBar({
           </button>
         )}
       </div>
-      {open === "edit" && <EditDialog student={student} groups={groups} onClose={() => setOpen(null)} />}
+      {open === "edit" && (
+        <EditDialog
+          student={student}
+          groups={groups}
+          infoFields={infoFields}
+          infoValues={infoValues}
+          onClose={() => setOpen(null)}
+        />
+      )}
       {open === "archive" && <ArchiveDialog student={student} gender={gender} onClose={() => setOpen(null)} />}
     </>
   );
@@ -51,10 +66,14 @@ export function StudentManageBar({
 function EditDialog({
   student,
   groups,
+  infoFields,
+  infoValues,
   onClose,
 }: {
   student: { id: string; name: string; age: number; grade: string | null; groupId: string };
   groups: Group[];
+  infoFields: InfoField[];
+  infoValues: Record<string, string>;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -62,6 +81,7 @@ function EditDialog({
   const [age, setAge] = useState(String(student.age));
   const [grade, setGrade] = useState(student.grade ?? "");
   const [groupId, setGroupId] = useState(student.groupId);
+  const [info, setInfo] = useState(infoValues);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -73,7 +93,7 @@ function EditDialog({
   function save() {
     setError(null);
     startTransition(async () => {
-      const result = await updateStudentAction(student.id, { name, age: Number(age), grade, groupId });
+      const result = await updateStudentAction(student.id, { name, age: Number(age), grade, groupId, info });
       if (result.error) return setError(result.error);
       onClose();
       router.refresh();
@@ -126,6 +146,14 @@ function EditDialog({
             </div>
           )}
         </div>
+        <InfoFieldsInputs
+          fields={infoFields}
+          values={info}
+          onChange={(id, value) => setInfo((prev) => ({ ...prev, [id]: value }))}
+          groupGender={g}
+          classes={{ field: styles.field, input: styles.input }}
+          idPrefix="edit-info"
+        />
         {error && <div className={styles.err}>{error}</div>}
         <div className={styles.buttons}>
           <button type="button" className={styles.primary} onClick={save} disabled={pending}>

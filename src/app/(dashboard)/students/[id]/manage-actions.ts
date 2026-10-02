@@ -13,6 +13,15 @@ import {
   teacherGroupLimit,
 } from "@/lib/students/manage";
 import { studentNounDef, studentsNoun } from "@/lib/text/gender";
+import {
+  editorFor,
+  getStudentInfoValues,
+  plainValues,
+  staffInfoAccess,
+  visibleInfoFields,
+  writeInfoChanges,
+} from "@/lib/students/extra-info";
+import { validateInfoSave } from "@/lib/students/extra-info-rules";
 
 export type ManageResult = { error?: string };
 
@@ -22,7 +31,7 @@ async function manageContext(studentId: string) {
   const session = await requireSession();
   const course = await prisma.course.findUniqueOrThrow({
     where: { id: session.courseId },
-    select: { editStudentsPermission: true, archiveStudentsPermission: true, visibilityMode: true },
+    select: { editStudentsPermission: true, archiveStudentsPermission: true, visibilityMode: true, studentInfoEnabled: true },
   });
   const student = await prisma.student.findFirst({
     where: { id: studentId, courseId: session.courseId, ...ACTIVE_STUDENT },
@@ -43,7 +52,9 @@ function refreshStudentViews(studentId: string) {
   revalidatePath("/reports");
 }
 
-export type StudentEditInput = { name: string; age: number; grade: string; groupId: string };
+// info: extra-info values by field id (only the fields the editor may edit
+// are read; anything else is ignored)
+export type StudentEditInput = { name: string; age: number; grade: string; groupId: string; info?: Record<string, string> };
 
 export async function updateStudentAction(studentId: string, input: StudentEditInput): Promise<ManageResult> {
   const ctx = await manageContext(studentId);
@@ -69,9 +80,20 @@ export async function updateStudentAction(studentId: string, input: StudentEditI
     return { error: duplicateNameMessage(group.gender) };
   }
 
-  await prisma.student.update({
-    where: { id: student.id },
-    data: { name, age, grade: grade || null, groupId: group.id },
+  // extra info: required fields are enforced here, on every save
+  const access = staffInfoAccess(session, course);
+  const infoFields = access.edit ? await visibleInfoFields(session.courseId, access) : [];
+  const current = plainValues(await getStudentInfoValues(student.id, infoFields));
+  const submittedInfo = input.info && typeof input.info === "object" ? input.info : {};
+  const info = validateInfoSave(infoFields, current, submittedInfo, group.gender);
+  if ("error" in info) return { error: info.error };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.student.update({
+      where: { id: student.id },
+      data: { name, age, grade: grade || null, groupId: group.id },
+    });
+    await writeInfoChanges(tx, student.id, info.changes, editorFor(access.viewer));
   });
   refreshStudentViews(student.id);
   return {};

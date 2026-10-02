@@ -407,3 +407,27 @@
   color: var(--ink-soft);
   margin-top: 10px;
 }
+
+/* extra-info inputs: stacked, same look as the other fields */
+.infoField {
+  margin-bottom: 12px;
+}
+
+.infoField label {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.infoField input,
+.infoField textarea {
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 14.5px;
+  color: var(--ink);
+}

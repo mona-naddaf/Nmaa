@@ -16,6 +16,7 @@ import {
 import {
   EXAMPLE_ROW,
   FIRST_DATA_ROW,
+  FIXED_COLUMN_COUNT,
   FIXED_HEADERS,
   HEADER_ROW,
   MAIN_SHEET_NAMES,
@@ -23,22 +24,37 @@ import {
   nameHeader,
   type TemplateVariant,
 } from "@/lib/students/import-template";
+import {
+  builtinLabel,
+  cleanInfoValue,
+  fieldLabel,
+  infoLabelKey,
+  type InfoField,
+} from "@/lib/students/extra-info-rules";
+import { NEUTRAL_GROUP_GENDER } from "@/lib/text/gender";
 
 // Reads an uploaded bulk-import workbook (see import-template.ts) into one
 // NewStudentInput per filled row, or a per-row list of reasons it can't be.
 // Only the shape of each cell is checked here; the student rules themselves
 // (age range, prior surahs in the plan, ayah bounds, …) are applied by the
-// caller through validateNewStudent, same as the manual form.
+// caller through validateNewStudent, same as the manual form. Extra-info
+// columns (after K) are read as raw text here and matched to the course's
+// fields by matchInfoColumns.
 
-export type ParsedRow = {
+export type ParsedRow = RowResult & {
+  // raw extra-info cells, aligned with ParseResult.infoHeaders
+  info: string[];
+};
+
+type RowResult = {
   row: number;
   name: string;
   groupName: string;
 } & ({ input: NewStudentInput; errors?: undefined } | { input?: undefined; errors: string[] });
 
-export type ParseResult = { error: string } | { variant: TemplateVariant; rows: ParsedRow[]; exampleSkipped: boolean };
-
-const COLUMN_COUNT = 11;
+export type ParseResult =
+  | { error: string }
+  | { variant: TemplateVariant; infoHeaders: string[]; rows: ParsedRow[]; exampleSkipped: boolean };
 
 export async function parseImportWorkbook(data: ArrayBuffer): Promise<ParseResult> {
   const wb = new ExcelJS.Workbook();
@@ -60,22 +76,30 @@ export async function parseImportWorkbook(data: ArrayBuffer): Promise<ParseResul
     };
   }
 
+  // extra-info columns: every header after K, up to the last non-empty one
+  const headerRow = ws.getRow(HEADER_ROW);
+  const infoHeaders: string[] = [];
+  for (let c = FIXED_COLUMN_COUNT + 1; c <= headerRow.cellCount; c++) infoHeaders.push(cellText(headerRow.getCell(c).value));
+  while (infoHeaders.length > 0 && !infoHeaders[infoHeaders.length - 1]) infoHeaders.pop();
+
   const rows: ParsedRow[] = [];
   let exampleSkipped = false;
   for (let r = FIRST_DATA_ROW; r <= ws.rowCount; r++) {
-    const cells = rowTexts(ws.getRow(r));
-    if (cells.every((c) => c === "")) continue;
-    if (r === EXAMPLE_ROW && isUntouchedExample(cells, variant)) {
+    const row = ws.getRow(r);
+    const cells = rowTexts(row);
+    const info = infoHeaders.map((_, i) => cellText(row.getCell(FIXED_COLUMN_COUNT + 1 + i).value, true));
+    if (cells.every((c) => c === "") && info.every((c) => c === "")) continue;
+    if (r === EXAMPLE_ROW && info.every((c) => c === "") && isUntouchedExample(cells, variant)) {
       exampleSkipped = true;
       continue;
     }
-    rows.push(parseRow(r, cells));
+    rows.push({ ...parseRow(r, cells), info });
   }
 
-  return { variant, rows, exampleSkipped };
+  return { variant, infoHeaders, rows, exampleSkipped };
 }
 
-function parseRow(row: number, cells: string[]): ParsedRow {
+function parseRow(row: number, cells: string[]): RowResult {
   const [name, grade, ageText, groupName, templateText, rangeFromText, rangeToText, scatteredText, partialText, partialFromText, partialToText] =
     cells;
   const errors: string[] = [];
@@ -153,30 +177,89 @@ function parseRow(row: number, cells: string[]): ParsedRow {
   };
 }
 
+/**
+ * Matches the file's extra-info headers to the course's fields (by name,
+ * ignoring tashkeel and the «*» that marks required columns; built-in names
+ * in either gender's wording). The whole file is refused when a column is
+ * unknown, belongs to a field that is now disabled, or appears twice, or
+ * when an enabled required field has no column — the template is out of
+ * date. Columns of optional fields may be missing. Blank headers are
+ * ignored (null in the result, aligned with the headers).
+ */
+export function matchInfoColumns(
+  headers: string[],
+  fields: InfoField[],
+  featureOn: boolean,
+): { error: string } | { columns: (InfoField | null)[] } {
+  const reload = "يُرجى تحميل القالب من جديد ونقل البيانات إليه.";
+  const keysOf = (f: InfoField) =>
+    f.builtinKey
+      ? [builtinLabel(f.builtinKey, "GIRLS"), builtinLabel(f.builtinKey, "BOYS"), builtinLabel(f.builtinKey, null)].map(infoLabelKey)
+      : [infoLabelKey(f.label ?? "")];
+  const byKey = new Map<string, InfoField>();
+  for (const f of fields) for (const k of keysOf(f)) byKey.set(k, f);
+
+  const columns: (InfoField | null)[] = [];
+  const seen = new Set<string>();
+  for (const header of headers) {
+    if (!header) {
+      columns.push(null);
+      continue;
+    }
+    const field = byKey.get(infoLabelKey(header));
+    if (!field) {
+      return { error: `العمود «${header}» غير معروف: لا يطابق أي حقل من المعلومات الإضافية في الدورة. ${reload}` };
+    }
+    if (!featureOn || !field.enabled) {
+      return { error: `العمود «${header}» لحقل غير مفعّل حاليًا في المعلومات الإضافية. ${reload}` };
+    }
+    if (seen.has(field.id)) return { error: `العمود «${header}» مكرَّر في الملف. ${reload}` };
+    seen.add(field.id);
+    columns.push(field);
+  }
+
+  const missing = featureOn ? fields.filter((f) => f.enabled && f.required && !seen.has(f.id)) : [];
+  if (missing.length > 0) {
+    const names = missing.map((f) => `«${fieldLabel(f, null)}»`).join("، ");
+    const what = missing.length === 1 ? "عمود الحقل الإلزامي" : "أعمدة الحقول الإلزامية";
+    return { error: `لا يحتوي الملف على ${what} ${names}. ${reload}` };
+  }
+  return { columns };
+}
+
 export interface SkippedRow {
   row: number;
   name: string;
   reason: string;
 }
 
+export interface ImportStudent {
+  groupId: string;
+  student: ValidatedStudent;
+  // cleaned, non-empty extra-info values
+  info: { fieldId: string; value: string }[];
+}
+
 /**
  * Splits parsed rows into students to create and rows to skip (with the
  * reason): names already in the course or earlier in the file are
  * duplicates; the rest go through the same validateNewStudent rules as the
- * manual form.
+ * manual form, and their extra-info cells through the same cleaning as the
+ * forms (an empty required field skips the row).
  */
 export function matchImportRows(
   rows: ParsedRow[],
   groups: { id: string; name: string; gender: GroupGender }[],
   existingNames: string[],
-): { toCreate: { groupId: string; student: ValidatedStudent }[]; skipped: SkippedRow[] } {
+  infoColumns: (InfoField | null)[] = [],
+): { toCreate: ImportStudent[]; skipped: SkippedRow[] } {
   const groupByName = new Map(groups.map((g) => [g.name.replace(/\s+/g, " ").trim(), g]));
   const existingKeys = new Set(existingNames.map(studentNameKey));
   // name key → row number of the file row that will create that student
   const importedNames = new Map<string, number>();
 
   const skipped: SkippedRow[] = [];
-  const toCreate: { groupId: string; student: ValidatedStudent }[] = [];
+  const toCreate: ImportStudent[] = [];
 
   for (const r of rows) {
     const skip = (reason: string) => skipped.push({ row: r.row, name: r.name, reason });
@@ -193,6 +276,17 @@ export function matchImportRows(
     const group = groupByName.get(r.groupName);
     const errors = [...(r.errors ?? [])];
     if (r.groupName && !group) errors.push(`المجموعة «${r.groupName}» غير موجودة في الدورة`);
+
+    const g = group?.gender ?? NEUTRAL_GROUP_GENDER;
+    const info: ImportStudent["info"] = [];
+    infoColumns.forEach((field, i) => {
+      if (!field) return;
+      const cleaned = cleanInfoValue(field, r.info[i] ?? "", g);
+      if ("error" in cleaned) errors.push(cleaned.error);
+      else if (cleaned.value) info.push({ fieldId: field.id, value: cleaned.value });
+      else if (field.required) errors.push(`«${fieldLabel(field, g)}» فارغ وهو حقل إلزامي`);
+    });
+
     if (errors.length > 0 || !r.input || !group) {
       skip(errors.join("، "));
       continue;
@@ -205,7 +299,7 @@ export function matchImportRows(
     }
 
     importedNames.set(key, r.row);
-    toCreate.push({ groupId: group.id, student: result.student });
+    toCreate.push({ groupId: group.id, student: result.student, info });
   }
 
   return { toCreate, skipped };
@@ -214,18 +308,19 @@ export function matchImportRows(
 // ---------- cells ----------
 
 function rowTexts(row: ExcelJS.Row): string[] {
-  return Array.from({ length: COLUMN_COUNT }, (_, i) => cellText(row.getCell(i + 1).value));
+  return Array.from({ length: FIXED_COLUMN_COUNT }, (_, i) => cellText(row.getCell(i + 1).value));
 }
 
-function cellText(value: ExcelJS.CellValue): string {
+/** keepLines: keep line breaks (multi-line extra-info notes); otherwise all whitespace folds to one space. */
+function cellText(value: ExcelJS.CellValue, keepLines = false): string {
   if (value == null) return "";
-  if (typeof value === "string") return value.replace(/\s+/g, " ").trim();
+  if (typeof value === "string") return keepLines ? value.replace(/\r\n?/g, "\n").trim() : value.replace(/\s+/g, " ").trim();
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (value instanceof Date) return "";
   if (typeof value === "object") {
-    if ("richText" in value) return cellText(value.richText.map((t) => t.text).join(""));
-    if ("result" in value) return cellText((value.result ?? null) as ExcelJS.CellValue);
-    if ("text" in value) return cellText(value.text as ExcelJS.CellValue);
+    if ("richText" in value) return cellText(value.richText.map((t) => t.text).join(""), keepLines);
+    if ("result" in value) return cellText((value.result ?? null) as ExcelJS.CellValue, keepLines);
+    if ("text" in value) return cellText(value.text as ExcelJS.CellValue, keepLines);
   }
   return "";
 }

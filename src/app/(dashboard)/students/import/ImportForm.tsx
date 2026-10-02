@@ -23,8 +23,8 @@ export function ImportForm({ viewerGender, hasGroups }: { viewerGender: PersonGe
         {hasGroups ? (
           <>
             <p className={styles.hint}>
-              {you({ m: "اختر", f: "اختاري" })} صيغة القالب. قائمة المجموعات داخل الملف تُؤخذ من مجموعات الدورة الحالية، فلو
-              تغيّرت المجموعات {you({ m: "حمّل", f: "حمّلي" })} القالب من جديد.
+              {you({ m: "اختر", f: "اختاري" })} صيغة القالب. تُؤخذ قائمة المجموعات وأعمدة المعلومات الإضافية داخل الملف من
+              إعدادات الدورة الحالية، فإذا تغيّرت {you({ m: "فحمّل", f: "فحمّلي" })} القالب من جديد.
             </p>
             <div className={styles.downloads}>
               <a className={styles.downloadBtn} href="/api/students/import-template?variant=girls" download>

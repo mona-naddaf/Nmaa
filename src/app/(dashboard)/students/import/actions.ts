@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
-import { matchImportRows, parseImportWorkbook, type SkippedRow } from "@/lib/students/import-parse";
+import { matchImportRows, matchInfoColumns, parseImportWorkbook, type SkippedRow } from "@/lib/students/import-parse";
+import { getCourseInfoFields } from "@/lib/students/extra-info";
 import { studentCreateData } from "@/lib/students/new-student";
 
 export type ImportState =
@@ -28,18 +29,28 @@ export async function importStudentsAction(_prev: ImportState, formData: FormDat
   const parsed = await parseImportWorkbook(await file.arrayBuffer());
   if ("error" in parsed) return { error: parsed.error };
 
-  const [groups, existing] = await Promise.all([
+  const [groups, existing, course, infoFields] = await Promise.all([
     prisma.group.findMany({ where: { courseId: session.courseId }, select: { id: true, name: true, gender: true } }),
     prisma.student.findMany({ where: { courseId: session.courseId }, select: { name: true } }),
+    prisma.course.findUniqueOrThrow({ where: { id: session.courseId }, select: { studentInfoEnabled: true } }),
+    getCourseInfoFields(session.courseId),
   ]);
-  const { toCreate, skipped } = matchImportRows(parsed.rows, groups, existing.map((s) => s.name));
+  // extra-info columns: an out-of-date template refuses the whole file
+  const info = matchInfoColumns(parsed.infoHeaders, infoFields, course.studentInfoEnabled);
+  if ("error" in info) return { error: info.error };
+  const { toCreate, skipped } = matchImportRows(parsed.rows, groups, existing.map((s) => s.name), info.columns);
 
   if (toCreate.length > 0) {
     const teacherId = await resolveTeacherId(session);
     await prisma.$transaction(
       async (tx) => {
-        for (const { groupId, student } of toCreate) {
-          await tx.student.create({ data: studentCreateData(student, { courseId: session.courseId, groupId, teacherId }) });
+        for (const { groupId, student, info } of toCreate) {
+          await tx.student.create({
+            data: {
+              ...studentCreateData(student, { courseId: session.courseId, groupId, teacherId }),
+              infoValues: { createMany: { data: info.map((v) => ({ ...v, updatedBy: "ADMIN" as const })) } },
+            },
+          });
         }
       },
       { timeout: 60_000, maxWait: 10_000 },

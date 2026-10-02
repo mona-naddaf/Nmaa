@@ -1,15 +1,25 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { createParentSession, destroyParentSession } from "@/lib/auth/parent-session";
+import { createParentSession, destroyParentSession, getParentStudentId } from "@/lib/auth/parent-session";
 import { normalizeParentCode, parentNameMatches } from "@/lib/auth/parent-code";
 import { isLoginLocked, recordLoginFailure } from "@/lib/auth/login-lockout";
+import {
+  getStudentInfoValues,
+  parentInfoAccess,
+  plainValues,
+  visibleInfoFields,
+  writeInfoChanges,
+} from "@/lib/students/extra-info";
+import { validateInfoSave } from "@/lib/students/extra-info-rules";
 
 export type ParentLoginState = { error?: string } | null;
 
-// Deliberately the only two server actions in the parent area: log in and
-// log out. Nothing a parent can trigger writes student data.
+// The parent area has three server actions: log in, log out, and saving the
+// «معلومات الطالب/ة» fields (below) — the only student data a parent can
+// write, and only while the course allows it.
 
 export async function parentLoginAction(_prev: ParentLoginState, formData: FormData): Promise<ParentLoginState> {
   const name = String(formData.get("name") ?? "");
@@ -44,4 +54,40 @@ export async function parentLoginAction(_prev: ParentLoginState, formData: FormD
 export async function parentLogoutAction() {
   await destroyParentSession();
   redirect("/parent/login");
+}
+
+export type ParentInfoResult = { error?: string };
+
+// Saves the extra-info fields shown to parents, directly (no approval). Every
+// call re-checks the parent session (a revoked/regenerated code or an
+// archived student ends it), that the course has the feature and parent
+// editing on, and which fields are enabled and shown to parents; any other
+// submitted field is ignored. Required fields among those must stay filled.
+export async function saveParentStudentInfoAction(values: Record<string, string>): Promise<ParentInfoResult> {
+  const studentId = await getParentStudentId();
+  if (!studentId) return { error: "انتهت الجلسة — يُرجى تسجيل الدخول مرة أخرى" };
+
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
+    select: {
+      group: { select: { gender: true } },
+      course: { select: { id: true, studentInfoEnabled: true, parentStudentInfoEdit: true } },
+    },
+  });
+  if (!student) return { error: "انتهت الجلسة — يُرجى تسجيل الدخول مرة أخرى" };
+
+  const access = parentInfoAccess(student.course);
+  if (!access.edit) return { error: "تعديل المعلومات غير متاح حاليًا" };
+  const fields = await visibleInfoFields(student.course.id, access);
+  const current = plainValues(await getStudentInfoValues(studentId, fields));
+  const submitted = values && typeof values === "object" && !Array.isArray(values) ? values : {};
+  const result = validateInfoSave(fields, current, submitted, student.group.gender);
+  if ("error" in result) return { error: result.error };
+
+  if (result.changes.length > 0) {
+    await prisma.$transaction((tx) => writeInfoChanges(tx, studentId, result.changes, "PARENT"));
+    revalidatePath("/parent");
+    revalidatePath("/students/[id]", "page");
+  }
+  return {};
 }

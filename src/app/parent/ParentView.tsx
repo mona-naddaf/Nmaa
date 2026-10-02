@@ -14,13 +14,15 @@ import { MistakesList } from "@/components/mistakes/MistakesList";
 import { HomeLogSummary } from "@/components/home-log/HomeLogSummary";
 import { AssignmentList } from "@/components/student-work/AssignmentList";
 import { TrackerWeek } from "@/components/student-work/TrackerWeek";
+import { ParentStudentInfo } from "./ParentStudentInfo";
 
 const QUALITY_LABEL = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" } as const;
 const QUALITY_BADGE = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" } as const;
 const SESSION_TYPE_LABEL = { NEW: "حفظ جديد", REVIEW: "مراجعة", LINK: "ربط" } as const;
 
-// Read-only by construction: no inputs besides the date filter, and the only
-// server action reachable from here is logout.
+// Read-only by construction except «معلومات الطالب/ة» (ParentStudentInfo),
+// shown only while the course lets parents fill it: no other inputs besides
+// the date filter, and the only other server action is logout.
 export function ParentView({ data }: { data: ParentViewData }) {
   const g = data.groupGender;
 
@@ -146,6 +148,8 @@ export function ParentView({ data }: { data: ParentViewData }) {
             </div>
           </>
         )}
+
+        {data.info && <ParentStudentInfo fields={data.info.fields} values={data.info.values} groupGender={g} />}
 
         {hasAnyData ? (
           <>

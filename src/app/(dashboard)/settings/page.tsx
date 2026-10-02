@@ -13,7 +13,9 @@ import { StreakCard } from "./StreakCard";
 import { PointsEditor } from "./PointsEditor";
 import { CalendarCard } from "./CalendarCard";
 import { StudentLoginCard } from "./StudentLoginCard";
+import { StudentInfoCard } from "./StudentInfoCard";
 import { requestOrigin } from "@/lib/request-origin";
+import { ensureBuiltinFields, getCourseInfoFields } from "@/lib/students/extra-info";
 
 export default async function SettingsPage() {
   const session = await requireAdmin();
@@ -35,6 +37,10 @@ export default async function SettingsPage() {
     prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true } }),
     requestOrigin(),
   ]);
+  // built-in rows normally exist from the moment the feature was turned on;
+  // this also adds any built-in field introduced later (idempotent)
+  if (course.studentInfoEnabled) await ensureBuiltinFields(course.id);
+  const infoFields = course.studentInfoEnabled ? await getCourseInfoFields(course.id) : [];
 
   return (
     <div>
@@ -58,6 +64,7 @@ export default async function SettingsPage() {
         archiveStudentsPermission={course.archiveStudentsPermission}
         issueStudentCodesPermission={course.issueStudentCodesPermission}
         studentLoginEnabled={course.studentLoginEnabled}
+        studentInfoEnabled={course.studentInfoEnabled}
         adminGender={admin?.gender ?? null}
         visibilityMode={course.visibilityMode}
         groups={course.groups.map((g) => ({ id: g.id, name: g.name }))}
@@ -114,6 +121,18 @@ export default async function SettingsPage() {
           homeTargets={{ listen: course.homeTargetListen, repeat: course.homeTargetRepeat, recite: course.homeTargetRecite }}
           assignmentsEnabled={course.assignmentsEnabled}
           trackerEnabled={course.trackerEnabled}
+        />
+      </div>
+
+      <div className={styles.secTitle}>
+        <span className={styles.dot} /> معلومات إضافية
+      </div>
+      <div className={styles.card}>
+        <StudentInfoCard
+          enabled={course.studentInfoEnabled}
+          parentEdit={course.parentStudentInfoEdit}
+          fields={infoFields}
+          adminGender={admin?.gender ?? null}
         />
       </div>
 

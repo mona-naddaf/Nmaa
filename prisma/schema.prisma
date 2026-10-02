@@ -97,6 +97,12 @@ model Course {
   calendarBannerEnabled   Boolean                @default(false)
   calendarEditPermission  CalendarEditPermission @default(ADMIN_ONLY)
   enabledOccasions        Occasion[]             @default([])
+  // «معلومات إضافية» about each student (src/lib/students/extra-info.ts).
+  // Off by default; while off, nothing is shown or accepted anywhere and the
+  // stored values are kept. parentStudentInfoEdit separately lets parents
+  // fill/edit the fields visible to them from the parent portal.
+  studentInfoEnabled      Boolean                @default(false)
+  parentStudentInfoEdit   Boolean                @default(false)
   createdAt               DateTime               @default(now())
 
   teachers            Teacher[]
@@ -107,6 +113,7 @@ model Course {
   calendarEvents      CalendarEvent[]
   assignments         Assignment[]
   trackerItems        TrackerItem[]
+  studentInfoFields   StudentInfoField[]
 }
 
 model Teacher {
@@ -247,10 +254,56 @@ model Student {
   trackerTargets     TrackerItemStudent[]
   trackerItemsOwn    TrackerItem[]          @relation("TrackerItemByStudent")
   trackerChecks      TrackerCheck[]
+  infoValues         StudentInfoValue[]
 
   @@index([courseId])
   @@index([groupId])
   @@index([courseId, archivedAt])
+}
+
+// ---------- Extra student information («معلومات إضافية») ----------
+//
+// Never loaded by the student portal, the board or reports. Who sees and
+// edits which field is decided in src/lib/students/extra-info.ts.
+
+// One configurable field of a course: a built-in one (builtinKey set, label
+// from code so it can follow the group's gender) or the supervisor's own
+// (builtinKey null, label set). Built-in rows are created on demand, all
+// disabled. Disabling hides a field but keeps its values; deleting a custom
+// field deletes its values (Cascade).
+model StudentInfoField {
+  id                String              @id @default(cuid())
+  courseId          String
+  course            Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  builtinKey        StudentInfoBuiltin?
+  label             String?
+  enabled           Boolean             @default(false)
+  required          Boolean             @default(false)
+  visibleToTeachers Boolean             @default(true)
+  visibleToParents  Boolean             @default(true)
+  sortOrder         Int                 @default(0)
+  createdAt         DateTime            @default(now())
+
+  values StudentInfoValue[]
+
+  // Postgres treats NULLs as distinct, so any number of custom rows fit
+  @@unique([courseId, builtinKey])
+  @@index([courseId, sortOrder])
+}
+
+// A student's value for one field. Never empty: clearing a value deletes the
+// row, so "missing" always means "no row".
+model StudentInfoValue {
+  studentId String
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fieldId   String
+  field     StudentInfoField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  value     String
+  updatedAt DateTime         @updatedAt
+  updatedBy InfoEditor
+
+  @@id([studentId, fieldId])
+  @@index([fieldId])
 }
 
 // A student's memorization plan: an ordered list of surahs, built from a
@@ -702,6 +755,27 @@ model LoginAttempt {
 }
 
 // ---------- Enums ----------
+
+// Labels live in src/lib/students/extra-info.ts. Values are never renamed:
+// StudentInfoField rows store them.
+enum StudentInfoBuiltin {
+  MOTHER_NAME
+  MOTHER_PHONE
+  MOTHER_JOB
+  FATHER_NAME
+  FATHER_PHONE
+  FATHER_JOB
+  STUDENT_PHONE
+  // مكان الدراسة أو العمل — separate from Student.grade
+  STUDY_OR_WORK
+}
+
+// who last saved a StudentInfoValue
+enum InfoEditor {
+  ADMIN
+  TEACHER
+  PARENT
+}
 
 enum CalendarEditPermission {
   ADMIN_ONLY

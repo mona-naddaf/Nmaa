@@ -101,6 +101,8 @@ export function DetailView({
   pointsLogs: initialPointsLogs,
   history,
   headerActions,
+  headerBadge,
+  infoSection,
 }: {
   student: { id: string; name: string; age: number; grade: string | null; attendance: Attendance };
   groupGender: GroupGender;
@@ -126,6 +128,10 @@ export function DetailView({
   history: HistoryEntry[];
   // edit/archive buttons, rendered under the name (null when not allowed)
   headerActions?: React.ReactNode;
+  // «معلومات ناقصة», under the name (null when nothing is missing)
+  headerBadge?: React.ReactNode;
+  // «معلومات إضافية», right under the header card
+  infoSection?: React.ReactNode;
 }) {
   const router = useRouter();
   const today = todayISO();
@@ -320,6 +326,7 @@ export function DetailView({
               {student.age} سنوات
               {student.grade && ` · ${student.grade.startsWith("الصف") ? student.grade : `الصف ${student.grade}`}`}
             </div>
+            {headerBadge}
             {headerActions}
           </div>
         </div>
@@ -342,6 +349,8 @@ export function DetailView({
           </button>
         </div>
       </div>
+
+      {infoSection}
 
       <div className={styles.lastPos}>
         <div className={styles.icon}>📖</div>

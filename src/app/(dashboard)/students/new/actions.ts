@@ -7,6 +7,8 @@ import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { studentCreateData, validateNewStudent, type PriorPartial } from "@/lib/students/new-student";
 import { imperative, studentsNoun, NEUTRAL_GROUP_GENDER } from "@/lib/text/gender";
 import { duplicateNameMessage, studentNameTaken } from "@/lib/students/manage";
+import { editorFor, staffInfoAccess, visibleInfoFields } from "@/lib/students/extra-info";
+import { validateInfoSave } from "@/lib/students/extra-info-rules";
 
 export type ActionState = { error?: string } | null;
 
@@ -73,14 +75,36 @@ export async function createStudentAction(_prev: ActionState, formData: FormData
     group.gender,
   );
   if ("error" in result) return { error: result.error };
+
+  // extra info: the fields she may edit; required ones must be filled now
+  let submittedInfo: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(String(formData.get("info") ?? "{}"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) submittedInfo = parsed;
+  } catch {
+    return { error: "بيانات المعلومات الإضافية غير صحيحة" };
+  }
+  const infoAccess = staffInfoAccess(session, course);
+  const infoFields = infoAccess.edit ? await visibleInfoFields(course.id, infoAccess) : [];
+  const info = validateInfoSave(infoFields, {}, submittedInfo, group.gender);
+  if ("error" in info) return { error: info.error };
+
   // same rule as the Excel import, and archived students' names count too
   if (await studentNameTaken(course.id, result.student.name)) {
     return { error: duplicateNameMessage(group.gender) };
   }
 
   const teacherId = await resolveTeacherId(session);
+  const updatedBy = editorFor(infoAccess.viewer);
   const student = await prisma.student.create({
-    data: studentCreateData(result.student, { courseId: course.id, groupId: group.id, teacherId }),
+    data: {
+      ...studentCreateData(result.student, { courseId: course.id, groupId: group.id, teacherId }),
+      infoValues: {
+        createMany: {
+          data: info.changes.flatMap(({ fieldId, value }) => (value ? [{ fieldId, value, updatedBy }] : [])),
+        },
+      },
+    },
   });
 
   redirect(`/students/${student.id}`);

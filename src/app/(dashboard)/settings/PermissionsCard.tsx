@@ -20,6 +20,7 @@ export function PermissionsCard({
   archiveStudentsPermission,
   issueStudentCodesPermission,
   studentLoginEnabled,
+  studentInfoEnabled,
   adminGender,
   visibilityMode,
   groups,
@@ -30,6 +31,7 @@ export function PermissionsCard({
   archiveStudentsPermission: AddStudentsPermission;
   issueStudentCodesPermission: AddStudentsPermission;
   studentLoginEnabled: boolean;
+  studentInfoEnabled: boolean;
   adminGender: PersonGender;
   visibilityMode: VisibilityMode;
   groups: { id: string; name: string }[];
@@ -88,7 +90,9 @@ export function PermissionsCard({
         "editStudentsPermission",
         editStudentsPermission,
         "تعديل بيانات الطلاب",
-        "من يملك صلاحية تعديل الاسم والعمر والصف والمجموعة؟",
+        studentInfoEnabled
+          ? "من يملك صلاحية تعديل الاسم والعمر والصف والمجموعة، والمعلومات الإضافية التي تظهر للمعلمين؟"
+          : "من يملك صلاحية تعديل الاسم والعمر والصف والمجموعة؟",
       )}
       {studentPermissionRow(
         "archiveStudentsPermission",

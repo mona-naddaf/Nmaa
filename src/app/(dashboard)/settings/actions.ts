@@ -6,6 +6,15 @@ import { requireAdmin } from "@/lib/auth/require";
 import { generateUniqueBoardCode } from "@/lib/auth/board-code";
 import { pickByGroup, studentsNoun, type GroupGender } from "@/lib/text/gender";
 import { validateTargets, type HomeTargets } from "@/lib/home-log/rules";
+import { ensureBuiltinFields, getCourseInfoFields } from "@/lib/students/extra-info";
+import {
+  BUILTIN_ORDER,
+  MAX_CUSTOM_FIELDS,
+  MAX_LABEL_LENGTH,
+  builtinLabel,
+  infoLabelKey,
+} from "@/lib/students/extra-info-rules";
+import { FIXED_HEADERS, nameHeader } from "@/lib/students/import-template";
 
 async function currentCourseId() {
   return (await requireAdmin()).courseId;
@@ -315,4 +324,133 @@ export async function setCalendarEditPermissionAction(value: "ADMIN_ONLY" | "ALL
   if (value !== "ADMIN_ONLY" && value !== "ALL_TEACHERS") throw new Error("خيار غير صحيح");
   await prisma.course.update({ where: { id: cid }, data: { calendarEditPermission: value } });
   refreshCalendarEverywhere();
+}
+
+// ---------- Extra student information («معلومات إضافية») ----------
+
+// Shown on student pages, the edit form and the parent portal, so refresh
+// the whole app. Turning the feature (or a field) off only hides: stored
+// values are kept for when it's back on.
+function refreshStudentInfoEverywhere() {
+  revalidatePath("/", "layout");
+}
+
+export async function setStudentInfoEnabledAction(enabled: boolean) {
+  const cid = await currentCourseId();
+  if (enabled === true) await ensureBuiltinFields(cid);
+  await prisma.course.update({ where: { id: cid }, data: { studentInfoEnabled: enabled === true } });
+  refreshStudentInfoEverywhere();
+}
+
+export async function setParentStudentInfoEditAction(enabled: boolean): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  const course = await prisma.course.findUniqueOrThrow({ where: { id: cid }, select: { studentInfoEnabled: true } });
+  if (enabled && !course.studentInfoEnabled) return { error: "يُرجى تفعيل المعلومات الإضافية أولًا" };
+  await prisma.course.update({ where: { id: cid }, data: { parentStudentInfoEdit: enabled === true } });
+  refreshStudentInfoEverywhere();
+  return {};
+}
+
+const INFO_FIELD_FLAGS = ["enabled", "required", "visibleToTeachers", "visibleToParents"] as const;
+export type InfoFieldFlag = (typeof INFO_FIELD_FLAGS)[number];
+
+export async function setInfoFieldFlagAction(fieldId: string, flag: InfoFieldFlag, value: boolean): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  if (!INFO_FIELD_FLAGS.includes(flag)) return { error: "إعداد غير معروف" };
+  const { count } = await prisma.studentInfoField.updateMany({
+    where: { id: String(fieldId), courseId: cid },
+    data: { [flag]: value === true },
+  });
+  if (count === 0) return { error: "الحقل غير موجود" };
+  refreshStudentInfoEverywhere();
+  return {};
+}
+
+// Names every column of the import template already uses, so a custom
+// field can't be confused with one of them when a file is read back.
+const RESERVED_LABEL_KEYS = new Set(
+  [
+    ...FIXED_HEADERS,
+    nameHeader("girls"),
+    nameHeader("boys"),
+    ...BUILTIN_ORDER.flatMap((k) => [builtinLabel(k, "GIRLS"), builtinLabel(k, "BOYS"), builtinLabel(k, null)]),
+  ].map(infoLabelKey),
+);
+
+async function checkCustomLabel(courseId: string, label: string, exceptFieldId?: string): Promise<{ error: string } | { label: string }> {
+  const trimmed = label.replace(/\s+/g, " ").trim();
+  const key = infoLabelKey(trimmed);
+  if (!key) return { error: "يُرجى إدخال اسم الحقل" };
+  if (trimmed.includes("*")) return { error: "لا يمكن أن يحتوي اسم الحقل على «*»" };
+  if (trimmed.length > MAX_LABEL_LENGTH) return { error: `اسم الحقل أطول من الحد المسموح (${MAX_LABEL_LENGTH} حرفًا)` };
+  if (RESERVED_LABEL_KEYS.has(key)) return { error: "هذا الاسم مستخدم لحقل أساسي أو لعمود في قالب الاستيراد" };
+  const others = await prisma.studentInfoField.findMany({
+    where: { courseId, builtinKey: null, ...(exceptFieldId ? { id: { not: exceptFieldId } } : {}) },
+    select: { label: true },
+  });
+  if (others.some((o) => infoLabelKey(o.label ?? "") === key)) return { error: "يوجد حقل آخر بهذا الاسم" };
+  return { label: trimmed };
+}
+
+/** A new custom field starts enabled (she just asked for it), optional, shown to all. */
+export async function addCustomInfoFieldAction(label: string): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  const checked = await checkCustomLabel(cid, String(label ?? ""));
+  if ("error" in checked) return checked;
+  const fields = await getCourseInfoFields(cid);
+  if (fields.filter((f) => f.builtinKey === null).length >= MAX_CUSTOM_FIELDS) {
+    return { error: `لا يمكن إضافة أكثر من ${MAX_CUSTOM_FIELDS} حقلًا خاصًّا` };
+  }
+  const sortOrder = fields.reduce((max, f) => Math.max(max, f.sortOrder + 1), 0);
+  await prisma.studentInfoField.create({ data: { courseId: cid, label: checked.label, enabled: true, sortOrder } });
+  refreshStudentInfoEverywhere();
+  return {};
+}
+
+export async function renameCustomInfoFieldAction(fieldId: string, label: string): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  const field = await prisma.studentInfoField.findFirst({
+    where: { id: String(fieldId), courseId: cid, builtinKey: null },
+    select: { id: true },
+  });
+  if (!field) return { error: "الحقل غير موجود" };
+  const checked = await checkCustomLabel(cid, String(label ?? ""), field.id);
+  if ("error" in checked) return checked;
+  await prisma.studentInfoField.update({ where: { id: field.id }, data: { label: checked.label } });
+  refreshStudentInfoEverywhere();
+  return {};
+}
+
+/** Swaps a field with its neighbour (renumbering the whole list 0…n-1). */
+export async function moveInfoFieldAction(fieldId: string, direction: "up" | "down"): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  const ids = (await getCourseInfoFields(cid)).map((f) => f.id);
+  const i = ids.indexOf(String(fieldId));
+  if (i === -1) return { error: "الحقل غير موجود" };
+  const j = direction === "up" ? i - 1 : i + 1;
+  if (j < 0 || j >= ids.length) return {};
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  await prisma.$transaction(
+    ids.map((id, sortOrder) => prisma.studentInfoField.update({ where: { id }, data: { sortOrder } })),
+  );
+  refreshStudentInfoEverywhere();
+  return {};
+}
+
+export type DeleteInfoFieldResult = { error?: string; valuesToDelete?: number };
+
+// Deleting a custom field deletes every student's value in it (archived
+// students included). When there are any, the first call only reports how
+// many; the caller confirms and calls again with confirmed = true.
+export async function deleteCustomInfoFieldAction(fieldId: string, confirmed = false): Promise<DeleteInfoFieldResult> {
+  const cid = await currentCourseId();
+  const field = await prisma.studentInfoField.findFirst({
+    where: { id: String(fieldId), courseId: cid, builtinKey: null },
+    select: { id: true, _count: { select: { values: true } } },
+  });
+  if (!field) return { error: "الحقل غير موجود" };
+  if (field._count.values > 0 && confirmed !== true) return { valuesToDelete: field._count.values };
+  await prisma.studentInfoField.delete({ where: { id: field.id } });
+  refreshStudentInfoEverywhere();
+  return {};
 }

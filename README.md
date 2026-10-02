@@ -20,6 +20,10 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Database migrations
+
+Name each new folder in `prisma/migrations` so it sorts after the last one: until real dates pass `20261006000000`, continue the sequence (`20261007000000`, …), then use real timestamps.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

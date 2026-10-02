@@ -10,6 +10,8 @@ import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { getHomeLog, type HomeLogView } from "@/lib/home-log/data";
 import { getStudentAssignments, type StudentAssignment } from "@/lib/assignments/data";
 import { getStudentTracker, type TrackerSheet } from "@/lib/tracker/data";
+import { getStudentInfoValues, parentInfoAccess, plainValues, visibleInfoFields } from "@/lib/students/extra-info";
+import type { InfoField } from "@/lib/students/extra-info-rules";
 
 // The ONLY data source for the parent view. Every query here is keyed on the
 // single studentId from the parent session — never a courseId or groupId —
@@ -47,6 +49,10 @@ export interface ParentViewData {
   assignments: StudentAssignment[] | null;
   // read-only daily tracker (D1); null when the course has it off
   tracker: TrackerSheet | null;
+  // «معلومات الطالب/ة», which the parent may fill/edit: only the fields
+  // shown to parents. null unless the course has the feature and parent
+  // editing on.
+  info: { fields: InfoField[]; values: Record<string, string> } | null;
 }
 
 export async function getParentViewData(studentId: string): Promise<ParentViewData | null> {
@@ -55,7 +61,18 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     select: {
       name: true,
       group: { select: { name: true, gender: true } },
-      course: { select: { name: true, homeLogEnabled: true, studentLoginEnabled: true, assignmentsEnabled: true, trackerEnabled: true } },
+      course: {
+        select: {
+          id: true,
+          name: true,
+          homeLogEnabled: true,
+          studentLoginEnabled: true,
+          assignmentsEnabled: true,
+          trackerEnabled: true,
+          studentInfoEnabled: true,
+          parentStudentInfoEdit: true,
+        },
+      },
       planItems: { orderBy: { position: "asc" }, select: { surahNumber: true } },
     },
   });
@@ -89,6 +106,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
   ]);
 
   const plan = student.planItems.map((p) => p.surahNumber);
+  const infoFields = await visibleInfoFields(student.course.id, parentInfoAccess(student.course));
   const coverage = buildCoverage(sessions);
 
   return {
@@ -118,6 +136,10 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     homeLog: student.course.homeLogEnabled && student.course.studentLoginEnabled ? await getHomeLog(studentId) : null,
     assignments: student.course.assignmentsEnabled && student.course.studentLoginEnabled ? await getStudentAssignments(studentId) : null,
     tracker: student.course.trackerEnabled && student.course.studentLoginEnabled ? await getStudentTracker(studentId) : null,
+    info:
+      infoFields.length > 0
+        ? { fields: infoFields, values: plainValues(await getStudentInfoValues(studentId, infoFields)) }
+        : null,
     points: pointsLogs.map((p) => ({
       date: p.day.toISOString().slice(0, 10),
       // bonus rows group under one label; their notes are teacher-written

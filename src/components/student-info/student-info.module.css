@@ -1,0 +1,159 @@
+.section {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 20px;
+  margin: 0;
+}
+
+.item {
+  min-width: 0;
+}
+
+.item.wide {
+  grid-column: 1 / -1;
+}
+
+.item dt {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 2px;
+}
+
+.item dd {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.byParent {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--gold-deep);
+  margin-inline-start: 6px;
+}
+
+.missingBadge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--gold-deep);
+  background: rgba(189, 122, 62, 0.1);
+  color: var(--gold-deep);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.subTitle {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  margin: 6px 0 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 70px;
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+/* ---------- parent portal form ---------- */
+
+.formField {
+  margin-bottom: 12px;
+}
+
+.formField label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.formInput {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 14px;
+  color: var(--ink);
+  font-family: inherit;
+}
+
+.formButtons {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.formPrimary,
+.formGhost {
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.formPrimary {
+  border: none;
+  background: var(--rose-deep);
+  color: #fff;
+}
+
+.formGhost {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-soft);
+}
+
+.formPrimary:disabled,
+.formGhost:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.formError {
+  color: var(--rose-deep);
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.formHint {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--gold-deep);
+  margin-bottom: 10px;
+}
+
+.formSaved {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--rose-deep);
+  margin-top: 10px;
+}

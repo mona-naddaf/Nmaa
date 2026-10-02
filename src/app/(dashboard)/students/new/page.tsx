@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { NewStudentForm } from "./NewStudentForm";
+import { staffInfoAccess, visibleInfoFields } from "@/lib/students/extra-info";
 
 export default async function NewStudentPage() {
   const session = await requireSession();
@@ -18,8 +19,14 @@ export default async function NewStudentPage() {
       ? await prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true } })
       : await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true } });
 
+  // extra info: only the fields this viewer may edit (a teacher without the
+  // edit-students permission adds a student without them)
+  const infoAccess = staffInfoAccess(session, course);
+  const infoFields = infoAccess.edit ? await visibleInfoFields(course.id, infoAccess) : [];
+
   return (
     <NewStudentForm
+      infoFields={infoFields}
       groups={course.groups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))}
       viewerGender={viewer?.gender ?? null}
     />

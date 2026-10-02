@@ -9,7 +9,9 @@ import { imperative, pickByGroup, studentNounDef, studentsNounDef, type PersonGe
 // groups. Mirrors the hand-designed prototypes (design/namaa-import-template-
 // {girls,boys}.xlsx) cell for cell: same sheets, rows, widths, colours and
 // dropdowns — only the wording follows the chosen variant (student words)
-// and the supervisor's own gender (instructions addressed to them).
+// and the supervisor's own gender (instructions addressed to them). When the
+// course collects extra student info, one column per enabled field follows
+// column K (required ones marked «*»); import-parse.ts matches them by name.
 
 export type TemplateVariant = "girls" | "boys";
 
@@ -40,6 +42,19 @@ export const FIXED_HEADERS = [
   "إلى آية (السورة الجزئية)",
 ];
 
+/** The fixed columns A–K; extra-info columns start right after. */
+export const FIXED_COLUMN_COUNT = 1 + FIXED_HEADERS.length;
+
+/** An extra-info column's header: the field name, plus « *» when required. */
+export const infoColumnHeader = (label: string, required: boolean) => (required ? `${label} *` : label);
+
+export interface InfoColumn {
+  // already in the variant's wording (e.g. «رقم هاتف الطالبة»)
+  label: string;
+  required: boolean;
+  multiline: boolean;
+}
+
 /** "6 - الأنعام" — the form surahs take in the dropdowns. */
 export const surahLabel = (n: number, name: string) => `${n} - ${name}`;
 
@@ -60,6 +75,9 @@ export function exampleRow(variant: TemplateVariant) {
 }
 
 const COLUMN_WIDTHS = [20, 10, 8, 18, 22, 20, 20, 22, 20, 16, 16];
+const INFO_COLUMN_WIDTH = 20;
+const INFO_MULTILINE_WIDTH = 32;
+const INFO_HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "00A85C36" } };
 
 const BORDER_COLOR = { argb: "00D9D2C2" };
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
@@ -77,16 +95,22 @@ export async function buildImportTemplate({
   groupNames,
   exampleGroupName,
   supervisorGender,
+  infoColumns = [],
 }: {
   variant: TemplateVariant;
   groupNames: string[];
   exampleGroupName: string;
   supervisorGender: PersonGender;
+  infoColumns?: InfoColumn[];
 }): Promise<Buffer> {
   const g = variantGender(variant);
   const you = (forms: { m: string; f: string }) => imperative(supervisorGender, forms);
-  const eachStudent = pickByGroup(g, { m: "كل طالب بسطر لحاله", f: "كل طالبة بسطر لحالها" });
-  const hasPrior = pickByGroup(g, { m: "بالطالب حفظ سابق قبل ما ينضم", f: "بالطالبة حفظ سابق قبل ما تنضم" });
+  const eachStudent = pickByGroup(g, { m: "كل طالب في سطر مستقل", f: "كل طالبة في سطر مستقل" });
+  const hasPrior = pickByGroup(g, {
+    m: "إذا كان للطالب حفظ سابق قبل انضمامه",
+    f: "إذا كان للطالبة حفظ سابق قبل انضمامها",
+  });
+  const lastCol = FIXED_COLUMN_COUNT + infoColumns.length;
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "على مُكث";
@@ -95,35 +119,42 @@ export async function buildImportTemplate({
   const ws = wb.addWorksheet(MAIN_SHEET_NAMES[variant], {
     views: [{ state: "frozen", ySplit: HEADER_ROW, topLeftCell: `A${FIRST_DATA_ROW}`, activeCell: "A1", rightToLeft: true }],
   });
-  ws.columns = COLUMN_WIDTHS.map((width) => ({ width }));
+  ws.columns = [
+    ...COLUMN_WIDTHS.map((width) => ({ width })),
+    ...infoColumns.map((c) => ({ width: c.multiline ? INFO_MULTILINE_WIDTH : INFO_COLUMN_WIDTH })),
+  ];
 
   const title = ws.getCell("A1");
   title.value = `قالب استيراد ${studentsNounDef(g)} — على مُكث`;
   title.font = { name: "Arial", bold: true, color: { argb: "003F6650" }, size: 14 };
   title.alignment = { horizontal: "center" };
-  ws.mergeCells("A1:K1");
+  ws.mergeCells(1, 1, 1, lastCol);
 
   const notes = [
-    `${you({ m: "عبّ", f: "عبّي" })} بيانات ${eachStudent} بدءًا من السطر ${FIRST_DATA_ROW}. ${you({ m: "لا تحذف", f: "لا تحذفي" })} رأس الأعمدة (السطر ${HEADER_ROW}). الأعمدة الصفراء فيها قوائم اختيار جاهزة.`,
-    `الأعمدة 6-11 اختيارية: ${you({ m: "عبّها", f: "عبّيها" })} بس لو ${hasPrior}. لو ما في حفظ سابق، ${you({ m: "اتركهم", f: "اتركيهم" })} فاضيين.`,
+    `${you({ m: "أدخِل", f: "أدخِلي" })} بيانات ${eachStudent} بدءًا من السطر ${FIRST_DATA_ROW}، ${you({ m: "ولا تحذف", f: "ولا تحذفي" })} سطر رؤوس الأعمدة (السطر ${HEADER_ROW}). وفي الأعمدة الصفراء قوائم اختيار جاهزة.`,
+    // only two note rows fit above the header row
+    `الأعمدة 6–11 اختيارية، وتُعبَّأ فقط ${hasPrior}، وإلا فتُترك فارغة.` +
+      (infoColumns.length > 0
+        ? ` والأعمدة من ${ws.getColumn(FIXED_COLUMN_COUNT + 1).letter} فما بعدها للمعلومات الإضافية: المعلَّم منها بـ«*» إلزامي، والبقية اختيارية.`
+        : ""),
   ];
   notes.forEach((text, i) => {
     const row = ws.getRow(2 + i);
-    row.height = i === 0 ? 30 : 20;
+    row.height = i === 0 || infoColumns.length > 0 ? 30 : 20;
     const cell = row.getCell(1);
     cell.value = text;
     cell.font = { name: "Arial", italic: true, color: { argb: "006C685D" }, size: 10 };
     cell.alignment = { horizontal: "right", wrapText: true };
-    ws.mergeCells(2 + i, 1, 2 + i, 11);
+    ws.mergeCells(2 + i, 1, 2 + i, lastCol);
   });
 
   const header = ws.getRow(HEADER_ROW);
   header.height = 40;
-  [nameHeader(variant), ...FIXED_HEADERS].forEach((text, i) => {
+  [nameHeader(variant), ...FIXED_HEADERS, ...infoColumns.map((c) => infoColumnHeader(c.label, c.required))].forEach((text, i) => {
     const cell = header.getCell(i + 1);
     cell.value = text;
     cell.font = HEADER_FONT;
-    cell.fill = HEADER_FILL;
+    cell.fill = i < FIXED_COLUMN_COUNT ? HEADER_FILL : INFO_HEADER_FILL;
     cell.border = THIN_BORDER;
     cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
   });
@@ -140,16 +171,19 @@ export async function buildImportTemplate({
     },
   );
   exampleCells.getCell(1).note = {
-    texts: [{ text: `سطر مثال بس — ${you({ m: "احذفه أو اكتب", f: "احذفيه أو اكتبي" })} فوقه ببيانات حقيقية` }],
+    texts: [{ text: `سطر للمثال فقط؛ ${you({ m: "احذفه أو اكتب", f: "احذفيه أو اكتبي" })} فوقه بيانات حقيقية` }],
   };
 
   for (let r = FIRST_DROPDOWN_ROW; r <= LAST_DROPDOWN_ROW; r++) {
     const row = ws.getRow(r);
-    for (let c = 1; c <= 11; c++) {
+    for (let c = 1; c <= lastCol; c++) {
       const cell = row.getCell(c);
       cell.fill = INPUT_FILL;
       cell.border = THIN_BORDER;
-      cell.alignment = { horizontal: "center" };
+      cell.alignment = c > FIXED_COLUMN_COUNT ? { horizontal: "right", wrapText: true } : { horizontal: "center" };
+      // extra info is always text: keeps a phone's leading 0 and stops
+      // Excel turning it into a number or a date
+      if (c > FIXED_COLUMN_COUNT) cell.numFmt = "@";
     }
     // text format, so a list like "8,12" isn't read as the number 812
     row.getCell(8).numFmt = "@";

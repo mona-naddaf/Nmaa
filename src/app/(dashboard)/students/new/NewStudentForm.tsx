@@ -14,19 +14,26 @@ import {
   type PersonGender,
 } from "@/lib/text/gender";
 
+import { InfoFieldsInputs } from "@/components/student-info/InfoFieldsInputs";
+import type { InfoField } from "@/lib/students/extra-info-rules";
+
 type TemplateKey = "mushafrev" | "mushaf" | "juzamma" | "custom";
 
 export function NewStudentForm({
   groups,
   viewerGender,
+  infoFields,
 }: {
   groups: { id: string; name: string; gender: GroupGender }[];
   viewerGender: PersonGender;
+  // the extra-info fields the viewer may fill
+  infoFields: InfoField[];
 }) {
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [grade, setGrade] = useState("");
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
+  const [info, setInfo] = useState<Record<string, string>>({});
   const selectedGender: GroupGender = groups.find((g) => g.id === groupId)?.gender ?? "MIXED";
   const [template, setTemplate] = useState<TemplateKey>("mushafrev");
   const [plan, setPlan] = useState<number[]>(MUSHAF_REVERSE_ORDER);
@@ -131,6 +138,7 @@ export function NewStudentForm({
     formData.set("age", age);
     formData.set("grade", grade);
     formData.set("groupId", groupId);
+    formData.set("info", JSON.stringify(info));
     formData.set("template", template);
     formData.set("plan", JSON.stringify(plan));
     formData.set("priorCompletedSurahs", hasPrior ? JSON.stringify(completedSurahs) : "[]");
@@ -180,6 +188,14 @@ export function NewStudentForm({
             ))}
           </div>
         </div>
+        <InfoFieldsInputs
+          fields={infoFields}
+          values={info}
+          onChange={(id, value) => setInfo((prev) => ({ ...prev, [id]: value }))}
+          groupGender={selectedGender}
+          classes={{ field: styles.infoField, input: "" }}
+          idPrefix="new-info"
+        />
       </div>
 
       <div className={styles.secTitle}>

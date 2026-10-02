@@ -24,6 +24,9 @@ import { getStudentAssignments } from "@/lib/assignments/data";
 import { StaffStudentAssignments } from "./StaffStudentAssignments";
 import { getStudentTracker } from "@/lib/tracker/data";
 import { StaffStudentTracker } from "./StaffStudentTracker";
+import { getStudentInfoValues, plainValues, staffInfoAccess, visibleInfoFields } from "@/lib/students/extra-info";
+import { fieldLabel, isMultilineField, isPhoneField } from "@/lib/students/extra-info-rules";
+import { MissingInfoBadge, StudentInfoList } from "@/components/student-info/StudentInfoList";
 
 async function loginUrl(path: "/parent/login" | "/student/login") {
   const origin = await requestOrigin();
@@ -110,6 +113,16 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const cumPoints = pointsLogs.reduce((sum, p) => sum + (p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime), 0);
 
   const g = student.group.gender;
+
+  // «معلومات إضافية»: only the fields this viewer may see are loaded
+  const infoAccess = staffInfoAccess(session, course);
+  const infoFields = await visibleInfoFields(course.id, infoAccess);
+  const infoStored = await getStudentInfoValues(student.id, infoFields);
+  const canEditInfo = !archived && infoAccess.edit;
+  const missingInfo = canEditInfo
+    ? infoFields.filter((f) => f.required && !infoStored[f.id]).map((f) => fieldLabel(f, g))
+    : [];
+
   const view = (
       <DetailView
         student={{
@@ -162,13 +175,33 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           notes: s.notes,
           reason: s.reason,
         }))}
+        headerBadge={<MissingInfoBadge key="info-badge" missing={missingInfo} />}
+        infoSection={
+          <StudentInfoList
+            key="info-section"
+            title="معلومات إضافية"
+            items={infoFields
+              .filter((f) => infoStored[f.id])
+              .map((f) => ({
+                id: f.id,
+                label: fieldLabel(f, g),
+                value: infoStored[f.id].value,
+                phone: isPhoneField(f),
+                multiline: isMultilineField(f),
+                byParent: infoStored[f.id].updatedBy === "PARENT",
+              }))}
+          />
+        }
         headerActions={
           canEdit || canArchive ? (
             <StudentManageBar
+              key="manage-bar"
               student={{ id: student.id, name: student.name, age: student.age, grade: student.grade, groupId: student.groupId }}
               groups={groupLimit ? course.groups.filter((x) => groupLimit.includes(x.id)) : course.groups}
               canEdit={canEdit}
               canArchive={canArchive}
+              infoFields={canEditInfo ? infoFields : []}
+              infoValues={canEditInfo ? plainValues(infoStored) : {}}
             />
           ) : null
         }

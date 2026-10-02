@@ -80,6 +80,9 @@ export function ParentView({ data }: { data: ParentViewData }) {
       </div>
 
       <div className={shell.content}>
+        {/* first on the page, above the student card */}
+        {data.info && <ParentStudentInfo fields={data.info.fields} values={data.info.values} groupGender={g} />}
+
         <div className={styles.girlCard}>
           <div className={styles.girlId}>
             <div className={styles.avatarLg}>{data.studentName.charAt(0)}</div>
@@ -148,8 +151,6 @@ export function ParentView({ data }: { data: ParentViewData }) {
             </div>
           </>
         )}
-
-        {data.info && <ParentStudentInfo fields={data.info.fields} values={data.info.values} groupGender={g} />}
 
         {hasAnyData ? (
           <>

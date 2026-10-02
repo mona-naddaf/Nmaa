@@ -59,7 +59,7 @@ export function ParentStudentInfo({
   return (
     <>
       <div className={styles.secTitle}>
-        <span className={styles.dot} /> 🗂 {title}
+        <span className={styles.dot} /> {title}
       </div>
       <div className={styles.card}>
         {editing ? (

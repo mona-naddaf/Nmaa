@@ -27,6 +27,8 @@ import { StaffStudentTracker } from "./StaffStudentTracker";
 import { getStudentInfoValues, plainValues, staffInfoAccess, visibleInfoFields } from "@/lib/students/extra-info";
 import { fieldLabel, isMultilineField, isPhoneField } from "@/lib/students/extra-info-rules";
 import { MissingInfoBadge, StudentInfoList } from "@/components/student-info/StudentInfoList";
+import { Collapsible } from "@/components/collapsible/Collapsible";
+import { SEGMENTS, countLabel } from "@/lib/text/count";
 
 async function loginUrl(path: "/parent/login" | "/student/login") {
   const origin = await requestOrigin();
@@ -122,6 +124,16 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const missingInfo = canEditInfo
     ? infoFields.filter((f) => f.required && !infoStored[f.id]).map((f) => fieldLabel(f, g))
     : [];
+  const infoItems = infoFields
+    .filter((f) => infoStored[f.id])
+    .map((f) => ({
+      id: f.id,
+      label: fieldLabel(f, g),
+      value: infoStored[f.id].value,
+      phone: isPhoneField(f),
+      multiline: isMultilineField(f),
+      byParent: infoStored[f.id].updatedBy === "PARENT",
+    }));
 
   const view = (
       <DetailView
@@ -177,21 +189,13 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         }))}
         headerBadge={<MissingInfoBadge key="info-badge" missing={missingInfo} />}
         infoSection={
-          <StudentInfoList
-            key="info-section"
-            title="معلومات إضافية"
-            items={infoFields
-              .filter((f) => infoStored[f.id])
-              .map((f) => ({
-                id: f.id,
-                label: fieldLabel(f, g),
-                value: infoStored[f.id].value,
-                phone: isPhoneField(f),
-                multiline: isMultilineField(f),
-                byParent: infoStored[f.id].updatedBy === "PARENT",
-              }))}
-          />
+          infoItems.length > 0 ? (
+            <Collapsible key="info-section" title="معلومات إضافية" defaultOpen={archived}>
+              <StudentInfoList bare title="معلومات إضافية" items={infoItems} />
+            </Collapsible>
+          ) : null
         }
+        expandAll={archived}
         headerActions={
           canEdit || canArchive ? (
             <StudentManageBar
@@ -235,36 +239,61 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   return (
     <>
       {view}
+      {/* collapsed like the sections above */}
       {homeLog && (
-        <StaffHomeLog
-          studentId={student.id}
-          groupGender={g}
-          log={homeLog}
-          targets={await effectiveTargets(student.id)}
-          hasOwnTargets={student.homeTargetListen !== null || student.homeTargetRepeat !== null || student.homeTargetRecite !== null}
-        />
+        <Collapsible
+          title="🏠 حفظ البيت"
+          tag={homeLog.active.length > 0 ? `${countLabel(homeLog.active.length, SEGMENTS)} قيد الحفظ` : "لا توجد مقاطع قيد الحفظ"}
+        >
+          <StaffHomeLog
+            studentId={student.id}
+            groupGender={g}
+            log={homeLog}
+            targets={await effectiveTargets(student.id)}
+            hasOwnTargets={student.homeTargetListen !== null || student.homeTargetRepeat !== null || student.homeTargetRecite !== null}
+          />
+        </Collapsible>
       )}
-      {assignments && <StaffStudentAssignments assignments={assignments} groupGender={g} />}
-      {tracker && <StaffStudentTracker sheet={tracker} groupId={student.groupId} />}
+      {assignments && (
+        <Collapsible
+          title="📝 الواجبات"
+          tag={
+            assignments.length > 0
+              ? `${assignments.filter((a) => !a.done).length} مفتوحة · ${assignments.filter((a) => a.done).length} منجزة`
+              : "لا توجد واجبات"
+          }
+        >
+          <StaffStudentAssignments assignments={assignments} groupGender={g} />
+        </Collapsible>
+      )}
+      {tracker && (
+        <Collapsible title="✅ جدول المتابعة">
+          <StaffStudentTracker sheet={tracker} groupId={student.groupId} />
+        </Collapsible>
+      )}
       {/* supervisor only: the code is never sent to a teacher's browser */}
       {session.role === "admin" && (
-        <ParentCodeCard
-          studentId={student.id}
-          groupGender={student.group.gender}
-          initialCode={student.parentCode}
-          initialCreatedAt={student.parentCodeCreatedAt?.toISOString() ?? null}
-          loginUrl={await loginUrl("/parent/login")}
-        />
+        <Collapsible title="رمز دخول وليّ الأمر">
+          <ParentCodeCard
+            studentId={student.id}
+            groupGender={student.group.gender}
+            initialCode={student.parentCode}
+            initialCreatedAt={student.parentCodeCreatedAt?.toISOString() ?? null}
+            loginUrl={await loginUrl("/parent/login")}
+          />
+        </Collapsible>
       )}
       {/* student login on, and the viewer may issue codes for this group */}
       {inScope(await studentCodeAccess(session), student.groupId) && (
-        <StudentCodeCard
-          studentId={student.id}
-          groupGender={student.group.gender}
-          initialCode={student.studentCode}
-          initialCreatedAt={student.studentCodeCreatedAt?.toISOString() ?? null}
-          loginUrl={await loginUrl("/student/login")}
-        />
+        <Collapsible title={`رمز دخول ${studentNounDef(g)}`}>
+          <StudentCodeCard
+            studentId={student.id}
+            groupGender={student.group.gender}
+            initialCode={student.studentCode}
+            initialCreatedAt={student.studentCodeCreatedAt?.toISOString() ?? null}
+            loginUrl={await loginUrl("/student/login")}
+          />
+        </Collapsible>
       )}
     </>
   );

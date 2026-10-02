@@ -64,7 +64,7 @@ export function PermissionsCard({
   );
 
   return (
-    <div className={styles.card}>
+    <div>
       <div className={styles.settingRow}>
         <div className={styles.settingText}>
           <div className={styles.settingTitle}>إضافة طلاب جدد</div>

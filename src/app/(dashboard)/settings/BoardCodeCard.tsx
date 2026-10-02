@@ -1,6 +1,5 @@
 "use client";
 
-import styles from "./settings.module.css";
 import { AccessCodeBox } from "@/components/access-code/AccessCodeBox";
 import { CopyLink } from "@/components/access-code/CopyLink";
 import { regenerateBoardCodeAction, revokeBoardCodeAction } from "./actions";
@@ -16,8 +15,7 @@ export function BoardCodeCard({
   loginUrl: string | null;
 }) {
   return (
-    <div className={styles.card}>
-      <div style={{ fontWeight: 800, fontSize: 15, textAlign: "center", marginBottom: 4 }}>رمز لوحة الإنجاز العامة</div>
+    <div>
       <div style={{ fontSize: 12, color: "var(--ink-soft)", textAlign: "center", lineHeight: 1.7, marginBottom: 16 }}>
         من يملك هذا الرمز يرى لوحة إنجاز الدورة من {loginUrl ? "الرابط أدناه" : <b>/board/login</b>} — بأسماء جميع الطلاب الكاملة
         ونقاطهم وصفحاتهم، للعرض فقط دون أي تعديل ودون الوصول لأي صفحة أخرى. مستقل عن رمز الدورة للمعلمين.

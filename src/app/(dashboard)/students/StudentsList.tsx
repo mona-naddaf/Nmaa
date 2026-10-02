@@ -5,12 +5,14 @@ import Link from "next/link";
 import styles from "./students.module.css";
 import type { StudentSummary } from "@/lib/students/summary";
 import { streakText } from "@/lib/students/streak";
+import { MenuButton, type MenuItem } from "@/components/menu-button/MenuButton";
 import {
   presentWord,
   absentWord,
   studentNoun,
   studentsNoun,
   studentNounDef,
+  studentsNounDef,
   newAdj,
   pickByGroup,
   imperative,
@@ -32,7 +34,7 @@ export function StudentsList({
   groups: { id: string; name: string; gender: GroupGender }[];
   students: StudentSummary[];
   canAddStudents: boolean;
-  // bulk import and parent codes are supervisor-only
+  // bulk import, parent codes and the archive are supervisor-only
   isSupervisor: boolean;
   viewerGender: PersonGender;
   // supervisor only: how many students are in the archive
@@ -48,6 +50,20 @@ export function StudentsList({
   const attendanceLabel = (status: string) =>
     status === "IN" ? presentWord(activeGender) : status === "OUT" ? absentWord(activeGender) : "قيد الانتظار";
 
+  // Only what the viewer may use (the pages behind them check again): parent
+  // codes and the Excel import are supervisor-only. One allowed option turns
+  // the button into a direct link labelled with it; none hides it.
+  const codeItems: MenuItem[] = [
+    ...(isSupervisor ? [{ href: "/students/parent-codes", label: "رموز أولياء الأمور" }] : []),
+    ...(canIssueStudentCodes ? [{ href: "/students/student-codes", label: `رموز ${studentsNounDef(activeGender)}` }] : []),
+  ];
+  const addItems: MenuItem[] = [
+    ...(canAddStudents
+      ? [{ href: "/students/new", label: isSupervisor ? "إضافة يدوية" : `+ إضافة ${studentNoun(activeGender)} ${newAdj(activeGender)}` }]
+      : []),
+    ...(isSupervisor ? [{ href: "/students/import", label: "استيراد من Excel" }] : []),
+  ];
+
   const filtered = useMemo(() => {
     const q = query.trim();
     return students.filter((s) => s.groupId === activeGroup && (!q || s.name.includes(q)));
@@ -55,31 +71,10 @@ export function StudentsList({
 
   return (
     <div>
-      {(canAddStudents || isSupervisor || canIssueStudentCodes) && (
-        <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-          {isSupervisor && (
-            <>
-              <Link href="/students/archive" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
-                🗄 الأرشيف ({archivedCount})
-              </Link>
-              <Link href="/students/parent-codes" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
-                🔑 رموز أولياء الأمور
-              </Link>
-              <Link href="/students/import" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
-                ⬆ استيراد من Excel
-              </Link>
-            </>
-          )}
-          {canIssueStudentCodes && (
-            <Link href="/students/student-codes" className={`${styles.addBtn} ${styles.secondaryBtn}`}>
-              🎓 رموز الطلاب
-            </Link>
-          )}
-          {canAddStudents && (
-            <Link href="/students/new" className={styles.addBtn}>
-              + إضافة {studentNoun(activeGender)} {newAdj(activeGender)}
-            </Link>
-          )}
+      {(codeItems.length > 0 || addItems.length > 0) && (
+        <div className={styles.actionsRow}>
+          <MenuButton label="الرموز" items={codeItems} className={`${styles.addBtn} ${styles.secondaryBtn}`} />
+          <MenuButton label={`+ إضافة ${studentNoun(activeGender)}`} items={addItems} className={styles.addBtn} primary />
         </div>
       )}
 
@@ -157,6 +152,14 @@ export function StudentsList({
         {imperative(viewerGender, { m: "اضغط", f: "اضغطي" })} على بطاقة أي {studentNoun(activeGender)} لفتح شاشة
         التسميع الخاصة {pickByGroup(activeGender, { m: "به", f: "بها" })}
       </div>
+
+      {isSupervisor && (
+        <div className={styles.archiveRow}>
+          <Link href="/students/archive" className={styles.archiveLink}>
+            الأرشيف ({archivedCount})
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

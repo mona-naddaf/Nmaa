@@ -82,6 +82,32 @@
   margin: 0 auto;
 }
 
+/* staff pages: logout as a small link above the bar, top-left */
+.topLinks {
+  max-width: 1040px;
+  margin: -8px auto 6px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.logoutLink {
+  background: transparent;
+  border: none;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.logoutLink:hover,
+.logoutLink:focus-visible {
+  color: var(--rose-deep);
+}
+
 .overlay {
   position: fixed;
   inset: 0;

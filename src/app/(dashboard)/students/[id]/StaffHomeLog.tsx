@@ -1,6 +1,5 @@
 "use client";
 
-import detail from "./detail.module.css";
 import styles from "@/components/home-log/home-log.module.css";
 import { HomeLogSummary } from "@/components/home-log/HomeLogSummary";
 import { TargetsEditor } from "@/components/home-log/TargetsEditor";
@@ -27,10 +26,8 @@ export function StaffHomeLog({
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   return (
     <>
-      <div className={detail.secTitle}>
-        <span className={detail.dot} /> 🏠 حفظ البيت
-      </div>
-      <div className={detail.card}>
+      {/* title and card come from the page's Collapsible */}
+      <div>
         <HomeLogSummary
           log={log}
           groupGender={g}

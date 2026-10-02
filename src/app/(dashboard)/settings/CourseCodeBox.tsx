@@ -26,7 +26,7 @@ export function CourseCodeBox({
   }
 
   return (
-    <div className={styles.card}>
+    <div>
       <div style={{ fontWeight: 800, fontSize: 17, textAlign: "center", marginBottom: 4 }}>{courseName}</div>
       <div style={{ fontSize: 12, color: "var(--ink-soft)", textAlign: "center", marginBottom: 20 }}>
         {imperative(adminGender, { m: "شارك", f: "شاركي" })} هذا الرمز مع معلمي دورتك ليتمكّنوا من الدخول

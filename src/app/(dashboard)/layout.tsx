@@ -25,6 +25,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className={styles.shell}>
       <GenderPrompt initiallyPrompted={genderPrompted} />
+      {/* outside the card, at the top-left corner (the row's end in RTL) */}
+      <div className={styles.topLinks}>
+        <form action={logoutAction}>
+          <button className={styles.logoutLink} type="submit">
+            تسجيل خروج
+          </button>
+        </form>
+      </div>
       <div className={styles.bar}>
         <div className={styles.brand}>
           <BrandLogo variant="header" priority />
@@ -41,11 +49,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
             {session.role === "teacher" && <> · {session.teacherName}</>}
             {session.role === "admin" && <> · {supervisorNoun(adminGender)} الدورة</>}
           </span>
-          <form action={logoutAction}>
-            <button className={styles.logoutBtn} type="submit">
-              تسجيل خروج
-            </button>
-          </form>
         </div>
       </div>
       <div className={styles.content}>{children}</div>

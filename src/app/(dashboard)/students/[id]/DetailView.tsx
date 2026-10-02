@@ -21,6 +21,8 @@ import type { OverdueSurah } from "@/lib/students/review";
 import { addBonusPointAction, resolveMistakeAction, saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
 import { BONUS_NOTE_MAX_LENGTH, BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import { MistakesList } from "@/components/mistakes/MistakesList";
+import { Collapsible } from "@/components/collapsible/Collapsible";
+import { SESSIONS, SURAHS_COUNT, WORDS, countLabel } from "@/lib/text/count";
 import { WordFlagger, type WordFlags } from "@/components/mistakes/WordFlagger";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
@@ -103,6 +105,7 @@ export function DetailView({
   headerActions,
   headerBadge,
   infoSection,
+  expandAll = false,
 }: {
   student: { id: string; name: string; age: number; grade: string | null; attendance: Attendance };
   groupGender: GroupGender;
@@ -130,8 +133,11 @@ export function DetailView({
   headerActions?: React.ReactNode;
   // «معلومات ناقصة», under the name (null when nothing is missing)
   headerBadge?: React.ReactNode;
-  // «معلومات إضافية», right under the header card
+  // «معلومات إضافية» (a Collapsible), after the review reminders
   infoSection?: React.ReactNode;
+  // open every collapsible section: the archive's read-only (inert) view,
+  // where nothing can be clicked open
+  expandAll?: boolean;
 }) {
   const router = useRouter();
   const today = todayISO();
@@ -311,6 +317,19 @@ export function DetailView({
 
   const ayahCount = AYAH_COUNT[surahNumber];
 
+  // short hints for the collapsed headers
+  const mainBar = progressBars.find((b) => b.key === "plan") ?? progressBars.find((b) => b.key === "quran");
+  const progressHint = mainBar ? `${mainBar.key === "plan" ? "الخطة" : "القرآن"} ${mainBar.percent}٪` : undefined;
+  const logged = history.filter((e) => e.source === "LOGGED");
+  const historyHint =
+    logged.length === 0 ? (
+      "لا يوجد تسميع بعد"
+    ) : (
+      <>
+        {countLabel(logged.length, SESSIONS)} · آخرها <bdi dir="ltr">{logged[0].date}</bdi>
+      </>
+    );
+
   return (
     <div>
       <Link href="/students" className={styles.backBtn}>
@@ -350,8 +369,6 @@ export function DetailView({
         </div>
       </div>
 
-      {infoSection}
-
       <div className={styles.lastPos}>
         <div className={styles.icon}>📖</div>
         <div>
@@ -367,70 +384,8 @@ export function DetailView({
         </div>
       </div>
 
-      {progressBars.length > 0 && (
-        <div className={styles.progressList}>
-          {progressBars.map((bar) => (
-            <div key={bar.key} className={styles.progressItem}>
-              <div className={styles.progressHead}>
-                <span className={styles.progressLabel}>{bar.label}</span>
-                <span className={styles.progressDetail}>
-                  {bar.detail} · {bar.percent}٪
-                </span>
-              </div>
-              <div
-                className={styles.progressTrack}
-                role="progressbar"
-                aria-label={bar.label}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={bar.percent}
-              >
-                <div className={styles.progressFill} style={{ width: `${bar.percent}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {overdueSurahs.length > 0 && (
-        <div className={styles.reviewCard}>
-          <div className={styles.reviewHead}>
-            🔁 سور تحتاج مراجعة
-            <span className={styles.reviewHint}>لم تُراجع كاملةً منذ أكثر من {reviewReminderDays} يومًا</span>
-          </div>
-          {overdueSurahs.map((o) => (
-            <button key={o.surahNumber} type="button" className={styles.reviewRow} onClick={() => startReview(o.surahNumber)}>
-              <span className={styles.reviewSurah}>{SURAH_NAME[o.surahNumber]}</span>
-              <span className={styles.reviewMeta}>
-                {/* bdi keeps the YYYY-MM-DD date from being reordered by the RTL sentence around it */}
-                {o.neverReviewed ? "لم تُراجع منذ الإتمام" : "أقدم جزء رُوجع في"} <bdi dir="ltr">{o.since}</bdi> · منذ{" "}
-                {o.daysSince} يومًا
-              </span>
-              <span className={styles.reviewAction}>تسجيل مراجعة ←</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {mistakes.length > 0 && (
-        <>
-          <div className={styles.secTitle}>
-            <span className={styles.dot} /> 🔖 كلمات تحتاج مراجعة ({mistakes.length})
-          </div>
-          <div className={styles.card}>
-            <MistakesList
-              mistakes={mistakes}
-              groupGender={groupGender}
-              onResolve={async (m) => {
-                const result = await resolveMistakeAction(student.id, m.surahNumber, m.ayah, m.wordPosition);
-                if (!("error" in result)) router.refresh();
-                return result;
-              }}
-            />
-          </div>
-        </>
-      )}
-
+      {/* Recording a session stays open at the top; every other section
+          below starts collapsed (all open on the archive's read-only view). */}
       <div className={styles.secTitle} id="recitationForm">
         <span className={styles.dot} /> تسجيل تسميع جديد
       </div>
@@ -618,10 +573,11 @@ export function DetailView({
         </div>
       </div>
 
-      <div className={styles.secTitle}>
-        <span className={styles.dot} /> {sessionDate === today ? "النقاط اليوم" : `النقاط ليوم ${sessionDate}`}
-      </div>
-      <div className={styles.card}>
+      <Collapsible
+        title={sessionDate === today ? "النقاط اليوم" : `النقاط ليوم ${sessionDate}`}
+        tag={`${pointsForSelectedDate} نقطة`}
+        defaultOpen={expandAll}
+      >
         <div className={styles.pointsGrid}>
           {pointsActivities.map((a) => {
             const done = doneForSelectedDate.has(a.id);
@@ -681,38 +637,96 @@ export function DetailView({
             </ul>
           )}
         </div>
-      </div>
+      </Collapsible>
 
-      <div className={styles.secTitle}>
-        <span className={styles.dot} /> الإنجاز
-      </div>
-      <div className={styles.counters}>
-        <div className={styles.counter}>
-          <div className={styles.num}>{pointsForSelectedDate}</div>
-          <div className={styles.lbl}>{sessionDate === today ? "نقاط اليوم" : `نقاط ليوم ${sessionDate}`}</div>
-        </div>
-        <div className={`${styles.counter} ${styles.gold}`}>
-          <div className={styles.num}>{cumPoints}</div>
-          <div className={styles.lbl}>نقاط الدورة (تراكمي)</div>
-        </div>
-        <div className={`${styles.counter} ${styles.sage}`}>
-          <div className={styles.num}>{Math.min(100, Math.round((coveredPages / totalPages) * 1000) / 10)}٪</div>
-          <div className={styles.lbl}>من إنجاز القرآن كامل ({totalPages} صفحة)</div>
-        </div>
-        {streak && (
-          <div className={`${styles.counter} ${styles.gold}`}>
-            <div className={styles.num}>🔥 {streak.weeks}</div>
-            <div className={styles.lbl}>
-              {streakText(streak.weeks)} · {STREAK_MODE_LABEL[streak.mode]}
-            </div>
+      {mistakes.length > 0 && (
+        <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakes.length, WORDS)} defaultOpen={expandAll}>
+          <MistakesList
+            mistakes={mistakes}
+            groupGender={groupGender}
+            onResolve={async (m) => {
+              const result = await resolveMistakeAction(student.id, m.surahNumber, m.ayah, m.wordPosition);
+              if (!("error" in result)) router.refresh();
+              return result;
+            }}
+          />
+        </Collapsible>
+      )}
+
+      {overdueSurahs.length > 0 && (
+        <Collapsible title="🔁 سور تحتاج مراجعة" tag={countLabel(overdueSurahs.length, SURAHS_COUNT)} defaultOpen={expandAll}>
+          <div className={styles.reviewHint} style={{ marginBottom: 8 }}>
+            لم تُراجع كاملةً منذ أكثر من {reviewReminderDays} يومًا
           </div>
-        )}
-      </div>
+          {overdueSurahs.map((o) => (
+            <button key={o.surahNumber} type="button" className={styles.reviewRow} onClick={() => startReview(o.surahNumber)}>
+              <span className={styles.reviewSurah}>{SURAH_NAME[o.surahNumber]}</span>
+              <span className={styles.reviewMeta}>
+                {/* bdi keeps the YYYY-MM-DD date from being reordered by the RTL sentence around it */}
+                {o.neverReviewed ? "لم تُراجع منذ الإتمام" : "أقدم جزء رُوجع في"} <bdi dir="ltr">{o.since}</bdi> · منذ{" "}
+                {o.daysSince} يومًا
+              </span>
+              <span className={styles.reviewAction}>تسجيل مراجعة ←</span>
+            </button>
+          ))}
+        </Collapsible>
+      )}
 
-      <div className={styles.secTitle}>
-        <span className={styles.dot} /> سجل التسميع
-      </div>
-      <div className={styles.card}>
+      {infoSection}
+
+      {progressBars.length > 0 && (
+        <Collapsible title="أشرطة التقدّم" tag={progressHint} defaultOpen={expandAll}>
+          <div className={styles.progressListBare}>
+            {progressBars.map((bar) => (
+              <div key={bar.key} className={styles.progressItem}>
+                <div className={styles.progressHead}>
+                  <span className={styles.progressLabel}>{bar.label}</span>
+                  <span className={styles.progressDetail}>
+                    {bar.detail} · {bar.percent}٪
+                  </span>
+                </div>
+                <div
+                  className={styles.progressTrack}
+                  role="progressbar"
+                  aria-label={bar.label}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={bar.percent}
+                >
+                  <div className={styles.progressFill} style={{ width: `${bar.percent}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Collapsible>
+      )}
+
+      <Collapsible title="الإنجاز" tag={`${cumPoints} نقطة تراكميًا`} defaultOpen={expandAll}>
+        <div className={styles.counters}>
+          <div className={styles.counter}>
+            <div className={styles.num}>{pointsForSelectedDate}</div>
+            <div className={styles.lbl}>{sessionDate === today ? "نقاط اليوم" : `نقاط ليوم ${sessionDate}`}</div>
+          </div>
+          <div className={`${styles.counter} ${styles.gold}`}>
+            <div className={styles.num}>{cumPoints}</div>
+            <div className={styles.lbl}>نقاط الدورة (تراكمي)</div>
+          </div>
+          <div className={`${styles.counter} ${styles.sage}`}>
+            <div className={styles.num}>{Math.min(100, Math.round((coveredPages / totalPages) * 1000) / 10)}٪</div>
+            <div className={styles.lbl}>من إنجاز القرآن كامل ({totalPages} صفحة)</div>
+          </div>
+          {streak && (
+            <div className={`${styles.counter} ${styles.gold}`}>
+              <div className={styles.num}>🔥 {streak.weeks}</div>
+              <div className={styles.lbl}>
+                {streakText(streak.weeks)} · {STREAK_MODE_LABEL[streak.mode]}
+              </div>
+            </div>
+          )}
+        </div>
+      </Collapsible>
+
+      <Collapsible title="سجل التسميع" tag={historyHint} defaultOpen={expandAll}>
         {history.length === 0 ? (
           <div className={styles.logEmpty}>
             لا يوجد تسميع مسجّل بعد ل{thisDemonstrative(groupGender)} {pickByGroup(groupGender, { m: "الطالب", f: "الطالبة" })}
@@ -751,7 +765,7 @@ export function DetailView({
             </div>
           ))
         )}
-      </div>
+      </Collapsible>
 
       {toast && (
         <div

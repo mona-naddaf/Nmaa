@@ -214,3 +214,39 @@
   color: var(--gold-deep);
   white-space: nowrap;
 }
+
+/* «الرموز» and «إضافة» menus, at the row's end (the left in RTL) */
+.actionsRow {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.actionsRow button.addBtn {
+  font-family: inherit;
+}
+
+.addBtn:focus-visible {
+  outline: 2px solid var(--rose-deep);
+  outline-offset: 2px;
+}
+
+.archiveRow {
+  text-align: center;
+  margin-top: 10px;
+}
+
+.archiveLink {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.archiveLink:hover,
+.archiveLink:focus-visible {
+  color: var(--sage-deep);
+}

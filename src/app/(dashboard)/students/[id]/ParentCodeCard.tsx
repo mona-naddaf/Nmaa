@@ -1,6 +1,5 @@
 "use client";
 
-import styles from "./detail.module.css";
 import { AccessCodeBox } from "@/components/access-code/AccessCodeBox";
 import { CopyLink } from "@/components/access-code/CopyLink";
 import { regenerateParentCodeAction, revokeParentCodeAction } from "./actions";
@@ -26,10 +25,8 @@ export function ParentCodeCard({
 
   return (
     <>
-      <div className={styles.secTitle}>
-        <span className={styles.dot} /> رمز دخول وليّ الأمر
-      </div>
-      <div className={styles.card}>
+      {/* title and card come from the page's Collapsible */}
+      <div>
         <div style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.7, marginBottom: 16 }}>
           يدخل وليّ الأمر من {loginUrl ? "الرابط أدناه" : <b>/parent/login</b>} باسم {child} وهذا الرمز، ليرى{" "}
           {pickByGroup(groupGender, {

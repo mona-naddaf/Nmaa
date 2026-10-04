@@ -9,8 +9,8 @@ import { quranFont } from "@/components/mistakes/quran-font";
 // copy, so it matches the Mushaf.
 const NAME_VERSE = "وَقُرْءَانًا فَرَقْنَـٰهُ لِتَقْرَأَهُۥ عَلَى ٱلنَّاسِ عَلَىٰ مُكْثٍ";
 
-// TODO: replace with the usage-guide URL once it's available.
-const HELP_URL = "#";
+// Usage guides live on the Telegram channel.
+const HELP_URL = "https://t.me/alamukth3";
 
 // Public landing page: picks the right login for each kind of visitor.
 // Staff who are already signed in go straight to their dashboard.
@@ -73,7 +73,7 @@ export default async function Home() {
         </Link>
       </div>
 
-      <a href={HELP_URL} className={styles.helpLink}>
+      <a href={HELP_URL} target="_blank" rel="noopener noreferrer" className={styles.helpLink}>
         📖 شروحات استخدام الموقع
       </a>
 

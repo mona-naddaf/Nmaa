@@ -1,0 +1,177 @@
+/* The recitation entry pieces (src/components/recitation), shared by the
+   staff student page and «رفيق الحفظ». Moved unchanged from
+   students/[id]/detail.module.css. */
+
+.fieldRow {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.field {
+  flex: 1;
+  min-width: 150px;
+}
+
+.field label {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.field select,
+.field input {
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 14.5px;
+  color: var(--ink);
+}
+
+.modeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 7px 14px;
+  border-radius: 20px;
+  margin-bottom: 14px;
+}
+
+.modeBadge.continue,
+.modeBadge.next {
+  background: rgba(143, 90, 80, 0.18);
+  color: var(--sage-deep);
+}
+
+.modeBadge.edit {
+  background: rgba(189, 122, 62, 0.18);
+  color: var(--gold-deep);
+}
+
+.modeBadge.gap {
+  background: rgba(124, 74, 66, 0.18);
+  color: var(--sage-deep);
+}
+
+.gapWarning {
+  background: rgba(124, 74, 66, 0.08);
+  border: 1px solid rgba(124, 74, 66, 0.3);
+  color: var(--sage-deep);
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-size: 13.5px;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.reasonBox {
+  background: rgba(189, 122, 62, 0.08);
+  border: 1px solid rgba(189, 122, 62, 0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.reasonBox label {
+  font-size: 12.5px;
+  color: var(--gold-deep);
+  font-weight: 700;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.reasonBox textarea {
+  width: 100%;
+  border: 1px solid rgba(189, 122, 62, 0.35);
+  background: #fff;
+  border-radius: 9px;
+  padding: 9px 11px;
+  font-size: 13.5px;
+  resize: vertical;
+  min-height: 44px;
+}
+
+.liveCalc {
+  background: linear-gradient(90deg, rgba(189, 122, 62, 0.14), rgba(189, 122, 62, 0.03));
+  border: 1px dashed var(--gold-deep);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.liveCalc .lcLabel {
+  font-size: 12px;
+  color: var(--gold-deep);
+  font-weight: 700;
+}
+
+.liveCalc .lcVal {
+  font-family: var(--font-markazi), serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.liveCalc .lcSub {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.saveBtn {
+  background: var(--rose-deep);
+  color: #fff;
+  border: none;
+  padding: 13px 26px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.saveBtn:hover {
+  filter: brightness(0.88);
+}
+
+.saveBtn:disabled {
+  background: rgba(108, 104, 93, 0.35);
+  cursor: not-allowed;
+}
+
+.typePills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.typePill {
+  padding: 9px 18px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--cream);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.typePill.sel {
+  background: var(--sage-deep);
+  border-color: var(--sage-deep);
+  color: #fff;
+}

@@ -1,5 +1,5 @@
 import { AYAH_COUNT, SURAH_NAME, getAyahPageEntries } from "@/lib/quran-data";
-import { pickByGroup, studentNounDef, thisDemonstrative, type GroupGender } from "@/lib/text/gender";
+import { pickByGroup, pickByPerson, studentNounDef, thisDemonstrative, type GroupGender, type PersonGender } from "@/lib/text/gender";
 
 export interface PageRangeResult {
   totalPages: number;
@@ -196,6 +196,29 @@ export interface Classification {
 }
 
 /**
+ * Whose plan the messages talk about: a course student, described in the
+ * third person by her group's gender (the default), or the learner herself
+ * in «رفيق الحفظ», addressed in the second person by her own gender.
+ */
+export type RecitationSubject = GroupGender | { self: PersonGender };
+
+function subjectWords(subject: RecitationSubject) {
+  if (typeof subject === "object") {
+    return {
+      plan: "خطتك",
+      thisPlan: "خطتك",
+      reached: pickByPerson(subject.self, { m: "وصلتَ", f: "وصلتِ" }),
+    };
+  }
+  const studentDef = studentNounDef(subject);
+  return {
+    plan: `خطة ${studentDef}`,
+    thisPlan: `خطة ${thisDemonstrative(subject)} ${studentDef}`,
+    reached: `${pickByGroup(subject, { m: "وصل", f: "وصلت" })} ${studentDef}`,
+  };
+}
+
+/**
  * Classifies a new-memorization entry against the student's plan (spec §5):
  * same 5 outcomes and messages as the prototype's calc(), but judged locally
  * — by whether the ayah right before the entry (in plan order) is reached —
@@ -208,20 +231,19 @@ export function classifyRecitation(
   reach: Reach,
   newSurah: number,
   newFromAyah: number,
-  groupGender: GroupGender = "MIXED",
+  subject: RecitationSubject = "MIXED",
 ): Classification {
   const newPos = plan.indexOf(newSurah);
   const name = SURAH_NAME[newSurah] ?? `سورة رقم ${newSurah}`;
-  const studentDef = studentNounDef(groupGender);
-  const studentReached = pickByGroup(groupGender, { m: "وصل", f: "وصلت" });
+  const words = subjectWords(subject);
 
   if (newPos === -1) {
     return {
       situation: "SURAH_GAP",
       requiresReason: true,
       badgeVariant: "gap",
-      badgeText: `⚠️ سورة خارج خطة ${studentDef}`,
-      warningMessage: `سورة ${name} ليست ضمن خطة ${thisDemonstrative(groupGender)} ${studentDef} الحالية. يُرجى إضافتها إلى الخطة أولًا أو التأكد من اختيار السورة الصحيحة.`,
+      badgeText: `⚠️ سورة خارج ${words.plan}`,
+      warningMessage: `سورة ${name} ليست ضمن ${words.thisPlan} الحالية. يُرجى إضافتها إلى الخطة أولًا أو التأكد من اختيار السورة الصحيحة.`,
     };
   }
 
@@ -269,7 +291,7 @@ export function classifyRecitation(
         badgeText: "⚠️ فجوة في الخطة قبل هذه السورة",
         warningMessage:
           reachedInPrev > 0
-            ? `لم تكتمل سورة ${prevName} بعد — ${studentReached} ${studentDef} إلى الآية ${reachedInPrev} من أصل ${prevTotal}. يُرجى التأكد قبل تسجيل سورة ${name}.`
+            ? `لم تكتمل سورة ${prevName} بعد — ${words.reached} إلى الآية ${reachedInPrev} من أصل ${prevTotal}. يُرجى التأكد قبل تسجيل سورة ${name}.`
             : `سورة ${prevName} (السابقة لسورة ${name} في الخطة) لم يُسجَّل فيها أي تقدّم بعد (0 من ${prevTotal} آية). يُرجى التأكد إن كان هذا تجاوزًا مقصودًا أم خطأً.`,
       };
     }

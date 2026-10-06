@@ -4,26 +4,27 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./detail.module.css";
-import {
-  calculatePageRange,
-  classifyRecitation,
-  deriveCurrentPosition,
-  nextExpectedEntry,
-  withSession,
-  type PlanPosition,
-  type Reach,
-  type SessionType,
-} from "@/lib/recitation/logic";
-import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
+import type { PlanPosition, Reach, SessionType } from "@/lib/recitation/logic";
+import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import { todayISO } from "@/lib/attendance";
-import { rangeIsMemorized, type ProgressBar } from "@/lib/students/progress";
+import type { ProgressBar } from "@/lib/students/progress";
 import type { OverdueSurah } from "@/lib/students/review";
 import { addBonusPointAction, resolveMistakeAction, saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
 import { BONUS_NOTE_MAX_LENGTH, BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { Collapsible } from "@/components/collapsible/Collapsible";
 import { SESSIONS, SURAHS_COUNT, WORDS, countLabel } from "@/lib/text/count";
-import { WordFlagger, type WordFlags } from "@/components/mistakes/WordFlagger";
+import { WordFlagger } from "@/components/mistakes/WordFlagger";
+import {
+  EntryStatus,
+  PageCalc,
+  ReasonBox,
+  SESSION_TYPE_LABEL,
+  SessionTypePills,
+  SurahRangeFields,
+  recitationStyles as rs,
+  useRecitationEntry,
+} from "@/components/recitation/RecitationEntry";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
 import {
@@ -78,7 +79,6 @@ const QUALITY_LABEL: Record<Quality, string> = {
   NEEDS_REPEAT: "يحتاج إعادة",
 };
 const QUALITY_BADGE: Record<Quality, string> = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" };
-const SESSION_TYPE_LABEL: Record<SessionType, string> = { NEW: "حفظ جديد", REVIEW: "مراجعة", LINK: "ربط" };
 
 export function DetailView({
   student,
@@ -144,20 +144,14 @@ export function DetailView({
   const [attendance, setAttendanceState] = useState(student.attendance);
   const [attendancePending, startAttendanceTransition] = useTransition();
 
-  const initialEntry = nextExpectedEntry(plan, position);
-  const [surahNumber, setSurahNumber] = useState(initialEntry.surahNumber);
-  const [fromAyah, setFromAyah] = useState(initialEntry.fromAyah);
-  const [toAyah, setToAyah] = useState(initialEntry.toAyah);
+  const entry = useRecitationEntry({ plan, position, reach, memorizedRanges, subject: groupGender });
+  const { surahNumber, fromAyah, toAyah, sessionType, classification, pageResult, isNew } = entry;
+  const hasRangeError = "error" in pageResult;
   const [quality, setQuality] = useState<Quality>("EXCELLENT");
   const [mode, setMode] = useState<Mode>("IN_PERSON");
-  const [sessionType, setSessionType] = useState<SessionType>("NEW");
   const [notes, setNotes] = useState("");
-  const [reason, setReason] = useState("");
   const [sessionDate, setSessionDate] = useState(today);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // words flagged as mistakes, keyed "surah:ayah:word"; only those inside
-  // the current surah and range are submitted
-  const [wordFlags, setWordFlags] = useState<WordFlags>({});
   const [savePending, startSaveTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
 
@@ -178,26 +172,10 @@ export function DetailView({
     [pointsLogs, sessionDate],
   );
 
-  const classification = useMemo(
-    () => classifyRecitation(plan, reach, surahNumber, fromAyah, groupGender),
-    [plan, reach, surahNumber, fromAyah, groupGender],
-  );
-  const pageResult = useMemo(() => calculatePageRange(surahNumber, fromAyah, toAyah), [surahNumber, fromAyah, toAyah]);
-
-  // gap detection (and its mandatory reason) applies to new memorization only
-  const isNew = sessionType === "NEW";
-  const requiresReason = isNew && classification.requiresReason;
-  const reviewOfUnmemorized = !isNew && !rangeIsMemorized(memorizedRanges[surahNumber], fromAyah, toAyah);
-
-  const reasonFilled = reason.trim().length > 0;
-  const hasRangeError = "error" in pageResult;
-  const saveDisabled = hasRangeError || (requiresReason && !reasonFilled) || savePending;
+  const saveDisabled = hasRangeError || (entry.requiresReason && !entry.reasonFilled) || savePending;
 
   function startReview(surah: number) {
-    setSessionType("REVIEW");
-    setSurahNumber(surah);
-    setFromAyah(1);
-    setToAyah(AYAH_COUNT[surah]);
+    entry.startReview(surah);
     document.getElementById("recitationForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -268,18 +246,10 @@ export function DetailView({
     startSaveTransition(async () => {
       const result = await saveRecitationAction({
         studentId: student.id,
-        surahNumber,
-        fromAyah,
-        toAyah,
+        ...entry.entryInput(),
         quality,
         mode,
-        type: sessionType,
         notes,
-        reason: requiresReason ? reason : "",
-        mistakes: Object.entries(wordFlags).flatMap(([key, type]) => {
-          const [s, ayah, wordPosition] = key.split(":").map(Number);
-          return s === surahNumber && ayah >= fromAyah && ayah <= toAyah ? [{ ayah, wordPosition, type }] : [];
-        }),
         sessionDate,
       });
       if ("error" in result) {
@@ -287,22 +257,8 @@ export function DetailView({
         return;
       }
       setNotes("");
-      setWordFlags({});
-      setReason("");
       router.refresh();
-
-      // advance the form to the next natural entry, unless this was a
-      // review/link or a re-recording of covered material (EDIT), where
-      // staying put lets the teacher keep adjusting
-      if (isNew && classification.situation !== "EDIT") {
-        // from where she stands with this entry included — which may skip
-        // past surahs already covered further ahead
-        const saved = { surahNumber, fromAyah, toAyah, type: sessionType, situation: classification.situation, reason };
-        const next = nextExpectedEntry(plan, deriveCurrentPosition(plan, withSession(plan, reach, saved)));
-        setSurahNumber(next.surahNumber);
-        setFromAyah(next.fromAyah);
-        setToAyah(next.toAyah);
-      }
+      entry.afterSave();
 
       setToast(
         !isNew
@@ -395,61 +351,10 @@ export function DetailView({
         <span className={styles.dot} /> تسجيل تسميع جديد
       </div>
       <div className={styles.card}>
-        <div className={styles.typePills} role="radiogroup" aria-label="نوع الجلسة">
-          {(["NEW", "REVIEW", "LINK"] as SessionType[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="radio"
-              aria-checked={sessionType === t}
-              className={`${styles.typePill} ${sessionType === t ? styles.sel : ""}`}
-              onClick={() => setSessionType(t)}
-            >
-              {SESSION_TYPE_LABEL[t]}
-            </button>
-          ))}
-        </div>
-        <div className={styles.fieldRow}>
-          <div className={styles.field}>
-            <label htmlFor="surahSel">السورة</label>
-            <select
-              id="surahSel"
-              value={surahNumber}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setSurahNumber(n);
-                setFromAyah(1);
-                setToAyah(Math.min(15, AYAH_COUNT[n]));
-              }}
-            >
-              {SURAHS.map((s) => (
-                <option key={s.number} value={s.number}>
-                  {s.number}. {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="fromAyah">من آية</label>
-            <input
-              id="fromAyah"
-              type="number"
-              min={1}
-              value={fromAyah}
-              onChange={(e) => setFromAyah(parseInt(e.target.value, 10) || 0)}
-            />
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="toAyah">إلى آية</label>
-            <input
-              id="toAyah"
-              type="number"
-              min={1}
-              value={toAyah}
-              onChange={(e) => setToAyah(parseInt(e.target.value, 10) || 0)}
-            />
-          </div>
-          <div className={styles.field}>
+        <SessionTypePills entry={entry} />
+        <div className={rs.fieldRow}>
+          <SurahRangeFields entry={entry} />
+          <div className={rs.field}>
             <label htmlFor="quality">مستوى التسميع</label>
             <select id="quality" value={quality} onChange={(e) => setQuality(e.target.value as Quality)}>
               <option value="EXCELLENT">متقن (بدون أخطاء)</option>
@@ -459,8 +364,8 @@ export function DetailView({
           </div>
         </div>
 
-        <div className={styles.fieldRow}>
-          <div className={styles.field}>
+        <div className={rs.fieldRow}>
+          <div className={rs.field}>
             <label htmlFor="sessionDate">تاريخ الجلسة</label>
             <input
               id="sessionDate"
@@ -470,7 +375,7 @@ export function DetailView({
               onChange={(e) => setSessionDate(e.target.value || today)}
             />
           </div>
-          <div className={styles.field}>
+          <div className={rs.field}>
             <label>طريقة التسميع</label>
             <div className={styles.attendanceToggle} style={{ width: "100%" }}>
               <button
@@ -493,7 +398,7 @@ export function DetailView({
               </button>
             </div>
           </div>
-          <div className={styles.field} style={{ flex: 2 }}>
+          <div className={rs.field} style={{ flex: 2 }}>
             <label htmlFor="notesField">ملاحظات (اختياري)</label>
             <input
               id="notesField"
@@ -506,29 +411,15 @@ export function DetailView({
         </div>
 
         {sessionDate !== today && (
-          <div className={styles.modeBadge} style={{ background: "rgba(156,148,132,0.28)", color: "var(--sage-deep)" }}>
+          <div className={rs.modeBadge} style={{ background: "rgba(156,148,132,0.28)", color: "var(--sage-deep)" }}>
             ⏱️ جلسة مؤرَّخة بتاريخ سابق ({sessionDate}) — ستُنسب نقاطها إلى هذا التاريخ لا إلى اليوم
           </div>
         )}
-        {isNew ? (
-          <div className={`${styles.modeBadge} ${styles[classification.badgeVariant]}`}>{classification.badgeText}</div>
-        ) : (
-          <div className={`${styles.modeBadge} ${styles.next}`}>
-            ↺ {SESSION_TYPE_LABEL[sessionType]} — لا تغيّر موضع {pickByGroup(groupGender, { m: "الطالب", f: "الطالبة" })} ولا تخضع لفحص الفجوات
-          </div>
-        )}
-
-        {isNew && classification.warningMessage && (
-          <div className={styles.gapWarning}>
-            ⚠️ <div>{classification.warningMessage}</div>
-          </div>
-        )}
-
-        {reviewOfUnmemorized && !hasRangeError && (
-          <div className={styles.gapWarning}>
-            ⚠️ <div>هذه الآيات لم تُسجَّل كحفظ جديد بعد — سيُحفظ التسجيل كـ{SESSION_TYPE_LABEL[sessionType]} دون أن يغيّر الموضع. {pickByPerson(viewerGender, { m: "تأكّد", f: "تأكّدي" })} من نوع الجلسة.</div>
-          </div>
-        )}
+        <EntryStatus
+          entry={entry}
+          positionOf={`موضع ${pickByGroup(groupGender, { m: "الطالب", f: "الطالبة" })}`}
+          confirmVerb={pickByPerson(viewerGender, { m: "تأكّد", f: "تأكّدي" })}
+        />
 
         {!hasRangeError && (
           <WordFlagger
@@ -536,41 +427,25 @@ export function DetailView({
             fromAyah={fromAyah}
             toAyah={toAyah}
             startCollapsed={pageResult.totalPages > 3}
-            flags={wordFlags}
-            onChange={setWordFlags}
+            flags={entry.wordFlags}
+            onChange={entry.setWordFlags}
             groupGender={groupGender}
           />
         )}
 
-        {requiresReason && (
-          <div className={styles.reasonBox}>
-            <label htmlFor="reasonText">سبب هذا التسجيل (إلزامي)</label>
-            <textarea
-              id="reasonText"
-              placeholder={`مثال: تمت مراجعة هذه السورة بناءً على طلب ${pickByPerson(viewerGender, { m: "المعلم", f: "المعلمة" })}...`}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
-        )}
+        <ReasonBox
+          entry={entry}
+          placeholder={`مثال: تمت مراجعة هذه السورة بناءً على طلب ${pickByPerson(viewerGender, { m: "المعلم", f: "المعلمة" })}...`}
+        />
 
         {saveError && <div className={styles.err}>{saveError}</div>}
         {!saveError && hasRangeError && (
           <div className={styles.err}>{(pageResult as { error: string }).error}</div>
         )}
 
-        <div className={styles.liveCalc}>
-          <div>
-            <div className={styles.lcLabel}>صفحات هذه الجلسة (دقيق)</div>
-            <div className={styles.lcVal}>{hasRangeError ? "—" : `${pageResult.totalPages} صفحة`}</div>
-          </div>
-          <div className={styles.lcSub}>
-            {!hasRangeError &&
-              `صفحة ${pageResult.minPage}${pageResult.maxPage > pageResult.minPage ? ` إلى ${pageResult.maxPage}` : ""} — سورة ${SURAH_NAME[surahNumber]}`}
-          </div>
-        </div>
+        <PageCalc surahNumber={surahNumber} pageResult={pageResult} />
 
-        <button className={styles.saveBtn} onClick={save} disabled={saveDisabled} type="button">
+        <button className={rs.saveBtn} onClick={save} disabled={saveDisabled} type="button">
           {savePending ? "جارٍ الحفظ..." : "حفظ التسميع"}
         </button>
         <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6 }}>

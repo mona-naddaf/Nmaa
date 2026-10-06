@@ -69,6 +69,42 @@ export async function getHomeLog(studentId: string, { pastLimit = 30 }: { pastLi
     prisma.homeTap.findFirst({ where: { studentId }, orderBy: { createdAt: "desc" }, select: { day: true } }),
   ]);
 
+  return buildHomeLogView({ activeRows, pastRows, grouped, latest, lastTapDay: lastTap?.day ?? null });
+}
+
+/** A segment row as stored (the course's HomeSegment, or «رفيق الحفظ»'s own). */
+export interface HomeSegmentRow {
+  id: string;
+  surahNumber: number;
+  fromAyah: number;
+  toAyah: number;
+  targetListen: number;
+  targetRepeat: number;
+  targetRecite: number;
+  createdAt: Date;
+  finishedAt: Date | null;
+  finishedBy: HomeSegmentView["finishedBy"];
+  assignmentId: string | null;
+}
+
+/**
+ * The display view from the rows and tap aggregates: tap counts per segment
+ * (ayah null = the whole-segment counters) and the latest tap day per
+ * segment. Pure, so «رفيق الحفظ» builds the same view from its own tables.
+ */
+export function buildHomeLogView({
+  activeRows,
+  pastRows,
+  grouped,
+  latest,
+  lastTapDay,
+}: {
+  activeRows: HomeSegmentRow[];
+  pastRows: HomeSegmentRow[];
+  grouped: { segmentId: string; ayah: number | null; kind: string; _count: { _all: number } }[];
+  latest: { segmentId: string; _max: { day: Date | null } }[];
+  lastTapDay: Date | null;
+}): HomeLogView {
   const counts = new Map<string, HomeCounts>();
   const ayahCounts = new Map<string, Record<number, HomeCounts>>();
   for (const g of grouped) {
@@ -86,7 +122,7 @@ export async function getHomeLog(studentId: string, { pastLimit = 30 }: { pastLi
   }
   const lastBySegment = new Map(latest.map((l) => [l.segmentId, l._max.day ? day(l._max.day) : null]));
 
-  const view = (r: (typeof rows)[number]): HomeSegmentView => {
+  const view = (r: HomeSegmentRow): HomeSegmentView => {
     const targets = { listen: r.targetListen, repeat: r.targetRepeat, recite: r.targetRecite };
     const c = counts.get(r.id) ?? { ...EMPTY_COUNTS };
     return {
@@ -106,7 +142,7 @@ export async function getHomeLog(studentId: string, { pastLimit = 30 }: { pastLi
     };
   };
 
-  return { active: activeRows.map(view), past: pastRows.map(view), lastActivity: lastTap ? day(lastTap.day) : null };
+  return { active: activeRows.map(view), past: pastRows.map(view), lastActivity: lastTapDay ? day(lastTapDay) : null };
 }
 
 /**

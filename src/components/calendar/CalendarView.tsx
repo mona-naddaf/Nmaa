@@ -34,15 +34,48 @@ import {
   type Occasion,
 } from "@/lib/calendar/occasions";
 import { imperative, type PersonGender } from "@/lib/text/gender";
-import {
-  createEventAction,
-  deleteEventAction,
-  setAdjustmentAction,
-  setOptionalOccasionAction,
-  updateEventAction,
-} from "@/app/(dashboard)/calendar/actions";
 import { itemDates, NextItemBanner } from "./CalendarBanner";
 import { EventForm, type EventInput } from "./EventForm";
+
+type ActionResult = Promise<{ error?: string }>;
+
+/** What the calendar can do: the course's actions, or «رفيق الحفظ»'s own. */
+export type CalendarActions = {
+  createEvent: (input: EventInput) => ActionResult;
+  updateEvent: (eventId: string, input: EventInput) => ActionResult;
+  deleteEvent: (eventId: string) => ActionResult;
+  setOptionalOccasion: (occasion: string, enabled: boolean) => ActionResult;
+  setAdjustment: (occasion: string, hijriYear: number, offsetDays: number) => ActionResult;
+};
+
+/** The calendar's own-event wording; the course's is the default. */
+export type CalendarWording = {
+  eventLegend: string;
+  addEventOnDay: string;
+  addEvent: string;
+  newEvent: string;
+  editEvent: string;
+  confirmDeleteEvent: string;
+  emptyDay: string;
+  optionalIntro: string;
+  pastTitle: string;
+  pastEmpty: string;
+  adjustNote: string;
+};
+
+export const COURSE_CALENDAR_WORDING: CalendarWording = {
+  eventLegend: "فعالية للدورة",
+  addEventOnDay: "+ إضافة فعالية في هذا اليوم",
+  addEvent: "+ إضافة فعالية",
+  newEvent: "فعالية جديدة",
+  editEvent: "تعديل الفعالية",
+  confirmDeleteEvent: "حذف هذه الفعالية نهائيًا؟",
+  emptyDay: "لا توجد مناسبات أو فعاليات في هذا اليوم.",
+  optionalIntro: "تظهر المناسبات الأساسية (رمضان، والعيدان، ويوم عرفة) دائمًا. ويمكن إضافة ما يلي إلى تقويم الدورة:",
+  pastTitle: "سجل الفعاليات السابقة",
+  pastEmpty: "لم تُسجَّل فعاليات سابقة بعد.",
+  adjustNote: " يمكن تعديل موعد أي مناسبة للعام الحالي والقادم من قائمة القادم أو من يومها في التقويم.",
+};
 
 type FormState = { kind: "new"; date: string } | { kind: "edit"; event: CustomEvent } | null;
 
@@ -59,15 +92,20 @@ export function CalendarView({
   adjustments,
   events,
   canManage,
-  isSupervisor,
+  canAdjust,
   viewerGender,
+  actions,
+  wording: w = COURSE_CALENDAR_WORDING,
 }: {
   enabledOccasions: Occasion[];
   adjustments: Adjustment[];
   events: CustomEvent[];
   canManage: boolean;
-  isSupervisor: boolean;
+  // may shift an occasion's date for moon sighting
+  canAdjust: boolean;
   viewerGender: PersonGender;
+  actions: CalendarActions;
+  wording?: CalendarWording;
 }) {
   const today = useToday();
   const [view, setView] = useState<{ year: number; month: number } | null>(null);
@@ -117,7 +155,7 @@ export function CalendarView({
 
   async function submitForm(input: EventInput) {
     const result =
-      form?.kind === "edit" ? await updateEventAction(form.event.id, input) : await createEventAction(input);
+      form?.kind === "edit" ? await actions.updateEvent(form.event.id, input) : await actions.createEvent(input);
     if (!result.error) {
       setForm(null);
       jumpTo(input.date);
@@ -129,7 +167,7 @@ export function CalendarView({
 
   function renderRow(item: CalendarItem, showCountdown: boolean) {
     const days = daysUntil(today!, item);
-    const canAdjust = isSupervisor && item.kind === "occasion" && adjustable.has(item.hijriYear);
+    const adjustableItem = canAdjust && item.kind === "occasion" && adjustable.has(item.hijriYear);
     const event = item.kind === "event" ? item.event : null;
 
     return (
@@ -150,9 +188,9 @@ export function CalendarView({
           <div className={styles.rowDates}>{itemDates(item)}</div>
           {event?.description && <div className={styles.rowDesc}>{event.description}</div>}
 
-          {(canAdjust || event?.editable) && (
+          {(adjustableItem || event?.editable) && (
             <div className={styles.rowActions}>
-              {canAdjust &&
+              {adjustableItem &&
                 item.kind === "occasion" &&
                 (adjustKey === item.key ? (
                   <select
@@ -162,7 +200,7 @@ export function CalendarView({
                     aria-label={`تعديل موعد ${itemTitle(item)} ${item.hijriYear} هـ`}
                     onChange={(e) =>
                       run(
-                        () => setAdjustmentAction(item.occasion, item.hijriYear, Number(e.target.value)),
+                        () => actions.setAdjustment(item.occasion, item.hijriYear, Number(e.target.value)),
                         () => setAdjustKey(null),
                       )
                     }
@@ -181,12 +219,12 @@ export function CalendarView({
               {event?.editable &&
                 (confirmDelete === event.id ? (
                   <>
-                    <span className={styles.muted}>حذف هذه الفعالية نهائيًا؟</span>
+                    <span className={styles.muted}>{w.confirmDeleteEvent}</span>
                     <button
                       type="button"
                       className={`${styles.linkBtn} ${styles.danger}`}
                       disabled={pending}
-                      onClick={() => run(() => deleteEventAction(event.id), () => setConfirmDelete(null))}
+                      onClick={() => run(() => actions.deleteEvent(event.id), () => setConfirmDelete(null))}
                     >
                       تأكيد الحذف
                     </button>
@@ -324,7 +362,7 @@ export function CalendarView({
                 <span className={styles.dotOccasion} /> مناسبة
               </span>
               <span>
-                <span className={styles.dotEvent} /> فعالية للدورة
+                <span className={styles.dotEvent} /> {w.eventLegend}
               </span>
             </div>
 
@@ -335,7 +373,7 @@ export function CalendarView({
                     {hijriLabel(toHijri(selectedDay))} <span>· {gregorianLabelWithWeekday(selectedDay)}</span>
                   </div>
                   {selectedItems.length === 0 ? (
-                    <div className={styles.muted}>لا توجد مناسبات أو فعاليات في هذا اليوم.</div>
+                    <div className={styles.muted}>{w.emptyDay}</div>
                   ) : (
                     <div className={styles.list}>
                       {selectedItems.map((item) => (
@@ -350,7 +388,7 @@ export function CalendarView({
                       style={{ marginTop: 8 }}
                       onClick={() => setForm({ kind: "new", date: selectedDay })}
                     >
-                      + إضافة فعالية في هذا اليوم
+                      {w.addEventOnDay}
                     </button>
                   )}
                 </>
@@ -371,7 +409,7 @@ export function CalendarView({
                 </span>
               </div>
               <div className={styles.muted} style={{ marginBottom: 6 }}>
-                تظهر المناسبات الأساسية (رمضان، والعيدان، ويوم عرفة) دائمًا. ويمكن إضافة ما يلي إلى تقويم الدورة:
+                {w.optionalIntro}
               </div>
               {OPTIONAL_OCCASIONS.map((o) => {
                 const on = enabledOccasions.includes(o);
@@ -389,7 +427,7 @@ export function CalendarView({
                       className={`${styles.switch} ${on ? styles.on : ""}`}
                       aria-pressed={on}
                       disabled={pending}
-                      onClick={() => run(() => setOptionalOccasionAction(o, !on))}
+                      onClick={() => run(() => actions.setOptionalOccasion(o, !on))}
                     >
                       {on ? "مفعّلة" : "غير مفعّلة"}
                     </button>
@@ -406,7 +444,7 @@ export function CalendarView({
             <div className={styles.card}>
               <EventForm
                 key={form.kind === "edit" ? form.event.id : `new-${form.date}`}
-                heading={form.kind === "edit" ? "تعديل الفعالية" : "فعالية جديدة"}
+                heading={form.kind === "edit" ? w.editEvent : w.newEvent}
                 initial={
                   form.kind === "edit"
                     ? {
@@ -438,7 +476,7 @@ export function CalendarView({
               </span>
               {canManage && !form && (
                 <button type="button" className={styles.addBtn} onClick={() => setForm({ kind: "new", date: today })}>
-                  + إضافة فعالية
+                  {w.addEvent}
                 </button>
               )}
             </div>
@@ -453,11 +491,11 @@ export function CalendarView({
             <div className={styles.cardTitle}>
               <span>
                 <span className={styles.dot} />
-                سجل الفعاليات السابقة
+                {w.pastTitle}
               </span>
             </div>
             {past.length === 0 ? (
-              <div className={styles.muted}>لم تُسجَّل فعاليات سابقة بعد.</div>
+              <div className={styles.muted}>{w.pastEmpty}</div>
             ) : (
               <div className={styles.list}>
                 {past.map((e) => (
@@ -469,7 +507,7 @@ export function CalendarView({
 
           <div className={styles.note}>
             التواريخ الهجرية محسوبة وفق تقويم أم القرى، وقد تختلف بيوم أو يومين بحسب رؤية الهلال.
-            {isSupervisor && " يمكن تعديل موعد أي مناسبة للعام الحالي والقادم من قائمة القادم أو من يومها في التقويم."}
+            {canAdjust && w.adjustNote}
           </div>
         </div>
       </div>

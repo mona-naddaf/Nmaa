@@ -3,6 +3,13 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { getCalendarData } from "@/lib/calendar/data";
 import { CalendarView } from "@/components/calendar/CalendarView";
+import {
+  createEventAction,
+  deleteEventAction,
+  setAdjustmentAction,
+  setOptionalOccasionAction,
+  updateEventAction,
+} from "./actions";
 
 // Staff-only (the dashboard layout + proxy already require a staff session;
 // parents and the public board live on their own cookies and routes).
@@ -22,8 +29,15 @@ export default async function CalendarPage() {
       adjustments={data.adjustments}
       events={data.events}
       canManage={data.canManage}
-      isSupervisor={data.isSupervisor}
+      canAdjust={data.isSupervisor}
       viewerGender={viewer?.gender ?? null}
+      actions={{
+        createEvent: createEventAction,
+        updateEvent: updateEventAction,
+        deleteEvent: deleteEventAction,
+        setOptionalOccasion: setOptionalOccasionAction,
+        setAdjustment: setAdjustmentAction,
+      }}
     />
   );
 }

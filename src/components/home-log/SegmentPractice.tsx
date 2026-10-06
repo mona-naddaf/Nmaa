@@ -3,9 +3,9 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import styles from "@/components/home-log/home-log.module.css";
-import { TargetProgress, segmentTitle } from "@/components/home-log/TargetProgress";
-import { useSurahText } from "@/components/home-log/useSurahText";
+import styles from "./home-log.module.css";
+import { TargetProgress, segmentTitle } from "./TargetProgress";
+import { useSurahText } from "./useSurahText";
 import { quranFont } from "@/components/mistakes/quran-font";
 import {
   allTargetsMet,
@@ -20,12 +20,34 @@ import {
 } from "@/lib/home-log/rules";
 import type { HomeSegmentView } from "@/lib/home-log/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
-import { deleteSegmentAction, finishSegmentAction, tapAction, undoTapAction } from "../actions";
 
 type Key = string; // "seg" or the ayah number
 const SEG: Key = "seg";
 
-export function SegmentPractice({ segment: s, groupGender: g }: { segment: HomeSegmentView; groupGender: GroupGender }) {
+type TapInput = { segmentId: string; ayah: number | null; kind: HomeTapKind; day: string };
+type Result = Promise<{ error?: string }>;
+
+/** What the practice screen can do: a course student's actions, or «رفيق الحفظ»'s own. */
+export type SegmentActions = {
+  tap: (input: TapInput) => Result;
+  undoTap: (input: TapInput) => Result;
+  finish: (segmentId: string) => Result;
+  remove: (segmentId: string) => Result;
+};
+
+// One active segment: big whole-segment counters with their targets, then
+// every ayah with its own counters. listHref: the segment list to go back to.
+export function SegmentPractice({
+  segment: s,
+  groupGender: g,
+  actions,
+  listHref,
+}: {
+  segment: HomeSegmentView;
+  groupGender: GroupGender;
+  actions: SegmentActions;
+  listHref: string;
+}) {
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const ayahs = useSurahText(s.surahNumber);
@@ -53,7 +75,7 @@ export function SegmentPractice({ segment: s, groupGender: g }: { segment: HomeS
     setMessage(null);
     bump(key, kind, undo ? -1 : 1);
     const input = { segmentId: s.id, ayah: key === SEG ? null : Number(key), kind, day: localToday() };
-    const r = undo ? await undoTapAction(input) : await tapAction(input);
+    const r = undo ? await actions.undoTap(input) : await actions.tap(input);
     if (r.error) {
       bump(key, kind, undo ? 1 : -1);
       setMessage(r.error);
@@ -66,15 +88,15 @@ export function SegmentPractice({ segment: s, groupGender: g }: { segment: HomeS
 
   function finish() {
     startTransition(async () => {
-      const r = confirm === "delete" ? await deleteSegmentAction(s.id) : await finishSegmentAction(s.id);
+      const r = confirm === "delete" ? await actions.remove(s.id) : await actions.finish(s.id);
       if (r.error) return setMessage(r.error);
-      router.push("/student/home-log");
+      router.push(listHref);
     });
   }
 
   return (
     <div>
-      <Link href="/student/home-log" className={styles.linkBtn} style={{ display: "inline-block", margin: "0 4px 10px" }}>
+      <Link href={listHref} className={styles.linkBtn} style={{ display: "inline-block", margin: "0 4px 10px" }}>
         → مقاطعي
       </Link>
 

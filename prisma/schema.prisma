@@ -741,7 +741,7 @@ model TrackerCheck {
   @@index([studentId, day])
 }
 
-// One row per failed code-only login (parent or public board), keyed by a
+// One row per failed login (parent, public board, student or supervisor), keyed by a
 // salted hash of the client IP (never the raw IP). Used only for the
 // brute-force lockout (src/lib/auth/login-lockout.ts), counted per scope;
 // rows older than a day are pruned opportunistically.
@@ -844,6 +844,8 @@ enum LoginScope {
   PARENT
   BOARD
   STUDENT
+  // supervisor email + password login
+  ADMIN
 }
 
 enum AddStudentsPermission {

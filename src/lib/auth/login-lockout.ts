@@ -4,8 +4,9 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import type { LoginScope } from "@prisma/client";
 
-// Brute-force lockout for the code-only logins (parent, public board).
-// Counted per scope, so failures on one login never lock out the other.
+// Brute-force lockout for the logins (parent, public board, student,
+// supervisor). Counted per scope, so failures on one login never lock out
+// another.
 const MAX_FAILURES = 10;
 const WINDOW_MS = 15 * 60 * 1000;
 const RETENTION_MS = 24 * 60 * 60 * 1000;

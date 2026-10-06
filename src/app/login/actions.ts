@@ -7,6 +7,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { generateUniqueCourseCode, normalizeCourseCode } from "@/lib/auth/course-code";
 import { DEFAULT_GROUP_NAMES, DEFAULT_POINTS_ACTIVITIES } from "@/lib/points/defaults";
 import { isReservedTeacherName, RESERVED_NAME_MESSAGE } from "@/lib/auth/reserved-names";
+import { isLoginLocked, recordLoginFailure } from "@/lib/auth/login-lockout";
 
 export type ActionState = { error?: string } | null;
 
@@ -102,8 +103,13 @@ export async function adminLoginAction(_prev: ActionState, formData: FormData): 
     return { error: "يُرجى تعبئة جميع الحقول" };
   }
 
+  if (await isLoginLocked("ADMIN")) {
+    return { error: "محاولات دخول كثيرة غير صحيحة — يُرجى المحاولة مرة أخرى بعد ربع ساعة" };
+  }
+
   const admin = await prisma.admin.findUnique({ where: { email }, include: { course: true } });
   if (!admin || !(await verifyPassword(password, admin.passwordHash))) {
+    await recordLoginFailure("ADMIN");
     return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
   }
   if (!admin.course) {

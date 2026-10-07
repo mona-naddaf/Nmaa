@@ -46,3 +46,6 @@ export function parseGender(raw: unknown): RafiqGender | null {
 
 // typed by her to confirm deleting the account
 export const DELETE_CONFIRM_WORD = "حذف";
+
+// her follow-up tracker: at most this many items in use at once
+export const RAFIQ_TRACKER_MAX_ITEMS = 30;

@@ -8,6 +8,8 @@ import { createRafiqSession, destroyRafiqSession, getRafiqUser } from "@/lib/raf
 import { newRecoveryCode } from "@/lib/rafiq/recovery";
 import { limited, record, TOO_MANY } from "@/lib/rafiq/limits";
 import { cleanName, DELETE_CONFIRM_WORD, parseGender, passwordProblem } from "@/lib/rafiq/rules";
+import { validateDays } from "@/lib/tracker/rules";
+import { acceptLocalDay } from "@/lib/home-log/rules";
 
 // Her own account settings. Every action re-checks her session; anything
 // that changes the password, the recovery رمز or deletes the account first
@@ -106,4 +108,25 @@ export async function setReviewRemindersAction(_prev: SettingsState, formData: F
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { reviewReminderDays: on ? days : null } });
   revalidatePath("/rafiq", "layout");
   return { ok: on ? "تم تفعيل تذكير المراجعة ✓" : "تم إيقاف تذكير المراجعة ✓" };
+}
+
+/**
+ * The weekdays she intends to commit to, from her today onward (earlier
+ * days keep the schedule they had). today: her browser's local date.
+ */
+export async function setCommitDaysAction(input: { days: number; today: string }): Promise<SettingsState> {
+  const user = await getRafiqUser();
+  if (!user) return SIGNED_OUT;
+  const days = validateDays(input?.days);
+  if (days === null) return { error: "يُرجى اختيار يوم واحد على الأقل" };
+  const today = acceptLocalDay(String(input?.today ?? ""));
+  if (!today) return { error: "يُرجى تحديث الصفحة والمحاولة مرة أخرى" };
+  const effectiveFrom = new Date(`${today}T00:00:00Z`);
+  await prisma.rafiqCommitDays.upsert({
+    where: { userId_effectiveFrom: { userId: user.id, effectiveFrom } },
+    create: { userId: user.id, days, effectiveFrom },
+    update: { days },
+  });
+  revalidatePath("/rafiq", "layout");
+  return { ok: "تم حفظ أيام الالتزام ✓" };
 }

@@ -782,11 +782,62 @@ model RafiqUser {
   homeTargetRepeat      Int       @default(10)
   homeTargetRecite      Int       @default(3)
 
-  planItems    RafiqPlanItem[]
-  sessions     RafiqSession[]
-  mistakes     RafiqMistake[]
-  homeSegments RafiqHomeSegment[]
-  homeTaps     RafiqHomeTap[]
+  planItems     RafiqPlanItem[]
+  sessions      RafiqSession[]
+  mistakes      RafiqMistake[]
+  homeSegments  RafiqHomeSegment[]
+  homeTaps      RafiqHomeTap[]
+  commitDays    RafiqCommitDays[]
+  trackerItems  RafiqTrackerItem[]
+  trackerChecks RafiqTrackerCheck[]
+}
+
+// The weekdays she intends to commit to, from a given day of hers onward
+// (src/lib/rafiq/streak.ts). A change adds a row from that day, so past
+// days keep the schedule they had. No row = every day.
+model RafiqCommitDays {
+  id            String    @id @default(cuid())
+  userId        String
+  user          RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // weekday bitmask, bit 0 = Sunday … bit 6 = Saturday (as TrackerItem.days)
+  days          Int
+  effectiveFrom DateTime  @db.Date
+  createdAt     DateTime  @default(now())
+
+  @@unique([userId, effectiveFrom])
+}
+
+// One item of her own follow-up tracker («جدول المتابعة»), with its mark
+// (1–10) and weekdays; same meaning as TrackerItem, without approval.
+// Archived instead of deleted: it stops counting from that day on.
+model RafiqTrackerItem {
+  id         String    @id @default(cuid())
+  userId     String
+  user       RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  value      Int
+  days       Int       @default(127)
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  checks RafiqTrackerCheck[]
+
+  @@index([userId, archivedAt])
+}
+
+// One tick: item × her local day (today or yesterday only).
+model RafiqTrackerCheck {
+  id        String           @id @default(cuid())
+  itemId    String
+  item      RafiqTrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId    String
+  user      RafiqUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       DateTime         @db.Date
+  createdAt DateTime         @default(now())
+
+  @@unique([itemId, day])
+  @@index([userId, day])
 }
 
 // A passage she is memorizing, within one surah (same meaning as

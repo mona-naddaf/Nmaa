@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireRafiqUser } from "@/lib/rafiq/session";
 import { SettingsView } from "./SettingsView";
+import { currentCommitDays } from "@/lib/rafiq/commitment";
 
 export default async function RafiqSettingsPage() {
   const user = await requireRafiqUser();
@@ -15,6 +16,7 @@ export default async function RafiqSettingsPage() {
       gender={user.gender}
       recoveryCodeCreatedAt={recoveryCodeCreatedAt.toISOString().slice(0, 10)}
       reviewReminderDays={reviewReminderDays}
+      commitDays={await currentCommitDays(user.id)}
     />
   );
 }

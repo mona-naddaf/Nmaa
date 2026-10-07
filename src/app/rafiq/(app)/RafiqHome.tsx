@@ -6,6 +6,10 @@ import styles from "../rafiq.module.css";
 import { AYAH_COUNT, SURAH_NAME, TOTAL_PAGES } from "@/lib/quran-data";
 import type { RecitationSubject } from "@/lib/recitation/logic";
 import type { MemorizationView } from "@/lib/rafiq/memorization";
+import type { CommitmentData } from "@/lib/rafiq/commitment";
+import { computeStreak, streakDaysText, weekView } from "@/lib/rafiq/streak";
+import { WEEKDAY_SHORT, weekdayOf } from "@/lib/tracker/rules";
+import Link from "next/link";
 import { loggableDays } from "@/lib/rafiq/days";
 import { useToday } from "@/lib/calendar/useToday";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
@@ -31,7 +35,7 @@ const DAY_LABEL = ["اليوم", "أمس", "قبل يومين"];
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-export function RafiqHome({ data, gender }: { data: MemorizationView; gender: PersonGender }) {
+export function RafiqHome({ data, gender, commitment }: { data: MemorizationView; gender: PersonGender; commitment: CommitmentData }) {
   const router = useRouter();
   const today = useToday();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
@@ -145,6 +149,8 @@ export function RafiqHome({ data, gender }: { data: MemorizationView; gender: Pe
         </div>
       </div>
 
+      <CommitCard commitment={commitment} today={today} />
+
       {/* recording a session */}
       <div className={styles.secTitle} id="record">
         تسجيل جلسة
@@ -254,6 +260,38 @@ export function RafiqHome({ data, gender }: { data: MemorizationView; gender: Pe
           {toast}
         </div>
       )}
+    </div>
+  );
+}
+
+const WEEK_MARK = { done: "✓", missed: "✗", off: "—", today: "•", future: "", before: "" } as const;
+
+/** Her streak of commitment days and this week, worked out on her local today. */
+function CommitCard({ commitment, today }: { commitment: CommitmentData; today: string | null }) {
+  if (!today) return <div className={styles.commitCard} style={{ minHeight: 70 }} aria-busy />;
+  const logged = new Set(commitment.loggedDays);
+  const { current, best } = computeStreak(commitment.schedule, logged, today, commitment.start);
+  const week = weekView(commitment.schedule, logged, today, commitment.start);
+  return (
+    <div className={styles.commitCard}>
+      <div>
+        <div className={styles.streakNum}>🔥 {current}</div>
+        <div className={styles.streakLbl}>
+          {current === 0 ? "لا أيام التزام متتالية بعد" : `${streakDaysText(current)} من الالتزام المتتالي`}
+          {best > current && ` · الأفضل: ${streakDaysText(best)}`}
+        </div>
+        <Link href="/rafiq/settings#commit" className={styles.linkBtn} style={{ display: "inline-block", marginTop: 4 }}>
+          أيام الالتزام
+        </Link>
+      </div>
+      <div className={styles.week} aria-label="هذا الأسبوع">
+        {week.map((w) => (
+          <div key={w.day} className={`${styles.weekDay} ${styles[w.state]}`} title={w.day}>
+            {WEEKDAY_SHORT[weekdayOf(w.day)]}
+            <b>{WEEK_MARK[w.state]}</b>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

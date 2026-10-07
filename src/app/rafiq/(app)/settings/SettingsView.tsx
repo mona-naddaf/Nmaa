@@ -1,6 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { WeekdayPicker } from "@/components/student-work/TrackerControls";
+import { localToday } from "@/lib/home-log/rules";
+import { daysLabel } from "@/lib/tracker/rules";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "../../rafiq.module.css";
 import { RecoveryCodeCard } from "../../RecoveryCodeCard";
@@ -10,15 +14,23 @@ import {
   changePasswordAction,
   deleteAccountAction,
   regenerateRecoveryCodeAction,
+  setCommitDaysAction,
   setReviewRemindersAction,
   signOutEverywhereAction,
   updateProfileAction,
   type SettingsState,
 } from "./actions";
 
-type Props = { email: string; name: string | null; gender: RafiqGender; recoveryCodeCreatedAt: string; reviewReminderDays: number | null };
+type Props = {
+  email: string;
+  name: string | null;
+  gender: RafiqGender;
+  recoveryCodeCreatedAt: string;
+  reviewReminderDays: number | null;
+  commitDays: number;
+};
 
-export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays }: Props) {
+export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
 
   return (
@@ -27,6 +39,7 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
         <span style={{ fontSize: 16, color: "var(--ink)" }}>الإعدادات</span>
       </div>
       <Profile email={email} name={name} gender={gender} />
+      <CommitDays p={p} initial={commitDays} />
       <ReviewReminders p={p} days={reviewReminderDays} />
       <Password p={p} />
       <Recovery p={p} gender={gender} createdAt={recoveryCodeCreatedAt} />
@@ -96,6 +109,47 @@ function Profile({ email, name, gender }: { email: string; name: string | null; 
         {pending ? "جارٍ الحفظ…" : "حفظ"}
       </button>
     </form>
+  );
+}
+
+function CommitDays({ p, initial }: { p: P; initial: number }) {
+  const router = useRouter();
+  const [days, setDays] = useState(initial);
+  const [saved, setSaved] = useState(initial);
+  const [state, setState] = useState<SettingsState>(null);
+  const [pending, startTransition] = useTransition();
+  return (
+    <div className={hl.section} id="commit">
+      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+        أيام الالتزام
+      </div>
+      <p className={hl.muted} style={{ marginTop: 0 }}>
+        الأيام التي {p("تنوي", "تنوين")} فيها تسجيل جلسة (حفظ أو مراجعة أو ربط). يُحسب اليوم ملتزَمًا به إذا {p("سجّلتَ", "سجّلتِ")} فيه
+        جلسة، ولا تقطع أيامُ الراحة السلسلةَ. يسري التغيير من اليوم، وتبقى الأيام السابقة على ما كانت عليه.
+      </p>
+      <WeekdayPicker days={days} onChange={setDays} />
+      <div className={hl.muted} style={{ margin: "6px 0 10px" }}>
+        الحالي: {daysLabel(saved)}
+      </div>
+      <Feedback state={state} />
+      <button
+        type="button"
+        className={hl.primaryBtn}
+        disabled={pending || days === saved}
+        onClick={() =>
+          startTransition(async () => {
+            const r = await setCommitDaysAction({ days, today: localToday() });
+            setState(r);
+            if (!r?.error) {
+              setSaved(days);
+              router.refresh();
+            }
+          })
+        }
+      >
+        {pending ? "جارٍ الحفظ…" : "حفظ"}
+      </button>
+    </div>
   );
 }
 

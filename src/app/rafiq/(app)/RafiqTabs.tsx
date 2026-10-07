@@ -9,6 +9,7 @@ export function RafiqTabs() {
   const tabs = [
     { href: "/rafiq", label: "صفحتي", active: pathname === "/rafiq" },
     { href: "/rafiq/home-log", label: "حفظي في البيت", active: pathname.startsWith("/rafiq/home-log") },
+    { href: "/rafiq/tracker", label: "جدول المتابعة", active: pathname.startsWith("/rafiq/tracker") },
     { href: "/rafiq/plan", label: "خطتي", active: pathname.startsWith("/rafiq/plan") },
     { href: "/rafiq/settings", label: "الإعدادات", active: pathname.startsWith("/rafiq/settings") },
   ];

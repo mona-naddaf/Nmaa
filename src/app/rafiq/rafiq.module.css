@@ -1,0 +1,194 @@
+/* «رفيق الحفظ»: the few pieces the shared login and home-log styles don't
+   already cover. */
+
+.genderSwitch {
+  display: flex;
+  background: var(--cream);
+  border-radius: 14px;
+  padding: 4px;
+  border: 1px solid var(--line);
+}
+
+.genderSwitch label {
+  flex: 1;
+  text-align: center;
+  padding: 10px;
+  border-radius: 11px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.genderSwitch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.genderSwitch label:has(input:checked) {
+  background: var(--rose-deep);
+  color: #fff;
+}
+
+.genderSwitch label:has(input:focus-visible) {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 2px;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.hint {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-top: 5px;
+  line-height: 1.6;
+}
+
+.privacy {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--ink-soft);
+  margin-bottom: 14px;
+}
+
+.privacy b {
+  color: var(--ink);
+}
+
+/* never shown to people; only form-filling bots fill it */
+.trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.codeNote {
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--ink-soft);
+  margin-bottom: 14px;
+}
+
+.codeVal {
+  font-family: var(--font-markazi), serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--ink);
+  direction: ltr;
+  unicode-bidi: isolate;
+  word-break: break-all;
+}
+
+.confirmRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink);
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.confirmRow input {
+  margin-top: 4px;
+}
+
+/* in-app pages */
+.welcome {
+  font-family: var(--font-markazi), serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 4px 4px;
+}
+
+.soon {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.soon li {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.soon small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+
+.settingsGrid {
+  display: grid;
+  gap: 14px;
+  max-width: 640px;
+}
+
+.input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 14.5px;
+  color: var(--ink);
+  font-family: inherit;
+}
+
+.formField {
+  margin-bottom: 12px;
+}
+
+.dangerTitle {
+  color: var(--rose-deep);
+}
+
+.dangerBtn {
+  background: var(--rose-deep);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dangerBtn:disabled,
+.saveBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.okMsg {
+  color: var(--sage-deep);
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}

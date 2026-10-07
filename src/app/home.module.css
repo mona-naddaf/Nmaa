@@ -118,6 +118,23 @@
   }
 }
 
+/* Six cards (with «رفيق الحفظ»): two columns on phones, three on wider
+   screens — no card spans a row. */
+.cards.cardsSix > :last-child {
+  grid-column: auto;
+}
+
+@media (min-width: 640px) {
+  .cards.cardsSix {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .cards.cardsSix > *,
+  .cards.cardsSix > :nth-child(n + 4),
+  .cards.cardsSix > :last-child {
+    grid-column: auto;
+  }
+}
+
 .card {
   position: relative;
   background: var(--paper);
@@ -173,6 +190,9 @@
 .board {
   --accent-bar: var(--gold);
 }
+.rafiq {
+  --accent-bar: var(--lavender);
+}
 
 .cardIcon {
   width: 44px;
@@ -197,6 +217,9 @@
 }
 .parent .cardIcon {
   background: rgba(124, 74, 66, 0.12);
+}
+.rafiq .cardIcon {
+  background: rgba(124, 74, 66, 0.08);
 }
 .board .cardIcon {
   background: rgba(189, 122, 62, 0.16);

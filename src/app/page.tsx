@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth/session";
 import styles from "./home.module.css";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { quranFont } from "@/components/mistakes/quran-font";
+import { rafiqEnabled } from "@/lib/rafiq/enabled";
 
 // The name comes from al-Isra 17:106 — Uthmani text as in the bundled Tanzil
 // copy, so it matches the Mushaf.
@@ -19,6 +20,8 @@ export default async function Home() {
   if (session) {
     redirect("/students");
   }
+
+  const rafiq = rafiqEnabled();
 
   return (
     <div className={styles.page}>
@@ -36,11 +39,12 @@ export default async function Home() {
         <p className={styles.intro}>
           تتيح المنصّة للمعلمين والمعلمات تسجيل التسميع والحضور والنقاط أولًا بأول، وتمنح المشرف أو المشرفة تحكمًا
           كاملًا بإعدادات الدورة، وتتيح لأولياء الأمور متابعة تقدّم أبنائهم بسهولة ووضوح.
+          {rafiq && " ولمن يحفظ وحده دون دورة، يرافقه «رفيق الحفظ» في متابعة حفظه بنفسه."}
         </p>
       </div>
 
       <div className={styles.sectionLabel}>اختر طريقة الدخول</div>
-      <div className={styles.cards}>
+      <div className={`${styles.cards} ${rafiq ? styles.cardsSix : ""}`}>
         <Link href="/login" className={`${styles.card} ${styles.staff}`}>
           <div className={styles.cardIcon} aria-hidden="true">📖</div>
           <div className={styles.cardTitle}>معلم / معلمة</div>
@@ -71,6 +75,14 @@ export default async function Home() {
           <div className={styles.cardDesc}>عرض ترتيب الطلاب برمز لوحة الإنجاز</div>
           <div className={styles.cardArrow}>عرض ←</div>
         </Link>
+        {rafiq && (
+          <Link href="/rafiq/login" className={`${styles.card} ${styles.rafiq}`}>
+            <div className={styles.cardIcon} aria-hidden="true">🌱</div>
+            <div className={styles.cardTitle}>رفيق الحفظ</div>
+            <div className={styles.cardDesc}>لمن يتابع حفظه بنفسه دون دورة</div>
+            <div className={styles.cardArrow}>دخول ←</div>
+          </Link>
+        )}
       </div>
 
       <a href={HELP_URL} target="_blank" rel="noopener noreferrer" className={styles.helpLink}>

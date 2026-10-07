@@ -741,6 +741,33 @@ model TrackerCheck {
   @@index([studentId, day])
 }
 
+// ---------- «رفيق الحفظ» (independent learners, src/lib/rafiq) ----------
+//
+// Completely separate from courses: no Rafiq table references a course,
+// student, teacher or admin, and no course code reads these tables. Every
+// Rafiq query is scoped by the signed-in user's id (src/lib/rafiq/session.ts).
+
+model RafiqUser {
+  id                    String    @id @default(cuid())
+  // trimmed + lowercased; independent of Admin.email (the same address may
+  // hold both kinds of account)
+  email                 String    @unique
+  passwordHash          String
+  // optional; only used to greet her
+  name                  String?
+  // for gender-aware wording; asked once at sign-up, editable in settings
+  gender                Gender
+  // every session token carries this; bumping it (password change or reset,
+  // «تسجيل الخروج من جميع الأجهزة») ends every open session
+  sessionVersion        Int       @default(0)
+  // bcrypt hash of her recovery رمز (src/lib/rafiq/recovery.ts), shown once
+  // at sign-up and on each regeneration; used to set a new password
+  recoveryCodeHash      String
+  recoveryCodeCreatedAt DateTime
+  createdAt             DateTime  @default(now())
+  lastLoginAt           DateTime?
+}
+
 // One row per failed login (parent, public board, student or supervisor), keyed by a
 // salted hash of the client IP (never the raw IP). Used only for the
 // brute-force lockout (src/lib/auth/login-lockout.ts), counted per scope;
@@ -846,6 +873,13 @@ enum LoginScope {
   STUDENT
   // supervisor email + password login
   ADMIN
+  // «رفيق الحفظ» (src/lib/rafiq/limits.ts). RAFIQ_ACCOUNT rows hold a salted
+  // hash of the account's email in ipHash instead of the IP's, so guesses
+  // spread across many addresses still lock that one account.
+  RAFIQ_LOGIN
+  RAFIQ_ACCOUNT
+  RAFIQ_SIGNUP
+  RAFIQ_RECOVER
 }
 
 enum AddStudentsPermission {

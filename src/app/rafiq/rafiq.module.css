@@ -141,10 +141,11 @@
   margin-top: 2px;
 }
 
+/* full content width, like the staff settings page (the shell caps it at
+   1040px and it narrows naturally on phones) */
 .settingsGrid {
   display: grid;
   gap: 14px;
-  max-width: 640px;
 }
 
 .input {

@@ -22,6 +22,21 @@ export const PLAN_TEMPLATE_LABEL: Record<PlanTemplate, string> = {
 
 export const PLAN_TEMPLATES = Object.keys(PLAN_TEMPLATE_LABEL) as PlanTemplate[];
 
+// The plan editor's own keys for the templates (src/components/plan).
+export type TemplateKey = "mushafrev" | "mushaf" | "juzamma" | "custom";
+
+export const TEMPLATE_KEY_PLAN = {
+  mushafrev: "MUSHAF_REVERSE",
+  mushaf: "MUSHAF_ORDER",
+  juzamma: "JUZ_AMMA_REVERSE",
+  custom: "CUSTOM",
+} as const satisfies Record<TemplateKey, PlanTemplate>;
+
+/** The sequence a template starts from in the plan editor (custom starts empty). */
+export function templateSurahs(key: TemplateKey): number[] {
+  return key === "custom" ? [] : templatePlan(TEMPLATE_KEY_PLAN[key]);
+}
+
 /**
  * The surah sequence a template starts from. CUSTOM starts empty in the
  * manual form (the supervisor picks surahs by hand); the import has no way

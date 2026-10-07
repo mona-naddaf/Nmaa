@@ -2,28 +2,12 @@
 
 import { useMemo, useState } from "react";
 import styles from "./plan.module.css";
-import { SURAHS, SURAH_BY_NUMBER, MUSHAF_ORDER, MUSHAF_REVERSE_ORDER, JUZ_AMMA_REVERSE_ORDER } from "@/lib/quran-data";
+import { SURAHS, SURAH_BY_NUMBER } from "@/lib/quran-data";
+import type { TemplateKey } from "@/lib/students/new-student";
 
 // Choosing a memorization plan: the four templates, then the plan itself as
 // an editable list (reorder, remove, add a surah) with a short summary.
 // Shared by the staff «add student» form and «رفيق الحفظ».
-
-export type TemplateKey = "mushafrev" | "mushaf" | "juzamma" | "custom";
-
-export const TEMPLATE_KEY_PLAN = {
-  mushafrev: "MUSHAF_REVERSE",
-  mushaf: "MUSHAF_ORDER",
-  juzamma: "JUZ_AMMA_REVERSE",
-  custom: "CUSTOM",
-} as const;
-
-/** The sequence a template starts from (custom starts empty). */
-export function templateSurahs(key: TemplateKey): number[] {
-  if (key === "mushafrev") return MUSHAF_REVERSE_ORDER;
-  if (key === "mushaf") return MUSHAF_ORDER;
-  if (key === "juzamma") return JUZ_AMMA_REVERSE_ORDER;
-  return [];
-}
 
 export type PlanEditorWords = {
   // «تبدأ الطالبة» / «تبدئين» — who starts with the shortest surahs

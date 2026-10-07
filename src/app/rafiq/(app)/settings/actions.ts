@@ -95,3 +95,15 @@ export async function deleteAccountAction(_prev: SettingsState, formData: FormDa
   await destroyRafiqSession();
   redirect("/");
 }
+
+/** Review reminders: off (null) or the number of days (1–90) a completed surah may go unreviewed. */
+export async function setReviewRemindersAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const user = await getRafiqUser();
+  if (!user) return SIGNED_OUT;
+  const on = formData.get("on") === "1";
+  const days = Number(formData.get("days"));
+  if (on && (!Number.isInteger(days) || days < 1 || days > 90)) return { error: "يُرجى إدخال عدد أيام بين 1 و90" };
+  await prisma.rafiqUser.update({ where: { id: user.id }, data: { reviewReminderDays: on ? days : null } });
+  revalidatePath("/rafiq", "layout");
+  return { ok: on ? "تم تفعيل تذكير المراجعة ✓" : "تم إيقاف تذكير المراجعة ✓" };
+}

@@ -766,6 +766,82 @@ model RafiqUser {
   recoveryCodeCreatedAt DateTime
   createdAt             DateTime  @default(now())
   lastLoginAt           DateTime?
+
+  // her memorization plan (src/lib/rafiq/memorization.ts). null template =
+  // she hasn't set up a plan yet. Unlike a course, she may change it any
+  // time; planChangedAt then marks when, so gap approvals recorded before
+  // the latest change stop counting (memorized ayat always count).
+  planTemplate          PlanTemplate?
+  planChangedAt         DateTime?
+  // days a completed surah may go without review before it's flagged;
+  // null = review reminders off (the default)
+  reviewReminderDays    Int?
+
+  planItems RafiqPlanItem[]
+  sessions  RafiqSession[]
+  mistakes  RafiqMistake[]
+}
+
+model RafiqPlanItem {
+  id          String    @id @default(cuid())
+  userId      String
+  user        RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surahNumber Int
+  position    Int
+
+  @@unique([userId, position])
+  @@unique([userId, surahNumber])
+}
+
+// A session she logged herself; the same meaning as RecitationSession
+// (NEW moves her position, REVIEW/LINK never do; PRIOR = memorization from
+// before). Position, coverage and pages are always derived from these rows.
+model RafiqSession {
+  id              String               @id @default(cuid())
+  userId          String
+  user            RafiqUser            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source          RecitationSource     @default(LOGGED)
+  type            SessionType          @default(NEW)
+  surahNumber     Int
+  fromAyah        Int
+  toAyah          Int
+  pagesCalculated Decimal              @db.Decimal(7, 3)
+  // her own optional assessment; null for PRIOR or when she skipped it
+  quality         RecitationQuality?
+  situation       RecitationSituation?
+  reason          String?
+  notes           String?
+  // her local calendar date (today or up to 2 days back), for streaks
+  day             DateTime             @db.Date
+  // ordering within a day and for review reminders
+  occurredAt      DateTime             @default(now())
+  createdAt       DateTime             @default(now())
+
+  mistakes RafiqMistake[]
+
+  @@index([userId, occurredAt])
+  @@index([userId, day])
+}
+
+// A word she flagged in one of her sessions (same meaning as
+// RecitationMistake). Resolving stamps resolvedAt; the row stays.
+model RafiqMistake {
+  id           String       @id @default(cuid())
+  userId       String
+  user         RafiqUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId    String
+  session      RafiqSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  surahNumber  Int
+  ayah         Int
+  wordPosition Int
+  wordText     String
+  type         MistakeType
+  flaggedAt    DateTime
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@unique([sessionId, surahNumber, ayah, wordPosition])
+  @@index([userId, resolvedAt])
 }
 
 // One row per failed login (parent, public board, student or supervisor), keyed by a

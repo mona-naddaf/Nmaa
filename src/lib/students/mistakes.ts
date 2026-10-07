@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import type { ActiveMistake } from "@/lib/students/mistake-types";
+import type { ActiveMistake, MistakeType } from "@/lib/students/mistake-types";
 
 /**
  * A student's unresolved flagged words, one entry per word: repeated flags
@@ -16,7 +16,17 @@ export async function getActiveMistakes(studentId: string, plan: number[]): Prom
     // oldest first, so the last row seen per word is its most recent flag
     orderBy: [{ flaggedAt: "asc" }, { createdAt: "asc" }],
   });
+  return mergeActiveMistakes(rows, plan);
+}
 
+/**
+ * The merge and sort above, for unresolved rows already loaded oldest first
+ * (a course student's, or a «رفيق الحفظ» learner's own).
+ */
+export function mergeActiveMistakes(
+  rows: { surahNumber: number; ayah: number; wordPosition: number; wordText: string; type: MistakeType; flaggedAt: Date }[],
+  plan: number[],
+): ActiveMistake[] {
   const byWord = new Map<string, ActiveMistake>();
   for (const r of rows) {
     const key = `${r.surahNumber}:${r.ayah}:${r.wordPosition}`;

@@ -27,3 +27,6 @@ export const SESSIONS: CountForms = { one: "جلسة واحدة", two: "جلست
 export const GROUPS: CountForms = { one: "مجموعة واحدة", two: "مجموعتان", few: "مجموعات", many: "مجموعة" };
 export const SEGMENTS: CountForms = { one: "مقطع واحد", two: "مقطعان", few: "مقاطع", many: "مقطعًا" };
 export const ACTIVITIES: CountForms = { one: "نشاط واحد", two: "نشاطان", few: "أنشطة", many: "نشاطًا" };
+
+// after a preposition (منذ / أكثر من): «يوم»، «يومين»، «3 أيام»، «14 يومًا»
+export const DAYS_AFTER_PREP: CountForms = { one: "يوم", two: "يومين", few: "أيام", many: "يومًا" };

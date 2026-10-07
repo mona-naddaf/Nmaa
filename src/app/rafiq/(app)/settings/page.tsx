@@ -4,9 +4,9 @@ import { SettingsView } from "./SettingsView";
 
 export default async function RafiqSettingsPage() {
   const user = await requireRafiqUser();
-  const { recoveryCodeCreatedAt } = await prisma.rafiqUser.findUniqueOrThrow({
+  const { recoveryCodeCreatedAt, reviewReminderDays } = await prisma.rafiqUser.findUniqueOrThrow({
     where: { id: user.id },
-    select: { recoveryCodeCreatedAt: true },
+    select: { recoveryCodeCreatedAt: true, reviewReminderDays: true },
   });
   return (
     <SettingsView
@@ -14,6 +14,7 @@ export default async function RafiqSettingsPage() {
       name={user.name}
       gender={user.gender}
       recoveryCodeCreatedAt={recoveryCodeCreatedAt.toISOString().slice(0, 10)}
+      reviewReminderDays={reviewReminderDays}
     />
   );
 }

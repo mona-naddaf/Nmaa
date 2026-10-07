@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import styles from "@/components/plan/plan.module.css";
 import { createStudentAction } from "./actions";
 import { MUSHAF_REVERSE_ORDER } from "@/lib/quran-data";
-import { PlanEditor, templateSurahs, type TemplateKey } from "@/components/plan/PlanEditor";
+import { PlanEditor } from "@/components/plan/PlanEditor";
+import { templateSurahs, type TemplateKey } from "@/lib/students/new-student";
 import { PriorPicker, usePriorState } from "@/components/plan/PriorPicker";
 import {
   studentNounDef,

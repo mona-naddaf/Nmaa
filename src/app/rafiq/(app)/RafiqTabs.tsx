@@ -8,6 +8,7 @@ export function RafiqTabs() {
   const pathname = usePathname();
   const tabs = [
     { href: "/rafiq", label: "صفحتي", active: pathname === "/rafiq" },
+    { href: "/rafiq/plan", label: "خطتي", active: pathname.startsWith("/rafiq/plan") },
     { href: "/rafiq/settings", label: "الإعدادات", active: pathname.startsWith("/rafiq/settings") },
   ];
   return (

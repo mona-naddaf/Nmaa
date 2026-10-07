@@ -10,14 +10,15 @@ import {
   changePasswordAction,
   deleteAccountAction,
   regenerateRecoveryCodeAction,
+  setReviewRemindersAction,
   signOutEverywhereAction,
   updateProfileAction,
   type SettingsState,
 } from "./actions";
 
-type Props = { email: string; name: string | null; gender: RafiqGender; recoveryCodeCreatedAt: string };
+type Props = { email: string; name: string | null; gender: RafiqGender; recoveryCodeCreatedAt: string; reviewReminderDays: number | null };
 
-export function SettingsView({ email, name, gender, recoveryCodeCreatedAt }: Props) {
+export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
 
   return (
@@ -26,6 +27,7 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt }: Pro
         <span style={{ fontSize: 16, color: "var(--ink)" }}>الإعدادات</span>
       </div>
       <Profile email={email} name={name} gender={gender} />
+      <ReviewReminders p={p} days={reviewReminderDays} />
       <Password p={p} />
       <Recovery p={p} gender={gender} createdAt={recoveryCodeCreatedAt} />
       <div className={hl.section}>
@@ -89,6 +91,41 @@ function Profile({ email, name, gender }: { email: string; name: string | null; 
           </label>
         </div>
       </div>
+      <Feedback state={state} />
+      <button type="submit" className={hl.primaryBtn} disabled={pending}>
+        {pending ? "جارٍ الحفظ…" : "حفظ"}
+      </button>
+    </form>
+  );
+}
+
+// pre-filled when she turns reminders on (same default as courses)
+const DEFAULT_REVIEW_DAYS = 14;
+
+function ReviewReminders({ p, days }: { p: P; days: number | null }) {
+  const [state, action, pending] = useActionState<SettingsState, FormData>(setReviewRemindersAction, null);
+  const [on, setOn] = useState(days !== null);
+  return (
+    <form className={hl.section} action={action}>
+      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+        تذكير المراجعة
+      </div>
+      <p className={hl.muted} style={{ marginTop: 0 }}>
+        يُنبّهك في صفحتك إلى كل سورة {p("أتممتَ", "أتممتِ")} حفظها ولم {p("تراجعها", "تراجعيها")} كاملةً منذ المدة التي {p("تحدّدها", "تحدّدينها")}.
+      </p>
+      <input type="hidden" name="on" value={on ? "1" : "0"} />
+      <label className={styles.confirmRow}>
+        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+        تفعيل تذكير المراجعة
+      </label>
+      {on && (
+        <div className={styles.formField}>
+          <label className={styles.fieldLabel} htmlFor="review-days">
+            عدد الأيام
+          </label>
+          <input id="review-days" name="days" type="number" min={1} max={90} className={styles.input} defaultValue={days ?? DEFAULT_REVIEW_DAYS} style={{ maxWidth: 120 }} />
+        </div>
+      )}
       <Feedback state={state} />
       <button type="submit" className={hl.primaryBtn} disabled={pending}>
         {pending ? "جارٍ الحفظ…" : "حفظ"}

@@ -19,8 +19,8 @@ export function usePriorState() {
   const [partialTo, setPartialTo] = useState(1);
 
   /** What to send: nothing unless she said she has prior memorization. */
-  function value(): { completedSurahs: number[]; partial: PriorPartial | null } {
-    if (!hasPrior) return { completedSurahs: [], partial: null };
+  function value({ always = false }: { always?: boolean } = {}): { completedSurahs: number[]; partial: PriorPartial | null } {
+    if (!hasPrior && !always) return { completedSurahs: [], partial: null };
     return {
       completedSurahs,
       partial: partialSurah != null ? { surahNumber: partialSurah, fromAyah: partialFrom, toAyah: partialTo } : null,
@@ -62,7 +62,18 @@ export type PriorPickerWords = {
   partialWho: string;
 };
 
-export function PriorPicker({ plan, prior, words }: { plan: number[]; prior: PriorState; words: PriorPickerWords }) {
+/** alwaysOpen: no yes/no choice, the pickers are shown straight away (adding to an existing plan). */
+export function PriorPicker({
+  plan,
+  prior,
+  words,
+  alwaysOpen = false,
+}: {
+  plan: number[];
+  prior: PriorState;
+  words: PriorPickerWords;
+  alwaysOpen?: boolean;
+}) {
   const [rangeFrom, setRangeFrom] = useState<number | null>(null);
   const [rangeTo, setRangeTo] = useState<number | null>(null);
   const { hasPrior, setHasPrior, completedSurahs, setCompletedSurahs, partialSurah, setPartialSurah, partialFrom, setPartialFrom, partialTo, setPartialTo } = prior;
@@ -106,19 +117,23 @@ export function PriorPicker({ plan, prior, words }: { plan: number[]; prior: Pri
     [plan, completedSurahs],
   );
 
+  const open = alwaysOpen || hasPrior;
+
   return (
     <>
-      <div className={styles.groupPills}>
-        <div className={`${styles.groupPill} ${!hasPrior ? styles.sel : ""}`} onClick={() => setHasPrior(false)}>
-          {words.none}
+      {!alwaysOpen && (
+        <div className={styles.groupPills}>
+          <div className={`${styles.groupPill} ${!hasPrior ? styles.sel : ""}`} onClick={() => setHasPrior(false)}>
+            {words.none}
+          </div>
+          <div className={`${styles.groupPill} ${hasPrior ? styles.sel : ""}`} onClick={() => setHasPrior(true)}>
+            {words.yes}
+          </div>
         </div>
-        <div className={`${styles.groupPill} ${hasPrior ? styles.sel : ""}`} onClick={() => setHasPrior(true)}>
-          {words.yes}
-        </div>
-      </div>
+      )}
 
-      {hasPrior && (
-        <div style={{ marginTop: 16 }}>
+      {open && (
+        <div style={{ marginTop: alwaysOpen ? 0 : 16 }}>
           <div className={styles.subCard}>
             <div className={styles.subTitle}>تحديد نطاق من الخطة كمحفوظ بالكامل</div>
             <div className={styles.rangeRow}>

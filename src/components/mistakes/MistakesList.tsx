@@ -6,7 +6,7 @@ import { quranFont } from "./quran-font";
 import { TYPE_CLASS } from "./WordFlagger";
 import { SURAH_NAME } from "@/lib/quran-data";
 import { mistakeTypeLabel, type ActiveMistake } from "@/lib/students/mistake-types";
-import type { GroupGender } from "@/lib/text/gender";
+import type { RecitationSubject } from "@/lib/recitation/logic";
 
 // Arabic number agreement: مرتين، 3–10 مرات، 11+ مرة
 const timesText = (n: number) => (n === 2 ? "تكرّر مرتين" : `تكرّر ${n} ${n <= 10 ? "مرات" : "مرة"}`);
@@ -20,11 +20,12 @@ const keyOf = (m: ActiveMistake) => `${m.surahNumber}:${m.ayah}:${m.wordPosition
  */
 export function MistakesList({
   mistakes,
-  groupGender,
+  subject,
   onResolve,
 }: {
   mistakes: ActiveMistake[];
-  groupGender: GroupGender;
+  // whose mistakes: a course group's student, or the learner herself
+  subject: RecitationSubject;
   onResolve?: (m: ActiveMistake) => Promise<{ error: string } | { ok: true }>;
 }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -74,7 +75,7 @@ export function MistakesList({
                 <span className={styles.rowLoc}>
                   آية {m.ayah}
                 </span>
-                <span className={`${styles.typeBadge} ${TYPE_CLASS[m.type]}`}>{mistakeTypeLabel(m.type, groupGender)}</span>
+                <span className={`${styles.typeBadge} ${TYPE_CLASS[m.type]}`}>{mistakeTypeLabel(m.type, subject)}</span>
                 <span className={styles.rowDate}>
                   منذ <bdi dir="ltr">{m.firstFlagged}</bdi>
                   {m.count > 1 && <span className={styles.rowCount}> · {timesText(m.count)}</span>}

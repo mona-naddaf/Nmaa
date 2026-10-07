@@ -5,7 +5,7 @@ import styles from "./mistakes.module.css";
 import { quranFont } from "./quran-font";
 import { hasBasmalaPrefix, splitAyah } from "@/lib/quran-data/words";
 import { MISTAKE_TYPES, mistakeTypeLabel, type MistakeType } from "@/lib/students/mistake-types";
-import type { GroupGender } from "@/lib/text/gender";
+import type { RecitationSubject } from "@/lib/recitation/logic";
 
 /** "surah:ayah:wordPosition" → the mistake type flagged on that word. */
 export type WordFlags = Record<string, MistakeType>;
@@ -55,7 +55,7 @@ export function WordFlagger({
   startCollapsed,
   flags,
   onChange,
-  groupGender,
+  subject,
 }: {
   surahNumber: number;
   fromAyah: number;
@@ -63,7 +63,8 @@ export function WordFlagger({
   startCollapsed: boolean;
   flags: WordFlags;
   onChange: (flags: WordFlags) => void;
-  groupGender: GroupGender;
+  // whose mistakes: a course group's student, or the learner herself
+  subject: RecitationSubject;
 }) {
   const [ayahs, setAyahs] = useState<{ surah: number; text: string[] } | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -158,7 +159,7 @@ export function WordFlagger({
                             onClick={() => setOpenWord(openWord === key ? null : key)}
                             aria-haspopup="menu"
                             aria-expanded={openWord === key}
-                            title={type ? mistakeTypeLabel(type, groupGender) : undefined}
+                            title={type ? mistakeTypeLabel(type, subject) : undefined}
                           >
                             {w.text}
                           </button>
@@ -174,7 +175,7 @@ export function WordFlagger({
                                   className={`${styles.menuItem} ${TYPE_CLASS[t]} ${type === t ? styles.menuSel : ""}`}
                                   onClick={() => setFlag(key, t)}
                                 >
-                                  {mistakeTypeLabel(t, groupGender)}
+                                  {mistakeTypeLabel(t, subject)}
                                 </button>
                               ))}
                               {type && (
@@ -196,7 +197,7 @@ export function WordFlagger({
           <div className={styles.legend}>
             {MISTAKE_TYPES.map((t) => (
               <span key={t} className={`${styles.legendItem} ${TYPE_CLASS[t]}`}>
-                {mistakeTypeLabel(t, groupGender)}
+                {mistakeTypeLabel(t, subject)}
               </span>
             ))}
           </div>

@@ -84,7 +84,7 @@ export function StudentHome({ data }: { data: StudentHomeData }) {
             <span className={styles.dot} /> 🔖 كلمات {p("تتدرّب", "تتدرّبين")} عليها ({data.mistakes.length})
           </div>
           <div className={styles.card}>
-            <MistakesList mistakes={data.mistakes} groupGender={g} />
+            <MistakesList mistakes={data.mistakes} subject={g} />
           </div>
         </>
       )}

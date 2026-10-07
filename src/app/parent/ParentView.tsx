@@ -114,7 +114,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
               <span className={styles.dot} /> 🔖 كلمات للتدرّب عليها في البيت ({data.mistakes.length})
             </div>
             <div className={styles.card}>
-              <MistakesList mistakes={data.mistakes} groupGender={g} />
+              <MistakesList mistakes={data.mistakes} subject={g} />
             </div>
           </>
         )}

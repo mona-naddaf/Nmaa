@@ -429,7 +429,7 @@ export function DetailView({
             startCollapsed={pageResult.totalPages > 3}
             flags={entry.wordFlags}
             onChange={entry.setWordFlags}
-            groupGender={groupGender}
+            subject={groupGender}
           />
         )}
 
@@ -523,7 +523,7 @@ export function DetailView({
         <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakes.length, WORDS)} {...section("mistakes")}>
           <MistakesList
             mistakes={mistakes}
-            groupGender={groupGender}
+            subject={groupGender}
             onResolve={async (m) => {
               const result = await resolveMistakeAction(student.id, m.surahNumber, m.ayah, m.wordPosition);
               if (!("error" in result)) router.refresh();

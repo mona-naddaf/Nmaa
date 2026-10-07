@@ -96,33 +96,53 @@ export function validateNewStudent(
   if (!Number.isInteger(age) || age < MIN_AGE || age > MAX_AGE) return { error: "يُرجى إدخال عمر صحيح" };
   if (grade.length > MAX_GRADE_LENGTH) return { error: "الصف طويل جدًا" };
 
-  if (plan.some((n) => typeof n !== "number" || !AYAH_COUNT[n]) || new Set(plan).size !== plan.length) {
-    return { error: "خطة غير صحيحة" };
-  }
-  if (plan.length === 0) return { error: "يُرجى إضافة سورة واحدة على الأقل إلى الخطة" };
+  const bad = planProblem(plan) ?? priorProblem(plan, priorCompletedSurahs, priorPartial, `خطة ${studentNounDef(groupGender)}`);
+  if (bad) return { error: bad };
 
+  return { student: { ...input, name, grade: grade || null } };
+}
+
+/** A plan's problem, or null: real surahs, each once, at least one. */
+export function planProblem(plan: number[]): string | null {
+  if (plan.some((n) => typeof n !== "number" || !AYAH_COUNT[n]) || new Set(plan).size !== plan.length) {
+    return "خطة غير صحيحة";
+  }
+  if (plan.length === 0) return "يُرجى إضافة سورة واحدة على الأقل إلى الخطة";
+  return null;
+}
+
+/**
+ * Prior memorization's problem, or null: fully memorized surahs and at most
+ * one partly memorized surah, all in the plan. planOf names the plan in
+ * messages («خطة الطالبة», «خطتك»).
+ */
+export function priorProblem(
+  plan: number[],
+  priorCompletedSurahs: number[],
+  priorPartial: PriorPartial | null,
+  planOf: string,
+): string | null {
   if (priorCompletedSurahs.some((n) => typeof n !== "number")) {
-    return { error: "قائمة السور المحفوظة سابقًا غير صحيحة" };
+    return "قائمة السور المحفوظة سابقًا غير صحيحة";
   }
   if (new Set(priorCompletedSurahs).size !== priorCompletedSurahs.length) {
-    return { error: "توجد سورة مكرَّرة في قائمة السور المحفوظة سابقًا" };
+    return "توجد سورة مكرَّرة في قائمة السور المحفوظة سابقًا";
   }
   if (priorCompletedSurahs.some((n) => !plan.includes(n))) {
-    return { error: `لا يمكن تحديد سورة محفوظة سابقًا غير موجودة في خطة ${studentNounDef(groupGender)}` };
+    return `لا يمكن تحديد سورة محفوظة سابقًا غير موجودة في ${planOf}`;
   }
 
   if (priorPartial) {
     if (!plan.includes(priorPartial.surahNumber)) {
-      return { error: `لا يمكن تحديد سورة جارية غير موجودة في خطة ${studentNounDef(groupGender)}` };
+      return `لا يمكن تحديد سورة جارية غير موجودة في ${planOf}`;
     }
     if (priorCompletedSurahs.includes(priorPartial.surahNumber)) {
-      return { error: "لا يمكن أن تكون نفس السورة محفوظة بالكامل وجارية في آن واحد" };
+      return "لا يمكن أن تكون نفس السورة محفوظة بالكامل وجارية في آن واحد";
     }
     const range = calculatePageRange(priorPartial.surahNumber, priorPartial.fromAyah, priorPartial.toAyah);
-    if ("error" in range) return { error: range.error };
+    if ("error" in range) return range.error;
   }
-
-  return { student: { ...input, name, grade: grade || null } };
+  return null;
 }
 
 /**

@@ -18,8 +18,7 @@ import { todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { imperative, thisDemonstrative, pickByGroup, type GroupGender } from "@/lib/text/gender";
 import type { Session } from "@/lib/auth/session";
-import { wordAt } from "@/lib/quran-data/quran-text";
-import { MISTAKE_TYPES, type MistakeType } from "@/lib/students/mistake-types";
+import { validateFlaggedWords, type FlaggedWordInput } from "@/lib/recitation/flagged-words";
 import { BONUS_NOTE_MAX_LENGTH } from "@/lib/points/bonus";
 import { markSegmentsRecited } from "@/lib/home-log/data";
 
@@ -64,14 +63,6 @@ async function assignedGroupError(
   return `لا ${imperative(teacher?.gender ?? null, { m: "تملك", f: "تملكين" })} صلاحية الوصول إلى بيانات ${thisDemonstrative(student.group.gender)} ${pickByGroup(student.group.gender, { m: "الطالب", f: "الطالبة" })}`;
 }
 
-// a whole long surah is ~6000 words; anything beyond this isn't a real entry
-const MAX_MISTAKES_PER_SESSION = 2000;
-
-export interface FlaggedWordInput {
-  ayah: number;
-  wordPosition: number;
-  type: MistakeType;
-}
 
 export type SaveRecitationInput = {
   studentId: string;
@@ -139,20 +130,9 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
   }
 
   // flagged words: each must be a real word inside this session's range
-  const flagged = Array.isArray(input.mistakes) ? input.mistakes : [];
-  if (flagged.length > MAX_MISTAKES_PER_SESSION) return { error: "عدد الكلمات المحدّدة كبير جدًا" };
-  const flaggedWords: (FlaggedWordInput & { wordText: string })[] = [];
-  const seenWords = new Set<string>();
-  for (const m of flagged) {
-    const key = `${m?.ayah}:${m?.wordPosition}`;
-    const inRange = Number.isInteger(m?.ayah) && m.ayah >= input.fromAyah && m.ayah <= input.toAyah;
-    const wordText = inRange && Number.isInteger(m.wordPosition) ? wordAt(input.surahNumber, m.ayah, m.wordPosition) : null;
-    if (!wordText || !MISTAKE_TYPES.includes(m.type) || seenWords.has(key)) {
-      return { error: "بيانات الكلمات المحدّدة كأخطاء غير صحيحة" };
-    }
-    seenWords.add(key);
-    flaggedWords.push({ ayah: m.ayah, wordPosition: m.wordPosition, type: m.type, wordText });
-  }
+  const checkedWords = validateFlaggedWords(input.mistakes, input.surahNumber, input.fromAyah, input.toAyah);
+  if ("error" in checkedWords) return { error: checkedWords.error };
+  const flaggedWords = checkedWords.words;
 
   const sessionDay = parseDateOnlyInput(input.sessionDate);
   if (!sessionDay) {

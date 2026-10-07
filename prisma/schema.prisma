@@ -776,10 +776,58 @@ model RafiqUser {
   // days a completed surah may go without review before it's flagged;
   // null = review reminders off (the default)
   reviewReminderDays    Int?
+  // her own targets for the home memorization counters («حفظي في البيت»);
+  // changing them also updates her active passages
+  homeTargetListen      Int       @default(5)
+  homeTargetRepeat      Int       @default(10)
+  homeTargetRecite      Int       @default(3)
 
-  planItems RafiqPlanItem[]
-  sessions  RafiqSession[]
-  mistakes  RafiqMistake[]
+  planItems    RafiqPlanItem[]
+  sessions     RafiqSession[]
+  mistakes     RafiqMistake[]
+  homeSegments RafiqHomeSegment[]
+  homeTaps     RafiqHomeTap[]
+}
+
+// A passage she is memorizing, within one surah (same meaning as
+// HomeSegment). Counts are always derived from taps. Nothing here moves her
+// position; only a recorded NEW session does.
+model RafiqHomeSegment {
+  id                String    @id @default(cuid())
+  userId            String
+  user              RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surahNumber       Int
+  fromAyah          Int
+  toAyah            Int
+  targetListen      Int
+  targetRepeat      Int
+  targetRecite      Int
+  createdAt         DateTime  @default(now())
+  // set when she marks it done, or when a NEW session of hers covers the
+  // whole passage (finishedBySession)
+  finishedAt        DateTime?
+  finishedBySession Boolean   @default(false)
+
+  taps RafiqHomeTap[]
+
+  @@index([userId, finishedAt])
+}
+
+// One "+" tap (same meaning as HomeTap): ayah null = a whole-passage counter.
+model RafiqHomeTap {
+  id        String           @id @default(cuid())
+  segmentId String
+  segment   RafiqHomeSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      RafiqUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ayah      Int?
+  kind      HomeTapKind
+  // her local day
+  day       DateTime         @db.Date
+  createdAt DateTime         @default(now())
+
+  @@index([segmentId, kind, ayah])
+  @@index([userId, createdAt])
 }
 
 model RafiqPlanItem {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getRafiqUser } from "@/lib/rafiq/session";
 import { getPlan, getReach } from "@/lib/rafiq/memorization";
+import { finishCoveredSegments } from "@/lib/rafiq/home-log";
 import { acceptSessionDay, occurredAtFor } from "@/lib/rafiq/days";
 import { advancesPosition, calculatePageRange, classifyRecitation, type RecitationSituation, type SessionType } from "@/lib/recitation/logic";
 import { validateFlaggedWords } from "@/lib/recitation/flagged-words";
@@ -123,6 +124,8 @@ export async function saveSessionAction(input: SaveSessionInput): Promise<RafiqR
       },
     },
   });
+  // a new memorization that covers a whole home passage of hers finishes it
+  if (advancesPosition({ type })) await finishCoveredSegments(user.id, surahNumber, fromAyah, toAyah, day);
   refresh();
   return {};
 }

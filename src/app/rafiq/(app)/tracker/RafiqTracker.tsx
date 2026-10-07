@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "@/components/student-work/work.module.css";
@@ -12,6 +13,8 @@ import type { RafiqTrackerData } from "@/lib/rafiq/tracker";
 import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { addItemAction, removeItemAction, setCheckAction, updateItemAction } from "./actions";
+import { publishTemplateAction } from "../templates/actions";
+import { TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 
 type Item = RafiqTrackerData["active"][number];
 type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
@@ -45,6 +48,9 @@ export function RafiqTracker({ data, g }: { data: RafiqTrackerData; g: GroupGend
     <div>
       <div className={hl.sectionTitle}>
         <span style={{ fontSize: 16, color: "var(--ink)" }}>✅ جدول المتابعة</span>
+        <Link href="/rafiq/templates" className={hl.linkBtn}>
+          📚 بنك الجداول ←
+        </Link>
       </div>
 
       {data.active.length === 0 && data.sheet.items.length === 0 ? (
@@ -87,7 +93,94 @@ export function RafiqTracker({ data, g }: { data: RafiqTrackerData; g: GroupGend
           ))}
         </div>
       )}
+
+      {data.active.length > 0 && <Publish items={data.active} p={p} />}
     </div>
+  );
+}
+
+/** Shares a snapshot of some of her items in the template bank. */
+function Publish({ items, p }: { items: Item[]; p: (m: string, f: string) => string }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  // what she unticked; every other current item (including ones added later) is included
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const chosen = new Set(items.filter((i) => !excluded.has(i.id)).map((i) => i.id));
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function toggle(id: string) {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function publish() {
+    setMsg(null);
+    startTransition(async () => {
+      const r = await publishTemplateAction({ title, description, itemIds: items.filter((i) => chosen.has(i.id)).map((i) => i.id) });
+      if (r.error) return setMsg({ ok: false, text: r.error });
+      setOpen(false);
+      setTitle("");
+      setDescription("");
+      setMsg({ ok: true, text: "تم نشر الجدول في البنك ✓" });
+    });
+  }
+
+  return (
+    <>
+      <div className={hl.sectionTitle}>
+        <span>مشاركة جدولي</span>
+        {!open && (
+          <button type="button" className={hl.ghostBtn} onClick={() => setOpen(true)}>
+            نشر في بنك الجداول
+          </button>
+        )}
+      </div>
+      {msg && !open && (
+        <div className={msg.ok ? hl.ok : hl.err} style={{ margin: "0 4px 10px" }}>
+          {msg.text} {msg.ok && <Link href="/rafiq/templates">عرض البنك</Link>}
+        </div>
+      )}
+      {open && (
+        <div className={hl.section}>
+          <p className={hl.muted} style={{ marginTop: 0 }}>
+            يُنشر ما {p("تختاره", "تختارينه")} من بنودك بعنوانه ودرجاته وأيامه، دون اسمك. ما {p("تعدّله", "تعدّلينه")} في جدولك بعد النشر لا
+            يغيّر الجدول المنشور.
+          </p>
+          <div className={styles.field}>
+            <label htmlFor="tpl-title">عنوان الجدول</label>
+            <input id="tpl-title" className={styles.input} value={title} maxLength={TEMPLATE_LIMITS.titleMax} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: جدول المراجعة اليومية" />
+          </div>
+          <div className={styles.field}>
+            <label htmlFor="tpl-desc">وصف (اختياري)</label>
+            <textarea id="tpl-desc" className={styles.input} value={description} maxLength={TEMPLATE_LIMITS.descriptionMax} onChange={(e) => setDescription(e.target.value)} rows={3} />
+          </div>
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>البنود</span>
+            {items.map((i) => (
+              <label key={i.id} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14, margin: "4px 0" }}>
+                <input type="checkbox" checked={chosen.has(i.id)} onChange={() => toggle(i.id)} />
+                {i.title} <span className={hl.muted}>({daysLabel(i.days)})</span>
+              </label>
+            ))}
+          </div>
+          {msg && !msg.ok && <div className={hl.err}>{msg.text}</div>}
+          <div className={hl.actionsRow}>
+            <button type="button" className={hl.primaryBtn} onClick={publish} disabled={pending || chosen.size === 0}>
+              {pending ? "جارٍ النشر…" : "نشر"}
+            </button>
+            <button type="button" className={hl.ghostBtn} onClick={() => setOpen(false)} disabled={pending}>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

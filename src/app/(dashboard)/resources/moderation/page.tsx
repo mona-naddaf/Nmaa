@@ -7,6 +7,7 @@ import { creatorLabel } from "@/lib/resources/data";
 import { urlHost } from "@/lib/resources/validate";
 import styles from "../bank.module.css";
 import { Moderation } from "./Moderation";
+import { rafiqEnabled } from "@/lib/rafiq/enabled";
 
 // Site owner only. The one place that shows who added a resource and from
 // which course.
@@ -45,9 +46,20 @@ export default async function ModerationPage() {
           <h1>إدارة بنك الوسائل</h1>
           <p>تظهر هذه الصفحة لمالك الموقع فقط.</p>
         </div>
-        <Link href="/resources" className={styles.secondaryBtn}>
-          → العودة إلى البنك
-        </Link>
+        {rafiqEnabled() ? (
+          <div className={styles.headButtons}>
+            <Link href="/tracker-templates" className={styles.secondaryBtn}>
+              بنك جداول المتابعة (رفيق الحفظ)
+            </Link>
+            <Link href="/resources" className={styles.secondaryBtn}>
+              → العودة إلى البنك
+            </Link>
+          </div>
+        ) : (
+          <Link href="/resources" className={styles.secondaryBtn}>
+            → العودة إلى البنك
+          </Link>
+        )}
       </div>
       <Moderation
         reported={reported.map((r) => ({

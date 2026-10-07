@@ -792,6 +792,8 @@ model RafiqUser {
   trackerChecks RafiqTrackerCheck[]
   calendarDays  RafiqCalendarDay[]
   calendarAdjustments RafiqCalendarAdjustment[]
+  templates       TrackerTemplate[]
+  templateReports TrackerTemplateReport[]
 
   // her calendar: the optional occasions she turned on (the core ones are
   // always shown), as Course.enabledOccasions
@@ -975,6 +977,68 @@ model RafiqMistake {
 
   @@unique([sessionId, surahNumber, ayah, wordPosition])
   @@index([userId, resolvedAt])
+}
+
+// ---------- Tracker template bank («بنك جداول المتابعة») ----------
+//
+// Shared between «رفيق الحفظ» users, separate from the resource bank. Same
+// rules: the publisher is never shown (bank queries never select it), a
+// report button, auto-hidden at 3 open reports from different people, and
+// the site owner (SITE_OWNER_EMAILS) reviews reports and may delete any
+// template. A template is a snapshot: using it copies its items into her
+// own tracker, and later edits on either side don't affect the other.
+
+model TrackerTemplate {
+  id                String     @id @default(cuid())
+  title             String
+  description       String?
+  // normalized title + description for diacritic-insensitive search
+  searchKey         String
+  // added by the site owner, shown with «مقترح»
+  suggested         Boolean    @default(false)
+  // the Rafiq user who published it; null for the owner's own templates, or
+  // once the publisher's account is deleted (the template stays, anonymous)
+  createdByRafiqId  String?
+  createdByRafiq    RafiqUser? @relation(fields: [createdByRafiqId], references: [id], onDelete: SetNull)
+  // set at 3 open reports, cleared when the owner dismisses them; a hidden
+  // template shows only to its publisher (and the owner)
+  hiddenAt          DateTime?
+  useCount          Int        @default(0)
+  createdAt         DateTime   @default(now())
+
+  items   TrackerTemplateItem[]
+  reports TrackerTemplateReport[]
+
+  @@index([createdAt])
+  @@index([createdByRafiqId])
+}
+
+model TrackerTemplateItem {
+  id         String          @id @default(cuid())
+  templateId String
+  template   TrackerTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  title      String
+  value      Int
+  days       Int
+  sortOrder  Int             @default(0)
+
+  @@index([templateId])
+}
+
+// One open report per person per template (partial unique index in the
+// migration). Resolved reports are kept with resolvedAt set.
+model TrackerTemplateReport {
+  id              String          @id @default(cuid())
+  templateId      String
+  template        TrackerTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  reason          String?
+  reporterRafiqId String?
+  reporterRafiq   RafiqUser?      @relation(fields: [reporterRafiqId], references: [id], onDelete: SetNull)
+  createdAt       DateTime        @default(now())
+  resolvedAt      DateTime?
+
+  @@index([templateId, resolvedAt])
+  @@index([reporterRafiqId, createdAt])
 }
 
 // One row per failed login (parent, public board, student or supervisor), keyed by a

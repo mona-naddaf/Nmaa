@@ -24,11 +24,14 @@ export function EventForm({
   initial,
   onSubmit,
   onCancel,
+  titleRequired = "يُرجى إدخال عنوان الفعالية",
 }: {
   heading: string;
   initial: EventInput;
   onSubmit: (input: EventInput) => Promise<{ error?: string }>;
   onCancel: () => void;
+  // shown when the title is left empty
+  titleRequired?: string;
 }) {
   const [title, setTitle] = useState(initial.title);
   const [description, setDescription] = useState(initial.description);
@@ -75,7 +78,7 @@ export function EventForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!title.trim()) return setError("يُرجى إدخال عنوان الفعالية");
+    if (!title.trim()) return setError(titleRequired);
     if (!date) return setError(dateError ?? "يُرجى اختيار تاريخ صحيح");
     startTransition(async () => {
       const result = await onSubmit({ title, date, description });

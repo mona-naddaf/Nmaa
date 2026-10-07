@@ -790,6 +790,40 @@ model RafiqUser {
   commitDays    RafiqCommitDays[]
   trackerItems  RafiqTrackerItem[]
   trackerChecks RafiqTrackerCheck[]
+  calendarDays  RafiqCalendarDay[]
+  calendarAdjustments RafiqCalendarAdjustment[]
+
+  // her calendar: the optional occasions she turned on (the core ones are
+  // always shown), as Course.enabledOccasions
+  enabledOccasions Occasion[] @default([])
+}
+
+// A personal day she added to her calendar (same meaning as CalendarEvent).
+model RafiqCalendarDay {
+  id          String    @id @default(cuid())
+  userId      String
+  user        RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  date        DateTime  @db.Date
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, date])
+}
+
+// Her own moon-sighting correction for one occurrence of an occasion (same
+// meaning as CalendarAdjustment); resetting to 0 deletes the row.
+model RafiqCalendarAdjustment {
+  id         String    @id @default(cuid())
+  userId     String
+  user       RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  occasion   Occasion
+  hijriYear  Int
+  offsetDays Int
+  createdAt  DateTime  @default(now())
+
+  @@unique([userId, occasion, hijriYear])
 }
 
 // The weekdays she intends to commit to, from a given day of hers onward

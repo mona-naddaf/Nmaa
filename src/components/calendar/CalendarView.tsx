@@ -61,6 +61,7 @@ export type CalendarWording = {
   pastTitle: string;
   pastEmpty: string;
   adjustNote: string;
+  titleRequired: string;
 };
 
 export const COURSE_CALENDAR_WORDING: CalendarWording = {
@@ -75,6 +76,7 @@ export const COURSE_CALENDAR_WORDING: CalendarWording = {
   pastTitle: "سجل الفعاليات السابقة",
   pastEmpty: "لم تُسجَّل فعاليات سابقة بعد.",
   adjustNote: " يمكن تعديل موعد أي مناسبة للعام الحالي والقادم من قائمة القادم أو من يومها في التقويم.",
+  titleRequired: "يُرجى إدخال عنوان الفعالية",
 };
 
 type FormState = { kind: "new"; date: string } | { kind: "edit"; event: CustomEvent } | null;
@@ -456,6 +458,7 @@ export function CalendarView({
                 }
                 onSubmit={submitForm}
                 onCancel={() => setForm(null)}
+                titleRequired={w.titleRequired}
               />
             </div>
           )}

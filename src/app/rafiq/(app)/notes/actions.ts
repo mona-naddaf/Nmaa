@@ -66,7 +66,7 @@ export async function saveNoteAction(input: {
   ayah: number;
   text: string;
   tagIds: string[];
-}): Promise<Result> {
+}): Promise<Result & { note?: VerseNote }> {
   const uid = await userId();
   if (!uid) return SIGNED_OUT;
   const text = cleanNoteText(input?.text);
@@ -75,15 +75,18 @@ export async function saveNoteAction(input: {
   if (!Array.isArray(tagIds)) return tagIds;
 
   if (input?.id) {
-    const note = await prisma.rafiqNote.findFirst({ where: { id: String(input.id), userId: uid }, select: { id: true } });
-    if (!note) return { error: "هذه الملاحظة غير موجودة" };
+    const note = await prisma.rafiqNote.findFirst({
+      where: { id: String(input.id), userId: uid },
+      select: { id: true, surahNumber: true, ayah: true },
+    });
+    if (!note) return { error: "هذه الملاحظة غير موجودة — ربما حُذفت" };
     await prisma.$transaction([
       prisma.rafiqNote.update({ where: { id: note.id }, data: { text: text.text } }),
       prisma.rafiqNoteTagLink.deleteMany({ where: { noteId: note.id } }),
       prisma.rafiqNoteTagLink.createMany({ data: tagIds.map((tagId) => ({ noteId: note.id, tagId })) }),
     ]);
     refresh();
-    return {};
+    return { note: (await getVerseNotes(uid, note.surahNumber, note.ayah)).find((n) => n.id === note.id) };
   }
 
   const verse = realVerse(input?.surahNumber, input?.ayah);
@@ -96,11 +99,12 @@ export async function saveNoteAction(input: {
   if (onVerse >= NOTE_LIMITS.perVerse) return { error: `وصلت ملاحظات هذه الآية إلى حدّها (${NOTE_LIMITS.perVerse})` };
   if (total >= NOTE_LIMITS.perAccount) return { error: `وصلت الملاحظات إلى حدّها (${NOTE_LIMITS.perAccount})` };
   if (today >= NOTE_LIMITS.perDay) return { error: "ملاحظات كثيرة اليوم — يُرجى المتابعة غدًا" };
-  await prisma.rafiqNote.create({
+  const created = await prisma.rafiqNote.create({
     data: { userId: uid, ...verse, text: text.text, tags: { create: tagIds.map((tagId) => ({ tagId })) } },
+    select: { id: true },
   });
   refresh();
-  return {};
+  return { note: (await getVerseNotes(uid, verse.surahNumber, verse.ayah)).find((n) => n.id === created.id) };
 }
 
 export async function deleteNoteAction(id: string): Promise<Result> {

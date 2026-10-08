@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import styles from "./notes.module.css";
 import { VerseNotesPanel } from "./VerseNotesPanel";
 import { useSurahText } from "@/components/home-log/useSurahText";
@@ -9,7 +9,7 @@ import { quranFont } from "@/components/mistakes/quran-font";
 import { SURAH_NAME } from "@/lib/quran-data";
 import { ayahOnly } from "@/lib/quran-data/words";
 import { NOTE_COLORS, verseKey, type NoteSummary } from "@/lib/rafiq/notes-rules";
-import type { GroupGender } from "@/lib/text/gender";
+import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 
 // Her note markers across Rafiq: the layout loads which verses have notes,
 // and any marker opens that verse's notes in one shared dialog.
@@ -62,31 +62,57 @@ export function VerseNoteMarker({ surah, ayah }: { surah: number; ayah: number }
 function VerseNotesDialog({ surah, ayah, g, onClose }: { surah: number; ayah: number; g: GroupGender; onClose: () => void }) {
   const raw = useSurahText(surah)?.[ayah - 1];
   const text = raw && ayahOnly(surah, ayah, raw);
+  const p = (m: string, f: string) => pickByGroup(g, { m, f });
+  // unsaved text: closing asks first (it also stays as a draft on this device)
+  const [dirty, setDirty] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const close = useCallback(() => (dirty ? setConfirmClose(true) : onClose()), [dirty, onClose]);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [close]);
+  const leave = (e: React.MouseEvent) => {
+    if (dirty) {
+      e.preventDefault();
+      setConfirmClose(true);
+    } else onClose();
+  };
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="verse-notes-title" onClick={onClose}>
+    <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="verse-notes-title" onClick={close}>
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
         <div className={styles.dialogHead}>
           <div className={styles.dialogTitle} id="verse-notes-title">
             ملاحظاتي · سورة {SURAH_NAME[surah]} · الآية {ayah}
           </div>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="إغلاق">
+          <button type="button" className={styles.closeBtn} onClick={close} aria-label="إغلاق">
             ×
           </button>
         </div>
         <div className={`${styles.verseText} ${quranFont.className}`} lang="ar">
           {text ?? "…"} <span style={{ color: "var(--gold)" }}>﴿{ayah}﴾</span>
         </div>
-        <VerseNotesPanel surah={surah} ayah={ayah} g={g} />
+        {confirmClose && (
+          <div className={styles.form} role="alert" style={{ background: "var(--paper)" }}>
+            <div style={{ fontWeight: 700, fontSize: 13.5 }}>
+              {p("لم تحفظ", "لم تحفظي")} ملاحظتك بعد. تبقى مسودةً على هذا الجهاز وتعود حين {p("تفتح", "تفتحين")} هذه الآية.
+            </div>
+            <div className={styles.formRow}>
+              <button type="button" className={styles.primaryBtn} onClick={() => setConfirmClose(false)}>
+                متابعة الكتابة
+              </button>
+              <button type="button" className={styles.ghostBtn} onClick={onClose}>
+                إغلاق
+              </button>
+            </div>
+          </div>
+        )}
+        <VerseNotesPanel surah={surah} ayah={ayah} g={g} onDirtyChange={setDirty} />
         <div className={styles.formRow} style={{ justifyContent: "space-between" }}>
-          <Link href={`/rafiq/verse/${surah}/${ayah}`} className={styles.linkBtn} onClick={onClose}>
+          <Link href={`/rafiq/verse/${surah}/${ayah}`} className={styles.linkBtn} onClick={leave}>
             صفحة الآية ←
           </Link>
-          <Link href="/rafiq/notes" className={styles.linkBtn} onClick={onClose}>
+          <Link href="/rafiq/notes" className={styles.linkBtn} onClick={leave}>
             كل ملاحظاتي ←
           </Link>
         </div>

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { getStudentAccess } from "@/lib/auth/student-session";
 import { effectiveTargets } from "@/lib/home-log/data";
 import { acceptLocalDay, HOME_LIMITS, HOME_TAP_KINDS, validateRange, type HomeTapKind } from "@/lib/home-log/rules";
+import { checkMark, resolveHomeMark, setHomeMark, type MarkInput } from "@/lib/home-log/self-marks";
 
 // The student's own home log. Every action re-checks her session, that the
 // course has the home log on, and that the segment is hers. Nothing here
@@ -125,4 +126,36 @@ export async function deleteSegmentAction(segmentId: string): Promise<HomeResult
   await prisma.homeSegment.delete({ where: { id: segment.id } });
   refresh();
   return {};
+}
+
+// ---------- her own marked mistakes (private to her) ----------
+
+const MARKS_OFF = { error: "تحديد الأخطاء في حفظ البيت غير متاح حاليًا" };
+
+async function markingStudent() {
+  const access = await getStudentAccess();
+  return access?.homeMistakesEnabled ? access.studentId : null;
+}
+
+/** Marks, re-types or removes (type null) one word of an active passage of hers. */
+export async function markHomeWordAction(input: MarkInput): Promise<HomeResult> {
+  const studentId = await markingStudent();
+  if (!studentId) return MARKS_OFF;
+  const segment = await prisma.homeSegment.findFirst({
+    where: { id: String(input?.segmentId ?? ""), studentId, finishedAt: null },
+    select: { surahNumber: true, fromAyah: true, toAyah: true },
+  });
+  if (!segment) return { error: "هذا المقطع غير متاح" };
+  const mark = checkMark(segment, input);
+  if ("error" in mark) return { error: mark.error };
+  return setHomeMark(studentId, segment.surahNumber, mark);
+}
+
+export async function resolveHomeWordAction(surahNumber: number, ayah: number, wordPosition: number): Promise<{ error: string } | { ok: true }> {
+  const studentId = await markingStudent();
+  if (!studentId) return { error: MARKS_OFF.error };
+  const done = await resolveHomeMark(studentId, Number(surahNumber), Number(ayah), Number(wordPosition));
+  if (!done) return { error: "هذه الكلمة غير موجودة في قائمتك" };
+  refresh();
+  return { ok: true };
 }

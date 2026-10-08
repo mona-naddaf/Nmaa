@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import type { ActiveMistake, MistakeType } from "@/lib/students/mistake-types";
+import type { ActiveMistake, MistakeSource, MistakeType } from "@/lib/students/mistake-types";
 
 /**
  * A student's unresolved flagged words, one entry per word: repeated flags
@@ -21,10 +21,11 @@ export async function getActiveMistakes(studentId: string, plan: number[]): Prom
 
 /**
  * The merge and sort above, for unresolved rows already loaded oldest first
- * (a course student's, or a «رفيق الحفظ» learner's own).
+ * (a course student's, or a «رفيق الحفظ» learner's own). Rows that carry a
+ * source (Rafiq's merged list) also collect where each word's flags came from.
  */
 export function mergeActiveMistakes(
-  rows: { surahNumber: number; ayah: number; wordPosition: number; wordText: string; type: MistakeType; flaggedAt: Date }[],
+  rows: { surahNumber: number; ayah: number; wordPosition: number; wordText: string; type: MistakeType; flaggedAt: Date; source?: MistakeSource }[],
   plan: number[],
 ): ActiveMistake[] {
   const byWord = new Map<string, ActiveMistake>();
@@ -34,6 +35,7 @@ export function mergeActiveMistakes(
     if (existing) {
       existing.count++;
       existing.type = r.type;
+      if (r.source && !existing.sources?.includes(r.source)) existing.sources = [...(existing.sources ?? []), r.source];
     } else {
       byWord.set(key, {
         surahNumber: r.surahNumber,
@@ -43,6 +45,7 @@ export function mergeActiveMistakes(
         type: r.type,
         count: 1,
         firstFlagged: r.flaggedAt.toISOString().slice(0, 10),
+        ...(r.source ? { sources: [r.source] } : {}),
       });
     }
   }

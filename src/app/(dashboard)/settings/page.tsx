@@ -119,6 +119,7 @@ export default async function SettingsPage() {
           boardEnabled={course.studentBoardEnabled}
           homeLogEnabled={course.homeLogEnabled}
           homeTargets={{ listen: course.homeTargetListen, repeat: course.homeTargetRepeat, recite: course.homeTargetRecite }}
+          homeMistakesEnabled={course.homeMistakesEnabled}
           assignmentsEnabled={course.assignmentsEnabled}
           trackerEnabled={course.trackerEnabled}
         />

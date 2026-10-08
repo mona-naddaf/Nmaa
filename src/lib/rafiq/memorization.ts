@@ -91,7 +91,7 @@ export async function getMemorization(userId: string): Promise<MemorizationView 
   const { planTemplate, planChangedAt, reviewReminderDays, plan } = await getPlan(userId);
   if (!planTemplate) return null;
 
-  const [sessions, mistakeRows] = await Promise.all([
+  const [sessions, mistakeRows, homeMarkRows] = await Promise.all([
     prisma.rafiqSession.findMany({
       where: { userId },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
@@ -102,7 +102,17 @@ export async function getMemorization(userId: string): Promise<MemorizationView 
       select: { surahNumber: true, ayah: true, wordPosition: true, wordText: true, type: true, flaggedAt: true },
       orderBy: [{ flaggedAt: "asc" }, { createdAt: "asc" }],
     }),
+    // her self-marked words from home practice join the same list, labelled
+    prisma.rafiqHomeMistake.findMany({
+      where: { userId, resolvedAt: null },
+      select: { surahNumber: true, ayah: true, wordPosition: true, wordText: true, type: true, flaggedAt: true },
+    }),
   ]);
+  // oldest first across both sources, so each word keeps its latest type
+  const allMarks = [
+    ...mistakeRows.map((r) => ({ ...r, source: "SESSION" as const })),
+    ...homeMarkRows.map((r) => ({ ...r, source: "HOME" as const })),
+  ].sort((a, b) => a.flaggedAt.getTime() - b.flaggedAt.getTime());
 
   const reach = deriveReach(plan, forPosition(sessions, planChangedAt));
   const position = deriveCurrentPosition(plan, reach);
@@ -117,7 +127,7 @@ export async function getMemorization(userId: string): Promise<MemorizationView 
     recitedPages: round3(sessions.filter((s) => s.source === "LOGGED").reduce((sum, s) => sum + Number(s.pagesCalculated), 0)),
     loggedSessions: sessions.filter((s) => s.source === "LOGGED").length,
     progressBars: computeProgressBars({ settings: ALL_BARS, plan, position, coverage }),
-    mistakes: mergeActiveMistakes(mistakeRows, plan),
+    mistakes: mergeActiveMistakes(allMarks, plan),
     reviewReminderDays,
     overdue: computeOverdueSurahs(sessions, reviewReminderDays, todayDateOnly()),
     history: sessions.map((s) => ({

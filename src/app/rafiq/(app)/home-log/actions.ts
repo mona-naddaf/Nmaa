@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getRafiqUser } from "@/lib/rafiq/session";
 import { getRafiqTargets } from "@/lib/rafiq/home-log";
+import { setRafiqMark } from "@/lib/rafiq/home-mistakes";
+import { checkMark, type MarkInput } from "@/lib/home-log/self-marks";
 import { acceptLocalDay, HOME_LIMITS, HOME_TAP_KINDS, validateRange, validateTargets, type HomeTapKind, type HomeTargets } from "@/lib/home-log/rules";
 
 // Her «حفظي في البيت». The same rules and limits as a course student's
@@ -138,4 +140,18 @@ export async function setTargetsAction(input: HomeTargets): Promise<HomeResult> 
   ]);
   refresh();
   return {};
+}
+
+/** Marks, re-types or removes (type null) one word of an active passage of hers. */
+export async function markWordAction(input: MarkInput): Promise<HomeResult> {
+  const uid = await userId();
+  if (!uid) return SIGNED_OUT;
+  const segment = await prisma.rafiqHomeSegment.findFirst({
+    where: { id: String(input?.segmentId ?? ""), userId: uid, finishedAt: null },
+    select: { surahNumber: true, fromAyah: true, toAyah: true },
+  });
+  if (!segment) return { error: "هذا المقطع غير متاح" };
+  const mark = checkMark(segment, input);
+  if ("error" in mark) return { error: mark.error };
+  return setRafiqMark(uid, segment.surahNumber, mark);
 }

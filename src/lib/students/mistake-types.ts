@@ -40,4 +40,17 @@ export interface ActiveMistake {
   count: number;
   /** "YYYY-MM-DD" of the earliest unresolved flag */
   firstFlagged: string;
+  /**
+   * Where its flags came from, only in «رفيق الحفظ»'s one list (her
+   * sessions and/or her home practice). Course lists never set it.
+   */
+  sources?: MistakeSource[];
+}
+
+export type MistakeSource = "SESSION" | "HOME";
+
+export function mistakeSourceLabel(sources: MistakeSource[]): string {
+  const session = sources.includes("SESSION");
+  const home = sources.includes("HOME");
+  return session && home ? "من جلساتي وحفظ البيت" : home ? "من حفظ البيت" : "من جلساتي";
 }

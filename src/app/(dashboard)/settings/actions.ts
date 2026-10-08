@@ -255,6 +255,16 @@ export async function setStudentBoardEnabledAction(enabled: boolean): Promise<{ 
 
 // Home memorization log: needs student login on. Turning it off hides the
 // tab and refuses its actions; segments and taps are kept.
+/** Students marking their own mistakes in home memorization (needs the home log on). */
+export async function setHomeMistakesEnabledAction(enabled: boolean): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  const course = await prisma.course.findUniqueOrThrow({ where: { id: cid }, select: { homeLogEnabled: true } });
+  if (enabled && !course.homeLogEnabled) return { error: "يُرجى تفعيل «حفظي في البيت» أولًا" };
+  await prisma.course.update({ where: { id: cid }, data: { homeMistakesEnabled: enabled === true } });
+  revalidatePath("/", "layout");
+  return {};
+}
+
 export async function setHomeLogEnabledAction(enabled: boolean): Promise<{ error?: string }> {
   const cid = await currentCourseId();
   const course = await prisma.course.findUniqueOrThrow({ where: { id: cid }, select: { studentLoginEnabled: true } });

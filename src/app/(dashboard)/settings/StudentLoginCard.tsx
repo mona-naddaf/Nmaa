@@ -5,6 +5,7 @@ import styles from "./settings.module.css";
 import {
   setHomeDefaultTargetsAction,
   setHomeLogEnabledAction,
+  setHomeMistakesEnabledAction,
   setStudentBoardEnabledAction,
   setStudentFeatureEnabledAction,
   setStudentLoginEnabledAction,
@@ -17,6 +18,7 @@ export function StudentLoginCard({
   boardEnabled,
   homeLogEnabled,
   homeTargets,
+  homeMistakesEnabled,
   assignmentsEnabled,
   trackerEnabled,
 }: {
@@ -24,6 +26,7 @@ export function StudentLoginCard({
   boardEnabled: boolean;
   homeLogEnabled: boolean;
   homeTargets: HomeTargets;
+  homeMistakesEnabled: boolean;
   assignmentsEnabled: boolean;
   trackerEnabled: boolean;
 }) {
@@ -31,6 +34,8 @@ export function StudentLoginCard({
   const [error, setError] = useState<string | null>(null);
   // the board option only means something while student login is on
   const dependent = enabled ? undefined : { opacity: 0.5, pointerEvents: "none" as const };
+  // self-marked mistakes live inside the home log
+  const homeDependent = enabled && homeLogEnabled ? undefined : { opacity: 0.5, pointerEvents: "none" as const };
 
   function run(action: () => Promise<{ error?: string } | void>) {
     setError(null);
@@ -122,6 +127,19 @@ export function StudentLoginCard({
             غير مفعّل
           </div>
         </div>
+      </div>
+      <div className={styles.settingRow} style={homeDependent} aria-disabled={!(enabled && homeLogEnabled)}>
+        <div className={styles.settingText}>
+          <div className={styles.settingTitle}>تحديد الطالب لأخطائه في حفظ البيت</div>
+          <div className={styles.settingDesc}>
+            يحدّد الطالب بنفسه، وهو يتدرّب على مقطع في «حفظي في البيت»، الكلمات التي أخطأ فيها (بالأنواع الأربعة
+            نفسها)، ثم يعلّمها متقَنة حين يتقنها. وهي خاصة به وحده: لا تظهر للمعلمين ولا للمشرفين ولا لوليّ الأمر، ولا
+            تدخل في التقارير ولا في قائمة الأخطاء الرسمية، ولا تؤثّر في النقاط أو الموقع.
+            {enabled && !homeLogEnabled && " (يتاح بعد تفعيل «حفظي في البيت»)"}
+            {!enabled && " (يتاح بعد تفعيل دخول الطلاب)"}
+          </div>
+        </div>
+        <OnOffPills on={homeMistakesEnabled} onChange={(v) => !pending && run(() => setHomeMistakesEnabledAction(v))} />
       </div>
       <div className={styles.settingRow} style={dependent} aria-disabled={!enabled}>
         <div className={styles.settingText}>

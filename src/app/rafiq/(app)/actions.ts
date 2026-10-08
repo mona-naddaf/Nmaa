@@ -140,15 +140,17 @@ export async function deleteSessionAction(sessionId: string): Promise<RafiqResul
   return {};
 }
 
-/** Resolves every open flag on one word of hers. */
+/** Resolves every open flag on one word of hers — from her sessions and her home practice alike. */
 export async function resolveMistakeAction(surahNumber: number, ayah: number, wordPosition: number): Promise<{ error: string } | { ok: true }> {
   const user = await getRafiqUser();
   if (!user) return { error: SIGNED_OUT.error };
-  const { count } = await prisma.rafiqMistake.updateMany({
-    where: { userId: user.id, surahNumber: Number(surahNumber), ayah: Number(ayah), wordPosition: Number(wordPosition), resolvedAt: null },
-    data: { resolvedAt: new Date() },
-  });
-  if (count === 0) return { error: "هذه الكلمة غير موجودة في قائمتك" };
+  const where = { userId: user.id, surahNumber: Number(surahNumber), ayah: Number(ayah), wordPosition: Number(wordPosition), resolvedAt: null };
+  const now = new Date();
+  const [fromSessions, fromHome] = await prisma.$transaction([
+    prisma.rafiqMistake.updateMany({ where, data: { resolvedAt: now } }),
+    prisma.rafiqHomeMistake.updateMany({ where, data: { resolvedAt: now } }),
+  ]);
+  if (fromSessions.count + fromHome.count === 0) return { error: "هذه الكلمة غير موجودة في قائمتك" };
   refresh();
   return { ok: true };
 }

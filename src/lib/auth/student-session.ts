@@ -40,6 +40,8 @@ export type StudentAccess = {
   groupId: string;
   boardEnabled: boolean;
   homeLogEnabled: boolean;
+  // marking her own mistakes in home practice (only with the home log on)
+  homeMistakesEnabled: boolean;
   assignmentsEnabled: boolean;
   trackerEnabled: boolean;
 };
@@ -65,6 +67,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
           studentLoginEnabled: true,
           studentBoardEnabled: true,
           homeLogEnabled: true,
+          homeMistakesEnabled: true,
           assignmentsEnabled: true,
           trackerEnabled: true,
         },
@@ -85,6 +88,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
     groupId: student.groupId,
     boardEnabled: student.course.studentBoardEnabled,
     homeLogEnabled: student.course.homeLogEnabled,
+    homeMistakesEnabled: student.course.homeLogEnabled && student.course.homeMistakesEnabled,
     assignmentsEnabled: student.course.assignmentsEnabled,
     trackerEnabled: student.course.trackerEnabled,
   };

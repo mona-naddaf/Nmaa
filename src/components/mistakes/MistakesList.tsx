@@ -5,7 +5,7 @@ import styles from "./mistakes.module.css";
 import { quranFont } from "./quran-font";
 import { TYPE_CLASS } from "./WordFlagger";
 import { SURAH_NAME } from "@/lib/quran-data";
-import { mistakeTypeLabel, type ActiveMistake } from "@/lib/students/mistake-types";
+import { mistakeSourceLabel, mistakeTypeLabel, type ActiveMistake } from "@/lib/students/mistake-types";
 import type { RecitationSubject } from "@/lib/recitation/logic";
 
 // Arabic number agreement: مرتين، 3–10 مرات، 11+ مرة
@@ -76,6 +76,7 @@ export function MistakesList({
                   آية {m.ayah}
                 </span>
                 <span className={`${styles.typeBadge} ${TYPE_CLASS[m.type]}`}>{mistakeTypeLabel(m.type, subject)}</span>
+                {m.sources && <span className={styles.sourceTag}>{mistakeSourceLabel(m.sources)}</span>}
                 <span className={styles.rowDate}>
                   منذ <bdi dir="ltr">{m.firstFlagged}</bdi>
                   {m.count > 1 && <span className={styles.rowCount}> · {timesText(m.count)}</span>}

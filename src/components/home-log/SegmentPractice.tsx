@@ -54,7 +54,7 @@ export function SegmentPractice({
   listHref: string;
   // self-marked mistakes: the ayat's words become tappable, and a pick is
   // handed to onFlag (which saves it). Absent = plain text, as before.
-  marking?: { flags: WordFlags; onFlag: (key: string, type: MistakeType | null) => void; subject: RecitationSubject };
+  marking?: { flags: WordFlags; onFlag: (key: string, type: MistakeType | null) => void; subject: RecitationSubject; hint?: string };
   // anything to show right after each ayah number (e.g. a note marker)
   afterAyah?: (ayah: number) => ReactNode;
 }) {
@@ -163,6 +163,11 @@ export function SegmentPractice({
       </div>
 
       <div className={styles.sectionTitle}>الآيات — {p("تدرّب", "تدرّبي")} على كل آية وحدها</div>
+      {marking?.hint && (
+        <p className={styles.muted} style={{ margin: "0 4px 10px" }}>
+          {marking.hint}
+        </p>
+      )}
       <div className={`${styles.section}`}>
         {Array.from({ length: s.toAyah - s.fromAyah + 1 }, (_, i) => s.fromAyah + i).map((a) => (
           <div key={a} className={styles.ayah}>

@@ -63,6 +63,10 @@ model Course {
   homeTargetListen            Int                   @default(5)
   homeTargetRepeat            Int                   @default(10)
   homeTargetRecite            Int                   @default(3)
+  // lets students mark their own mistakes word by word while practising a
+  // home passage (HomeMistake). Off by default; only works while the home
+  // log (and so student login) is on. Strictly private to the student.
+  homeMistakesEnabled         Boolean               @default(false)
   // «الواجبات» (src/lib/assignments) and «جدول المتابعة» (src/lib/tracker):
   // each only works while student login is on. While off, the tabs are
   // hidden and every page and action refuses.
@@ -248,6 +252,7 @@ model Student {
   attendanceLogs     AttendanceLog[]
   mistakes           RecitationMistake[]
   homeSegments       HomeSegment[]
+  homeMistakes       HomeMistake[]
   homeTaps           HomeTap[]
   assignmentTargets  AssignmentStudent[]
   assignmentsDone    AssignmentCompletion[]
@@ -598,6 +603,28 @@ model HomeSegment {
 // One "+" tap. Counts are always derived from taps, never stored. ayah null
 // = a whole-segment counter (the ones with targets); otherwise a per-ayah
 // counter. day = the student's local date, for daily activity (phase 3).
+// A word a student marked herself while practising a home passage. A
+// SEPARATE record from RecitationMistake: strictly private to her — no staff
+// page, report, parent view, official mistakes list, points or position ever
+// reads this table. At most one open mark per word (partial unique index in
+// the migration): marking again changes its type; resolving stamps
+// resolvedAt and keeps the row.
+model HomeMistake {
+  id           String      @id @default(cuid())
+  studentId    String
+  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  surahNumber  Int
+  ayah         Int
+  wordPosition Int
+  // the word as shown when it was marked
+  wordText     String
+  type         MistakeType
+  flaggedAt    DateTime    @default(now())
+  resolvedAt   DateTime?
+
+  @@index([studentId, resolvedAt])
+}
+
 model HomeTap {
   id        String      @id @default(cuid())
   segmentId String
@@ -787,6 +814,7 @@ model RafiqUser {
   mistakes      RafiqMistake[]
   homeSegments  RafiqHomeSegment[]
   homeTaps      RafiqHomeTap[]
+  homeMistakes  RafiqHomeMistake[]
   commitDays    RafiqCommitDays[]
   trackerItems  RafiqTrackerItem[]
   trackerChecks RafiqTrackerCheck[]
@@ -898,6 +926,24 @@ model RafiqHomeSegment {
   taps RafiqHomeTap[]
 
   @@index([userId, finishedAt])
+}
+
+// A word she marked while practising a home passage (same meaning as
+// HomeMistake). Shown in her one mistakes list next to her session mistakes,
+// labelled by source.
+model RafiqHomeMistake {
+  id           String      @id @default(cuid())
+  userId       String
+  user         RafiqUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surahNumber  Int
+  ayah         Int
+  wordPosition Int
+  wordText     String
+  type         MistakeType
+  flaggedAt    DateTime    @default(now())
+  resolvedAt   DateTime?
+
+  @@index([userId, resolvedAt])
 }
 
 // One "+" tap (same meaning as HomeTap): ayah null = a whole-passage counter.

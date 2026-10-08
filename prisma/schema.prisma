@@ -808,6 +808,9 @@ model RafiqUser {
   homeTargetListen      Int       @default(5)
   homeTargetRepeat      Int       @default(10)
   homeTargetRecite      Int       @default(3)
+  // when her default note tags («متشابهات / تدبّر / تفسير») were created —
+  // once, the first time she opens notes, so deleted defaults never return
+  noteTagsSeededAt      DateTime?
 
   planItems     RafiqPlanItem[]
   sessions      RafiqSession[]
@@ -815,6 +818,8 @@ model RafiqUser {
   homeSegments  RafiqHomeSegment[]
   homeTaps      RafiqHomeTap[]
   homeMistakes  RafiqHomeMistake[]
+  notes         RafiqNote[]
+  noteTags      RafiqNoteTag[]
   commitDays    RafiqCommitDays[]
   trackerItems  RafiqTrackerItem[]
   trackerChecks RafiqTrackerCheck[]
@@ -944,6 +949,49 @@ model RafiqHomeMistake {
   resolvedAt   DateTime?
 
   @@index([userId, resolvedAt])
+}
+
+// Her own note on one verse (src/lib/rafiq/notes.ts). Many per verse.
+model RafiqNote {
+  id          String    @id @default(cuid())
+  userId      String
+  user        RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surahNumber Int
+  ayah        Int
+  text        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tags RafiqNoteTagLink[]
+
+  @@index([userId, surahNumber, ayah])
+  @@index([userId, createdAt])
+}
+
+// Her note tags. color is a key of the fixed palette (NOTE_COLORS in
+// src/lib/rafiq/notes-rules.ts), never a raw colour value.
+model RafiqNoteTag {
+  id        String    @id @default(cuid())
+  userId    String
+  user      RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  notes RafiqNoteTagLink[]
+
+  @@unique([userId, name])
+}
+
+model RafiqNoteTagLink {
+  noteId String
+  note   RafiqNote    @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    RafiqNoteTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, tagId])
+  @@index([tagId])
 }
 
 // One "+" tap (same meaning as HomeTap): ayah null = a whole-passage counter.

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/components/home-log/home-log.module.css";
 import { NewSegment } from "@/components/home-log/NewSegment";
+import { VerseNoteMarker } from "../notes/NotesProvider";
 import { SegmentCard } from "@/components/home-log/SegmentCard";
 import { TargetsEditor } from "@/components/home-log/TargetsEditor";
 import { HOME_LIMITS, type HomeTargets } from "@/lib/home-log/rules";
@@ -63,6 +64,7 @@ export function RafiqHomeLog({
           create={createSegmentAction}
           practiceBase="/rafiq/home-log"
           onCancel={() => setAdding(false)}
+          afterAyah={(a, s) => <VerseNoteMarker surah={s} ayah={a} />}
         />
       )}
 

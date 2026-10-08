@@ -32,7 +32,7 @@ export function NewSegment({
   practiceBase: string;
   onCancel: () => void;
   // anything to show right after each ayah number in the preview (e.g. a note marker)
-  afterAyah?: (ayah: number) => React.ReactNode;
+  afterAyah?: (ayah: number, surah: number) => React.ReactNode;
 }) {
   const router = useRouter();
   const [surah, setSurah] = useState(suggestion.surahNumber);
@@ -121,7 +121,7 @@ export function NewSegment({
           ? ayahs.slice(from - 1, to).map((t, i) => (
               <span key={from + i}>
                 {t} <span className={styles.ayahNum}>﴿{from + i}﴾</span>
-                {afterAyah?.(from + i)}{" "}
+                {afterAyah?.(from + i, surah)}{" "}
               </span>
             ))
           : "…"}

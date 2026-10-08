@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireRafiqUser } from "@/lib/rafiq/session";
 import { getRafiqHomeLog } from "@/lib/rafiq/home-log";
-import { PracticeWithMarks } from "@/components/home-log/PracticeWithMarks";
+import { RafiqPractice } from "./RafiqPractice";
 import { rafiqMarkFlags } from "@/lib/rafiq/home-mistakes";
 import { deleteSegmentAction, finishSegmentAction, markWordAction, tapAction, undoTapAction } from "../actions";
 
@@ -14,7 +14,7 @@ export default async function RafiqSegmentPage({ params }: PageProps<"/rafiq/hom
   const segment = log.active.find((s) => s.id === id);
   if (!segment) redirect("/rafiq/home-log");
   return (
-    <PracticeWithMarks
+    <RafiqPractice
       segment={segment}
       groupGender={user.gender === "FEMALE" ? "GIRLS" : "BOYS"}
       actions={{ tap: tapAction, undoTap: undoTapAction, finish: finishSegmentAction, remove: deleteSegmentAction }}

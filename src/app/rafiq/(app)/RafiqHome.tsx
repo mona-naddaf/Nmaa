@@ -17,6 +17,7 @@ import { DAYS_AFTER_PREP, SESSIONS, SURAHS_COUNT, WORDS, countLabel } from "@/li
 import { Collapsible } from "@/components/collapsible/Collapsible";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { WordFlagger } from "@/components/mistakes/WordFlagger";
+import { VerseNoteMarker } from "./notes/NotesProvider";
 import {
   EntryStatus,
   PageCalc,
@@ -206,6 +207,7 @@ export function RafiqHome({ data, gender, commitment }: { data: MemorizationView
             flags={entry.wordFlags}
             onChange={entry.setWordFlags}
             subject={subject}
+            afterAyah={(a) => <VerseNoteMarker surah={surahNumber} ayah={a} />}
           />
         )}
 

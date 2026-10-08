@@ -36,6 +36,12 @@ export function hasBasmalaPrefix(surahNumber: number, ayah: number): boolean {
   return ayah === 1 && surahNumber !== 1 && surahNumber !== 9;
 }
 
+/** The ayah's own text, without the basmala Tanzil prefixes to a first ayah. */
+export function ayahOnly(surahNumber: number, ayah: number, text: string): string {
+  if (!hasBasmalaPrefix(surahNumber, ayah)) return text;
+  return text.split(" ").filter(Boolean).slice(BASMALA_WORDS).join(" ");
+}
+
 export function splitAyah(surahNumber: number, ayah: number, text: string): SplitAyah {
   let tokens = text.split(" ").filter(Boolean);
   let basmala: string | null = null;

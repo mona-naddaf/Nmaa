@@ -1,13 +1,18 @@
-import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/require";
+import { redirect } from "next/navigation";
+import { requireSession } from "@/lib/auth/require";
+import { getImportAccess } from "@/lib/students/import-access";
 import { ImportForm } from "./ImportForm";
 
 export default async function ImportStudentsPage() {
-  const session = await requireAdmin();
-  const [admin, groupCount] = await Promise.all([
-    prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true } }),
-    prisma.group.count({ where: { courseId: session.courseId } }),
-  ]);
+  const session = await requireSession();
+  const access = await getImportAccess(session);
+  if (!access) redirect("/students");
 
-  return <ImportForm viewerGender={admin?.gender ?? null} hasGroups={groupCount > 0} />;
+  return (
+    <ImportForm
+      viewerGender={access.viewerGender}
+      hasGroups={access.groups.length > 0}
+      isSupervisor={session.role === "admin"}
+    />
+  );
 }

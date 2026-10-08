@@ -4,13 +4,21 @@ import type { Session } from "@/lib/auth/session";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { studentNameKey } from "./new-student";
 
-// Editing and archiving students: who may, and the shared checks every
-// server action repeats (the UI only hides what these refuse anyway).
+// Adding, editing and archiving students: who may, and the shared checks
+// every server action repeats (the UI only hides what these refuse anyway).
 
 type Permission = "ADMIN_ONLY" | "ALL_TEACHERS";
 
 /** Spread into a Student `where` to see only active (not archived) students. */
 export const ACTIVE_STUDENT = { archivedAt: null } as const;
+
+/**
+ * Adding students, by hand or from Excel (one permission for both). A
+ * teacher adds only into her groups (teacherGroupLimit).
+ */
+export function canAddStudents(session: Session, course: { addStudentsPermission: Permission }): boolean {
+  return session.role === "admin" || course.addStudentsPermission === "ALL_TEACHERS";
+}
 
 export function canEditStudents(session: Session, course: { editStudentsPermission: Permission }): boolean {
   return session.role === "admin" || course.editStudentsPermission === "ALL_TEACHERS";

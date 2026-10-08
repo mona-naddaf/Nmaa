@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/auth/require";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { studentCreateData, validateNewStudent, type PriorPartial } from "@/lib/students/new-student";
 import { imperative, studentsNoun, NEUTRAL_GROUP_GENDER } from "@/lib/text/gender";
-import { duplicateNameMessage, studentNameTaken } from "@/lib/students/manage";
+import { canAddStudents, duplicateNameMessage, studentNameTaken, teacherGroupLimit } from "@/lib/students/manage";
 import { editorFor, staffInfoAccess, visibleInfoFields } from "@/lib/students/extra-info";
 import { validateInfoSave } from "@/lib/students/extra-info-rules";
 
@@ -18,10 +18,8 @@ export async function createStudentAction(_prev: ActionState, formData: FormData
   const session = await requireSession();
 
   const course = await prisma.course.findUniqueOrThrow({ where: { id: session.courseId } });
-  const canAdd = session.role === "admin" || course.addStudentsPermission === "ALL_TEACHERS";
-  if (!canAdd) {
-    // session.role is guaranteed "teacher" here — canAdd is only false when
-    // session.role !== "admin" (see the || above)
+  // only a teacher can lack it — the supervisor may always add
+  if (session.role === "teacher" && !canAddStudents(session, course)) {
     const teacher = await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true } });
     return {
       error: `لا ${imperative(teacher?.gender ?? null, { m: "تملك", f: "تملكين" })} صلاحية إضافة ${studentsNoun(NEUTRAL_GROUP_GENDER)} جدد في هذه الدورة`,
@@ -31,7 +29,12 @@ export async function createStudentAction(_prev: ActionState, formData: FormData
   const groupId = String(formData.get("groupId") ?? "");
   const templateKey = String(formData.get("template") ?? "custom") as keyof typeof TEMPLATE_MAP;
 
-  const group = await prisma.group.findFirst({ where: { id: groupId, courseId: course.id } });
+  // a teacher adds only into the groups she sees (same rule as the list)
+  const groupLimit = await teacherGroupLimit(session, course);
+  const group =
+    groupLimit && !groupLimit.includes(groupId)
+      ? null
+      : await prisma.group.findFirst({ where: { id: groupId, courseId: course.id } });
   if (!group) return { error: "يُرجى اختيار مجموعة صحيحة" };
 
   let plan: number[];

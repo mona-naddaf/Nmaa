@@ -6,7 +6,15 @@ import styles from "./import.module.css";
 import { importStudentsAction, type ImportState } from "./actions";
 import { imperative, type PersonGender } from "@/lib/text/gender";
 
-export function ImportForm({ viewerGender, hasGroups }: { viewerGender: PersonGender; hasGroups: boolean }) {
+export function ImportForm({
+  viewerGender,
+  hasGroups,
+  isSupervisor,
+}: {
+  viewerGender: PersonGender;
+  hasGroups: boolean;
+  isSupervisor: boolean;
+}) {
   const [state, formAction, pending] = useActionState<ImportState, FormData>(importStudentsAction, null);
   const you = (forms: { m: string; f: string }) => imperative(viewerGender, forms);
 
@@ -35,11 +43,13 @@ export function ImportForm({ viewerGender, hasGroups }: { viewerGender: PersonGe
               </a>
             </div>
           </>
-        ) : (
+        ) : isSupervisor ? (
           <p className={styles.hint}>
             لا توجد مجموعات في الدورة بعد — {you({ m: "أضف", f: "أضيفي" })} المجموعات من{" "}
             <Link href="/settings">الإعدادات</Link> أولًا.
           </p>
+        ) : (
+          <p className={styles.hint}>لا توجد مجموعات متاحة لك بعد.</p>
         )}
       </div>
 

@@ -185,11 +185,16 @@ function parseRow(row: number, cells: string[]): RowResult {
  * when an enabled required field has no column — the template is out of
  * date. Columns of optional fields may be missing. Blank headers are
  * ignored (null in the result, aligned with the headers).
+ *
+ * `fillable` limits the fields the importer may fill (a teacher: the ones
+ * her add form shows): a column for any other field refuses the file, and
+ * required fields outside it are never demanded.
  */
 export function matchInfoColumns(
   headers: string[],
   fields: InfoField[],
   featureOn: boolean,
+  fillable: (f: InfoField) => boolean = () => true,
 ): { error: string } | { columns: (InfoField | null)[] } {
   const reload = "يُرجى تحميل القالب من جديد ونقل البيانات إليه.";
   const keysOf = (f: InfoField) =>
@@ -213,12 +218,15 @@ export function matchInfoColumns(
     if (!featureOn || !field.enabled) {
       return { error: `العمود «${header}» لحقل غير مفعّل حاليًا في المعلومات الإضافية. ${reload}` };
     }
+    if (!fillable(field)) {
+      return { error: `العمود «${header}» لحقل لا يمكنك تعبئته من حسابك. ${reload}` };
+    }
     if (seen.has(field.id)) return { error: `العمود «${header}» مكرَّر في الملف. ${reload}` };
     seen.add(field.id);
     columns.push(field);
   }
 
-  const missing = featureOn ? fields.filter((f) => f.enabled && f.required && !seen.has(f.id)) : [];
+  const missing = featureOn ? fields.filter((f) => f.enabled && f.required && fillable(f) && !seen.has(f.id)) : [];
   if (missing.length > 0) {
     const names = missing.map((f) => `«${fieldLabel(f, null)}»`).join("، ");
     const what = missing.length === 1 ? "عمود الحقل الإلزامي" : "أعمدة الحقول الإلزامية";
@@ -245,13 +253,15 @@ export interface ImportStudent {
  * reason): names already in the course or earlier in the file are
  * duplicates; the rest go through the same validateNewStudent rules as the
  * manual form, and their extra-info cells through the same cleaning as the
- * forms (an empty required field skips the row).
+ * forms (an empty required field skips the row). With a groupLimit (a
+ * teacher's groups), a row for any other group of the course is skipped.
  */
 export function matchImportRows(
   rows: ParsedRow[],
   groups: { id: string; name: string; gender: GroupGender }[],
   existingNames: string[],
   infoColumns: (InfoField | null)[] = [],
+  groupLimit: string[] | null = null,
 ): { toCreate: ImportStudent[]; skipped: SkippedRow[] } {
   const groupByName = new Map(groups.map((g) => [g.name.replace(/\s+/g, " ").trim(), g]));
   const existingKeys = new Set(existingNames.map(studentNameKey));
@@ -273,9 +283,12 @@ export function matchImportRows(
       continue;
     }
 
-    const group = groupByName.get(r.groupName);
+    const found = groupByName.get(r.groupName);
+    const outOfScope = !!found && !!groupLimit && !groupLimit.includes(found.id);
+    const group = outOfScope ? undefined : found;
     const errors = [...(r.errors ?? [])];
-    if (r.groupName && !group) errors.push(`المجموعة «${r.groupName}» غير موجودة في الدورة`);
+    if (outOfScope) errors.push(`ليست لديك صلاحية على المجموعة «${r.groupName}»`);
+    else if (r.groupName && !group) errors.push(`المجموعة «${r.groupName}» غير موجودة في الدورة`);
 
     const g = group?.gender ?? NEUTRAL_GROUP_GENDER;
     const info: ImportStudent["info"] = [];

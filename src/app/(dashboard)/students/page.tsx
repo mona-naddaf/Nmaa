@@ -5,6 +5,7 @@ import { StudentsList } from "./StudentsList";
 import { getCalendarData } from "@/lib/calendar/data";
 import { CalendarBanner } from "@/components/calendar/CalendarBanner";
 import { studentCodeAccess } from "@/lib/students/student-codes";
+import { canAddStudents } from "@/lib/students/manage";
 
 export default async function StudentsPage() {
   const session = await requireSession();
@@ -38,7 +39,7 @@ export default async function StudentsPage() {
     studentCodeAccess(session),
   ]);
 
-  const canAddStudents = session.role === "admin" || course.addStudentsPermission === "ALL_TEACHERS";
+  const canAdd = canAddStudents(session, course);
 
   const viewer =
     session.role === "admin"
@@ -57,7 +58,7 @@ export default async function StudentsPage() {
       <StudentsList
         groups={visibleGroups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))}
         students={students}
-        canAddStudents={canAddStudents}
+        canAddStudents={canAdd}
         isSupervisor={session.role === "admin"}
         viewerGender={viewer?.gender ?? null}
         archivedCount={archivedCount}

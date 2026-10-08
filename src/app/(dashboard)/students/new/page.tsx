@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { NewStudentForm } from "./NewStudentForm";
 import { staffInfoAccess, visibleInfoFields } from "@/lib/students/extra-info";
+import { canAddStudents, teacherGroupLimit } from "@/lib/students/manage";
 
 export default async function NewStudentPage() {
   const session = await requireSession();
@@ -11,8 +12,11 @@ export default async function NewStudentPage() {
     include: { groups: { orderBy: { sortOrder: "asc" } } },
   });
 
-  const canAdd = session.role === "admin" || course.addStudentsPermission === "ALL_TEACHERS";
-  if (!canAdd) redirect("/students");
+  if (!canAddStudents(session, course)) redirect("/students");
+
+  // a teacher adds only into the groups she sees
+  const groupLimit = await teacherGroupLimit(session, course);
+  const groups = groupLimit ? course.groups.filter((g) => groupLimit.includes(g.id)) : course.groups;
 
   const viewer =
     session.role === "admin"
@@ -27,7 +31,7 @@ export default async function NewStudentPage() {
   return (
     <NewStudentForm
       infoFields={infoFields}
-      groups={course.groups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))}
+      groups={groups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))}
       viewerGender={viewer?.gender ?? null}
     />
   );

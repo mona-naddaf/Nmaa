@@ -6,11 +6,12 @@ import { imperative, pickByGroup, studentNounDef, studentsNounDef, type PersonGe
 
 // The bulk-import Excel template (see students/import). Built from scratch on
 // every download so the group dropdown always lists the course's current
-// groups. Mirrors the hand-designed prototypes (design/namaa-import-template-
+// groups (a teacher's: only hers, see import-access.ts). Mirrors the hand-designed prototypes (design/namaa-import-template-
 // {girls,boys}.xlsx) cell for cell: same sheets, rows, widths, colours and
 // dropdowns — only the wording follows the chosen variant (student words)
-// and the supervisor's own gender (instructions addressed to them). When the
-// course collects extra student info, one column per enabled field follows
+// and the downloader's own gender (instructions addressed to them). When the
+// course collects extra student info, one column per field the downloader
+// may fill follows
 // column K (required ones marked «*»); import-parse.ts matches them by name.
 
 export type TemplateVariant = "girls" | "boys";
@@ -94,17 +95,17 @@ export async function buildImportTemplate({
   variant,
   groupNames,
   exampleGroupName,
-  supervisorGender,
+  viewerGender,
   infoColumns = [],
 }: {
   variant: TemplateVariant;
   groupNames: string[];
   exampleGroupName: string;
-  supervisorGender: PersonGender;
+  viewerGender: PersonGender;
   infoColumns?: InfoColumn[];
 }): Promise<Buffer> {
   const g = variantGender(variant);
-  const you = (forms: { m: string; f: string }) => imperative(supervisorGender, forms);
+  const you = (forms: { m: string; f: string }) => imperative(viewerGender, forms);
   const eachStudent = pickByGroup(g, { m: "كل طالب في سطر مستقل", f: "كل طالبة في سطر مستقل" });
   const hasPrior = pickByGroup(g, {
     m: "إذا كان للطالب حفظ سابق قبل انضمامه",

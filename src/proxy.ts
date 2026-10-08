@@ -6,11 +6,9 @@ import { STUDENT_COOKIE_NAME, verifyStudentToken } from "@/lib/auth/student-toke
 import { RAFIQ_COOKIE_NAME, verifyRafiqToken } from "@/lib/rafiq/token";
 import { rafiqEnabled } from "@/lib/rafiq/enabled";
 
-// /students/import: bulk import is supervisor-only regardless of the
-// course add-students permission. Parent codes and the student archive are
-// supervisor-only too.
+// Settings, parent codes and the student archive are supervisor-only.
 // (Every page and action re-checks as well.)
-const ADMIN_ONLY_PATHS = ["/settings", "/students/import", "/students/parent-codes", "/students/archive", "/parent-codes"];
+const ADMIN_ONLY_PATHS = ["/settings", "/students/parent-codes", "/students/archive", "/parent-codes"];
 
 type Area = {
   base: string;

@@ -13,7 +13,6 @@ import {
   studentsNoun,
   studentNounDef,
   studentsNounDef,
-  newAdj,
   pickByGroup,
   imperative,
   type GroupGender,
@@ -51,17 +50,20 @@ export function StudentsList({
     status === "IN" ? presentWord(activeGender) : status === "OUT" ? absentWord(activeGender) : "قيد الانتظار";
 
   // Only what the viewer may use (the pages behind them check again): parent
-  // codes and the Excel import are supervisor-only. One allowed option turns
-  // the button into a direct link labelled with it; none hides it.
+  // codes are supervisor-only; adding by hand or from Excel follows the
+  // add-students permission. One allowed option turns the button into a
+  // direct link labelled with it; none hides it.
   const codeItems: MenuItem[] = [
     ...(isSupervisor ? [{ href: "/students/parent-codes", label: "رموز أولياء الأمور" }] : []),
     ...(canIssueStudentCodes ? [{ href: "/students/student-codes", label: `رموز ${studentsNounDef(activeGender)}` }] : []),
   ];
   const addItems: MenuItem[] = [
     ...(canAddStudents
-      ? [{ href: "/students/new", label: isSupervisor ? "إضافة يدوية" : `+ إضافة ${studentNoun(activeGender)} ${newAdj(activeGender)}` }]
+      ? [
+          { href: "/students/new", label: "إضافة يدوية" },
+          { href: "/students/import", label: "استيراد من Excel" },
+        ]
       : []),
-    ...(isSupervisor ? [{ href: "/students/import", label: "استيراد من Excel" }] : []),
   ];
 
   const filtered = useMemo(() => {

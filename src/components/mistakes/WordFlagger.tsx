@@ -1,16 +1,13 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import styles from "./mistakes.module.css";
 import { quranFont } from "./quran-font";
-import { hasBasmalaPrefix, splitAyah } from "@/lib/quran-data/words";
 import { MISTAKE_TYPES, mistakeTypeLabel, type MistakeType } from "@/lib/students/mistake-types";
 import type { RecitationSubject } from "@/lib/recitation/logic";
+import { FlaggableAyah, TYPE_CLASS, useWordMenu, type WordFlags } from "./FlaggableAyah";
 
-/** "surah:ayah:wordPosition" → the mistake type flagged on that word. */
-export type WordFlags = Record<string, MistakeType>;
-
-export const flagKey = (surah: number, ayah: number, position: number) => `${surah}:${ayah}:${position}`;
+export { flagKey, TYPE_CLASS, type WordFlags } from "./FlaggableAyah";
 
 // one fetch per surah per page load; the text itself is cached by the browser
 const surahCache = new Map<number, Promise<string[]>>();
@@ -33,15 +30,6 @@ function flaggedWordsText(n: number): string {
   return `${n} ${n <= 10 ? "كلمات محدّدة" : "كلمة محدّدة"}`;
 }
 
-const toArabicDigits = (n: number) => String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
-
-export const TYPE_CLASS: Record<MistakeType, string> = {
-  PRONUNCIATION: styles.tPronunciation,
-  TAJWEED: styles.tTajweed,
-  FORGOT_PROMPTED: styles.tForgot,
-  HESITATED_SELF_CORRECTED: styles.tHesitated,
-};
-
 /**
  * The recitation form's word-level mistake picker: the Quran text of the
  * entered range, word by word; tapping a word opens a small menu of the 3
@@ -56,6 +44,7 @@ export function WordFlagger({
   flags,
   onChange,
   subject,
+  afterAyah,
 }: {
   surahNumber: number;
   fromAyah: number;
@@ -65,11 +54,13 @@ export function WordFlagger({
   onChange: (flags: WordFlags) => void;
   // whose mistakes: a course group's student, or the learner herself
   subject: RecitationSubject;
+  // anything to show right after each ayah number (e.g. a note marker)
+  afterAyah?: (ayah: number) => ReactNode;
 }) {
   const [ayahs, setAyahs] = useState<{ surah: number; text: string[] } | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [expanded, setExpanded] = useState<boolean | null>(null); // null = automatic
-  const [openWord, setOpenWord] = useState<string | null>(null);
+  const menu = useWordMenu();
 
   const open = expanded ?? !startCollapsed;
   const loaded = ayahs?.surah === surahNumber ? ayahs.text : null;
@@ -92,23 +83,6 @@ export function WordFlagger({
     };
   }, [open, loaded, surahNumber]);
 
-  // close the type menu on outside click / Escape
-  useEffect(() => {
-    if (!openWord) return;
-    const onDown = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest(`[data-word="${openWord}"]`)) setOpenWord(null);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenWord(null);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [openWord]);
-
   const flaggedHere = Object.keys(flags).filter((k) => {
     const [s, a] = k.split(":").map(Number);
     return s === surahNumber && a >= fromAyah && a <= toAyah;
@@ -119,7 +93,6 @@ export function WordFlagger({
     if (type) next[key] = type;
     else delete next[key];
     onChange(next);
-    setOpenWord(null);
   }
 
   return (
@@ -140,58 +113,20 @@ export function WordFlagger({
             <div className={styles.flaggerNote}>جارٍ تحميل النص...</div>
           ) : (
             <div className={`${quranFont.className} ${styles.quranText}`} dir="rtl" lang="ar">
-              {Array.from({ length: toAyah - fromAyah + 1 }, (_, i) => fromAyah + i).map((ayah) => {
-                const split = splitAyah(surahNumber, ayah, loaded[ayah - 1] ?? "");
-                return (
-                  <Fragment key={ayah}>
-                    {split.basmala && hasBasmalaPrefix(surahNumber, ayah) && (
-                      <div className={styles.basmala}>{split.basmala}</div>
-                    )}
-                    {split.leadingMarks && <span className={styles.mark}>{split.leadingMarks} </span>}
-                    {split.words.map((w) => {
-                      const key = flagKey(surahNumber, ayah, w.position);
-                      const type = flags[key];
-                      return (
-                        <span key={w.position} className={styles.wordWrap} data-word={key}>
-                          <button
-                            type="button"
-                            className={`${styles.word} ${type ? `${styles.flagged} ${TYPE_CLASS[type]}` : ""}`}
-                            onClick={() => setOpenWord(openWord === key ? null : key)}
-                            aria-haspopup="menu"
-                            aria-expanded={openWord === key}
-                            title={type ? mistakeTypeLabel(type, subject) : undefined}
-                          >
-                            {w.text}
-                          </button>
-                          {w.marks && <span className={styles.mark}>{w.marks}</span>}{" "}
-                          {openWord === key && (
-                            <span className={styles.menu} role="menu">
-                              {MISTAKE_TYPES.map((t) => (
-                                <button
-                                  key={t}
-                                  type="button"
-                                  role="menuitemradio"
-                                  aria-checked={type === t}
-                                  className={`${styles.menuItem} ${TYPE_CLASS[t]} ${type === t ? styles.menuSel : ""}`}
-                                  onClick={() => setFlag(key, t)}
-                                >
-                                  {mistakeTypeLabel(t, subject)}
-                                </button>
-                              ))}
-                              {type && (
-                                <button type="button" role="menuitem" className={styles.menuRemove} onClick={() => setFlag(key, null)}>
-                                  إزالة التحديد
-                                </button>
-                              )}
-                            </span>
-                          )}
-                        </span>
-                      );
-                    })}
-                    <span className={styles.ayahNum}>﴿{toArabicDigits(ayah)}﴾</span>{" "}
-                  </Fragment>
-                );
-              })}
+              {Array.from({ length: toAyah - fromAyah + 1 }, (_, i) => fromAyah + i).map((ayah) => (
+                <Fragment key={ayah}>
+                  <FlaggableAyah
+                    surahNumber={surahNumber}
+                    ayah={ayah}
+                    text={loaded[ayah - 1] ?? ""}
+                    flags={flags}
+                    menu={menu}
+                    onFlag={setFlag}
+                    subject={subject}
+                    after={afterAyah?.(ayah)}
+                  />
+                </Fragment>
+              ))}
             </div>
           )}
           <div className={styles.legend}>

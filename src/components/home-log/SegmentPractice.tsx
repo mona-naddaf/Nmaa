@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./home-log.module.css";
 import { TargetProgress, segmentTitle } from "./TargetProgress";
 import { useSurahText } from "./useSurahText";
 import { quranFont } from "@/components/mistakes/quran-font";
+import { FlaggableAyah, useWordMenu, type WordFlags } from "@/components/mistakes/FlaggableAyah";
+import type { MistakeType } from "@/lib/students/mistake-types";
+import type { RecitationSubject } from "@/lib/recitation/logic";
 import {
   allTargetsMet,
   EMPTY_COUNTS,
@@ -42,15 +45,23 @@ export function SegmentPractice({
   groupGender: g,
   actions,
   listHref,
+  marking,
+  afterAyah,
 }: {
   segment: HomeSegmentView;
   groupGender: GroupGender;
   actions: SegmentActions;
   listHref: string;
+  // self-marked mistakes: the ayat's words become tappable, and a pick is
+  // handed to onFlag (which saves it). Absent = plain text, as before.
+  marking?: { flags: WordFlags; onFlag: (key: string, type: MistakeType | null) => void; subject: RecitationSubject };
+  // anything to show right after each ayah number (e.g. a note marker)
+  afterAyah?: (ayah: number) => ReactNode;
 }) {
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const ayahs = useSurahText(s.surahNumber);
+  const menu = useWordMenu();
 
   // counts shown on screen: updated instantly on tap, reverted if refused
   const [counts, setCounts] = useState<Record<Key, HomeCounts>>(() => {
@@ -156,7 +167,24 @@ export function SegmentPractice({
         {Array.from({ length: s.toAyah - s.fromAyah + 1 }, (_, i) => s.fromAyah + i).map((a) => (
           <div key={a} className={styles.ayah}>
             <div className={`${styles.ayahText} ${quranFont.className}`} lang="ar">
-              {ayahs ? ayahs[a - 1] : "…"} <span className={styles.ayahNum}>﴿{a}﴾</span>
+              {marking && ayahs ? (
+                <FlaggableAyah
+                  surahNumber={s.surahNumber}
+                  ayah={a}
+                  text={ayahs[a - 1]}
+                  flags={marking.flags}
+                  menu={menu}
+                  onFlag={marking.onFlag}
+                  subject={marking.subject}
+                  showNumber={false}
+                />
+              ) : ayahs ? (
+                ayahs[a - 1]
+              ) : (
+                "…"
+              )}{" "}
+              <span className={styles.ayahNum}>﴿{a}﴾</span>
+              {afterAyah?.(a)}
             </div>
             <div className={styles.ayahCounters}>
               {HOME_TAP_KINDS.map((k) => {

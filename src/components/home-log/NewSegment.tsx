@@ -22,6 +22,7 @@ export function NewSegment({
   create,
   practiceBase,
   onCancel,
+  afterAyah,
 }: {
   g: GroupGender;
   plan: number[];
@@ -30,6 +31,8 @@ export function NewSegment({
   create: (input: { surahNumber: number; fromAyah: number; toAyah: number }) => Promise<{ error?: string; id?: string }>;
   practiceBase: string;
   onCancel: () => void;
+  // anything to show right after each ayah number in the preview (e.g. a note marker)
+  afterAyah?: (ayah: number) => React.ReactNode;
 }) {
   const router = useRouter();
   const [surah, setSurah] = useState(suggestion.surahNumber);
@@ -117,7 +120,8 @@ export function NewSegment({
         {ayahs
           ? ayahs.slice(from - 1, to).map((t, i) => (
               <span key={from + i}>
-                {t} <span className={styles.ayahNum}>﴿{from + i}﴾</span>{" "}
+                {t} <span className={styles.ayahNum}>﴿{from + i}﴾</span>
+                {afterAyah?.(from + i)}{" "}
               </span>
             ))
           : "…"}

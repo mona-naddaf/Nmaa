@@ -29,6 +29,7 @@ export function StudentsList({
   viewerGender,
   archivedCount = 0,
   canIssueStudentCodes = false,
+  canUseOfflineSheet = false,
 }: {
   groups: { id: string; name: string; gender: GroupGender }[];
   students: StudentSummary[];
@@ -40,6 +41,8 @@ export function StudentsList({
   archivedCount?: number;
   // student login on and the viewer may issue student codes
   canIssueStudentCodes?: boolean;
+  // «التسميع بدون إنترنت» (the supervisor, or a teacher with the permission)
+  canUseOfflineSheet?: boolean;
 }) {
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id ?? "");
   const [query, setQuery] = useState("");
@@ -65,6 +68,12 @@ export function StudentsList({
         ]
       : []),
   ];
+  const offlineItems: MenuItem[] = canUseOfflineSheet
+    ? [
+        { href: "/students/offline#download", label: "تنزيل الملف" },
+        { href: "/students/offline#upload", label: "رفع الملف" },
+      ]
+    : [];
 
   const filtered = useMemo(() => {
     const q = query.trim();
@@ -73,9 +82,10 @@ export function StudentsList({
 
   return (
     <div>
-      {(codeItems.length > 0 || addItems.length > 0) && (
+      {(codeItems.length > 0 || addItems.length > 0 || offlineItems.length > 0) && (
         <div className={styles.actionsRow}>
           <MenuButton label="الرموز" items={codeItems} className={`${styles.addBtn} ${styles.secondaryBtn}`} />
+          <MenuButton label="📄 تسميع بدون إنترنت" items={offlineItems} className={`${styles.addBtn} ${styles.secondaryBtn}`} />
           <MenuButton label={`+ إضافة ${studentNoun(activeGender)}`} items={addItems} className={styles.addBtn} primary />
         </div>
       )}

@@ -32,6 +32,14 @@ export function canAddPrior(session: Session, course: { addPriorPermission: Perm
   return session.role === "admin" || course.addPriorPermission === "ALL_TEACHERS";
 }
 
+/**
+ * «التسميع بدون إنترنت»: downloading a day's sheet and uploading it. A
+ * teacher only for students in her groups (teacherGroupLimit).
+ */
+export function canUseOfflineSheet(session: Session, course: { offlineSheetPermission: Permission }): boolean {
+  return session.role === "admin" || course.offlineSheetPermission === "ALL_TEACHERS";
+}
+
 export function canArchiveStudents(session: Session, course: { archiveStudentsPermission: Permission }): boolean {
   return session.role === "admin" || course.archiveStudentsPermission === "ALL_TEACHERS";
 }

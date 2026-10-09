@@ -30,6 +30,7 @@ const STUDENT_PERMISSION_FIELDS = [
   "editStudentsPermission",
   "archiveStudentsPermission",
   "addPriorPermission",
+  "offlineSheetPermission",
   "issueStudentCodesPermission",
 ] as const;
 export type StudentPermissionField = (typeof STUDENT_PERMISSION_FIELDS)[number];

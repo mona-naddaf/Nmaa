@@ -22,7 +22,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Database migrations
 
-Name each new folder in `prisma/migrations` so it sorts after the last one: until real dates pass `20261006000000`, continue the sequence (`20261007000000`, …), then use real timestamps.
+Name each new folder in `prisma/migrations` so it sorts after the last one. The folder already holds future-dated names, so continue that sequence one day at a time (after `20261017000000` comes `20261018000000`, …) until real dates pass the last one, then use real timestamps.
 
 ## Learn More
 

@@ -5,7 +5,7 @@ import { StudentsList } from "./StudentsList";
 import { getCalendarData } from "@/lib/calendar/data";
 import { CalendarBanner } from "@/components/calendar/CalendarBanner";
 import { studentCodeAccess } from "@/lib/students/student-codes";
-import { canAddStudents } from "@/lib/students/manage";
+import { canAddStudents, canUseOfflineSheet } from "@/lib/students/manage";
 
 export default async function StudentsPage() {
   const session = await requireSession();
@@ -63,6 +63,7 @@ export default async function StudentsPage() {
         viewerGender={viewer?.gender ?? null}
         archivedCount={archivedCount}
         canIssueStudentCodes={codeAccess.allowed}
+        canUseOfflineSheet={canUseOfflineSheet(session, course)}
       />
     </>
   );

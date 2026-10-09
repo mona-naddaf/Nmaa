@@ -74,6 +74,7 @@ export default async function SettingsPage() {
           editStudentsPermission={course.editStudentsPermission}
           archiveStudentsPermission={course.archiveStudentsPermission}
           addPriorPermission={course.addPriorPermission}
+          offlineSheetPermission={course.offlineSheetPermission}
           issueStudentCodesPermission={course.issueStudentCodesPermission}
           studentLoginEnabled={course.studentLoginEnabled}
           studentInfoEnabled={course.studentInfoEnabled}

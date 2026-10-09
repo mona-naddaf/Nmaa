@@ -19,6 +19,7 @@ export function PermissionsCard({
   editStudentsPermission,
   archiveStudentsPermission,
   addPriorPermission,
+  offlineSheetPermission,
   issueStudentCodesPermission,
   studentLoginEnabled,
   studentInfoEnabled,
@@ -31,6 +32,7 @@ export function PermissionsCard({
   editStudentsPermission: AddStudentsPermission;
   archiveStudentsPermission: AddStudentsPermission;
   addPriorPermission: AddStudentsPermission;
+  offlineSheetPermission: AddStudentsPermission;
   issueStudentCodesPermission: AddStudentsPermission;
   studentLoginEnabled: boolean;
   studentInfoEnabled: boolean;
@@ -108,6 +110,13 @@ export function PermissionsCard({
         addPriorPermission,
         "إضافة حفظ سابق",
         "من يملك صلاحية إضافة حفظ سابق لطالب موجود (أو حذف حفظ سابق أُضيف بالخطأ)؟ يُحسب في موضعه وأشرطة تقدّمه، دون نقاط أو أثر في لوحة الإنجاز.",
+      )}
+
+      {studentPermissionRow(
+        "offlineSheetPermission",
+        offlineSheetPermission,
+        "التسميع بدون إنترنت",
+        "من يملك صلاحية تنزيل ملف Excel لتسجيل حضور يوم وتسميعه ونقاطه دون اتصال، ثم رفعه وحفظه؟ عند اختيار \"كل المعلمين\" يقتصر كل معلم على طلاب مجموعاته.",
       )}
 
       {studentLoginEnabled &&

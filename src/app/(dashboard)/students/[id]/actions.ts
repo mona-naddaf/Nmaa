@@ -7,7 +7,6 @@ import { issueParentCode } from "@/lib/auth/parent-code";
 import {
   advancesPosition,
   calculatePageRange,
-  classifyRecitation,
   deriveReach,
   type RecitationSituation,
   type SessionType,
@@ -20,7 +19,7 @@ import { imperative, thisDemonstrative, pickByGroup, type GroupGender } from "@/
 import type { Session } from "@/lib/auth/session";
 import { validateFlaggedWords, type FlaggedWordInput } from "@/lib/recitation/flagged-words";
 import { BONUS_NOTE_MAX_LENGTH } from "@/lib/points/bonus";
-import { markSegmentsRecited } from "@/lib/home-log/data";
+import { afterRecitationSaved, classifyEntry, recitationCreateData } from "@/lib/recitation/record";
 
 function addHoursUTC(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
@@ -63,7 +62,6 @@ async function assignedGroupError(
   return `لا ${imperative(teacher?.gender ?? null, { m: "تملك", f: "تملكين" })} صلاحية الوصول إلى بيانات ${thisDemonstrative(student.group.gender)} ${pickByGroup(student.group.gender, { m: "الطالب", f: "الطالبة" })}`;
 }
 
-
 export type SaveRecitationInput = {
   studentId: string;
   surahNumber: number;
@@ -98,10 +96,8 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
     return { error: "نوع الجلسة غير صحيح" };
   }
 
-  // Only new memorization goes through gap detection (and may need a
-  // reason). A review/link revisits covered material by definition: it gets
-  // no situation and can never advance her position (deriveReach ignores
-  // it), whatever range it names.
+  // gap detection for new memorization (classifyEntry): the same rule as
+  // every other way a recitation is saved
   let situation: RecitationSituation | null = null;
   let requiresReason = false;
   if (advancesPosition(input)) {
@@ -110,15 +106,7 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
       where: { studentId: student.id },
       select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true },
     });
-    const classification = classifyRecitation(
-      plan,
-      deriveReach(plan, priorSessions),
-      input.surahNumber,
-      input.fromAyah,
-      student.group.gender,
-    );
-    situation = classification.situation;
-    requiresReason = classification.requiresReason;
+    ({ situation, requiresReason } = classifyEntry(plan, deriveReach(plan, priorSessions), input, student.group.gender));
     if (requiresReason && !input.reason.trim()) {
       return { error: "يُرجى كتابة سبب هذا التسجيل قبل الحفظ" };
     }
@@ -144,21 +132,26 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
 
   const teacherId = await resolveTeacherId(session);
 
+  const record = {
+    studentId: student.id,
+    teacherId,
+    type: input.type,
+    surahNumber: input.surahNumber,
+    fromAyah: input.fromAyah,
+    toAyah: input.toAyah,
+    quality: input.quality,
+    mode: input.mode,
+    situation,
+    reason: requiresReason ? input.reason.trim() : null,
+    notes: input.notes.trim() || null,
+    occurredAt,
+  };
+  const created = recitationCreateData(record);
+  if ("error" in created) return { error: created.error };
+
   await prisma.recitationSession.create({
     data: {
-      studentId: student.id,
-      teacherId,
-      surahNumber: input.surahNumber,
-      fromAyah: input.fromAyah,
-      toAyah: input.toAyah,
-      pagesCalculated: pages.totalPages,
-      quality: input.quality,
-      mode: input.mode,
-      type: input.type,
-      situation,
-      reason: requiresReason ? input.reason.trim() : null,
-      notes: input.notes.trim() || null,
-      occurredAt,
+      ...created.data,
       // same statement as the session, so they're saved together or not at all
       mistakes: {
         createMany: {
@@ -177,9 +170,7 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
     },
   });
 
-  // Home log (D3): a home segment this recitation covers entirely is marked
-  // as recited. One-way only — the home log never feeds the official record.
-  await markSegmentsRecited(student.id, input.surahNumber, input.fromAyah, input.toAyah, occurredAt);
+  await afterRecitationSaved(record);
 
   revalidatePath(`/students/${student.id}`);
   return { ok: true };

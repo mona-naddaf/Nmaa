@@ -1,7 +1,7 @@
 import "server-only";
 import ExcelJS from "exceljs";
 import type { GroupGender, PlanTemplate } from "@prisma/client";
-import { AYAH_COUNT, MUSHAF_ORDER, SURAHS, SURAH_NAME } from "@/lib/quran-data";
+import { MUSHAF_ORDER, SURAH_NAME } from "@/lib/quran-data";
 import {
   PLAN_TEMPLATES,
   PLAN_TEMPLATE_LABEL,
@@ -32,6 +32,7 @@ import {
   type InfoField,
 } from "@/lib/students/extra-info-rules";
 import { NEUTRAL_GROUP_GENDER } from "@/lib/text/gender";
+import { cellText, parseSurah, toInteger } from "@/lib/excel/cells";
 
 // Reads an uploaded bulk-import workbook (see import-template.ts) into one
 // NewStudentInput per filled row, or a per-row list of reasons it can't be.
@@ -322,63 +323,6 @@ export function matchImportRows(
 
 function rowTexts(row: ExcelJS.Row): string[] {
   return Array.from({ length: FIXED_COLUMN_COUNT }, (_, i) => cellText(row.getCell(i + 1).value));
-}
-
-/** keepLines: keep line breaks (multi-line extra-info notes); otherwise all whitespace folds to one space. */
-function cellText(value: ExcelJS.CellValue, keepLines = false): string {
-  if (value == null) return "";
-  if (typeof value === "string") return keepLines ? value.replace(/\r\n?/g, "\n").trim() : value.replace(/\s+/g, " ").trim();
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (value instanceof Date) return "";
-  if (typeof value === "object") {
-    if ("richText" in value) return cellText(value.richText.map((t) => t.text).join(""), keepLines);
-    if ("result" in value) return cellText((value.result ?? null) as ExcelJS.CellValue, keepLines);
-    if ("text" in value) return cellText(value.text as ExcelJS.CellValue, keepLines);
-  }
-  return "";
-}
-
-/** Arabic-Indic (٠-٩) and Persian (۰-۹) digits → ASCII. */
-function asciiDigits(text: string): string {
-  return text.replace(/[٠-٩۰-۹]/g, (d) => String(d.charCodeAt(0) & 0xf));
-}
-
-function toInteger(text: string): number | null {
-  const t = asciiDigits(text);
-  return /^\d+$/.test(t) ? Number(t) : null;
-}
-
-// Surah names are a fixed list with no collisions under this folding, so
-// common spelling variants (البقره, الاعلى, الضحي) can safely match too.
-const surahNameKey = (name: string) =>
-  name
-    .replace(/[ً-ٰٟـ]/g, "")
-    .replace(/^سورة\s+/, "")
-    .replace(/[أإآٱ]/g, "ا")
-    .replace(/ة/g, "ه")
-    .replace(/ى/g, "ي")
-    .replace(/\s+/g, " ")
-    .trim();
-const SURAH_BY_NAME = new Map(SURAHS.map((s) => [surahNameKey(s.name), s.number]));
-
-/**
- * A surah cell: "6", "6 - الأنعام" (the dropdown form) or "الأنعام". Empty →
- * null with no error; unrecognised → null plus an error naming the column.
- */
-function parseSurah(text: string, column: string, errors: string[]): number | null {
-  if (!text) return null;
-  const t = asciiDigits(text);
-  const numbered = t.match(/^(\d+)\s*(?:[-–—]\s*(.*))?$/);
-  if (numbered) {
-    const n = Number(numbered[1]);
-    const name = numbered[2];
-    if (AYAH_COUNT[n] && (!name || SURAH_BY_NAME.get(surahNameKey(name)) === n)) return n;
-  } else {
-    const n = SURAH_BY_NAME.get(surahNameKey(t));
-    if (n) return n;
-  }
-  errors.push(`«${text}» في عمود «${column}» ليست سورة معروفة`);
-  return null;
 }
 
 function isUntouchedExample(cells: string[], variant: TemplateVariant): boolean {

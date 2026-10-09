@@ -25,6 +25,8 @@ export const WORDS: CountForms = { one: "كلمة واحدة", two: "كلمتا�
 export const SURAHS_COUNT: CountForms = { one: "سورة واحدة", two: "سورتان", few: "سور", many: "سورة" };
 export const SESSIONS: CountForms = { one: "جلسة واحدة", two: "جلستان", few: "جلسات", many: "جلسة" };
 export const GROUPS: CountForms = { one: "مجموعة واحدة", two: "مجموعتان", few: "مجموعات", many: "مجموعة" };
+export const ROWS: CountForms = { one: "سطر واحد", two: "سطران", few: "أسطر", many: "سطرًا" };
+export const REASONS: CountForms = { one: "سبب واحد", two: "سببان", few: "أسباب", many: "سببًا" };
 export const SEGMENTS: CountForms = { one: "مقطع واحد", two: "مقطعان", few: "مقاطع", many: "مقطعًا" };
 export const ACTIVITIES: CountForms = { one: "نشاط واحد", two: "نشاطان", few: "أنشطة", many: "نشاطًا" };
 

@@ -48,6 +48,9 @@ model Course {
   // Restoring and permanently deleting are always supervisor-only.
   editStudentsPermission    AddStudentsPermission @default(ADMIN_ONLY)
   archiveStudentsPermission AddStudentsPermission @default(ADMIN_ONLY)
+  // who may add prior memorization (حفظ سابق) to an existing student, and
+  // delete a prior entry added by mistake (teachers: students they can see)
+  addPriorPermission        AddStudentsPermission @default(ADMIN_ONLY)
   // Student login (src/lib/auth/student-session.ts). Off by default; while
   // off, student codes are hidden and every student session is refused.
   // studentBoardEnabled separately allows the course board tab for students

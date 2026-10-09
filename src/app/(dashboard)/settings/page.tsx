@@ -73,6 +73,7 @@ export default async function SettingsPage() {
           addStudentsPermission={course.addStudentsPermission}
           editStudentsPermission={course.editStudentsPermission}
           archiveStudentsPermission={course.archiveStudentsPermission}
+          addPriorPermission={course.addPriorPermission}
           issueStudentCodesPermission={course.issueStudentCodesPermission}
           studentLoginEnabled={course.studentLoginEnabled}
           studentInfoEnabled={course.studentInfoEnabled}

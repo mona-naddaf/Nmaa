@@ -24,6 +24,14 @@ export function canEditStudents(session: Session, course: { editStudentsPermissi
   return session.role === "admin" || course.editStudentsPermission === "ALL_TEACHERS";
 }
 
+/**
+ * Adding prior memorization to an existing student, and deleting a prior
+ * entry added by mistake. A teacher only for students she can see.
+ */
+export function canAddPrior(session: Session, course: { addPriorPermission: Permission }): boolean {
+  return session.role === "admin" || course.addPriorPermission === "ALL_TEACHERS";
+}
+
 export function canArchiveStudents(session: Session, course: { archiveStudentsPermission: Permission }): boolean {
   return session.role === "admin" || course.archiveStudentsPermission === "ALL_TEACHERS";
 }

@@ -18,6 +18,7 @@ export function PermissionsCard({
   addStudentsPermission,
   editStudentsPermission,
   archiveStudentsPermission,
+  addPriorPermission,
   issueStudentCodesPermission,
   studentLoginEnabled,
   studentInfoEnabled,
@@ -29,6 +30,7 @@ export function PermissionsCard({
   addStudentsPermission: AddStudentsPermission;
   editStudentsPermission: AddStudentsPermission;
   archiveStudentsPermission: AddStudentsPermission;
+  addPriorPermission: AddStudentsPermission;
   issueStudentCodesPermission: AddStudentsPermission;
   studentLoginEnabled: boolean;
   studentInfoEnabled: boolean;
@@ -99,6 +101,13 @@ export function PermissionsCard({
         archiveStudentsPermission,
         "أرشفة الطلاب",
         `من يملك صلاحية أرشفة طالب؟ أما الاستعادة من الأرشيف والحذف النهائي فهما لل${supervisorNoun(adminGender)} ${pickByPerson(adminGender, { m: "وحده", f: "وحدها" })} دائمًا.`,
+      )}
+
+      {studentPermissionRow(
+        "addPriorPermission",
+        addPriorPermission,
+        "إضافة حفظ سابق",
+        "من يملك صلاحية إضافة حفظ سابق لطالب موجود (أو حذف حفظ سابق أُضيف بالخطأ)؟ يُحسب في موضعه وأشرطة تقدّمه، دون نقاط أو أثر في لوحة الإنجاز.",
       )}
 
       {studentLoginEnabled &&

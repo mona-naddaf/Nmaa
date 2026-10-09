@@ -26,7 +26,12 @@ export async function setAddStudentsPermissionAction(value: "ADMIN_ONLY" | "ALL_
   revalidatePath("/settings");
 }
 
-const STUDENT_PERMISSION_FIELDS = ["editStudentsPermission", "archiveStudentsPermission", "issueStudentCodesPermission"] as const;
+const STUDENT_PERMISSION_FIELDS = [
+  "editStudentsPermission",
+  "archiveStudentsPermission",
+  "addPriorPermission",
+  "issueStudentCodesPermission",
+] as const;
 export type StudentPermissionField = (typeof STUDENT_PERMISSION_FIELDS)[number];
 
 export async function setStudentPermissionAction(field: StudentPermissionField, value: "ADMIN_ONLY" | "ALL_TEACHERS") {

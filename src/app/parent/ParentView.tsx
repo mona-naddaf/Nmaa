@@ -216,7 +216,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
                       </div>
                       <div className={styles.logMeta}>
                         {e.source === "PRIOR" ? (
-                          <span className={`${styles.logBadge} ${styles.mode}`}>📚 حفظ سابق قبل الانضمام</span>
+                          <span className={`${styles.logBadge} ${styles.mode}`}>📚 حفظ سابق</span>
                         ) : (
                           e.quality && (
                             <span className={`${styles.logBadge} ${styles[QUALITY_BADGE[e.quality]]}`}>

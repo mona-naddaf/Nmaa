@@ -1,5 +1,5 @@
 import type { PlanTemplate, Prisma } from "@prisma/client";
-import { AYAH_COUNT, JUZ_AMMA_REVERSE_ORDER, MUSHAF_ORDER, MUSHAF_REVERSE_ORDER } from "@/lib/quran-data";
+import { AYAH_COUNT, JUZ_AMMA_REVERSE_ORDER, MUSHAF_ORDER, MUSHAF_REVERSE_ORDER, SURAH_NAME } from "@/lib/quran-data";
 import { calculatePageRange } from "@/lib/recitation/logic";
 import { studentNounDef, type GroupGender } from "@/lib/text/gender";
 
@@ -160,6 +160,57 @@ export function priorProblem(
   return null;
 }
 
+/** The ayah ranges a prior entry declares: whole surahs, then the partial one. */
+export function priorRanges(completed: number[], partial: PriorPartial | null): PriorPartial[] {
+  return [
+    ...completed.map((surahNumber) => ({ surahNumber, fromAyah: 1, toAyah: AYAH_COUNT[surahNumber] })),
+    ...(partial ? [partial] : []),
+  ];
+}
+
+/**
+ * Prior memorization added after the start (a course student's page, or
+ * «رفيق الحفظ»'s "add later") may not repeat ayat already covered — by
+ * recitation or an earlier prior entry — or those pages would count twice.
+ * `covered` is Reach.covered (NEW sessions only). null when nothing overlaps.
+ */
+export function priorOverlapProblem(
+  covered: Record<number, [number, number][]>,
+  completed: number[],
+  partial: PriorPartial | null,
+): string | null {
+  for (const { surahNumber, fromAyah, toAyah } of priorRanges(completed, partial)) {
+    const hits = (covered[surahNumber] ?? [])
+      .map(([a, b]) => [Math.max(a, fromAyah), Math.min(b, toAyah)] as const)
+      .filter(([a, b]) => a <= b);
+    if (hits.length > 0) {
+      const ayat = hits.map(([a, b]) => (a === b ? `${a}` : `${a}–${b}`)).join("، ");
+      return `في سورة ${SURAH_NAME[surahNumber]} آيات مسجَّلة من قبل (${ayat})، فلا يمكن إضافتها حفظًا سابقًا مرة أخرى`;
+    }
+  }
+  return null;
+}
+
+/**
+ * The PRIOR baseline sessions for prior memorization (one per whole surah,
+ * one for the partial surah), attributed to `teacherId` — the same rows
+ * whether added with the student or later from her page.
+ */
+export function priorSessionRows(completed: number[], partial: PriorPartial | null, teacherId: string) {
+  return priorRanges(completed, partial).map(({ surahNumber, fromAyah, toAyah }) => {
+    const range = calculatePageRange(surahNumber, fromAyah, toAyah);
+    return {
+      teacherId,
+      source: "PRIOR" as const,
+      type: "NEW" as const,
+      surahNumber,
+      fromAyah,
+      toAyah,
+      pagesCalculated: "error" in range ? 0 : range.totalPages,
+    };
+  });
+}
+
 /**
  * Create input for a validated student: the student row, her plan, and one
  * PRIOR baseline session per fully-memorized surah plus one for the partial
@@ -169,20 +220,7 @@ export function studentCreateData(
   student: ValidatedStudent,
   { courseId, groupId, teacherId }: { courseId: string; groupId: string; teacherId: string },
 ): Prisma.StudentUncheckedCreateInput {
-  const priorSessions = [
-    ...student.priorCompletedSurahs.map((surahNumber) => ({ surahNumber, fromAyah: 1, toAyah: AYAH_COUNT[surahNumber] })),
-    ...(student.priorPartial ? [student.priorPartial] : []),
-  ].map(({ surahNumber, fromAyah, toAyah }) => {
-    const range = calculatePageRange(surahNumber, fromAyah, toAyah);
-    return {
-      teacherId,
-      source: "PRIOR" as const,
-      surahNumber,
-      fromAyah,
-      toAyah,
-      pagesCalculated: "error" in range ? 0 : range.totalPages,
-    };
-  });
+  const priorSessions = priorSessionRows(student.priorCompletedSurahs, student.priorPartial, teacherId);
 
   return {
     courseId,

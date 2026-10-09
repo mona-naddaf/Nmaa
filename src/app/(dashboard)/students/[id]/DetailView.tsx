@@ -10,6 +10,8 @@ import { todayISO } from "@/lib/attendance";
 import type { ProgressBar } from "@/lib/students/progress";
 import type { OverdueSurah } from "@/lib/students/review";
 import { addBonusPointAction, resolveMistakeAction, saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
+import { deleteStudentPriorAction } from "./prior-actions";
+import { AddPriorPanel } from "./AddPriorPanel";
 import { BONUS_NOTE_MAX_LENGTH, BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { Collapsible } from "@/components/collapsible/Collapsible";
@@ -105,6 +107,7 @@ export function DetailView({
   headerActions,
   headerBadge,
   infoSection,
+  canManagePrior = false,
   expandAll = false,
 }: {
   student: { id: string; name: string; age: number; grade: string | null; attendance: Attendance };
@@ -135,6 +138,9 @@ export function DetailView({
   headerBadge?: React.ReactNode;
   // «معلومات إضافية» (a Collapsible), after the review reminders
   infoSection?: React.ReactNode;
+  // «+ إضافة حفظ سابق» and deleting prior entries (the supervisor, or a
+  // teacher with the permission; never on an archived student)
+  canManagePrior?: boolean;
   // open every collapsible section (and don't remember anything): the
   // archive's read-only (inert) view, where nothing can be clicked open
   expandAll?: boolean;
@@ -162,6 +168,25 @@ export function DetailView({
   const [bonusNote, setBonusNote] = useState("");
   const [bonusError, setBonusError] = useState<string | null>(null);
   const [, startPointsTransition] = useTransition();
+
+  // prior memorization: the add panel, and the prior entry awaiting a
+  // second click to delete
+  const [priorOpen, setPriorOpen] = useState(false);
+  const [confirmPriorId, setConfirmPriorId] = useState<string | null>(null);
+  const [priorDeleteError, setPriorDeleteError] = useState<string | null>(null);
+  const [priorDeletePending, startPriorDeleteTransition] = useTransition();
+
+  function deletePrior(sessionId: string) {
+    setPriorDeleteError(null);
+    startPriorDeleteTransition(async () => {
+      const result = await deleteStudentPriorAction(student.id, sessionId);
+      if ("error" in result) return setPriorDeleteError(result.error);
+      setConfirmPriorId(null);
+      router.refresh();
+      setToast("تم حذف الحفظ السابق ✓");
+      setTimeout(() => setToast(null), 2200);
+    });
+  }
 
   const doneForSelectedDate = useMemo(
     () => new Set(pointsLogs.filter((p) => p.date === sessionDate).map((p) => p.activityId)),
@@ -330,7 +355,7 @@ export function DetailView({
         </div>
       </div>
 
-      <div className={styles.lastPos}>
+      <div className={canManagePrior ? `${styles.lastPos} ${styles.withPrior}` : styles.lastPos}>
         <div className={styles.icon}>📖</div>
         <div>
           <div className={styles.label}>آخر ما وصلت إليه (حسب الخطة)</div>
@@ -343,7 +368,27 @@ export function DetailView({
             {cumPages} صفحة تراكميًا · {onlineCount} تسميع أونلاين
           </div>
         </div>
+        {canManagePrior && !priorOpen && (
+          <button type="button" className={styles.priorOpenBtn} onClick={() => setPriorOpen(true)}>
+            + إضافة حفظ سابق
+          </button>
+        )}
       </div>
+
+      {canManagePrior && priorOpen && (
+        <AddPriorPanel
+          studentId={student.id}
+          plan={plan}
+          groupGender={groupGender}
+          viewerGender={viewerGender}
+          onClose={() => setPriorOpen(false)}
+          onSaved={() => {
+            setPriorOpen(false);
+            setToast("تمت إضافة الحفظ السابق ✓");
+            setTimeout(() => setToast(null), 2200);
+          }}
+        />
+      )}
 
       {/* Recording a session stays open at the top; every other section
           below starts collapsed (all open on the archive's read-only view). */}
@@ -621,7 +666,7 @@ export function DetailView({
                 </div>
                 <div className={styles.logMeta}>
                   {e.source === "PRIOR" ? (
-                    <span className={`${styles.logBadge} ${styles.mode}`}>📚 حفظ سابق قبل الانضمام</span>
+                    <span className={`${styles.logBadge} ${styles.mode}`}>📚 حفظ سابق</span>
                   ) : (
                     <>
                       {e.quality && (
@@ -641,6 +686,36 @@ export function DetailView({
                 </div>
                 {e.reason && <div className={styles.logReason}>سبب: {e.reason}</div>}
                 {e.notes && <div className={styles.logNotes}>&quot;{e.notes}&quot;</div>}
+                {canManagePrior &&
+                  e.source === "PRIOR" &&
+                  (confirmPriorId === e.id ? (
+                    <div className={styles.priorConfirm}>
+                      <span>حذف هذا الحفظ السابق؟ يُعاد حساب الموضع وأشرطة التقدّم.</span>
+                      <button
+                        type="button"
+                        className={styles.linkDanger}
+                        disabled={priorDeletePending}
+                        onClick={() => deletePrior(e.id)}
+                      >
+                        تأكيد الحذف
+                      </button>
+                      <button type="button" className={styles.linkBtn} onClick={() => setConfirmPriorId(null)}>
+                        تراجع
+                      </button>
+                      {priorDeleteError && <div className={styles.err}>{priorDeleteError}</div>}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className={styles.linkDanger}
+                      onClick={() => {
+                        setPriorDeleteError(null);
+                        setConfirmPriorId(e.id);
+                      }}
+                    >
+                      حذف
+                    </button>
+                  ))}
               </div>
             </div>
           ))

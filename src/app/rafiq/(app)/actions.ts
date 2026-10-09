@@ -8,7 +8,7 @@ import { finishCoveredSegments } from "@/lib/rafiq/home-log";
 import { acceptSessionDay, occurredAtFor } from "@/lib/rafiq/days";
 import { advancesPosition, calculatePageRange, classifyRecitation, type RecitationSituation, type SessionType } from "@/lib/recitation/logic";
 import { validateFlaggedWords } from "@/lib/recitation/flagged-words";
-import { planProblem, priorProblem, TEMPLATE_KEY_PLAN, type PriorPartial, type TemplateKey } from "@/lib/students/new-student";
+import { planProblem, priorOverlapProblem, priorProblem, TEMPLATE_KEY_PLAN, type PriorPartial, type TemplateKey } from "@/lib/students/new-student";
 import { acceptLocalDay } from "@/lib/home-log/rules";
 import { AYAH_COUNT } from "@/lib/quran-data";
 
@@ -224,12 +224,14 @@ export async function savePlanAction(input: { template: TemplateKey; plan: numbe
 export async function addPriorAction(input: { prior: unknown; today: string }): Promise<RafiqResult> {
   const user = await getRafiqUser();
   if (!user) return SIGNED_OUT;
-  const { planTemplate, plan } = await getPlan(user.id);
+  const { planTemplate, planChangedAt, plan } = await getPlan(user.id);
   if (!planTemplate) return NO_PLAN;
   const prior = cleanPrior(input?.prior);
   if (!prior) return { error: "بيانات الحفظ السابق غير صحيحة" };
   if (prior.completed.length === 0 && !prior.partial) return { error: "يُرجى تحديد سورة واحدة على الأقل" };
-  const badPrior = priorProblem(plan, prior.completed, prior.partial, "خطتك");
+  const badPrior =
+    priorProblem(plan, prior.completed, prior.partial, "خطتك") ??
+    priorOverlapProblem((await getReach(user.id, plan, planChangedAt)).covered, prior.completed, prior.partial);
   if (badPrior) return { error: badPrior };
   const today = acceptLocalDay(String(input.today ?? ""));
   if (!today) return { error: "يُرجى تحديث الصفحة والمحاولة مرة أخرى" };

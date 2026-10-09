@@ -18,7 +18,7 @@ import { inScope, studentCodeAccess } from "@/lib/students/student-codes";
 import { StudentManageBar } from "./StudentManageBar";
 import { requestOrigin } from "@/lib/request-origin";
 import styles from "./manage.module.css";
-import { canArchiveStudents, canEditStudents, teacherGroupLimit } from "@/lib/students/manage";
+import { canAddPrior, canArchiveStudents, canEditStudents, teacherGroupLimit } from "@/lib/students/manage";
 import { pickByGroup, studentNounDef } from "@/lib/text/gender";
 import { getStudentAssignments } from "@/lib/assignments/data";
 import { StaffStudentAssignments } from "./StaffStudentAssignments";
@@ -63,6 +63,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const groupLimit = await teacherGroupLimit(session, course);
   const canEdit = !archived && canEditStudents(session, course);
   const canArchive = !archived && canArchiveStudents(session, course);
+  const canManagePrior = !archived && canAddPrior(session, course);
 
   if (session.role === "teacher" && course.visibilityMode === "ASSIGNED") {
     const assignments = await prisma.teacherGroupAssignment.findMany({ where: { teacherId: session.teacherId } });
@@ -199,6 +200,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
             </Collapsible>
           ) : null
         }
+        canManagePrior={canManagePrior}
         expandAll={archived}
         headerActions={
           canEdit || canArchive ? (

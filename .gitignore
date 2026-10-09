@@ -46,3 +46,6 @@ next-env.d.ts
 # design source files (kept locally, not committed)
 /1.png
 /2.png
+
+# generated user guide (kept locally, never committed)
+/docs/

@@ -24,6 +24,13 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 Name each new folder in `prisma/migrations` so it sorts after the last one. The folder already holds future-dated names, so continue that sequence one day at a time (after `20261017000000` comes `20261018000000`, …) until real dates pass the last one, then use real timestamps.
 
+## Development database (Neon branches)
+
+- `.env` points at the **live** database (host `ep-green-haze`). The Prisma CLI reads only `.env`, so pass the dev branch's URL explicitly to every Prisma command run for testing.
+- `.env.development.local` points at the dev branch **`calendar-dev-restored`** (host `ep-proud-wind`), which `next dev` uses. Test there first.
+- **`calendar-dev`** (host `ep-solitary-voice`) is the parent of `calendar-dev-restored`. Don't use it for testing, and **don't delete it**.
+- Never pass any database URL as a Prisma shadow database (`--shadow-database-url`, `shadowDatabaseUrl`): Prisma resets the shadow database and erases its data.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

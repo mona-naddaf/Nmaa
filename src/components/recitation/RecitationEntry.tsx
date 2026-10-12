@@ -66,6 +66,20 @@ export function useRecitationEntry({
   // the current surah and range are submitted
   const [wordFlags, setWordFlags] = useState<WordFlags>({});
 
+  // A juz direction correction, a plan change or added prior memorization
+  // moves where she stands without a save from this form: suggest the new
+  // next entry. (After a save here the refreshed suggestion is the one
+  // afterSave already set.)
+  const expectedKey = `${plan.join(",")}|${initialEntry.surahNumber}:${initialEntry.fromAyah}:${initialEntry.toAyah}`;
+  const [suggestedFor, setSuggestedFor] = useState(expectedKey);
+  if (suggestedFor !== expectedKey) {
+    setSuggestedFor(expectedKey);
+    setSurahNumber(initialEntry.surahNumber);
+    setFromAyah(initialEntry.fromAyah);
+    setToAyah(initialEntry.toAyah);
+    setReason("");
+  }
+
   const judged = useMemo<DirectionalClassification>(
     () =>
       directional

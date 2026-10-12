@@ -31,6 +31,10 @@ Name each new folder in `prisma/migrations` so it sorts after the last one. The 
 - **`calendar-dev`** (host `ep-solitary-voice`) is the parent of `calendar-dev-restored`. Don't use it for testing, and **don't delete it**.
 - Never pass any database URL as a Prisma shadow database (`--shadow-database-url`, `shadowDatabaseUrl`): Prisma resets the shadow database and erases its data.
 
+## Pending
+
+- **Next surah after a plan change.** The recitation check (`classifyRecitation` in `src/lib/recitation/logic.ts`) only asks whether the surah just before the entry in the plan is complete. After a plan change, gaps approved under the old plan stop counting, so her position goes back, but a surah whose predecessor she has fully memorized is still accepted as «تقدّم طبيعي» without a reason (e.g. Al-Ḥāqqa 1 after a fully memorized Al-Maʿārij) while her position stays where it was. This predates the juz directions; handle it separately.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

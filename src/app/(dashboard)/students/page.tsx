@@ -12,7 +12,11 @@ export default async function StudentsPage() {
 
   const course = await prisma.course.findUniqueOrThrow({
     where: { id: session.courseId },
-    include: { groups: { orderBy: { sortOrder: "asc" } } },
+    include: {
+      groups: { orderBy: { sortOrder: "asc" } },
+      // the bulk bar's «+ نقطة» list
+      pointsActivities: { orderBy: { sortOrder: "asc" }, select: { id: true, name: true, value: true, type: true } },
+    },
   });
 
   let visibleGroupIds: string[] | undefined;
@@ -64,6 +68,7 @@ export default async function StudentsPage() {
         archivedCount={archivedCount}
         canIssueStudentCodes={codeAccess.allowed}
         canUseOfflineSheet={canUseOfflineSheet(session, course)}
+        pointsActivities={course.pointsActivities}
       />
     </>
   );

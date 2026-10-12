@@ -7,7 +7,7 @@ import { issueParentCode } from "@/lib/auth/parent-code";
 import { advancesPosition, calculatePageRange, type RecitationSituation, type SessionType } from "@/lib/recitation/logic";
 
 const SESSION_TYPES: SessionType[] = ["NEW", "REVIEW", "LINK"];
-import { todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
+import { attendanceDay, todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { imperative, thisDemonstrative, pickByGroup, type GroupGender } from "@/lib/text/gender";
 import type { Session } from "@/lib/auth/session";
@@ -267,7 +267,8 @@ export async function setAttendanceAction(studentId: string, status: "IN" | "OUT
   const denied = await studentAccessError(session, student);
   if (denied) return { error: denied };
   const teacherId = await resolveTeacherId(session);
-  const day = todayDateOnly();
+  // Riyadh's day, as the students list and the bulk bar read it
+  const day = attendanceDay();
 
   await prisma.attendanceLog.upsert({
     where: { studentId_day: { studentId, day } },

@@ -250,3 +250,246 @@
 .archiveLink:focus-visible {
   color: var(--sage-deep);
 }
+
+/* ---------- «تحديد»: bulk attendance and points ---------- */
+
+.selectBtn {
+  background: var(--paper);
+  color: var(--sage-deep);
+  border: 1px solid var(--sage-deep);
+  border-radius: 20px;
+  padding: 9px 18px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.selectBtnOn {
+  background: var(--sage-deep);
+  color: #fff;
+}
+
+.selectRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -8px 0 16px;
+}
+
+.selectChip {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.selectChipOn {
+  border-color: var(--sage-deep);
+  background: rgba(107, 124, 99, 0.14);
+  color: var(--sage-deep);
+}
+
+/* a card in selection mode: a checkbox, and today's status as a coloured edge */
+.selectCard {
+  position: relative;
+  width: 100%;
+  font: inherit;
+  text-align: inherit;
+  border-inline-start-width: 6px;
+}
+
+.edge_present {
+  border-inline-start-color: var(--sage-deep);
+}
+
+.edge_absent {
+  border-inline-start-color: var(--rose-deep);
+}
+
+.edge_pending {
+  border-inline-start-color: var(--lavender);
+}
+
+.selectedCard {
+  background: rgba(107, 124, 99, 0.1);
+  box-shadow: 0 0 0 2px var(--sage-deep) inset;
+}
+
+.checkMark {
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 12px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 2px solid var(--sage-deep);
+  background: var(--paper);
+  color: var(--sage-deep);
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.selectedCard .checkMark {
+  background: var(--sage-deep);
+  color: #fff;
+}
+
+/* the bar at the bottom of the screen, thumb-sized on a phone */
+.bulkBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  margin: 16px -4px 0;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -6px 20px rgba(49, 46, 39, 0.12);
+}
+
+.bulkRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.bulkCount {
+  font-weight: 800;
+  font-size: 13.5px;
+  color: var(--ink);
+  margin-inline-end: auto;
+}
+
+.bulkBtn {
+  min-height: 46px;
+  min-width: 84px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid var(--sage-deep);
+  background: var(--paper);
+  color: var(--sage-deep);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.bulkBtn:disabled {
+  opacity: 0.6;
+}
+
+.bulkIn {
+  background: var(--sage-deep);
+  color: #fff;
+}
+
+.bulkOut {
+  border-color: var(--rose-deep);
+  color: var(--rose-deep);
+}
+
+.bulkBtnOn {
+  background: rgba(107, 124, 99, 0.14);
+}
+
+.bulkPoints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.bulkPointBtn {
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--cream, var(--paper));
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.bulkPointValue {
+  color: var(--sage-deep);
+  font-weight: 900;
+  margin-inline-start: 4px;
+}
+
+.bulkBonus {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 260px;
+}
+
+.bulkBonusInput {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13.5px;
+  background: var(--paper);
+}
+
+.bulkNotice {
+  position: fixed;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 24px);
+  background: var(--sage-deep);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(49, 46, 39, 0.2);
+}
+
+.bulkNoticeError {
+  background: var(--rose-deep);
+}
+
+.bulkUndo {
+  background: #fff;
+  color: var(--sage-deep);
+  border: none;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  min-height: 34px;
+}
+
+@media (max-width: 600px) {
+  .bulkBtn {
+    flex: 1 1 30%;
+    min-width: 0;
+    padding: 0 8px;
+  }
+  .bulkCount {
+    flex: 1 1 100%;
+  }
+}

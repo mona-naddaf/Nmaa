@@ -19,6 +19,17 @@ export function parseDateOnlyInput(raw: string): Date | null {
   return parsed;
 }
 
+/**
+ * Today's attendance day in Riyadh time (as «التسميع بدون إنترنت» dates its
+ * file): the student page's attendance, the students list's status and the
+ * bulk bar all record and read this day, so they agree after midnight too.
+ * (Elsewhere the site still uses todayDateOnly.)
+ */
+export function attendanceDay(now: Date = new Date()): Date {
+  const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return new Date(`${iso}T00:00:00Z`);
+}
+
 export type AttendanceStatus = "IN" | "OUT" | "PENDING";
 
 // AttendanceLog is append-only, one row per student per day; a day with no

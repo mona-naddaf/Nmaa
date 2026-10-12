@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/auth/require";
 import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
 import { getActiveMistakes } from "@/lib/students/mistakes";
 import { computeStreaks } from "@/lib/students/streak-data";
-import { attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
+import { attendanceDay, attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
 import { SURAH_NAME, TOTAL_PAGES } from "@/lib/quran-data";
 import { juzGroupSurahs } from "@/lib/quran-data/juz";
 import { DIRECTIONAL_JUZ } from "@/lib/recitation/juz-direction";
@@ -82,6 +82,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   }
 
   const today = todayDateOnly();
+  // today's attendance: Riyadh's day (lib/attendance.ts)
+  const attendanceToday = attendanceDay();
   const [sessions, pointsLogs, todayAttendance] = await Promise.all([
     prisma.recitationSession.findMany({
       where: { studentId: student.id },
@@ -93,7 +95,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       include: { teacher: { select: { name: true } } },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.attendanceLog.findMany({ where: { studentId: student.id, day: today } }),
+    prisma.attendanceLog.findMany({ where: { studentId: student.id, day: attendanceToday } }),
   ]);
 
   const sp = studentPlan(student);
@@ -162,7 +164,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           name: student.name,
           age: student.age,
           grade: student.grade,
-          attendance: attendanceStatusForDay(todayAttendance, today),
+          attendance: attendanceStatusForDay(todayAttendance, attendanceToday),
         }}
         groupGender={student.group.gender}
         viewerGender={viewer?.gender ?? null}

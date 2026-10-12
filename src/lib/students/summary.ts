@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
 import { PLAN_INCLUDE, forPlanPosition, secondTrackView, studentPlan } from "./plan";
 import { SURAH_NAME, AYAH_COUNT } from "@/lib/quran-data";
-import { attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/lib/attendance";
+import { attendanceDay, attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/lib/attendance";
 import { pickByGroup } from "@/lib/text/gender";
 import { computeOverdueSurahs } from "@/lib/students/review";
 import { computeStreaks } from "@/lib/students/streak-data";
@@ -43,6 +43,8 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
   const studentIds = students.map((s) => s.id);
 
   const today = todayDateOnly();
+  // today's attendance status: Riyadh's day (lib/attendance.ts)
+  const attendanceToday = attendanceDay();
   const [sessions, pointsLogs, attendanceLogs] = await Promise.all([
     prisma.recitationSession.findMany({
       where: { studentId: { in: studentIds } },
@@ -67,7 +69,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
       select: { studentId: true, valueAtTime: true, typeAtTime: true },
     }),
     prisma.attendanceLog.findMany({
-      where: { studentId: { in: studentIds }, day: today },
+      where: { studentId: { in: studentIds }, day: attendanceToday },
       select: { studentId: true, day: true, status: true },
     }),
   ]);
@@ -115,7 +117,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
       name: student.name,
       age: student.age,
       groupId: student.groupId,
-      attendance: attendanceStatusForDay(attendanceByStudent.get(student.id) ?? [], today),
+      attendance: attendanceStatusForDay(attendanceByStudent.get(student.id) ?? [], attendanceToday),
       cumPages: Math.round(cumPages * 1000) / 1000,
       cumPoints: pointsByStudent.get(student.id) ?? 0,
       onlineCount,

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { AYAH_COUNT } from "@/lib/quran-data";
 import { deriveCurrentPosition, deriveReach, nextExpectedEntry } from "@/lib/recitation/logic";
+import { PLAN_FIELDS, forPlanPosition, studentPlan } from "@/lib/students/plan";
 import { getOfflineAccess } from "@/lib/offline-sheet/access";
 import { riyadhTodayISO } from "@/lib/offline-sheet/dates";
 import { buildOfflineSheet, type SheetGroup } from "@/lib/offline-sheet/template";
@@ -28,8 +29,8 @@ export async function GET(request: NextRequest) {
       id: true,
       name: true,
       groupId: true,
-      planItems: { orderBy: { position: "asc" }, select: { surahNumber: true } },
-      recitationSessions: { select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true } },
+      ...PLAN_FIELDS,
+      recitationSessions: { select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true } },
     },
   });
 
@@ -38,9 +39,9 @@ export async function GET(request: NextRequest) {
     students: students
       .filter((s) => s.groupId === g.id)
       .map((s) => {
-        const plan = s.planItems.map((p) => p.surahNumber);
+        const { plan, planChangedAt } = studentPlan(s);
         if (plan.length === 0) return { id: s.id, name: s.name, next: null };
-        const position = deriveCurrentPosition(plan, deriveReach(plan, s.recitationSessions));
+        const position = deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(s.recitationSessions, planChangedAt)));
         // the whole plan done: nothing to continue from
         const last = plan[plan.length - 1];
         if (position && position.surahNumber === last && position.ayah >= AYAH_COUNT[last]) return { id: s.id, name: s.name, next: null };

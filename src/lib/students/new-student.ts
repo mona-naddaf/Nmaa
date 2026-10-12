@@ -1,6 +1,7 @@
 import type { PlanTemplate, Prisma } from "@prisma/client";
 import { AYAH_COUNT, JUZ_AMMA_REVERSE_ORDER, MUSHAF_ORDER, MUSHAF_REVERSE_ORDER, SURAH_NAME } from "@/lib/quran-data";
 import { calculatePageRange } from "@/lib/recitation/logic";
+import { inferJuzDirections, isStockReverse } from "@/lib/recitation/juz-direction";
 import { studentNounDef, type GroupGender } from "@/lib/text/gender";
 
 // The one set of rules for creating a student with a plan and prior
@@ -214,13 +215,20 @@ export function priorSessionRows(completed: number[], partial: PriorPartial | nu
 /**
  * Create input for a validated student: the student row, her plan, and one
  * PRIOR baseline session per fully-memorized surah plus one for the partial
- * surah, all attributed to `teacherId`.
+ * surah, all attributed to `teacherId`. On an untouched reverse plan, the
+ * juz directions her prior memorization clearly shows are recorded too.
  */
 export function studentCreateData(
   student: ValidatedStudent,
   { courseId, groupId, teacherId }: { courseId: string; groupId: string; teacherId: string },
 ): Prisma.StudentUncheckedCreateInput {
   const priorSessions = priorSessionRows(student.priorCompletedSurahs, student.priorPartial, teacherId);
+  const now = new Date();
+  const directions = isStockReverse(student.planTemplate, student.plan)
+    ? inferJuzDirections(priorSessions.map((s) => ({ ...s, occurredAt: now }))).flatMap((j) =>
+        j.direction ? [{ juz: j.juz, direction: j.direction, source: "AUTO" as const }] : [],
+      )
+    : [];
 
   return {
     courseId,
@@ -231,5 +239,6 @@ export function studentCreateData(
     planTemplate: student.planTemplate,
     planItems: { createMany: { data: student.plan.map((surahNumber, position) => ({ surahNumber, position })) } },
     recitationSessions: { createMany: { data: priorSessions } },
+    ...(directions.length > 0 ? { juzDirections: { createMany: { data: directions } } } : {}),
   };
 }

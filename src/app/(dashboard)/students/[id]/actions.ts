@@ -4,13 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin, requireSession } from "@/lib/auth/require";
 import { issueParentCode } from "@/lib/auth/parent-code";
-import {
-  advancesPosition,
-  calculatePageRange,
-  deriveReach,
-  type RecitationSituation,
-  type SessionType,
-} from "@/lib/recitation/logic";
+import { advancesPosition, calculatePageRange, type RecitationSituation, type SessionType } from "@/lib/recitation/logic";
 
 const SESSION_TYPES: SessionType[] = ["NEW", "REVIEW", "LINK"];
 import { todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
@@ -19,7 +13,9 @@ import { imperative, thisDemonstrative, pickByGroup, type GroupGender } from "@/
 import type { Session } from "@/lib/auth/session";
 import { validateFlaggedWords, type FlaggedWordInput } from "@/lib/recitation/flagged-words";
 import { BONUS_NOTE_MAX_LENGTH } from "@/lib/points/bonus";
-import { afterRecitationSaved, classifyEntry, recitationCreateData } from "@/lib/recitation/record";
+import { afterRecitationSaved, classifyPlanEntry, recitationCreateData } from "@/lib/recitation/record";
+import { adoptionMessage, type JuzAdoption } from "@/lib/recitation/juz-direction";
+import { PLAN_INCLUDE, adoptJuzDirection, forPlanPosition, studentPlan } from "@/lib/students/plan";
 
 function addHoursUTC(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
@@ -29,7 +25,7 @@ async function loadStudentForCourse(studentId: string, courseId: string) {
   // archived students can't be acted on (their history stays as it was)
   const student = await prisma.student.findFirst({
     where: { id: studentId, courseId, archivedAt: null },
-    include: { planItems: { orderBy: { position: "asc" } }, group: { select: { gender: true } } },
+    include: { ...PLAN_INCLUDE, group: { select: { gender: true } } },
   });
   if (!student) throw new Error("طالب غير موجود");
   return student;
@@ -78,8 +74,10 @@ export type SaveRecitationInput = {
 };
 
 export type SaveRecitationResult = { error: string } | { ok: true };
+// adopted: «تم اعتماد اتجاه الجزء …», when this entry decided a juz direction
+export type SaveRecitationOutcome = { error: string } | { ok: true; adopted: string | null };
 
-export async function saveRecitationAction(input: SaveRecitationInput): Promise<SaveRecitationResult> {
+export async function saveRecitationAction(input: SaveRecitationInput): Promise<SaveRecitationOutcome> {
   const session = await requireSession();
   const student = await loadStudentForCourse(input.studentId, session.courseId);
 
@@ -100,13 +98,15 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
   // every other way a recitation is saved
   let situation: RecitationSituation | null = null;
   let requiresReason = false;
+  // a reverse-plan entry may decide its juz's direction (saved with it)
+  let adopt: JuzAdoption | null = null;
   if (advancesPosition(input)) {
-    const plan = student.planItems.map((pi) => pi.surahNumber);
+    const sp = studentPlan(student);
     const priorSessions = await prisma.recitationSession.findMany({
       where: { studentId: student.id },
-      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true },
+      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true },
     });
-    ({ situation, requiresReason } = classifyEntry(plan, deriveReach(plan, priorSessions), input, student.group.gender));
+    ({ situation, requiresReason, adopt } = classifyPlanEntry(sp, forPlanPosition(priorSessions, sp.planChangedAt), input, student.group.gender));
     if (requiresReason && !input.reason.trim()) {
       return { error: "يُرجى كتابة سبب هذا التسجيل قبل الحفظ" };
     }
@@ -149,7 +149,7 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
   const created = recitationCreateData(record);
   if ("error" in created) return { error: created.error };
 
-  await prisma.recitationSession.create({
+  const saveSession = prisma.recitationSession.create({
     data: {
       ...created.data,
       // same statement as the session, so they're saved together or not at all
@@ -169,11 +169,14 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
       },
     },
   });
+  // the direction is saved with the entry that decided it, or not at all
+  if (adopt) await prisma.$transaction([saveSession, adoptJuzDirection(prisma, student.id, adopt)]);
+  else await saveSession;
 
   await afterRecitationSaved(record);
 
   revalidatePath(`/students/${student.id}`);
-  return { ok: true };
+  return { ok: true, adopted: adopt ? adoptionMessage(adopt) : null };
 }
 
 /**

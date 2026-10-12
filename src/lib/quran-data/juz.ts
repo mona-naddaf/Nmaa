@@ -85,3 +85,60 @@ export function juzTotalPages(juz: number): number {
   }
   return total;
 }
+
+// ---------- whole-surah grouping for «ترتيب المصحف بالعكس» ----------
+
+/**
+ * The surahs each juz owns as whole surahs, for a plan that works in juz
+ * (the reverse plan's direction per juz): [first, last] surah, or null when
+ * no surah belongs to it. A surah that crosses a juz boundary belongs to the
+ * juz holding more of its pages; on a tie, to the juz where it ends (e.g.
+ * Adh-Dhariyat → 27, Al-Anfal → 10). Index 0 = juz 1. Fixed rather than
+ * computed: summed page fractions tie only up to rounding (Al-Baqarah,
+ * Al-Anfal), and this grouping was agreed table by table.
+ */
+export const JUZ_SURAH_GROUPS: ([number, number] | null)[] = [
+  [1, 1],
+  [2, 2],
+  null,
+  [3, 3],
+  [4, 4],
+  [5, 5],
+  [6, 6],
+  null,
+  [7, 7],
+  [8, 9],
+  [10, 10],
+  [11, 11],
+  [12, 14],
+  [15, 16],
+  [17, 18],
+  [19, 20],
+  [21, 22],
+  [23, 24],
+  [25, 27],
+  [28, 29],
+  [30, 32],
+  [33, 35],
+  [36, 38],
+  [39, 41],
+  [42, 45],
+  [46, 50],
+  [51, 57],
+  [58, 66],
+  [67, 77],
+  [78, 114],
+];
+
+/** The surahs (ascending) a juz owns in the grouping above. */
+export function juzGroupSurahs(juz: number): number[] {
+  const g = JUZ_SURAH_GROUPS[juz - 1];
+  if (!g) return [];
+  return Array.from({ length: g[1] - g[0] + 1 }, (_, i) => g[0] + i);
+}
+
+/** The juz a surah belongs to in the grouping above. */
+export function groupJuzOfSurah(surahNumber: number): number | null {
+  const i = JUZ_SURAH_GROUPS.findIndex((g) => g && surahNumber >= g[0] && surahNumber <= g[1]);
+  return i === -1 ? null : i + 1;
+}

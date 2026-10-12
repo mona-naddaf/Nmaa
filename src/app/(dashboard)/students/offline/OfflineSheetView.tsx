@@ -124,6 +124,11 @@ export function OfflineSheetView({
             {current.saved.duplicates > 0 && `، وتُخطّيت ${countLabel(current.saved.duplicates, SESSIONS)} مسجَّلة من قبل`}
             {current.saved.notSaved > 0 && `، ولم يُحفظ ما في ${countLabel(current.saved.notSaved, ROWS)} فيها أخطاء`}.
           </p>
+          {current.saved.directions.map((d) => (
+            <p className={styles.hint} key={d}>
+              {d}
+            </p>
+          ))}
           <Link href="/students" className={styles.back}>
             عرض القائمة ←
           </Link>
@@ -319,6 +324,7 @@ function Entry({ e, reason, onReason }: { e: PreviewEntry; reason: string; onRea
         )}
       </div>
       {!e.duplicate && e.warning && <div className={o.warning}>{e.warning}</div>}
+      {!e.duplicate && e.adopted && <div className={o.line}>{e.adopted}</div>}
       {!e.duplicate && e.requiresReason && (
         <textarea
           className={o.reason}

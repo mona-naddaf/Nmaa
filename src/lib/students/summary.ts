@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
+import { PLAN_INCLUDE, forPlanPosition, studentPlan } from "./plan";
 import { SURAH_NAME, AYAH_COUNT } from "@/lib/quran-data";
 import { attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/lib/attendance";
 import { pickByGroup } from "@/lib/text/gender";
@@ -26,7 +27,7 @@ export interface StudentSummary {
 export async function getStudentSummaries(courseId: string, groupIds?: string[]): Promise<StudentSummary[]> {
   const students = await prisma.student.findMany({
     where: { courseId, archivedAt: null, ...(groupIds ? { groupId: { in: groupIds } } : {}) },
-    include: { planItems: { orderBy: { position: "asc" } }, group: { select: { gender: true } } },
+    include: { ...PLAN_INCLUDE, group: { select: { gender: true } } },
     orderBy: { name: "asc" },
   });
   if (students.length === 0) return [];
@@ -53,6 +54,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
         situation: true,
         reason: true,
         occurredAt: true,
+        createdAt: true,
       },
     }),
     prisma.pointsLog.findMany({
@@ -86,10 +88,10 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
   }
 
   return students.map((student) => {
-    const plan = student.planItems.map((pi) => pi.surahNumber);
+    const { plan, planChangedAt } = studentPlan(student);
     const studentSessions = sessionsByStudent.get(student.id) ?? [];
 
-    const position = deriveCurrentPosition(plan, deriveReach(plan, studentSessions));
+    const position = deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(studentSessions, planChangedAt)));
 
     const cumPages = studentSessions.reduce((sum, s) => sum + Number(s.pagesCalculated), 0);
     const onlineCount = studentSessions.filter((s) => s.mode === "ONLINE").length;

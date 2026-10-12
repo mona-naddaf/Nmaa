@@ -20,6 +20,7 @@ export function PermissionsCard({
   archiveStudentsPermission,
   addPriorPermission,
   offlineSheetPermission,
+  editPlanPermission,
   issueStudentCodesPermission,
   studentLoginEnabled,
   studentInfoEnabled,
@@ -33,6 +34,7 @@ export function PermissionsCard({
   archiveStudentsPermission: AddStudentsPermission;
   addPriorPermission: AddStudentsPermission;
   offlineSheetPermission: AddStudentsPermission;
+  editPlanPermission: AddStudentsPermission;
   issueStudentCodesPermission: AddStudentsPermission;
   studentLoginEnabled: boolean;
   studentInfoEnabled: boolean;
@@ -117,6 +119,13 @@ export function PermissionsCard({
         offlineSheetPermission,
         "التسميع بدون إنترنت",
         "من يملك صلاحية تنزيل ملف Excel لتسجيل حضور يوم وتسميعه ونقاطه دون اتصال، ثم رفعه وحفظه؟ عند اختيار \"كل المعلمين\" يقتصر كل معلم على طلاب مجموعاته.",
+      )}
+
+      {studentPermissionRow(
+        "editPlanPermission",
+        editPlanPermission,
+        "تعديل خطة الحفظ",
+        "من يملك صلاحية تغيير خطة حفظ طالب، وتصحيح اتجاه أي جزء في خطة «ترتيب المصحف بالعكس»؟ عند اختيار \"كل المعلمين\" يقتصر كل معلم على الطلاب الذين يراهم.",
       )}
 
       {studentLoginEnabled &&

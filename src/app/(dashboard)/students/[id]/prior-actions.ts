@@ -9,6 +9,7 @@ import { deriveReach } from "@/lib/recitation/logic";
 import { canAddPrior, teacherGroupLimit } from "@/lib/students/manage";
 import { priorOverlapProblem, priorProblem, priorSessionRows, type PriorPartial } from "@/lib/students/new-student";
 import { pickByGroup, studentNounDef, type GroupGender } from "@/lib/text/gender";
+import { PLAN_FIELDS, inferDirectionsFromHistory, studentPlan } from "@/lib/students/plan";
 
 // «إضافة حفظ سابق» on an existing student: the same PRIOR baseline rows as
 // prior memorization entered when she was added (priorSessionRows), so
@@ -43,7 +44,7 @@ async function priorAccess(
       groupId: true,
       archivedAt: true,
       group: { select: { gender: true } },
-      planItems: { orderBy: { position: "asc" }, select: { surahNumber: true } },
+      ...PLAN_FIELDS,
     },
   });
   if (!student) return { error: "غير موجود في هذه الدورة" };
@@ -55,7 +56,7 @@ async function priorAccess(
   if (limit && !limit.includes(student.groupId)) {
     return { error: `ليست لديك صلاحية على ${pickByGroup(student.group.gender, { m: "هذا", f: "هذه" })} ${studentNounDef(student.group.gender)}` };
   }
-  return { student, plan: student.planItems.map((p) => p.surahNumber) };
+  return { student, plan: studentPlan(student).plan };
 }
 
 function cleanPrior(raw: unknown): { completed: number[]; partial: PriorPartial | null } | null {
@@ -88,8 +89,12 @@ export async function addStudentPriorAction(studentId: string, input: unknown): 
   if (problem) return { error: problem };
 
   const teacherId = await resolveTeacherId(session);
-  await prisma.recitationSession.createMany({
-    data: priorSessionRows(prior.completed, prior.partial, teacherId).map((row) => ({ ...row, studentId: student.id })),
+  // with the juz directions the added memorization now clearly shows
+  await prisma.$transaction(async (tx) => {
+    await tx.recitationSession.createMany({
+      data: priorSessionRows(prior.completed, prior.partial, teacherId).map((row) => ({ ...row, studentId: student.id })),
+    });
+    await inferDirectionsFromHistory(tx, student.id);
   });
 
   revalidatePath(`/students/${student.id}`);

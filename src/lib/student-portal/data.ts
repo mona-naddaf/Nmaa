@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveCurrentPosition, deriveReach, type PlanPosition } from "@/lib/recitation/logic";
+import { PLAN_FIELDS, forPlanPosition, studentPlan } from "@/lib/students/plan";
 import { buildCoverage, computeProgressBars, coveredQuranPages, type ProgressBar } from "@/lib/students/progress";
 import { getActiveMistakes } from "@/lib/students/mistakes";
 import { TOTAL_PAGES } from "@/lib/quran-data";
@@ -32,17 +33,20 @@ export interface StudentHomeData {
  * the next portion for a home segment. The home log itself never feeds this.
  */
 export async function getPlanAndPosition(studentId: string) {
-  const [planItems, sessions, student] = await Promise.all([
-    prisma.planItem.findMany({ where: { studentId }, orderBy: { position: "asc" }, select: { surahNumber: true } }),
+  const [sessions, student] = await Promise.all([
     prisma.recitationSession.findMany({
       where: { studentId },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true },
+      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true },
     }),
-    prisma.student.findUniqueOrThrow({ where: { id: studentId }, select: { group: { select: { gender: true } } } }),
+    prisma.student.findUniqueOrThrow({ where: { id: studentId }, select: { group: { select: { gender: true } }, ...PLAN_FIELDS } }),
   ]);
-  const plan = planItems.map((p) => p.surahNumber);
-  return { plan, position: deriveCurrentPosition(plan, deriveReach(plan, sessions)), groupGender: student.group.gender };
+  const { plan, planChangedAt } = studentPlan(student);
+  return {
+    plan,
+    position: deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(sessions, planChangedAt))),
+    groupGender: student.group.gender,
+  };
 }
 
 export async function getStudentHomeData(studentId: string): Promise<StudentHomeData | null> {
@@ -54,7 +58,7 @@ export async function getStudentHomeData(studentId: string): Promise<StudentHome
       course: {
         select: { name: true, showSurahProgress: true, showJuzProgress: true, showQuranProgress: true, showPlanProgress: true },
       },
-      planItems: { orderBy: { position: "asc" }, select: { surahNumber: true } },
+      ...PLAN_FIELDS,
     },
   });
   if (!student) return null;
@@ -63,7 +67,7 @@ export async function getStudentHomeData(studentId: string): Promise<StudentHome
     prisma.recitationSession.findMany({
       where: { studentId },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true },
+      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true },
     }),
     prisma.pointsLog.findMany({
       where: { studentId },
@@ -71,8 +75,8 @@ export async function getStudentHomeData(studentId: string): Promise<StudentHome
     }),
   ]);
 
-  const plan = student.planItems.map((p) => p.surahNumber);
-  const position = deriveCurrentPosition(plan, deriveReach(plan, sessions));
+  const { plan, planChangedAt } = studentPlan(student);
+  const position = deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(sessions, planChangedAt)));
   const coverage = buildCoverage(sessions);
 
   return {

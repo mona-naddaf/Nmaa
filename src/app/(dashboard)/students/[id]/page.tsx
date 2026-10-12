@@ -6,9 +6,14 @@ import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
 import { getActiveMistakes } from "@/lib/students/mistakes";
 import { computeStreaks } from "@/lib/students/streak-data";
 import { attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
-import { TOTAL_PAGES } from "@/lib/quran-data";
+import { SURAH_NAME, TOTAL_PAGES } from "@/lib/quran-data";
+import { juzGroupSurahs } from "@/lib/quran-data/juz";
+import { DIRECTIONAL_JUZ } from "@/lib/recitation/juz-direction";
+import { PLAN_TEMPLATE_LABEL, TEMPLATE_KEY_PLAN, type TemplateKey } from "@/lib/students/new-student";
+import { PlanPanel } from "./PlanPanel";
 import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages } from "@/lib/students/progress";
 import { computeOverdueSurahs } from "@/lib/students/review";
+import { PLAN_INCLUDE, forPlanPosition, studentPlan } from "@/lib/students/plan";
 import { DetailView } from "./DetailView";
 import { ParentCodeCard } from "./ParentCodeCard";
 import { StudentCodeCard } from "./StudentCodeCard";
@@ -18,7 +23,7 @@ import { inScope, studentCodeAccess } from "@/lib/students/student-codes";
 import { StudentManageBar } from "./StudentManageBar";
 import { requestOrigin } from "@/lib/request-origin";
 import styles from "./manage.module.css";
-import { canAddPrior, canArchiveStudents, canEditStudents, teacherGroupLimit } from "@/lib/students/manage";
+import { canAddPrior, canArchiveStudents, canEditPlan, canEditStudents, teacherGroupLimit } from "@/lib/students/manage";
 import { pickByGroup, studentNounDef } from "@/lib/text/gender";
 import { getStudentAssignments } from "@/lib/assignments/data";
 import { StaffStudentAssignments } from "./StaffStudentAssignments";
@@ -41,7 +46,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
 
   const student = await prisma.student.findFirst({
     where: { id, courseId: session.courseId },
-    include: { planItems: { orderBy: { position: "asc" } }, group: { select: { gender: true } } },
+    include: { ...PLAN_INCLUDE, group: { select: { gender: true } } },
   });
   if (!student) notFound();
   // an archived student's page is the supervisor's read-only view (from the archive)
@@ -64,6 +69,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const canEdit = !archived && canEditStudents(session, course);
   const canArchive = !archived && canArchiveStudents(session, course);
   const canManagePrior = !archived && canAddPrior(session, course);
+  const canChangePlan = !archived && canEditPlan(session, course);
 
   if (session.role === "teacher" && course.visibilityMode === "ASSIGNED") {
     const assignments = await prisma.teacherGroupAssignment.findMany({ where: { teacherId: session.teacherId } });
@@ -87,8 +93,10 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     prisma.attendanceLog.findMany({ where: { studentId: student.id, day: today } }),
   ]);
 
-  const plan = student.planItems.map((pi) => pi.surahNumber);
-  const reach = deriveReach(plan, sessions);
+  const sp = studentPlan(student);
+  const plan = sp.plan;
+  const positionSessions = forPlanPosition(sessions, sp.planChangedAt);
+  const reach = deriveReach(plan, positionSessions);
   const position = deriveCurrentPosition(plan, reach);
 
   const cumPages = sessions.reduce((sum, s) => sum + Number(s.pagesCalculated), 0);
@@ -150,6 +158,21 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         plan={plan}
         position={position}
         reach={reach}
+        directional={
+          sp.directions
+            ? {
+                directions: sp.directions,
+                sessions: positionSessions.map((s) => ({
+                  surahNumber: s.surahNumber,
+                  fromAyah: s.fromAyah,
+                  toAyah: s.toAyah,
+                  type: s.type,
+                  situation: s.situation,
+                  reason: s.reason,
+                })),
+              }
+            : null
+        }
         cumPages={Math.round(cumPages * 1000) / 1000}
         cumPoints={cumPoints}
         streak={streak}
@@ -236,6 +259,24 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     );
   }
 
+  // «خطة الحفظ»: the juz rows only for a plan with directions
+  const juzRows = sp.directions
+    ? DIRECTIONAL_JUZ.map((juz) => {
+        const surahs = juzGroupSurahs(juz);
+        const row = student.juzDirections.find((d) => d.juz === juz);
+        return {
+          juz,
+          first: SURAH_NAME[surahs[0]],
+          last: SURAH_NAME[surahs[surahs.length - 1]],
+          direction: row?.direction ?? null,
+          manual: row?.source === "MANUAL",
+          started: surahs.some((s) => coverage.has(s)),
+        };
+      })
+    : null;
+  const storedPlan = student.planItems.map((p) => p.surahNumber);
+  const templateKey = (Object.keys(TEMPLATE_KEY_PLAN) as TemplateKey[]).find((k) => TEMPLATE_KEY_PLAN[k] === student.planTemplate) ?? "custom";
+
   // home log: shown to every staff member who can see this student
   // (the page already sends teachers outside their groups away)
   const homeLog = course.homeLogEnabled && course.studentLoginEnabled ? await getHomeLog(student.id) : null;
@@ -246,6 +287,19 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     <>
       {view}
       {/* collapsed like the sections above */}
+      <Collapsible title="🗺 خطة الحفظ" persistKey="student.plan" tag={PLAN_TEMPLATE_LABEL[student.planTemplate]}>
+        <PlanPanel
+          studentId={student.id}
+          groupGender={g}
+          viewerGender={viewer?.gender ?? null}
+          templateKey={templateKey}
+          templateLabel={PLAN_TEMPLATE_LABEL[student.planTemplate]}
+          storedPlan={storedPlan}
+          juzRows={juzRows}
+          editedReverse={student.planTemplate === "MUSHAF_REVERSE" && !sp.directions}
+          canEdit={canChangePlan}
+        />
+      </Collapsible>
       {homeLog && (
         <Collapsible
           title="🏠 حفظ البيت"

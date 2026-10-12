@@ -6,17 +6,20 @@ import {
   calculatePageRange,
   classifyRecitation,
   deriveCurrentPosition,
+  deriveReach,
   nextExpectedEntry,
   withSession,
   type PageRangeError,
   type PageRangeResult,
   type PlanPosition,
+  type PositionSession,
   type Reach,
   type RecitationSubject,
   type SessionType,
 } from "@/lib/recitation/logic";
 import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
 import { rangeIsMemorized } from "@/lib/students/progress";
+import { classifyWithDirections, reverseOrder, type DirectionalClassification, type JuzDirections } from "@/lib/recitation/juz-direction";
 import type { WordFlags } from "@/components/mistakes/WordFlagger";
 
 // The part of recording a session that the staff student page and «رفيق
@@ -24,6 +27,16 @@ import type { WordFlags } from "@/components/mistakes/WordFlagger";
 // the gap check and its reason, and the flagged words. Each page keeps its
 // own layout and its own extra fields (quality, date, mode, notes, ...) and
 // arranges these pieces around them.
+
+/**
+ * A course student on an untouched reverse plan: the juz directions decided
+ * so far and her sessions as position logic sees them, so the form judges
+ * each juz the way the server will (src/lib/recitation/juz-direction.ts).
+ */
+export interface DirectionalPlan {
+  directions: JuzDirections;
+  sessions: PositionSession[];
+}
 
 export const SESSION_TYPE_LABEL: Record<SessionType, string> = { NEW: "حفظ جديد", REVIEW: "مراجعة", LINK: "ربط" };
 
@@ -33,12 +46,15 @@ export function useRecitationEntry({
   reach,
   memorizedRanges,
   subject,
+  directional = null,
 }: {
   plan: number[];
   position: PlanPosition | null;
   reach: Reach;
   memorizedRanges: Record<number, [number, number][]>;
   subject: RecitationSubject;
+  // only for a reverse plan with juz directions; null = judged on `plan`
+  directional?: DirectionalPlan | null;
 }) {
   const initialEntry = nextExpectedEntry(plan, position);
   const [surahNumber, setSurahNumber] = useState(initialEntry.surahNumber);
@@ -50,10 +66,14 @@ export function useRecitationEntry({
   // the current surah and range are submitted
   const [wordFlags, setWordFlags] = useState<WordFlags>({});
 
-  const classification = useMemo(
-    () => classifyRecitation(plan, reach, surahNumber, fromAyah, subject),
-    [plan, reach, surahNumber, fromAyah, subject],
+  const judged = useMemo<DirectionalClassification>(
+    () =>
+      directional
+        ? classifyWithDirections(directional.directions, directional.sessions, surahNumber, fromAyah, subject)
+        : { classification: classifyRecitation(plan, reach, surahNumber, fromAyah, subject), adopt: null },
+    [directional, plan, reach, surahNumber, fromAyah, subject],
   );
+  const classification = judged.classification;
   const pageResult = useMemo(() => calculatePageRange(surahNumber, fromAyah, toAyah), [surahNumber, fromAyah, toAyah]);
 
   // gap detection (and its mandatory reason) applies to new memorization only
@@ -105,7 +125,11 @@ export function useRecitationEntry({
       // from where she stands with this entry included — which may skip
       // past surahs already covered further ahead
       const saved = { surahNumber, fromAyah, toAyah, type: sessionType, situation: classification.situation, reason };
-      const next = nextExpectedEntry(plan, deriveCurrentPosition(plan, withSession(plan, reach, saved)));
+      // in the order this entry may just have decided for its juz
+      const adopt = directional && judged.adopt;
+      const nextPlan = adopt ? reverseOrder({ ...directional.directions, [adopt.juz]: adopt.direction }) : plan;
+      const nextReach = adopt ? deriveReach(nextPlan, directional.sessions) : reach;
+      const next = nextExpectedEntry(nextPlan, deriveCurrentPosition(nextPlan, withSession(nextPlan, nextReach, saved)));
       setSurahNumber(next.surahNumber);
       setFromAyah(next.fromAyah);
       setToAyah(next.toAyah);

@@ -1,8 +1,10 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
-import { calculatePageRange, deriveReach, withSession, type Reach, type SessionType } from "@/lib/recitation/logic";
-import { afterRecitationSaved, classifyEntry, recitationCreateData, type Quality } from "@/lib/recitation/record";
+import { calculatePageRange, deriveReach, withSession, type PositionSession, type Reach, type SessionType } from "@/lib/recitation/logic";
+import { afterRecitationSaved, classifyEntry, classifyPlanEntry, recitationCreateData, type Quality } from "@/lib/recitation/record";
+import { adoptionMessage, orderForRange, reverseOrder, type JuzDirections } from "@/lib/recitation/juz-direction";
+import { PLAN_FIELDS, adoptJuzDirection, forPlanPosition, studentPlan } from "@/lib/students/plan";
 import { parseSurah, toInteger } from "@/lib/excel/cells";
 import { absentWord, presentWord, pickByGroup, pickByPerson, studentNounDef, type GroupGender } from "@/lib/text/gender";
 import type { OfflineAccess } from "./access";
@@ -35,6 +37,8 @@ export interface PreviewEntry {
   requiresReason: boolean;
   badgeText: string | null;
   warning: string | null;
+  // «تم اعتماد اتجاه الجزء …» when this entry decides its juz's direction
+  adopted: string | null;
 }
 
 export interface PreviewRow {
@@ -81,12 +85,13 @@ interface Segment {
  * One block → its sessions (one per surah), or null with errors. Within one
  * surah, from ≤ to; across surahs both must be in her plan and «إلى سورة»
  * must come after «من سورة» in its order (forward, reverse, Juz Amma or
- * custom alike), covering every surah in between.
+ * custom alike), covering every surah in between. `orderFor` gives that
+ * order (for a reverse plan, the row itself may show a juz's direction).
  */
 function readBlock(
   type: SessionType,
   b: RawBlock,
-  plan: number[],
+  orderFor: (fromSurah: number, toSurah: number) => number[],
   g: GroupGender,
   errors: string[],
 ): { segments: Segment[]; quality: Quality } | null {
@@ -123,6 +128,7 @@ function readBlock(
     return { segments: [{ surahNumber: fromSurah, fromAyah, toAyah }], quality };
   }
 
+  const plan = orderFor(fromSurah, toSurah);
   const a = plan.indexOf(fromSurah);
   const z = plan.indexOf(toSurah);
   if (a === -1 || z === -1) {
@@ -179,7 +185,7 @@ export async function validateSheet(
       groupId: true,
       archivedAt: true,
       group: { select: { name: true, gender: true } },
-      planItems: { orderBy: { position: "asc" }, select: { surahNumber: true } },
+      ...PLAN_FIELDS,
     },
   });
   const byId = new Map(students.map((s) => [s.id, s]));
@@ -206,6 +212,7 @@ export async function validateSheet(
         situation: true,
         reason: true,
         occurredAt: true,
+        createdAt: true,
       },
     }),
     prisma.attendanceLog.findMany({ where: { studentId: { in: ids }, day }, select: { studentId: true, status: true } }),
@@ -256,7 +263,10 @@ export async function validateSheet(
     }
 
     const errors = base.errors;
-    const plan = s.planItems.map((p) => p.surahNumber);
+    const sp = studentPlan(s);
+    const plan = sp.plan;
+    // the juz directions as this row's entries decide them, one after another
+    let directions: JuzDirections | null = sp.directions;
 
     // attendance
     const att = readAttendance(raw.attendance);
@@ -271,7 +281,8 @@ export async function validateSheet(
       const filled = [b.fromSurah, b.fromAyah, b.toSurah, b.toAyah, b.quality].some(Boolean);
       if (!filled) continue;
       if (type === "NEW" && !b.toSurah && !b.toAyah && !b.quality) continue;
-      const read = readBlock(type, b, plan, g, errors);
+      const decided = directions;
+      const read = readBlock(type, b, decided ? (from, to) => orderForRange(decided, from, to) : () => plan, g, errors);
       if (read) blocks.push({ type, ...read });
     }
 
@@ -295,7 +306,8 @@ export async function validateSheet(
     // sessions, in order, each seeing the ones before it
     const existing = sessionsOf.get(s.id) ?? [];
     const sameDay = existing.filter((x) => x.source === "LOGGED" && x.occurredAt >= day && x.occurredAt < nextDay);
-    let reach: Reach = deriveReach(plan, existing);
+    const positionSessions: PositionSession[] = forPlanPosition(existing, sp.planChangedAt);
+    let reach: Reach = deriveReach(plan, positionSessions);
     for (const { type, segments, quality } of blocks) {
       segments.forEach((seg, i) => {
         const key = `${s.id}:${type}:${i}`;
@@ -313,20 +325,29 @@ export async function validateSheet(
           requiresReason: false,
           badgeText: null,
           warning: null,
+          adopted: null,
         };
         if (!duplicate) {
-          const c = classifyEntry(plan, reach, { type, ...seg }, g);
+          const c = directions
+            ? classifyPlanEntry({ plan: reverseOrder(directions), directions }, positionSessions, { type, ...seg }, g)
+            : { ...classifyEntry(plan, reach, { type, ...seg }, g), adopt: null };
           entry.requiresReason = c.requiresReason;
           entry.badgeText = c.classification?.badgeText ?? null;
           entry.warning = c.classification?.warningMessage ?? null;
+          if (directions && c.adopt) {
+            directions = { ...directions, [c.adopt.juz]: c.adopt.direction };
+            entry.adopted = adoptionMessage(c.adopt);
+          }
           // as if saved with its reason, so what follows is judged the same
           // in both steps
-          reach = withSession(plan, reach, {
+          const saved = {
             type,
             ...seg,
             situation: c.situation,
             reason: c.requiresReason ? reasons[key]?.trim() || "…" : null,
-          });
+          };
+          positionSessions.push(saved);
+          reach = withSession(plan, reach, saved);
         }
         base.entries.push(entry);
       });
@@ -379,6 +400,8 @@ export interface SaveSummary {
   attendanceChanged: number;
   points: number;
   notSaved: number;
+  // «فلانة: تم اعتماد اتجاه الجزء …», one per juz direction the entries decided
+  directions: string[];
 }
 
 /**
@@ -402,6 +425,7 @@ export async function saveSheet(
     attendanceChanged: 0,
     points: 0,
     notSaved: check.rows.filter((r) => r.errors.length > 0).length,
+    directions: [],
   };
   const saved: Parameters<typeof afterRecitationSaved>[0][] = [];
 
@@ -443,15 +467,17 @@ export async function saveSheet(
           if (e.type === "NEW") {
             // re-judged here against what's saved so far (in this same
             // transaction), exactly as the form would at that moment
-            const plan = (await tx.planItem.findMany({ where: { studentId: r.studentId }, orderBy: { position: "asc" }, select: { surahNumber: true } })).map(
-              (p) => p.surahNumber,
-            );
+            const sp = studentPlan(await tx.student.findUniqueOrThrow({ where: { id: r.studentId }, select: PLAN_FIELDS }));
             const sessions = await tx.recitationSession.findMany({
               where: { studentId: r.studentId },
-              select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true },
+              select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true },
             });
-            const c = classifyEntry(plan, deriveReach(plan, sessions), e, r.groupGender);
+            const c = classifyPlanEntry(sp, forPlanPosition(sessions, sp.planChangedAt), e, r.groupGender);
             record.situation = c.situation;
+            if (c.adopt) {
+              await adoptJuzDirection(tx, r.studentId, c.adopt);
+              summary.directions.push(`${r.name}: ${adoptionMessage(c.adopt)}`);
+            }
             if (c.requiresReason) {
               const reason = reasons[e.key]?.trim();
               if (!reason) throw new MissingReasonError();

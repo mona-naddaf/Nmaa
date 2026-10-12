@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveCurrentPosition, deriveReach, type PlanPosition } from "@/lib/recitation/logic";
+import { PLAN_FIELDS, studentPlan } from "@/lib/students/plan";
 import { buildCoverage, coveredQuranPages } from "@/lib/students/progress";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import type { GroupGender } from "@/lib/text/gender";
@@ -73,7 +74,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
           parentStudentInfoEdit: true,
         },
       },
-      planItems: { orderBy: { position: "asc" }, select: { surahNumber: true } },
+      ...PLAN_FIELDS,
     },
   });
   if (!student) return null;
@@ -105,7 +106,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     }),
   ]);
 
-  const plan = student.planItems.map((p) => p.surahNumber);
+  const { plan } = studentPlan(student);
   const infoFields = await visibleInfoFields(student.course.id, parentInfoAccess(student.course));
   const coverage = buildCoverage(sessions);
 

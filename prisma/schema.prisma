@@ -54,6 +54,9 @@ model Course {
   // who may download and upload «التسميع بدون إنترنت» (a day's attendance,
   // recitations and points from an Excel sheet; teachers: their groups only)
   offlineSheetPermission    AddStudentsPermission @default(ADMIN_ONLY)
+  // who may change a student's memorization plan and correct the direction
+  // of a juz in «ترتيب المصحف بالعكس» (teachers: students they can see)
+  editPlanPermission        AddStudentsPermission @default(ADMIN_ONLY)
   // Student login (src/lib/auth/student-session.ts). Off by default; while
   // off, student codes are hidden and every student session is refused.
   // studentBoardEnabled separately allows the course board tab for students
@@ -222,6 +225,9 @@ model Student {
   // Optional: students added before this field existed have none.
   grade        String?
   planTemplate PlanTemplate @default(CUSTOM)
+  // when staff last changed her plan by hand (src/lib/students/plan.ts):
+  // gaps approved before it stop counting, as in «رفيق الحفظ». null = never.
+  planChangedAt DateTime?
   createdAt    DateTime     @default(now())
 
   // Read-only parent access (see src/lib/auth/parent-session.ts). null =
@@ -253,6 +259,7 @@ model Student {
   keepInReports Boolean   @default(true)
 
   planItems          PlanItem[]
+  juzDirections      StudentJuzDirection[]
   recitationSessions RecitationSession[]
   pointsLogs         PointsLog[]
   attendanceLogs     AttendanceLog[]
@@ -333,6 +340,24 @@ model PlanItem {
   @@index([studentId])
 }
 
+// In «ترتيب المصحف بالعكس» the juz go from 30 down to 1, but each juz may be
+// memorized from its first surah or from its last
+// (src/lib/recitation/juz-direction.ts). No row = not decided yet, which
+// behaves as «من آخره» (the original reverse order). AUTO rows are written
+// when an entry reveals the direction, BACKFILL rows by the one-time script
+// for students who already had sessions; neither ever replaces a row, so a
+// MANUAL correction always wins.
+model StudentJuzDirection {
+  studentId String
+  student   Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  juz       Int
+  direction JuzDirection
+  source    JuzDirectionSource
+  setAt     DateTime           @default(now())
+
+  @@id([studentId, juz])
+}
+
 model RecitationSession {
   id              String               @id @default(cuid())
   studentId       String
@@ -357,6 +382,10 @@ model RecitationSession {
   reason          String?
   notes           String?
   occurredAt      DateTime             @default(now())
+  // when the row was saved (occurredAt can be backdated): a manual plan
+  // change drops gap approvals saved before it. Rows that existed before
+  // this column get the migration's time, which precedes any such change.
+  createdAt       DateTime             @default(now())
 
   mistakes RecitationMistake[]
 
@@ -1281,6 +1310,19 @@ enum PlanTemplate {
   MUSHAF_REVERSE
   JUZ_AMMA_REVERSE
   CUSTOM
+}
+
+enum JuzDirection {
+  // «من أوله»: the juz's surahs in Mushaf order
+  FROM_START
+  // «من آخره»: its last surah first (the original reverse order)
+  FROM_END
+}
+
+enum JuzDirectionSource {
+  AUTO
+  BACKFILL
+  MANUAL
 }
 
 enum AttendanceStatus {

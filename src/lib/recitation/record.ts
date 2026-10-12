@@ -4,11 +4,14 @@ import {
   advancesPosition,
   calculatePageRange,
   classifyRecitation,
+  deriveReach,
   type Classification,
+  type PositionSession,
   type Reach,
   type RecitationSituation,
   type SessionType,
 } from "@/lib/recitation/logic";
+import { classifyWithDirections, type JuzAdoption, type JuzDirections } from "@/lib/recitation/juz-direction";
 import type { GroupGender } from "@/lib/text/gender";
 import { markSegmentsRecited } from "@/lib/home-log/data";
 
@@ -42,6 +45,24 @@ export function classifyEntry(
   if (!advancesPosition(entry)) return { situation: null, requiresReason: false, classification: null };
   const classification = classifyRecitation(plan, reach, entry.surahNumber, entry.fromAyah, groupGender);
   return { situation: classification.situation, requiresReason: classification.requiresReason, classification };
+}
+
+/**
+ * classifyEntry for a course student's plan (src/lib/students/plan.ts): a
+ * reverse plan with directions is judged per juz, and an entry may decide
+ * an undecided juz (`adopt`, to be saved with it). Any other plan is judged
+ * exactly as classifyEntry does. `sessions` are her sessions as position
+ * logic sees them (forPlanPosition).
+ */
+export function classifyPlanEntry(
+  { plan, directions }: { plan: number[]; directions: JuzDirections | null },
+  sessions: PositionSession[],
+  entry: { type: SessionType; surahNumber: number; fromAyah: number },
+  groupGender: GroupGender,
+): EntryClassification & { adopt: JuzAdoption | null } {
+  if (!directions || !advancesPosition(entry)) return { ...classifyEntry(plan, deriveReach(plan, sessions), entry, groupGender), adopt: null };
+  const { classification, adopt } = classifyWithDirections(directions, sessions, entry.surahNumber, entry.fromAyah, groupGender);
+  return { situation: classification.situation, requiresReason: classification.requiresReason, classification, adopt };
 }
 
 export interface RecitationInput {

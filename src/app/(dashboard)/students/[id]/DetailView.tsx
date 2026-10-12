@@ -26,6 +26,7 @@ import {
   SurahRangeFields,
   recitationStyles as rs,
   useRecitationEntry,
+  type DirectionalPlan,
 } from "@/components/recitation/RecitationEntry";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
@@ -89,6 +90,7 @@ export function DetailView({
   plan,
   position,
   reach,
+  directional = null,
   cumPages,
   cumPoints,
   streak,
@@ -116,6 +118,8 @@ export function DetailView({
   plan: number[];
   position: PlanPosition | null;
   reach: Reach;
+  // a reverse plan with juz directions (null for any other plan)
+  directional?: DirectionalPlan | null;
   cumPages: number;
   cumPoints: number;
   // null when the course has streaks off
@@ -150,7 +154,7 @@ export function DetailView({
   const [attendance, setAttendanceState] = useState(student.attendance);
   const [attendancePending, startAttendanceTransition] = useTransition();
 
-  const entry = useRecitationEntry({ plan, position, reach, memorizedRanges, subject: groupGender });
+  const entry = useRecitationEntry({ plan, position, reach, memorizedRanges, subject: groupGender, directional });
   const { surahNumber, fromAyah, toAyah, sessionType, classification, pageResult, isNew } = entry;
   const hasRangeError = "error" in pageResult;
   const [quality, setQuality] = useState<Quality>("EXCELLENT");
@@ -285,14 +289,14 @@ export function DetailView({
       router.refresh();
       entry.afterSave();
 
-      setToast(
-        !isNew
-          ? `تم حفظ جلسة ال${SESSION_TYPE_LABEL[sessionType]} ✓`
-          : classification.situation === "SURAH_GAP" || classification.situation === "AYAH_GAP"
-            ? "تم الحفظ مع تسجيل ملاحظة الفجوة ✓"
-            : "تم حفظ التسميع ✓",
-      );
-      setTimeout(() => setToast(null), 2200);
+      const saved = !isNew
+        ? `تم حفظ جلسة ال${SESSION_TYPE_LABEL[sessionType]} ✓`
+        : classification.situation === "SURAH_GAP" || classification.situation === "AYAH_GAP"
+          ? "تم الحفظ مع تسجيل ملاحظة الفجوة ✓"
+          : "تم حفظ التسميع ✓";
+      // a juz direction this entry decided: one short line, shown a little longer
+      setToast(result.adopted ? `${saved} — ${result.adopted}` : saved);
+      setTimeout(() => setToast(null), result.adopted ? 4000 : 2200);
     });
   }
 

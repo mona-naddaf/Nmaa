@@ -40,6 +40,14 @@ export function canUseOfflineSheet(session: Session, course: { offlineSheetPermi
   return session.role === "admin" || course.offlineSheetPermission === "ALL_TEACHERS";
 }
 
+/**
+ * Changing a student's memorization plan, and correcting the direction of a
+ * juz in her reverse plan. A teacher only for students she can see.
+ */
+export function canEditPlan(session: Session, course: { editPlanPermission: Permission }): boolean {
+  return session.role === "admin" || course.editPlanPermission === "ALL_TEACHERS";
+}
+
 export function canArchiveStudents(session: Session, course: { archiveStudentsPermission: Permission }): boolean {
   return session.role === "admin" || course.archiveStudentsPermission === "ALL_TEACHERS";
 }

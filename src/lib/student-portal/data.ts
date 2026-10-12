@@ -1,8 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveCurrentPosition, deriveReach, type PlanPosition } from "@/lib/recitation/logic";
-import { PLAN_FIELDS, forPlanPosition, studentPlan } from "@/lib/students/plan";
-import { buildCoverage, computeProgressBars, coveredQuranPages, type ProgressBar } from "@/lib/students/progress";
+import { PLAN_FIELDS, forPlanPosition, secondTrackView, studentPlan } from "@/lib/students/plan";
+import { buildCoverage, computeProgressBars, coveredQuranPages, secondTrackBar, type ProgressBar } from "@/lib/students/progress";
 import { getActiveMistakes } from "@/lib/students/mistakes";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import { BONUS_POINTS_LABEL } from "@/lib/points/bonus";
@@ -21,6 +21,8 @@ export interface StudentHomeData {
   groupGender: GroupGender;
   courseName: string;
   position: PlanPosition | null;
+  // her second track (type and start, and where it stands), when she has one
+  secondTrack: { title: string; positionText: string } | null;
   quranPercent: number;
   // the bars the course has turned on (may be empty)
   progressBars: ProgressBar[];
@@ -37,7 +39,7 @@ export async function getPlanAndPosition(studentId: string) {
     prisma.recitationSession.findMany({
       where: { studentId },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true },
+      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true, trackId: true },
     }),
     prisma.student.findUniqueOrThrow({ where: { id: studentId }, select: { group: { select: { gender: true } }, ...PLAN_FIELDS } }),
   ]);
@@ -67,17 +69,24 @@ export async function getStudentHomeData(studentId: string): Promise<StudentHome
     prisma.recitationSession.findMany({
       where: { studentId },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true },
+      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true, trackId: true },
     }),
     prisma.pointsLog.findMany({
       where: { studentId },
+      // a stable order, so same-day points never shuffle
+      orderBy: [{ day: "asc" }, { createdAt: "asc" }, { id: "asc" }],
       select: { day: true, valueAtTime: true, typeAtTime: true, activity: { select: { name: true } } },
     }),
   ]);
 
-  const { plan, planChangedAt } = studentPlan(student);
+  const sp = studentPlan(student);
+  const { plan, planChangedAt } = sp;
   const position = deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(sessions, planChangedAt)));
   const coverage = buildCoverage(sessions);
+  const g = student.group.gender;
+  const second = secondTrackView(sp, sessions, g, g === "GIRLS" ? "لم تبدئي بعد" : "لم تبدأ بعد");
+  const progressBars = computeProgressBars({ settings: student.course, plan, position, coverage });
+  if (second?.progress?.position) progressBars.push(secondTrackBar(second.progress.position));
 
   return {
     studentName: student.name,
@@ -86,7 +95,8 @@ export async function getStudentHomeData(studentId: string): Promise<StudentHome
     courseName: student.course.name,
     position,
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
-    progressBars: computeProgressBars({ settings: student.course, plan, position, coverage }),
+    secondTrack: second ? { title: second.title, positionText: second.positionText } : null,
+    progressBars,
     mistakes: await getActiveMistakes(studentId, plan),
     points: pointsLogs.map((p) => ({
       date: p.day.toISOString().slice(0, 10),

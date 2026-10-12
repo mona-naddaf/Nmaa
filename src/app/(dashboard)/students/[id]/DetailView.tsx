@@ -28,6 +28,7 @@ import {
   recitationStyles as rs,
   useRecitationEntry,
   type DirectionalPlan,
+  type SecondTrackForm,
 } from "@/components/recitation/RecitationEntry";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
@@ -104,6 +105,8 @@ export function DetailView({
   memorizedRanges,
   overdueSurahs,
   mistakes,
+  secondTrack = null,
+  secondForm = null,
   reviewReminderDays,
   onlineRecitationEnabled,
   pointsActivities,
@@ -134,6 +137,9 @@ export function DetailView({
   memorizedRanges: Record<number, [number, number][]>;
   overdueSurahs: OverdueSurah[];
   mistakes: ActiveMistake[];
+  // her second track (lib/recitation/tracks.ts): its line under the position, and what the form needs
+  secondTrack?: { title: string; positionText: string } | null;
+  secondForm?: SecondTrackForm | null;
   reviewReminderDays: number | null;
   onlineRecitationEnabled: boolean;
   pointsActivities: PointsActivity[];
@@ -158,7 +164,7 @@ export function DetailView({
   const [attendancePending, startAttendanceTransition] = useTransition();
 
   // a course student: combined entries are split, earlier mistakes shown
-  const course = useMemo(() => ({ previousMistakes: mistakes }), [mistakes]);
+  const course = useMemo(() => ({ previousMistakes: mistakes, second: secondForm }), [mistakes, secondForm]);
   const entry = useRecitationEntry({ plan, position, reach, memorizedRanges, subject: groupGender, directional, course });
   const { surahNumber, fromAyah, toAyah, sessionType, classification, pageResult, isNew, combo } = entry;
   const hasRangeError = "error" in pageResult;
@@ -206,7 +212,7 @@ export function DetailView({
     [pointsLogs, sessionDate],
   );
 
-  const saveDisabled = hasRangeError || (entry.requiresReason && !entry.reasonFilled) || savePending;
+  const saveDisabled = hasRangeError || (entry.requiresReason && !entry.reasonFilled) || (entry.needsTrackChoice && !entry.track) || savePending;
 
   function startReview(surah: number) {
     entry.startReview(surah);
@@ -375,6 +381,11 @@ export function DetailView({
               ? `${SURAH_NAME[position.surahNumber]} — الآية ${position.ayah} من ${AYAH_COUNT[position.surahNumber]}`
               : `لم ${pickByGroup(groupGender, { m: "يبدأ", f: "تبدأ" })} بعد`}
           </div>
+          {secondTrack && (
+            <div className={styles.secondTrackLine}>
+              المسار الثاني ({secondTrack.title}): <b>{secondTrack.positionText}</b>
+            </div>
+          )}
           <div className={styles.sub}>
             {cumPages} صفحة تراكميًا · {onlineCount} تسميع أونلاين
           </div>
@@ -408,6 +419,11 @@ export function DetailView({
       </div>
       <div className={styles.card}>
         <SessionTypePills entry={entry} />
+        {entry.secondTrack?.next && (
+          <button type="button" className={rs.comboBtn} style={{ marginBottom: 12, marginInlineStart: 0 }} onClick={entry.startSecondNext}>
+            ↪ التالي في المسار الثاني: {SURAH_NAME[entry.secondTrack.next.surahNumber]} {entry.secondTrack.next.fromAyah}
+          </button>
+        )}
         <div className={rs.fieldRow}>
           <SurahRangeFields entry={entry} />
           <div className={rs.field}>

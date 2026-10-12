@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
-import { AYAH_COUNT } from "@/lib/quran-data";
-import { deriveCurrentPosition, deriveReach, nextExpectedEntry } from "@/lib/recitation/logic";
-import { PLAN_FIELDS, forPlanPosition, studentPlan } from "@/lib/students/plan";
 import { getOfflineAccess } from "@/lib/offline-sheet/access";
 import { riyadhTodayISO } from "@/lib/offline-sheet/dates";
-import { buildOfflineSheet, type SheetGroup } from "@/lib/offline-sheet/template";
+import { buildOfflineSheet } from "@/lib/offline-sheet/template";
+import { sheetGroupsFor } from "@/lib/offline-sheet/students";
 
 // «التسميع بدون إنترنت»: the day's sheet for one group or all the groups she
 // may use (getOfflineAccess), active students only, built fresh on every
@@ -22,33 +19,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(wanted === "all" ? "لا توجد مجموعات متاحة" : "غير مصرّح", { status: wanted === "all" ? 409 : 403 });
   }
 
-  const students = await prisma.student.findMany({
-    where: { courseId: access.courseId, groupId: { in: groups.map((g) => g.id) }, archivedAt: null },
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      groupId: true,
-      ...PLAN_FIELDS,
-      recitationSessions: { select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true } },
-    },
-  });
-
-  const sheetGroups: SheetGroup[] = groups.map((g) => ({
-    ...g,
-    students: students
-      .filter((s) => s.groupId === g.id)
-      .map((s) => {
-        const { plan, planChangedAt } = studentPlan(s);
-        if (plan.length === 0) return { id: s.id, name: s.name, next: null };
-        const position = deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(s.recitationSessions, planChangedAt)));
-        // the whole plan done: nothing to continue from
-        const last = plan[plan.length - 1];
-        if (position && position.surahNumber === last && position.ayah >= AYAH_COUNT[last]) return { id: s.id, name: s.name, next: null };
-        const next = nextExpectedEntry(plan, position);
-        return { id: s.id, name: s.name, next: { surahNumber: next.surahNumber, fromAyah: next.fromAyah } };
-      }),
-  }));
+  const sheetGroups = await sheetGroupsFor(access.courseId, groups);
 
   const dateISO = riyadhTodayISO();
   const buffer = await buildOfflineSheet({ groups: sheetGroups, dateISO, viewerGender: access.viewerGender });

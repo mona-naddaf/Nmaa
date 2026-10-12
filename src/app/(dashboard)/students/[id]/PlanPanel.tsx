@@ -8,7 +8,9 @@ import { PlanEditor } from "@/components/plan/PlanEditor";
 import { JUZ_DIRECTION_LABEL, type JuzDirection } from "@/lib/recitation/juz-direction";
 import { templateSurahs, type TemplateKey } from "@/lib/students/new-student";
 import { imperative, pickByGroup, studentNounDef, type GroupGender, type PersonGender } from "@/lib/text/gender";
-import { saveStudentPlanAction, setJuzDirectionAction } from "./plan-actions";
+import { addSecondTrackAction, endSecondTrackAction, saveStudentPlanAction, setJuzDirectionAction } from "./plan-actions";
+import { TRACK_KIND_LABEL, type TrackKind } from "@/lib/recitation/tracks";
+import { AYAH_COUNT, SURAHS } from "@/lib/quran-data";
 
 // «خطة الحفظ» on the student page: her plan, the direction of each juz in an
 // untouched «ترتيب المصحف بالعكس», and — with «تعديل خطة الحفظ» — changing
@@ -35,6 +37,7 @@ export function PlanPanel({
   juzRows,
   editedReverse,
   canEdit,
+  secondTrack = null,
 }: {
   studentId: string;
   groupGender: GroupGender;
@@ -47,6 +50,8 @@ export function PlanPanel({
   // a reverse plan whose order was edited by hand (so no directions)
   editedReverse: boolean;
   canEdit: boolean;
+  // her active second track (lib/recitation/tracks.ts), or null
+  secondTrack?: { title: string; positionText: string; done: boolean } | null;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -55,6 +60,12 @@ export function PlanPanel({
   const [showAll, setShowAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // «+ مسار ثانٍ»: the form, and «إنهاء المسار الثاني»: its confirmation
+  const [addingTrack, setAddingTrack] = useState(false);
+  const [trackKind, setTrackKind] = useState<TrackKind>("MUSHAF");
+  const [trackSurah, setTrackSurah] = useState(2);
+  const [trackAyah, setTrackAyah] = useState(1);
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
   const g = groupGender;
   const herPlan = pickByGroup(g, { m: "خطته", f: "خطتها" });
@@ -72,6 +83,26 @@ export function PlanPanel({
       const result = await saveStudentPlanAction(studentId, { template, plan });
       if ("error" in result) return setError(result.error);
       setEditing(false);
+      router.refresh();
+    });
+  }
+
+  function addTrack() {
+    setError(null);
+    startTransition(async () => {
+      const result = await addSecondTrackAction(studentId, { kind: trackKind, startSurah: trackSurah, startAyah: trackAyah });
+      if ("error" in result) return setError(result.error);
+      setAddingTrack(false);
+      router.refresh();
+    });
+  }
+
+  function endTrack() {
+    setError(null);
+    startTransition(async () => {
+      const result = await endSecondTrackAction(studentId);
+      if ("error" in result) return setError(result.error);
+      setConfirmEnd(false);
       router.refresh();
     });
   }
@@ -184,6 +215,109 @@ export function PlanPanel({
             </button>
           </div>
         </>
+      )}
+
+      {(secondTrack || canEdit) && (
+        <div className={styles.trackBox}>
+          <div className={styles.trackHead}>المسار الثاني</div>
+          {secondTrack ? (
+            <>
+              <div className={styles.trackLine}>
+                {secondTrack.title} · <b>{secondTrack.positionText}</b>
+              </div>
+              {secondTrack.done && <p className={styles.priorHint}>أتمّ المسار، ويمكن إنهاؤه الآن.</p>}
+              {canEdit &&
+                (confirmEnd ? (
+                  <div className={styles.priorConfirm}>
+                    <span>إنهاء المسار الثاني؟ يبقى كل ما حُفظ فيه محسوبًا، ويتوقف المسار فقط.</span>
+                    <button type="button" className={styles.linkDanger} disabled={pending} onClick={endTrack}>
+                      تأكيد الإنهاء
+                    </button>
+                    <button type="button" className={styles.linkBtn} onClick={() => setConfirmEnd(false)}>
+                      تراجع
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" className={styles.linkDanger} onClick={() => setConfirmEnd(true)}>
+                    إنهاء المسار الثاني
+                  </button>
+                ))}
+            </>
+          ) : addingTrack ? (
+            <>
+              <p className={styles.priorHint}>
+                مسار حفظ ثانٍ بجانب الخطة: له موضعه وتسميعه التالي وفحص فجواته، وكل ما يُحفظ فيه يُحسب في الحفظ الكلي وأشرطة التقدّم.
+              </p>
+              <div className={styles.juzBtns} role="radiogroup" aria-label="نوع المسار">
+                {(["MUSHAF", "REVERSE", "FREE"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    role="radio"
+                    aria-checked={trackKind === k}
+                    className={`${styles.juzPill} ${trackKind === k ? styles.sel : ""}`}
+                    onClick={() => setTrackKind(k)}
+                  >
+                    {TRACK_KIND_LABEL[k]}
+                  </button>
+                ))}
+              </div>
+              {trackKind === "FREE" ? (
+                <p className={styles.priorHint}>لا ترتيب فيه ولا فحص للفجوات ولا تعبئة مسبقة: كل ما يُحفظ فيه يُحسب.</p>
+              ) : (
+                <div className={rs.fieldRow}>
+                  <div className={rs.field}>
+                    <label htmlFor="trackSurah">يبدأ من سورة</label>
+                    <select
+                      id="trackSurah"
+                      value={trackSurah}
+                      onChange={(e) => {
+                        setTrackSurah(Number(e.target.value));
+                        setTrackAyah(1);
+                      }}
+                    >
+                      {SURAHS.map((x) => (
+                        <option key={x.number} value={x.number}>
+                          {x.number}. {x.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={rs.field}>
+                    <label htmlFor="trackAyah">من آية</label>
+                    <input
+                      id="trackAyah"
+                      type="number"
+                      min={1}
+                      max={AYAH_COUNT[trackSurah]}
+                      value={trackAyah}
+                      onChange={(e) => setTrackAyah(parseInt(e.target.value, 10) || 0)}
+                    />
+                  </div>
+                </div>
+              )}
+              <div className={styles.priorActions}>
+                <button className={rs.saveBtn} onClick={addTrack} disabled={pending} type="button">
+                  {pending ? "جارٍ الحفظ..." : "إضافة المسار"}
+                </button>
+                <button className={styles.linkBtn} onClick={() => setAddingTrack(false)} disabled={pending} type="button">
+                  إلغاء
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              className={styles.linkBtn}
+              onClick={() => {
+                setError(null);
+                setAddingTrack(true);
+              }}
+            >
+              + مسار ثانٍ
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

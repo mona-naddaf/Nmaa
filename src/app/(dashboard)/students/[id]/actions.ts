@@ -13,10 +13,11 @@ import { imperative, thisDemonstrative, pickByGroup, type GroupGender } from "@/
 import type { Session } from "@/lib/auth/session";
 import { validateFlaggedWords, validateMasteredWords, type FlaggedWordInput } from "@/lib/recitation/flagged-words";
 import { BONUS_NOTE_MAX_LENGTH } from "@/lib/points/bonus";
-import { afterRecitationSaved, classifyPlanEntry, combinedRecords, recitationCreateData } from "@/lib/recitation/record";
-import { entryContext, planCombinedEntry, type CombinedEntry } from "@/lib/recitation/combined";
+import { afterRecitationSaved, combinedRecords, recitationCreateData } from "@/lib/recitation/record";
+import type { CombinedEntry } from "@/lib/recitation/combined";
+import { detectTrack, latestTrackBySurah, planEntryInTrack, type TrackKey } from "@/lib/recitation/tracks";
 import { adoptionMessage, type JuzAdoption } from "@/lib/recitation/juz-direction";
-import { PLAN_INCLUDE, adoptJuzDirection, forPlanPosition, studentPlan } from "@/lib/students/plan";
+import { PLAN_INCLUDE, adoptJuzDirection, studentPlan, trackContexts } from "@/lib/students/plan";
 
 function addHoursUTC(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
@@ -74,6 +75,9 @@ export type SaveRecitationInput = {
   mistakes: FlaggedWordInput[];
   // words in the range whose earlier mistakes are marked «تم الإتقان»
   mastered?: { ayah: number; wordPosition: number }[];
+  // «حفظ جديد» for a student with a second track: the teacher's choice,
+  // used only where detection leaves it open (lib/recitation/tracks.ts)
+  track?: TrackKey;
 };
 
 export type SaveRecitationResult = { error: string } | { ok: true };
@@ -105,23 +109,37 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
   let adopt: JuzAdoption | null = null;
   // new memorization that also covers memorized ayat: saved as its parts
   let combo: CombinedEntry | null = null;
+  // her second track, when the entry belongs to it (null: her plan)
+  let trackId: string | null = null;
   if (advancesPosition(input)) {
     const sp = studentPlan(student);
     const priorSessions = await prisma.recitationSession.findMany({
       where: { studentId: student.id },
-      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true },
+      select: {
+        surahNumber: true,
+        fromAyah: true,
+        toAyah: true,
+        type: true,
+        source: true,
+        situation: true,
+        reason: true,
+        occurredAt: true,
+        createdAt: true,
+        trackId: true,
+      },
     });
-    const positionSessions = forPlanPosition(priorSessions, sp.planChangedAt);
-    combo = planCombinedEntry(
-      entryContext(sp.plan, sp.directions, positionSessions),
-      input.surahNumber,
-      input.fromAyah,
-      input.toAyah,
-      student.group.gender,
-      input.reason.trim() || "…",
-    );
-    if (combo) ({ requiresReason, adopt } = combo);
-    else ({ situation, requiresReason, adopt } = classifyPlanEntry(sp, positionSessions, input, student.group.gender));
+    const { main, second } = trackContexts(sp, priorSessions);
+    // which track: detected (tracks.ts), or the teacher's choice where the rules leave it open
+    let track: TrackKey = "MAIN";
+    if (sp.second) {
+      const detected = detectTrack(main, second, latestTrackBySurah(priorSessions, sp.second.id), input.surahNumber, input.fromAyah, input.toAyah, student.group.gender);
+      if (detected) track = detected;
+      else if (input.track === "MAIN" || input.track === "SECOND") track = input.track;
+      else return { error: "يُرجى اختيار المسار الذي يُسجَّل فيه هذا الحفظ" };
+      if (track === "SECOND") trackId = sp.second.id;
+    }
+    const planned = planEntryInTrack(track, main, second, input.surahNumber, input.fromAyah, input.toAyah, student.group.gender, input.reason.trim() || "…");
+    ({ combo, situation, requiresReason, adopt } = planned);
     if (requiresReason && !input.reason.trim()) {
       return { error: "يُرجى كتابة سبب هذا التسجيل قبل الحفظ" };
     }
@@ -163,6 +181,7 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
     reason: requiresReason ? input.reason.trim() : null,
     notes: input.notes.trim() || null,
     occurredAt,
+    trackId,
   };
   // one row, or one per part of a combined entry
   const rows = combo ? combinedRecords(record, combo) : [record];

@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
-import { PLAN_INCLUDE, forPlanPosition, studentPlan } from "./plan";
+import { PLAN_INCLUDE, forPlanPosition, secondTrackView, studentPlan } from "./plan";
 import { SURAH_NAME, AYAH_COUNT } from "@/lib/quran-data";
 import { attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/lib/attendance";
 import { pickByGroup } from "@/lib/text/gender";
@@ -19,6 +19,8 @@ export interface StudentSummary {
   cumPoints: number;
   onlineCount: number;
   lastPositionText: string;
+  // her second track's position, when she has one
+  secondPositionText: string | null;
   // completed surahs past the course review window (0 when reminders are off)
   overdueReviewCount: number;
   // consecutive qualifying weeks (null when the course has streaks off)
@@ -57,6 +59,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
         occurredAt: true,
         createdAt: true,
         comboId: true,
+        trackId: true,
       },
     }),
     prisma.pointsLog.findMany({
@@ -90,8 +93,10 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
   }
 
   return students.map((student) => {
-    const { plan, planChangedAt } = studentPlan(student);
+    const sp = studentPlan(student);
+    const { plan, planChangedAt } = sp;
     const studentSessions = sessionsByStudent.get(student.id) ?? [];
+    const second = secondTrackView(sp, studentSessions, student.group.gender);
 
     const position = deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(studentSessions, planChangedAt)));
 
@@ -115,6 +120,12 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
       cumPoints: pointsByStudent.get(student.id) ?? 0,
       onlineCount,
       lastPositionText,
+      // worded like lastPositionText («آية … من …»)
+      secondPositionText: second
+        ? second.progress?.position && !second.done
+          ? `${SURAH_NAME[second.progress.position.surahNumber]} — آية ${second.progress.position.ayah} من ${AYAH_COUNT[second.progress.position.surahNumber]}`
+          : second.positionText
+        : null,
       overdueReviewCount: computeOverdueSurahs(studentSessions, reviewDays, today).length,
       streak: streaks ? (streaks.get(student.id) ?? 0) : null,
     };

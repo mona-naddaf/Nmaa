@@ -59,7 +59,8 @@ export function entryContext(plan: number[], directions: JuzDirections | null, s
   return { plan, reach: deriveReach(plan, sessions), directional: directions ? { directions, sessions } : null };
 }
 
-function judge(ctx: EntryContext, surahNumber: number, fromAyah: number, subject: RecitationSubject) {
+/** A new-memorization entry judged where it stands (juz directions included). */
+export function judgeEntry(ctx: EntryContext, surahNumber: number, fromAyah: number, subject: RecitationSubject) {
   return ctx.directional
     ? classifyWithDirections(ctx.directional.directions, ctx.directional.sessions, surahNumber, fromAyah, subject)
     : { classification: classifyRecitation(ctx.plan, ctx.reach, surahNumber, fromAyah, subject), adopt: null };
@@ -86,8 +87,8 @@ export interface CombinedEntry {
   // the juz direction the first new part decides, if any
   adopt: JuzAdoption | null;
   requiresReason: boolean;
-  // what the form shows: the first new part's badge and warning
-  classification: Classification;
+  // what the form shows: the first new part's badge and warning (null in a «حر» track)
+  classification: Classification | null;
   // the context after every part is saved
   after: EntryContext;
 }
@@ -107,6 +108,8 @@ export function planCombinedEntry(
   toAyah: number,
   subject: RecitationSubject,
   reason = "…",
+  // a «حر» second track: split, but nothing judged (no order, no gap check)
+  { free = false }: { free?: boolean } = {},
 ): CombinedEntry | null {
   const runs = memorizedRuns(ctx.reach.covered[surahNumber], fromAyah, toAyah);
   if (!runs.some((r) => r.type === "NEW") || !runs.some((r) => r.type === "LINK")) return null;
@@ -116,7 +119,8 @@ export function planCombinedEntry(
   let shown: Classification | null = null;
   const parts: PlannedPart[] = runs.map((run) => {
     if (run.type === "LINK") return { ...run, situation: null, requiresReason: false, classification: null };
-    const judged = judge(current, surahNumber, run.fromAyah, subject);
+    if (free) return { ...run, situation: null, requiresReason: false, classification: null };
+    const judged = judgeEntry(current, surahNumber, run.fromAyah, subject);
     const c = judged.classification;
     adopt ??= judged.adopt;
     shown ??= c;
@@ -127,7 +131,7 @@ export function planCombinedEntry(
     );
     return { ...run, situation: c.situation, requiresReason: c.requiresReason, classification: c };
   });
-  return { parts, adopt, requiresReason: parts.some((p) => p.requiresReason), classification: shown!, after: current };
+  return { parts, adopt, requiresReason: parts.some((p) => p.requiresReason), classification: shown, after: current };
 }
 
 /** Whether every ayah of the range is already memorized (a whole re-recording). */

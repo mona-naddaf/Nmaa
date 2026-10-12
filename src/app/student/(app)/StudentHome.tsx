@@ -49,6 +49,11 @@ export function StudentHome({ data }: { data: StudentHomeData }) {
               ? `${SURAH_NAME[data.position.surahNumber]} — الآية ${data.position.ayah} من ${AYAH_COUNT[data.position.surahNumber]}`
               : `لم ${p("تبدأ", "تبدئي")} بعد`}
           </div>
+          {data.secondTrack && (
+            <div className={styles.secondTrackLine}>
+              المسار الثاني ({data.secondTrack.title}): <b>{data.secondTrack.positionText}</b>
+            </div>
+          )}
           <div className={styles.sub}>{data.quranPercent}٪ من إنجاز القرآن كامل</div>
         </div>
       </div>

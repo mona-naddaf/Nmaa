@@ -33,6 +33,11 @@ export const TO_AYAH = 3;
 export const QUALITY = 4;
 export const POINTS_COL = 19;
 export const LAST_COL = POINTS_COL;
+// «حفظ جديد — المسار الثاني»: after the points, and only in a file where a
+// student has a second track (files without one keep the layout above)
+export const SECOND_START = POINTS_COL + 1;
+export const SECOND_TITLE = "حفظ جديد — المسار الثاني";
+export const LAST_COL_WITH_SECOND = SECOND_START + 4;
 
 export const BLOCK_HEADERS = ["من سورة", "من آية", "إلى سورة (اختياري)", "إلى آية", "التقييم"];
 export const BLOCK_TITLE: Record<SessionType, string> = { NEW: "حفظ جديد", REVIEW: "مراجعة", LINK: "ربط" };

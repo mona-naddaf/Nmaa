@@ -10,11 +10,13 @@ import { SURAH_NAME, TOTAL_PAGES } from "@/lib/quran-data";
 import { juzGroupSurahs } from "@/lib/quran-data/juz";
 import { DIRECTIONAL_JUZ } from "@/lib/recitation/juz-direction";
 import { entryCount, groupCombos } from "@/lib/recitation/combined";
+import { latestTrackBySurah, trackContext } from "@/lib/recitation/tracks";
+import type { SecondTrackForm } from "@/components/recitation/RecitationEntry";
 import { PLAN_TEMPLATE_LABEL, TEMPLATE_KEY_PLAN, type TemplateKey } from "@/lib/students/new-student";
 import { PlanPanel } from "./PlanPanel";
-import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages } from "@/lib/students/progress";
+import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages, secondTrackBar } from "@/lib/students/progress";
 import { computeOverdueSurahs } from "@/lib/students/review";
-import { PLAN_INCLUDE, forPlanPosition, studentPlan } from "@/lib/students/plan";
+import { PLAN_INCLUDE, forPlanPosition, secondTrackView, studentPlan } from "@/lib/students/plan";
 import { DetailView } from "./DetailView";
 import { ParentCodeCard } from "./ParentCodeCard";
 import { StudentCodeCard } from "./StudentCodeCard";
@@ -105,6 +107,13 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const onlineCount = entryCount(sessions.filter((s) => s.mode === "ONLINE"));
   const coverage = buildCoverage(sessions);
   const progressBars = computeProgressBars({ settings: course, plan, position, coverage });
+  // her second track, if any: its position line, its bar, and what the form needs
+  const second = secondTrackView(sp, sessions, student.group.gender);
+  if (second?.progress?.position) progressBars.push(secondTrackBar(second.progress.position));
+  const secondCtx = sp.second ? trackContext(sp.second, sessions) : null;
+  const secondForm: SecondTrackForm | null = sp.second
+    ? { kind: sp.second.kind, ctx: secondCtx, latest: latestTrackBySurah(sessions, sp.second.id), next: second?.progress?.next ?? null }
+    : null;
   const overdueSurahs = computeOverdueSurahs(sessions, course.reviewReminderDays, today);
   const mistakes = await getActiveMistakes(student.id, plan);
   // the whole group is needed: a week with no class for the group is neutral
@@ -185,6 +194,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         memorizedRanges={coverageToRanges(coverage)}
         overdueSurahs={overdueSurahs}
         mistakes={mistakes}
+        secondTrack={second ? { title: second.title, positionText: second.positionText } : null}
+        secondForm={secondForm}
         reviewReminderDays={course.reviewReminderDays}
         onlineRecitationEnabled={course.onlineRecitationEnabled}
         pointsActivities={course.pointsActivities.map((a) => ({
@@ -302,6 +313,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           juzRows={juzRows}
           editedReverse={student.planTemplate === "MUSHAF_REVERSE" && !sp.directions}
           canEdit={canChangePlan}
+          secondTrack={second ? { title: second.title, positionText: second.positionText, done: second.done } : null}
         />
       </Collapsible>
       {homeLog && (

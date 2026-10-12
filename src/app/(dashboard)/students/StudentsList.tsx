@@ -128,6 +128,11 @@ export function StudentsList({
               <div className={styles.gcPos}>
                 آخر موقف: <b>{s.lastPositionText}</b>
               </div>
+              {s.secondPositionText && (
+                <div className={styles.gcPos}>
+                  المسار الثاني: <b>{s.secondPositionText}</b>
+                </div>
+              )}
               <div className={styles.gcFoot}>
                 <div className={styles.attendDot}>
                   <span className={`${styles.dot} ${styles[ATTENDANCE_CLASS[s.attendance]]}`} />

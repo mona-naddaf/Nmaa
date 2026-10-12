@@ -83,6 +83,8 @@ export interface RecitationInput {
   occurredAt: Date;
   // the rows of one combined entry (lib/recitation/combined.ts) share it
   comboId?: string | null;
+  // new memorization in her second track (lib/recitation/tracks.ts); null = her plan
+  trackId?: string | null;
 }
 
 /** The session row (pages computed here), or the range's error. */
@@ -107,6 +109,7 @@ export function recitationCreateData(
       notes: r.notes,
       occurredAt: r.occurredAt,
       comboId: r.comboId ?? null,
+      trackId: r.trackId ?? null,
     },
   };
 }

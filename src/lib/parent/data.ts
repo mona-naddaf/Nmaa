@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveCurrentPosition, deriveReach, type PlanPosition } from "@/lib/recitation/logic";
-import { PLAN_FIELDS, studentPlan } from "@/lib/students/plan";
+import { PLAN_FIELDS, forPlanPosition, secondTrackView, studentPlan } from "@/lib/students/plan";
 import { buildCoverage, coveredQuranPages } from "@/lib/students/progress";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import type { GroupGender } from "@/lib/text/gender";
@@ -41,6 +41,8 @@ export interface ParentViewData {
   groupGender: GroupGender;
   courseName: string;
   position: PlanPosition | null;
+  // her second track (type and start, and where it stands), when she has one
+  secondTrack: { title: string; positionText: string } | null;
   quranPercent: number;
   // unresolved flagged words to practise at home (word, place, type, date — no teacher details)
   mistakes: ActiveMistake[];
@@ -97,6 +99,10 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
         pagesCalculated: true,
         quality: true,
         comboId: true,
+        situation: true,
+        reason: true,
+        createdAt: true,
+        trackId: true,
         teacher: { select: { name: true } },
       },
     }),
@@ -106,11 +112,15 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     }),
     prisma.pointsLog.findMany({
       where: { studentId },
+      // a stable order, so same-day points never shuffle
+      orderBy: [{ day: "asc" }, { createdAt: "asc" }, { id: "asc" }],
       select: { day: true, valueAtTime: true, typeAtTime: true, activity: { select: { name: true } } },
     }),
   ]);
 
-  const { plan } = studentPlan(student);
+  const sp = studentPlan(student);
+  const { plan } = sp;
+  const second = secondTrackView(sp, sessions, student.group.gender);
   const infoFields = await visibleInfoFields(student.course.id, parentInfoAccess(student.course));
   const coverage = buildCoverage(sessions);
 
@@ -119,7 +129,9 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     groupName: student.group.name,
     groupGender: student.group.gender,
     courseName: student.course.name,
-    position: deriveCurrentPosition(plan, deriveReach(plan, sessions)),
+    // as the staff page and the student portal read it (a manual plan change, a second track's approvals)
+    position: deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(sessions, sp.planChangedAt))),
+    secondTrack: second ? { title: second.title, positionText: second.positionText } : null,
     mistakes: await getActiveMistakes(studentId, plan),
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
     history: groupCombos(sessions).map((s) => ({

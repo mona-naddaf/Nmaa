@@ -1,17 +1,18 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
+import { AYAH_COUNT, MUSHAF_ORDER, SURAH_NAME } from "@/lib/quran-data";
 import { calculatePageRange, deriveReach, withSession, type PositionSession, type Reach, type SessionType } from "@/lib/recitation/logic";
 import { afterRecitationSaved, classifyEntry, classifyPlanEntry, combinedRecords, recitationCreateData, type Quality, type RecitationInput } from "@/lib/recitation/record";
 import { entryContext, groupCombos, memorizedRuns, planCombinedEntry, type EntryContext, type EntryPart } from "@/lib/recitation/combined";
 import { randomUUID } from "node:crypto";
 import { adoptionMessage, orderForRange, reverseOrder, type JuzDirections } from "@/lib/recitation/juz-direction";
-import { PLAN_FIELDS, adoptJuzDirection, forPlanPosition, studentPlan } from "@/lib/students/plan";
+import { PLAN_FIELDS, adoptJuzDirection, forPlanPosition, studentPlan, trackContexts } from "@/lib/students/plan";
 import { parseSurah, toInteger } from "@/lib/excel/cells";
 import { absentWord, presentWord, pickByGroup, pickByPerson, studentNounDef, type GroupGender } from "@/lib/text/gender";
 import type { OfflineAccess } from "./access";
 import { dateOnlyToISO, sheetDateProblem, sheetOccurredAt } from "./dates";
-import { BLOCK_TITLE, BLOCK_TYPES, MAX_POINTS, POINTS_NOTE, QUALITY_LABEL } from "./layout";
+import { BLOCK_TITLE, BLOCK_TYPES, MAX_POINTS, POINTS_NOTE, QUALITY_LABEL, SECOND_TITLE } from "./layout";
+import { planEntryInTrack, trackContext, trackOrder } from "@/lib/recitation/tracks";
 import type { RawBlock, RawRow, RawSheet } from "./parse";
 
 // Everything an upload would save, checked on the server: the preview (step
@@ -45,6 +46,8 @@ export interface PreviewEntry {
   // new ayat as new memorization, the memorized ones as «ربط» (one entry);
   // null when saved as written
   parts: EntryPart[] | null;
+  // «حفظ جديد — المسار الثاني»: new memorization in her second track
+  track?: "SECOND";
 }
 
 export interface PreviewRow {
@@ -100,8 +103,8 @@ function readBlock(
   orderFor: (fromSurah: number, toSurah: number) => number[],
   g: GroupGender,
   errors: string[],
+  title = BLOCK_TITLE[type],
 ): { segments: Segment[]; quality: Quality } | null {
-  const title = BLOCK_TITLE[type];
   const blockErrors: string[] = [];
   const fromSurah = parseSurah(b.fromSurah, `${title}: من سورة`, blockErrors);
   const toSurahOrNull = parseSurah(b.toSurah, `${title}: إلى سورة`, blockErrors);
@@ -220,6 +223,7 @@ export async function validateSheet(
         occurredAt: true,
         createdAt: true,
         comboId: true,
+        trackId: true,
       },
     }),
     prisma.attendanceLog.findMany({ where: { studentId: { in: ids }, day }, select: { studentId: true, status: true } }),
@@ -293,6 +297,20 @@ export async function validateSheet(
       if (read) blocks.push({ type, ...read });
     }
 
+    // «حفظ جديد — المسار الثاني»: only for a student with an active second
+    // track, read in that track's order (Mushaf order for a «حر» track)
+    let secondBlock: { segments: Segment[]; quality: Quality } | null = null;
+    const sb = raw.second;
+    if (sb && [sb.fromSurah, sb.fromAyah, sb.toSurah, sb.toAyah, sb.quality].some(Boolean) && (sb.toSurah || sb.toAyah || sb.quality)) {
+      const track = sp.second;
+      if (!track) {
+        errors.push(`${SECOND_TITLE}: ليس ل${studentNounDef(g)} مسار ثانٍ (أو أُنهي بعد تنزيل الملف)`);
+      } else {
+        const order = track.kind === "FREE" ? MUSHAF_ORDER : trackOrder(track);
+        secondBlock = readBlock("NEW", sb, () => order, g, errors, SECOND_TITLE);
+      }
+    }
+
     // points
     let requested = 0;
     if (raw.points) {
@@ -301,7 +319,7 @@ export async function validateSheet(
       else requested = n;
     }
 
-    if (att === "OUT" && (blocks.length > 0 || requested > 0)) {
+    if (att === "OUT" && (blocks.length > 0 || secondBlock || requested > 0)) {
       errors.push(`${studentWord(g)} ${absentWord(g)} في الملف، ومع ذلك عُبّئ ${pickByGroup(g, { m: "له", f: "لها" })} تسميع أو نقاط`);
     }
 
@@ -316,6 +334,7 @@ export async function validateSheet(
     const sameDay = groupCombos(existing.filter((x) => x.source === "LOGGED" && x.occurredAt >= day && x.occurredAt < nextDay));
     const positionSessions: PositionSession[] = forPlanPosition(existing, sp.planChangedAt);
     let reach: Reach = deriveReach(plan, positionSessions);
+    const rowStart = positionSessions.length;
     for (const { type, segments, quality } of blocks) {
       // a «حفظ جديد» block that covers memorized ayat as well as new ones is
       // saved split, surah by surah, as the recording form does (a surah
@@ -356,8 +375,8 @@ export async function validateSheet(
           const combo = planCombinedEntry(ctx, seg.surahNumber, seg.fromAyah, seg.toAyah, g, reasons[key]?.trim() || "…")!;
           entry.parts = combo.parts.map(({ type: t, fromAyah, toAyah }) => ({ type: t, fromAyah, toAyah }));
           entry.requiresReason = combo.requiresReason;
-          entry.badgeText = combo.classification.badgeText;
-          entry.warning = combo.classification.warningMessage;
+          entry.badgeText = combo.classification?.badgeText ?? null;
+          entry.warning = combo.classification?.warningMessage ?? null;
           if (directions && combo.adopt) {
             directions = { ...directions, [combo.adopt.juz]: combo.adopt.direction };
             entry.adopted = adoptionMessage(combo.adopt);
@@ -388,6 +407,61 @@ export async function validateSheet(
           };
           positionSessions.push(saved);
           reach = withSession(plan, reach, saved);
+        }
+        base.entries.push(entry);
+      });
+    }
+
+    // her second track's entries: judged in that track (tracks.ts), each
+    // seeing everything before it in this row (the plan's entries too)
+    if (secondBlock && sp.second) {
+      const track = sp.second;
+      const trackSessions = [...existing, ...positionSessions.slice(rowStart).map((x) => ({ ...x, trackId: null }))];
+      const { segments, quality } = secondBlock;
+      const runsOf = (seg: Segment) => memorizedRuns(reach.covered[seg.surahNumber], seg.fromAyah, seg.toAyah);
+      const blockRuns = segments.flatMap(runsOf);
+      const mixed = blockRuns.some((r) => r.type === "NEW") && blockRuns.some((r) => r.type === "LINK");
+      segments.forEach((seg, i) => {
+        const key = `${s.id}:SECOND:${i}`;
+        const pages = calculatePageRange(seg.surahNumber, seg.fromAyah, seg.toAyah);
+        const duplicate = sameDay.some(
+          (x) => (x.parts || x.type === "NEW") && x.surahNumber === seg.surahNumber && x.fromAyah === seg.fromAyah && x.toAyah === seg.toAyah,
+        );
+        const entry: PreviewEntry = {
+          key,
+          type: "NEW",
+          ...seg,
+          quality,
+          pages: "error" in pages ? 0 : pages.totalPages,
+          duplicate,
+          requiresReason: false,
+          badgeText: null,
+          warning: null,
+          adopted: null,
+          parts: null,
+          track: "SECOND",
+        };
+        const runs = mixed ? runsOf(seg) : null;
+        if (!duplicate && runs && runs.every((r) => r.type === "LINK")) {
+          entry.parts = [{ type: "LINK", fromAyah: seg.fromAyah, toAyah: seg.toAyah }];
+        } else if (!duplicate) {
+          const mainCtx: EntryContext = directions ? entryContext(reverseOrder(directions), directions, positionSessions) : { plan, reach, directional: null };
+          const reason = reasons[key]?.trim() || "…";
+          const p = planEntryInTrack("SECOND", mainCtx, trackContext(track, trackSessions), seg.surahNumber, seg.fromAyah, seg.toAyah, g, reason);
+          if (p.combo) entry.parts = p.combo.parts.map(({ type: t, fromAyah, toAyah }) => ({ type: t, fromAyah, toAyah }));
+          entry.requiresReason = p.requiresReason;
+          entry.badgeText = p.classification?.badgeText ?? (track.kind === "FREE" ? "حر: دون فحص للفجوات" : null);
+          entry.warning = p.classification?.warningMessage ?? null;
+          const newParts = p.combo
+            ? p.combo.parts.filter((x) => x.type === "NEW")
+            : [{ fromAyah: seg.fromAyah, toAyah: seg.toAyah, situation: p.situation, requiresReason: p.requiresReason }];
+          for (const part of newParts) {
+            const saved = { type: "NEW" as const, surahNumber: seg.surahNumber, fromAyah: part.fromAyah, toAyah: part.toAyah, situation: part.situation, reason: part.requiresReason ? reason : null };
+            trackSessions.push({ ...saved, trackId: track.id, createdAt: new Date() } as (typeof trackSessions)[number]);
+            // the plan sees its memorization, not its approvals
+            positionSessions.push({ ...saved, situation: null });
+            reach = withSession(plan, reach, { ...saved, situation: null });
+          }
         }
         base.entries.push(entry);
       });
@@ -504,19 +578,38 @@ export async function saveSheet(
             notes: null,
             occurredAt,
             comboId: null as string | null,
+            trackId: null as string | null,
           };
           // the rows this entry is saved as: itself, or the parts of a split
           let rowsToSave: RecitationInput[] = [record];
           if (e.parts && e.parts.every((p) => p.type === "LINK")) {
             // a surah all memorized inside a mixed «حفظ جديد» block
             rowsToSave = [{ ...record, type: "LINK", comboId: randomUUID() }];
+          } else if (e.track === "SECOND") {
+            // her second track: re-judged in that track, as the form would
+            const sp = studentPlan(await tx.student.findUniqueOrThrow({ where: { id: r.studentId }, select: PLAN_FIELDS }));
+            if (!sp.second) throw new Error(`${r.name}: أُنهي المسار الثاني قبل الحفظ`);
+            const sessions = await tx.recitationSession.findMany({
+              where: { studentId: r.studentId },
+              select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true, trackId: true },
+            });
+            const { main, second } = trackContexts(sp, sessions);
+            const p = planEntryInTrack("SECOND", main, second, e.surahNumber, e.fromAyah, e.toAyah, r.groupGender, reasons[e.key]?.trim() || "…");
+            record.trackId = sp.second.id;
+            record.situation = p.situation;
+            if (p.requiresReason) {
+              const reason = reasons[e.key]?.trim();
+              if (!reason) throw new MissingReasonError();
+              record.reason = reason;
+            }
+            if (p.combo) rowsToSave = combinedRecords(record, p.combo);
           } else if (e.type === "NEW") {
             // re-judged here against what's saved so far (in this same
             // transaction), exactly as the form would at that moment
             const sp = studentPlan(await tx.student.findUniqueOrThrow({ where: { id: r.studentId }, select: PLAN_FIELDS }));
             const sessions = await tx.recitationSession.findMany({
               where: { studentId: r.studentId },
-              select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true },
+              select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true, trackId: true },
             });
             const positionSessions = forPlanPosition(sessions, sp.planChangedAt);
             const combo = e.parts

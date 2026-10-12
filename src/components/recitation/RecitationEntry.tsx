@@ -9,6 +9,8 @@ import {
   deriveReach,
   nextExpectedEntry,
   withSession,
+  type Classification,
+  type NextEntryDefaults,
   type PageRangeError,
   type PageRangeResult,
   type PlanPosition,
@@ -22,7 +24,28 @@ import { rangeIsMemorized } from "@/lib/students/progress";
 import { classifyWithDirections, reverseOrder, type DirectionalClassification, type JuzDirections } from "@/lib/recitation/juz-direction";
 import { flagKey, type WordFlags } from "@/components/mistakes/FlaggableAyah";
 import type { MistakeType } from "@/lib/students/mistake-types";
-import { partsLabel, planCombinedEntry, rangeAllMemorized, type EntryContext } from "@/lib/recitation/combined";
+import { partsLabel, planCombinedEntry, rangeAllMemorized, withSaved, type EntryContext } from "@/lib/recitation/combined";
+import { TRACK_LABEL, detectTrack, planEntryInTrack, type TrackKey, type TrackKind } from "@/lib/recitation/tracks";
+
+/** Her second track, as the recording form needs it (course students only). */
+export interface SecondTrackForm {
+  kind: TrackKind;
+  // where it stands; null for a «حر» track
+  ctx: EntryContext | null;
+  // the track of each surah's latest new memorization (tracks.ts)
+  latest: Partial<Record<number, TrackKey>>;
+  // its next entry, for the chip; null for «حر» or once it is complete
+  next: NextEntryDefaults | null;
+}
+
+// a «حر» track judges nothing: shown instead of a gap-check badge
+const FREE_CLASSIFICATION: Classification = {
+  situation: "NEXT",
+  requiresReason: false,
+  badgeVariant: "next",
+  badgeText: "✓ المسار الثاني (حر): يُحسب الحفظ دون ترتيب ولا فحص للفجوات",
+  warningMessage: null,
+};
 
 // The part of recording a session that the staff student page and «رفيق
 // الحفظ» share: what is being recited (type, surah, ayat), its page count,
@@ -61,7 +84,12 @@ export function useRecitationEntry({
   // a course student's page only: a «حفظ جديد» entry over memorized ayat is
   // split (lib/recitation/combined.ts), and her earlier unresolved mistakes
   // are shown on the memorized ayat she recites
-  course?: { previousMistakes: { surahNumber: number; ayah: number; wordPosition: number; type: MistakeType }[] } | null;
+  // With `second`, she has a second track: a «حفظ جديد» entry goes to the
+  // track detection picks (lib/recitation/tracks.ts), or the teacher chooses.
+  course?: {
+    previousMistakes: { surahNumber: number; ayah: number; wordPosition: number; type: MistakeType }[];
+    second?: SecondTrackForm | null;
+  } | null;
 }) {
   const initialEntry = nextExpectedEntry(plan, position);
   const [surahNumber, setSurahNumber] = useState(initialEntry.surahNumber);
@@ -109,15 +137,36 @@ export function useRecitationEntry({
     () => (course ? { plan, reach, directional: directional ? { directions: directional.directions, sessions: directional.sessions } : null } : null),
     [course, plan, reach, directional],
   );
-  const combo = useMemo(
+  const plainCombo = useMemo(
     () => (entryCtx && isNew && !hasRangeError ? planCombinedEntry(entryCtx, surahNumber, fromAyah, toAyah, subject) : null),
     [entryCtx, isNew, hasRangeError, surahNumber, fromAyah, toAyah, subject],
   );
   // every ayah already memorized: a re-recording, as before (with a hint)
   const allMemorized = !!entryCtx && isNew && !hasRangeError && rangeAllMemorized(entryCtx, surahNumber, fromAyah, toAyah);
 
-  const classification = combo ? combo.classification : judged.classification;
-  const requiresReason = isNew && (combo ? combo.requiresReason : classification.requiresReason);
+  // her second track: which track this «حفظ جديد» entry goes to, and how it
+  // is judged there — exactly as the server will (null without a track)
+  const second = course?.second ?? null;
+  const [chosenTrack, setChosenTrack] = useState<TrackKey | null>(null);
+  const detectedTrack = useMemo(
+    () =>
+      second && entryCtx && isNew && !hasRangeError
+        ? detectTrack(entryCtx, second.ctx, second.latest, surahNumber, fromAyah, toAyah, subject)
+        : null,
+    [second, entryCtx, isNew, hasRangeError, surahNumber, fromAyah, toAyah, subject],
+  );
+  const needsTrackChoice = !!second && isNew && !hasRangeError && detectedTrack === null;
+  const track: TrackKey | null = second && isNew ? (detectedTrack ?? chosenTrack) : null;
+  const planned = useMemo(
+    () => (second && entryCtx && track && !hasRangeError ? planEntryInTrack(track, entryCtx, second.ctx, surahNumber, fromAyah, toAyah, subject) : null),
+    [second, entryCtx, track, hasRangeError, surahNumber, fromAyah, toAyah, subject],
+  );
+
+  const combo = second ? (planned?.combo ?? null) : plainCombo;
+  const classification: Classification = planned
+    ? (planned.classification ?? FREE_CLASSIFICATION)
+    : (plainCombo?.classification ?? judged.classification);
+  const requiresReason = isNew && (planned ? planned.requiresReason : combo ? combo.requiresReason : classification.requiresReason);
   const reviewOfUnmemorized = !isNew && !rangeIsMemorized(memorizedRanges[surahNumber], fromAyah, toAyah);
   const reasonFilled = reason.trim().length > 0;
 
@@ -170,6 +219,7 @@ export function useRecitationEntry({
         const [s, ayah, wordPosition] = key.split(":").map(Number);
         return s === surahNumber && ayah >= fromAyah && ayah <= toAyah ? [{ ayah, wordPosition, type }] : [];
       }),
+      ...(second && isNew && track ? { track } : {}),
       // only words whose earlier mistake is shown right now
       mastered: Object.keys(mastered)
         .filter((key) => previousFlags[key])
@@ -189,12 +239,22 @@ export function useRecitationEntry({
     setWordFlags({});
     setReason("");
     setMastered({});
+    setChosenTrack(null);
     if (combo) {
       // from where she stands once every part is saved
       const next = nextExpectedEntry(combo.after.plan, deriveCurrentPosition(combo.after.plan, combo.after.reach));
       setSurahNumber(next.surahNumber);
       setFromAyah(next.fromAyah);
       setToAyah(next.toAyah);
+    } else if (isNew && track === "SECOND") {
+      // her second track: its next entry (a «حر» track has none)
+      if (second?.ctx && planned && planned.situation !== "EDIT") {
+        const after = withSaved(second.ctx, { type: "NEW", surahNumber, fromAyah, toAyah, situation: planned.situation, reason }, null);
+        const next = nextExpectedEntry(after.plan, deriveCurrentPosition(after.plan, after.reach));
+        setSurahNumber(next.surahNumber);
+        setFromAyah(next.fromAyah);
+        setToAyah(next.toAyah);
+      }
     } else if (isNew && classification.situation !== "EDIT") {
       // from where she stands with this entry included — which may skip
       // past surahs already covered further ahead
@@ -208,6 +268,16 @@ export function useRecitationEntry({
       setFromAyah(next.fromAyah);
       setToAyah(next.toAyah);
     }
+  }
+
+  /** The chip «التالي في المسار الثاني»: her second track's next entry. */
+  function startSecondNext() {
+    if (!second?.next) return;
+    setSessionType("NEW");
+    setSurahNumber(second.next.surahNumber);
+    setFromAyah(second.next.fromAyah);
+    setToAyah(second.next.toAyah);
+    setChosenTrack(null);
   }
 
   return {
@@ -238,6 +308,12 @@ export function useRecitationEntry({
     previousFlags,
     mastered,
     toggleMastered,
+    secondTrack: second,
+    track,
+    detectedTrack,
+    needsTrackChoice,
+    chooseTrack: setChosenTrack,
+    startSecondNext,
   };
 }
 
@@ -323,6 +399,31 @@ export function EntryStatus({
       ) : (
         <div className={`${styles.modeBadge} ${styles.next}`}>
           ↺ {SESSION_TYPE_LABEL[sessionType]} — لا تغيّر {positionOf} ولا تخضع لفحص الفجوات
+        </div>
+      )}
+
+      {entry.secondTrack && isNew && !entry.hasRangeError && (
+        <div className={styles.comboNote}>
+          {entry.needsTrackChoice ? (
+            <>
+              هذا الحفظ لا يتبع أيًّا من المسارين تلقائيًا، فيُرجى اختيار المسار:
+              {(["MAIN", "SECOND"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`${styles.comboBtn} ${entry.track === t ? styles.comboBtnSel : ""}`}
+                  aria-pressed={entry.track === t}
+                  onClick={() => entry.chooseTrack(t)}
+                >
+                  المسار {TRACK_LABEL[t]}
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              المسار: <strong>{TRACK_LABEL[entry.track!]}</strong> (تلقائيًا)
+            </>
+          )}
         </div>
       )}
 

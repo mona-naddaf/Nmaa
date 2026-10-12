@@ -260,6 +260,7 @@ model Student {
 
   planItems          PlanItem[]
   juzDirections      StudentJuzDirection[]
+  secondTracks       StudentTrack[]
   recitationSessions RecitationSession[]
   pointsLogs         PointsLog[]
   attendanceLogs     AttendanceLog[]
@@ -358,6 +359,28 @@ model StudentJuzDirection {
   @@id([studentId, juz])
 }
 
+// A second memorization track alongside her plan (e.g. juz 30 by the plan,
+// and Al-Baqarah from its start in parallel): its own position, pre-fill and
+// gap check; everything memorized in it counts like any memorization. At
+// most one active track per student (partial unique index in the
+// migration). Ending it sets endedAt and keeps the row, so its sessions
+// keep their tag and their gap approvals never move the main plan.
+model StudentTrack {
+  id         String    @id @default(cuid())
+  studentId  String
+  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  kind       TrackKind
+  // where it starts (MUSHAF / REVERSE); null for FREE
+  startSurah Int?
+  startAyah  Int?
+  createdAt  DateTime  @default(now())
+  endedAt    DateTime?
+
+  sessions RecitationSession[]
+
+  @@index([studentId])
+}
+
 model RecitationSession {
   id              String               @id @default(cuid())
   studentId       String
@@ -391,11 +414,16 @@ model RecitationSession {
   // — sharing this id (lib/recitation/combined.ts). Shown and counted as
   // one entry everywhere. null for every other session.
   comboId         String?
+  // new memorization recorded in her second track (lib/recitation/tracks.ts);
+  // null for the main plan — every row before second tracks existed
+  trackId         String?
+  track           StudentTrack?        @relation(fields: [trackId], references: [id], onDelete: SetNull)
 
   mistakes RecitationMistake[]
 
   @@index([studentId, occurredAt])
   @@index([comboId])
+  @@index([trackId])
 }
 
 // One word a teacher flagged as a mistake during a recitation session, for
@@ -1329,6 +1357,15 @@ enum JuzDirectionSource {
   AUTO
   BACKFILL
   MANUAL
+}
+
+enum TrackKind {
+  // «بترتيب المصحف»: from its starting point forward to An-Nas
+  MUSHAF
+  // «بالعكس»: from its starting point back to Al-Fatiha (surahs descending, ayat ascending)
+  REVERSE
+  // «حر (سور متفرقة)»: no order, no gap check, no pre-fill
+  FREE
 }
 
 enum AttendanceStatus {

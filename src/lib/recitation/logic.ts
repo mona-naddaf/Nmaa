@@ -164,6 +164,17 @@ function pointBefore(plan: number[], surahNumber: number, ayah: number): PlanPos
   return { surahNumber: prev, ayah: AYAH_COUNT[prev] };
 }
 
+/**
+ * `reach` with everything before (surahNumber, ayah) in plan order counted
+ * as passed, as an approved gap there would — a second track's starting
+ * point (lib/recitation/tracks.ts).
+ */
+export function passedBefore(plan: number[], reach: Reach, surahNumber: number, ayah: number): Reach {
+  const before = pointBefore(plan, surahNumber, ayah);
+  if (!before || (reach.passedThrough && comparePlanPoints(plan, before, reach.passedThrough) <= 0)) return reach;
+  return { ...reach, passedThrough: before };
+}
+
 // ---------- current position ----------
 
 /**

@@ -16,6 +16,9 @@ import {
   NAME_COL,
   POINTS_COL,
   QUALITY,
+  BLOCK_TITLE_ROW,
+  SECOND_START,
+  SECOND_TITLE,
   SHEET_MARKER,
   TO_AYAH,
   TO_SURAH,
@@ -43,6 +46,8 @@ export interface RawRow {
   attendance: string;
   blocks: Record<SessionType, RawBlock>;
   points: string;
+  // «حفظ جديد — المسار الثاني», in a file that has that block
+  second: RawBlock | null;
 }
 
 export type RawSheet = { error: string } | { date: Date | null; dateText: string; rows: RawRow[] };
@@ -74,9 +79,18 @@ export async function parseOfflineSheet(data: ArrayBuffer): Promise<RawSheet> {
 
   const rows: RawRow[] = [];
   sheets.forEach((ws, si) => {
+    // a file downloaded with the second-track block (layout.ts)
+    const hasSecond = cellText(ws!.getCell(BLOCK_TITLE_ROW, SECOND_START).value) === SECOND_TITLE;
     for (let r = FIRST_STUDENT_ROW; r <= ws!.rowCount; r++) {
       const row = ws!.getRow(r);
       const text = (col: number) => cellText(row.getCell(col).value);
+      const blockAt = (s: number): RawBlock => ({
+        fromSurah: text(s + FROM_SURAH),
+        fromAyah: text(s + FROM_AYAH),
+        toSurah: text(s + TO_SURAH),
+        toAyah: text(s + TO_AYAH),
+        quality: text(s + QUALITY),
+      });
       const blocks = Object.fromEntries(
         BLOCK_TYPES.map((type) => {
           const s = BLOCK_START[type];
@@ -100,9 +114,13 @@ export async function parseOfflineSheet(data: ArrayBuffer): Promise<RawSheet> {
         attendance: text(ATTENDANCE_COL),
         blocks,
         points: text(POINTS_COL),
+        second: hasSecond ? blockAt(SECOND_START) : null,
       };
       const anyInput =
-        parsed.attendance || parsed.points || BLOCK_TYPES.some((t) => Object.values(blocks[t]).some(Boolean));
+        parsed.attendance ||
+        parsed.points ||
+        BLOCK_TYPES.some((t) => Object.values(blocks[t]).some(Boolean)) ||
+        (parsed.second && Object.values(parsed.second).some(Boolean));
       // the «no students in this group» note and fully blank rows
       if (!parsed.studentId && !anyInput) continue;
       rows.push(parsed);

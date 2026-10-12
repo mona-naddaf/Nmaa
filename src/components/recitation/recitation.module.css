@@ -203,3 +203,12 @@
 .comboBtn:hover {
   background: rgba(107, 124, 99, 0.12);
 }
+
+.comboBtnSel {
+  background: var(--sage-deep);
+  color: #fff;
+}
+
+.comboBtnSel:hover {
+  background: var(--sage-deep);
+}

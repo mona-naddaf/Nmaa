@@ -74,13 +74,24 @@ export function coveredQuranPages(coverage: Coverage): number {
   return round3(coveredPagesInSurahs(coverage, coverage.keys()));
 }
 
-export type ProgressBarKey = "surah" | "juz" | "quran" | "plan";
+export type ProgressBarKey = "surah" | "juz" | "quran" | "plan" | "track";
 
 export interface ProgressBar {
   key: ProgressBarKey;
   label: string;
   detail: string;
   percent: number;
+}
+
+/** «المسار الثاني»: how far she is through the surah her second track is in. */
+export function secondTrackBar(position: PlanPosition): ProgressBar {
+  const total = AYAH_COUNT[position.surahNumber];
+  return {
+    key: "track",
+    label: `المسار الثاني: حتى نهاية سورة ${SURAH_NAME[position.surahNumber]}`,
+    detail: `الآية ${position.ayah} من ${total}`,
+    percent: toPercent(position.ayah, total),
+  };
 }
 
 export interface ProgressBarSettings {

@@ -316,7 +316,7 @@ function Entry({ e, reason, onReason }: { e: PreviewEntry; reason: string; onRea
   return (
     <div>
       <div className={o.line}>
-        {TYPE_LABEL[e.type]}: سورة {SURAH_NAME[e.surahNumber]} — آية {e.fromAyah} إلى {e.toAyah} · {QUALITY_LABEL[e.quality]} ·{" "}
+        {e.track ? "حفظ جديد — المسار الثاني" : TYPE_LABEL[e.type]}: سورة {SURAH_NAME[e.surahNumber]} — آية {e.fromAyah} إلى {e.toAyah} · {QUALITY_LABEL[e.quality]} ·{" "}
         {e.pages} صفحة
         {e.parts && !e.duplicate && <span className={o.badge}>✂️ يُسجَّل: {partsLabel(e.parts)}</span>}
         {e.duplicate ? (

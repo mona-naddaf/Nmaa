@@ -29,6 +29,7 @@ import {
   HEADER_ROW,
   ID_COL,
   LAST_COL,
+  LAST_COL_WITH_SECOND,
   LISTS_SHEET_NAME,
   MAX_POINTS,
   META_SHEET_NAME,
@@ -36,6 +37,8 @@ import {
   POINTS_COL,
   QUALITY,
   QUALITY_LABEL,
+  SECOND_START,
+  SECOND_TITLE,
   SHEET_MARKER,
   TO_AYAH,
 } from "./layout";
@@ -48,7 +51,13 @@ export interface SheetGroup {
   id: string;
   name: string;
   gender: GroupGender;
-  students: { id: string; name: string; next: { surahNumber: number; fromAyah: number } | null }[];
+  students: {
+    id: string;
+    name: string;
+    next: { surahNumber: number; fromAyah: number } | null;
+    // a student with a second track: where it continues (null: «حر» or complete)
+    second?: { next: { surahNumber: number; fromAyah: number } | null };
+  }[];
 }
 
 const BORDER_COLOR = { argb: "00D9D2C2" };
@@ -96,6 +105,9 @@ export async function buildOfflineSheet({
   const sheetNames = groups.map((g) => sheetNameFor(g.name, names));
   const firstSheet = sheetNames[0];
   const lastRow = (n: number) => FIRST_STUDENT_ROW + Math.max(n, 1) - 1;
+  // the second-track block only when a student in the file has a second track
+  const withSecond = groups.some((g) => g.students.some((s) => s.second));
+  const lastCol = withSecond ? LAST_COL_WITH_SECOND : LAST_COL;
 
   groups.forEach((group, gi) => {
     const g = group.gender;
@@ -108,6 +120,7 @@ export async function buildOfflineSheet({
       { width: 11 },
       ...BLOCK_TYPES.flatMap(() => [{ width: 18 }, { width: 8 }, { width: 18 }, { width: 8 }, { width: 17 }]),
       { width: 9 },
+      ...(withSecond ? [{ width: 18 }, { width: 8 }, { width: 18 }, { width: 8 }, { width: 17 }] : []),
     ];
     ws.getColumn(ID_COL).hidden = true;
 
@@ -115,7 +128,7 @@ export async function buildOfflineSheet({
     title.value = `تسميع ${group.name} — على مُكث`;
     title.font = { name: "Arial", bold: true, color: { argb: "003F6650" }, size: 14 };
     title.alignment = { horizontal: "right" };
-    ws.mergeCells(1, NAME_COL, 1, LAST_COL);
+    ws.mergeCells(1, NAME_COL, 1, lastCol);
 
     // the date: one per file, written on the first sheet
     const label = ws.getCell(DATE_ROW, DATE_LABEL_COL);
@@ -142,17 +155,20 @@ export async function buildOfflineSheet({
         ? `${you({ m: "اكتب", f: "اكتبي" })} تاريخ اليوم الذي تُسجَّل بياناته (سنة-شهر-يوم). تاريخ واحد للملف كله.`
         : `التاريخ يُعدَّل من الورقة الأولى «${firstSheet}».`;
     dateNote.font = { name: "Arial", italic: true, color: { argb: "006C685D" }, size: 10 };
-    ws.mergeCells(DATE_ROW, DATE_COL + 1, DATE_ROW, LAST_COL);
+    ws.mergeCells(DATE_ROW, DATE_COL + 1, DATE_ROW, lastCol);
 
     const notes = ws.getCell(3, NAME_COL);
     notes.value =
       `${you({ m: "اترك", f: "اتركي" })} أي قسم فارغًا إذا لم يكن فيه تسميع. «إلى سورة» اختيارية: إن تُركت فارغة فالتسميع في السورة نفسها. ` +
       `حقلا «من» في الحفظ الجديد معبَّآن مسبقًا بالموضع التالي لكل ${studentNoun(g)}، ولا يُحسبان تسميعًا ما لم تُعبَّأ «إلى آية» والتقييم. ` +
-      `«النقاط»: عدد النقاط الإضافية لهذا اليوم (من 0 إلى ${MAX_POINTS}).`;
+      `«النقاط»: عدد النقاط الإضافية لهذا اليوم (من 0 إلى ${MAX_POINTS}).` +
+      (withSecond
+        ? ` قسم «${SECOND_TITLE}» لمن له مسار ثانٍ فقط: يُسجَّل فيه حفظه الجديد في ذلك المسار، و«من» فيه معبَّأة بموضعه التالي.`
+        : "");
     notes.font = { name: "Arial", italic: true, color: { argb: "006C685D" }, size: 10 };
     notes.alignment = { horizontal: "right", wrapText: true, vertical: "top" };
     ws.getRow(3).height = 32;
-    ws.mergeCells(3, NAME_COL, 3, LAST_COL);
+    ws.mergeCells(3, NAME_COL, 3, lastCol);
 
     // block titles over each recitation block
     BLOCK_TYPES.forEach((type, bi) => {
@@ -175,7 +191,16 @@ export async function buildOfflineSheet({
         BLOCK_HEADERS.map((h, i) => [BLOCK_START[type] + i, h, BLOCK_FILLS[bi]] as [number, string, ExcelJS.Fill]),
       ),
       [POINTS_COL, "النقاط", HEADER_FILL],
+      ...(withSecond ? BLOCK_HEADERS.map((h, i) => [SECOND_START + i, h, BLOCK_FILLS[0]] as [number, string, ExcelJS.Fill]) : []),
     ];
+    if (withSecond) {
+      const cell = ws.getCell(BLOCK_TITLE_ROW, SECOND_START);
+      cell.value = SECOND_TITLE;
+      cell.font = HEADER_FONT;
+      cell.fill = BLOCK_FILLS[0];
+      cell.alignment = { horizontal: "center" };
+      ws.mergeCells(BLOCK_TITLE_ROW, SECOND_START, BLOCK_TITLE_ROW, SECOND_START + BLOCK_WIDTH - 1);
+    }
     for (const [col, text, fill] of headers) {
       const cell = header.getCell(col);
       cell.value = text;
@@ -194,12 +219,18 @@ export async function buildOfflineSheet({
       name.fill = LOCKED_FILL;
       name.border = THIN_BORDER;
       name.alignment = { horizontal: "right" };
-      for (let c = ATTENDANCE_COL; c <= LAST_COL; c++) {
+      for (let c = ATTENDANCE_COL; c <= lastCol; c++) {
         const cell = row.getCell(c);
-        cell.fill = INPUT_FILL;
+        // the second-track block is locked for a student without a second track
+        const open = c < SECOND_START || !!s.second;
+        cell.fill = open ? INPUT_FILL : LOCKED_FILL;
         cell.border = THIN_BORDER;
         cell.alignment = { horizontal: "center" };
-        cell.protection = { locked: false };
+        if (open) cell.protection = { locked: false };
+      }
+      if (s.second?.next) {
+        row.getCell(SECOND_START + FROM_SURAH).value = surahLabel(s.second.next.surahNumber, SURAH_NAME[s.second.next.surahNumber]);
+        row.getCell(SECOND_START + FROM_AYAH).value = s.second.next.fromAyah;
       }
       if (s.next) {
         row.getCell(BLOCK_START.NEW + FROM_SURAH).value = surahLabel(s.next.surahNumber, SURAH_NAME[s.next.surahNumber]);
@@ -229,6 +260,11 @@ export async function buildOfflineSheet({
       validations.add(range(start + QUALITY), list(`"${Object.values(QUALITY_LABEL).join(",")}"`));
     }
     validations.add(range(POINTS_COL), whole(0, MAX_POINTS));
+    if (withSecond) {
+      for (const col of [SECOND_START + FROM_SURAH, SECOND_START + 2]) validations.add(range(col), list(`${LISTS_SHEET_NAME}!$A$1:$A${SURAHS.length}`));
+      for (const col of [SECOND_START + FROM_AYAH, SECOND_START + TO_AYAH]) validations.add(range(col), whole(1, 286));
+      validations.add(range(SECOND_START + QUALITY), list(`"${Object.values(QUALITY_LABEL).join(",")}"`));
+    }
 
     if (group.students.length === 0) {
       const empty = ws.getCell(FIRST_STUDENT_ROW, NAME_COL);

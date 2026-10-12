@@ -9,6 +9,8 @@ import { canEditPlan, teacherGroupLimit } from "@/lib/students/manage";
 import { TEMPLATE_KEY_PLAN, planProblem, type TemplateKey } from "@/lib/students/new-student";
 import { PLAN_FIELDS, inferDirectionsFromHistory, studentPlan } from "@/lib/students/plan";
 import { pickByGroup, studentNounDef, type GroupGender } from "@/lib/text/gender";
+import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
+import type { TrackKind } from "@/lib/recitation/tracks";
 
 // «خطة الحفظ» on the student page: changing her plan (any template, then
 // freely reordered as when she was added), and correcting the direction of
@@ -95,6 +97,58 @@ export async function setJuzDirectionAction(studentId: string, juz: unknown, dir
     create: { studentId: student.id, juz: j, direction: value, source: "MANUAL" },
     update: { direction: value, source: "MANUAL", setAt: new Date() },
   });
+
+  revalidatePath(`/students/${student.id}`);
+  return { ok: true };
+}
+
+// ---------- her second track (lib/recitation/tracks.ts) ----------
+// Same permission as changing her plan. At most one active track (also a
+// partial unique index); ending it keeps the row, and its memorization
+// stays counted — only the track stops.
+
+const TRACK_KINDS: TrackKind[] = ["MUSHAF", "REVERSE", "FREE"];
+
+export async function addSecondTrackAction(studentId: string, input: unknown): Promise<PlanEditResult> {
+  const session = await requireSession();
+  const access = await planAccess(session, studentId);
+  if ("error" in access) return { error: access.error };
+  const { student } = access;
+
+  const raw = input as { kind?: unknown; startSurah?: unknown; startAyah?: unknown } | null;
+  const kind = TRACK_KINDS.find((k) => k === raw?.kind);
+  if (!kind) return { error: "نوع المسار غير صحيح" };
+  let startSurah: number | null = null;
+  let startAyah: number | null = null;
+  if (kind !== "FREE") {
+    startSurah = Number(raw?.startSurah);
+    startAyah = Number(raw?.startAyah);
+    if (!Number.isInteger(startSurah) || startSurah < 1 || startSurah > 114) return { error: "سورة البداية غير صحيحة" };
+    if (!Number.isInteger(startAyah) || startAyah < 1 || startAyah > AYAH_COUNT[startSurah]) {
+      return { error: `سورة ${SURAH_NAME[startSurah]} فيها ${AYAH_COUNT[startSurah]} آية` };
+    }
+  }
+
+  const already = `${pickByGroup(student.group.gender, { m: "لديه", f: "لديها" })} مسار ثانٍ بالفعل`;
+  if (studentPlan(student).second) return { error: already };
+  try {
+    await prisma.studentTrack.create({ data: { studentId: student.id, kind, startSurah, startAyah } });
+  } catch {
+    // another tap or another staff member added one first (partial unique index)
+    return { error: already };
+  }
+
+  revalidatePath(`/students/${student.id}`);
+  return { ok: true };
+}
+
+export async function endSecondTrackAction(studentId: string): Promise<PlanEditResult> {
+  const session = await requireSession();
+  const access = await planAccess(session, studentId);
+  if ("error" in access) return { error: access.error };
+  const { student } = access;
+
+  await prisma.studentTrack.updateMany({ where: { studentId: student.id, endedAt: null }, data: { endedAt: new Date() } });
 
   revalidatePath(`/students/${student.id}`);
   return { ok: true };

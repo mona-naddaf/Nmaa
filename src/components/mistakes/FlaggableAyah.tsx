@@ -56,6 +56,9 @@ export function FlaggableAyah({
   subject,
   showNumber = true,
   after,
+  previous,
+  mastered,
+  onToggleMastered,
 }: {
   surahNumber: number;
   ayah: number;
@@ -70,9 +73,21 @@ export function FlaggableAyah({
   showNumber?: boolean;
   // anything to show right after the ayah number (e.g. a note marker)
   after?: ReactNode;
+  // the course's recording form only: her earlier unresolved mistakes, shown
+  // before anything is marked; a word's menu then also offers «تم الإتقان»
+  // (held in `mastered` until the session is saved)
+  previous?: WordFlags;
+  mastered?: Record<string, true>;
+  onToggleMastered?: (key: string) => void;
 }) {
   const { openWord, setOpenWord } = menu;
   const split = splitAyah(surahNumber, ayah, text);
+  const wordClass = (key: string, type: MistakeType | undefined) => {
+    if (type) return `${styles.flagged} ${TYPE_CLASS[type]}`;
+    const before = previous?.[key];
+    if (!before) return "";
+    return mastered?.[key] ? styles.mastered : `${styles.previous} ${TYPE_CLASS[before]}`;
+  };
   return (
     <>
       {split.basmala && hasBasmalaPrefix(surahNumber, ayah) && <div className={styles.basmala}>{split.basmala}</div>}
@@ -80,21 +95,36 @@ export function FlaggableAyah({
       {split.words.map((w) => {
         const key = flagKey(surahNumber, ayah, w.position);
         const type = flags[key];
+        const before = previous?.[key];
+        const isMastered = !!(before && mastered?.[key]);
         return (
           <span key={w.position} className={styles.wordWrap} data-word={key}>
             <button
               type="button"
-              className={`${styles.word} ${type ? `${styles.flagged} ${TYPE_CLASS[type]}` : ""}`}
+              className={`${styles.word} ${wordClass(key, type)}`}
               onClick={() => setOpenWord(openWord === key ? null : key)}
               aria-haspopup="menu"
               aria-expanded={openWord === key}
-              title={type ? mistakeTypeLabel(type, subject) : undefined}
+              title={
+                type
+                  ? mistakeTypeLabel(type, subject)
+                  : before
+                    ? isMastered
+                      ? "تم الإتقان (يُحذف الخطأ السابق عند حفظ التسميع)"
+                      : `خطأ سابق: ${mistakeTypeLabel(before, subject)}`
+                    : undefined
+              }
             >
               {w.text}
             </button>
             {w.marks && <span className={styles.mark}>{w.marks}</span>}{" "}
             {openWord === key && (
               <span className={styles.menu} role="menu">
+                {before && (
+                  <span className={styles.menuNote}>
+                    {isMastered ? "تم الإتقان — يُحذف الخطأ السابق عند حفظ التسميع" : `خطأ سابق: ${mistakeTypeLabel(before, subject)}`}
+                  </span>
+                )}
                 {MISTAKE_TYPES.map((t) => (
                   <button
                     key={t}
@@ -103,6 +133,8 @@ export function FlaggableAyah({
                     aria-checked={type === t}
                     className={`${styles.menuItem} ${TYPE_CLASS[t]} ${type === t ? styles.menuSel : ""}`}
                     onClick={() => {
+                      // wrong again this session: no longer «تم الإتقان»
+                      if (isMastered) onToggleMastered?.(key);
                       onFlag(key, t);
                       setOpenWord(null);
                     }}
@@ -121,6 +153,19 @@ export function FlaggableAyah({
                     }}
                   >
                     إزالة التحديد
+                  </button>
+                )}
+                {before && onToggleMastered && !type && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={isMastered ? styles.menuRemove : styles.menuMastered}
+                    onClick={() => {
+                      onToggleMastered(key);
+                      setOpenWord(null);
+                    }}
+                  >
+                    {isMastered ? "التراجع عن «تم الإتقان»" : "تم الإتقان ✓"}
                   </button>
                 )}
               </span>

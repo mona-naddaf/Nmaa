@@ -7,6 +7,7 @@ import { attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/
 import { pickByGroup } from "@/lib/text/gender";
 import { computeOverdueSurahs } from "@/lib/students/review";
 import { computeStreaks } from "@/lib/students/streak-data";
+import { entryCount } from "@/lib/recitation/combined";
 
 export interface StudentSummary {
   id: string;
@@ -55,6 +56,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
         reason: true,
         occurredAt: true,
         createdAt: true,
+        comboId: true,
       },
     }),
     prisma.pointsLog.findMany({
@@ -94,7 +96,8 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
     const position = deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(studentSessions, planChangedAt)));
 
     const cumPages = studentSessions.reduce((sum, s) => sum + Number(s.pagesCalculated), 0);
-    const onlineCount = studentSessions.filter((s) => s.mode === "ONLINE").length;
+    // a combined entry (one recitation saved as parts) counts once
+    const onlineCount = entryCount(studentSessions.filter((s) => s.mode === "ONLINE"));
 
     const lastPositionText = position
       ? `${SURAH_NAME[position.surahNumber]} — آية ${position.ayah} من ${AYAH_COUNT[position.surahNumber]}`

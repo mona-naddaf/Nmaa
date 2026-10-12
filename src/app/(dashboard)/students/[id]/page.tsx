@@ -9,6 +9,7 @@ import { attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
 import { SURAH_NAME, TOTAL_PAGES } from "@/lib/quran-data";
 import { juzGroupSurahs } from "@/lib/quran-data/juz";
 import { DIRECTIONAL_JUZ } from "@/lib/recitation/juz-direction";
+import { entryCount, groupCombos } from "@/lib/recitation/combined";
 import { PLAN_TEMPLATE_LABEL, TEMPLATE_KEY_PLAN, type TemplateKey } from "@/lib/students/new-student";
 import { PlanPanel } from "./PlanPanel";
 import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages } from "@/lib/students/progress";
@@ -100,7 +101,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const position = deriveCurrentPosition(plan, reach);
 
   const cumPages = sessions.reduce((sum, s) => sum + Number(s.pagesCalculated), 0);
-  const onlineCount = sessions.filter((s) => s.mode === "ONLINE").length;
+  // a combined entry (one recitation saved as parts) counts once
+  const onlineCount = entryCount(sessions.filter((s) => s.mode === "ONLINE"));
   const coverage = buildCoverage(sessions);
   const progressBars = computeProgressBars({ settings: course, plan, position, coverage });
   const overdueSurahs = computeOverdueSurahs(sessions, course.reviewReminderDays, today);
@@ -197,7 +199,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           value: p.typeAtTime === "ADD" ? p.valueAtTime : -p.valueAtTime,
           bonus: p.activityId === null ? { id: p.id, note: p.note ?? "", teacherName: p.teacher.name } : undefined,
         }))}
-        history={sessions.map((s) => ({
+        history={groupCombos(sessions).map((s) => ({
           id: s.id,
           date: s.occurredAt.toISOString().slice(0, 10),
           source: s.source,
@@ -208,8 +210,10 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           mode: s.mode,
           type: s.type,
           teacherName: s.teacher.name,
-          notes: s.notes,
-          reason: s.reason,
+          // a combined entry: its parts, with the notes and reason they carry
+          notes: s.parts ? (s.parts.find((p) => p.notes)?.notes ?? null) : s.notes,
+          reason: s.parts ? (s.parts.find((p) => p.reason)?.reason ?? null) : s.reason,
+          ...(s.parts ? { parts: s.parts.map((p) => ({ type: p.type, fromAyah: p.fromAyah, toAyah: p.toAyah })) } : {}),
         }))}
         headerBadge={<MissingInfoBadge key="info-badge" missing={missingInfo} />}
         infoSection={

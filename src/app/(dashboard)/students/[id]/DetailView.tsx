@@ -17,6 +17,7 @@ import { MistakesList } from "@/components/mistakes/MistakesList";
 import { Collapsible } from "@/components/collapsible/Collapsible";
 import { SESSIONS, SURAHS_COUNT, WORDS, countLabel } from "@/lib/text/count";
 import { WordFlagger } from "@/components/mistakes/WordFlagger";
+import { partsLabel } from "@/lib/recitation/combined";
 import {
   EntryStatus,
   PageCalc,
@@ -74,6 +75,8 @@ interface HistoryEntry {
   teacherName: string;
   notes: string | null;
   reason: string | null;
+  // one recitation saved as parts (new memorization + «ربط»): shown as one entry
+  parts?: { type: SessionType; fromAyah: number; toAyah: number }[];
 }
 
 const QUALITY_LABEL: Record<Quality, string> = {
@@ -154,8 +157,10 @@ export function DetailView({
   const [attendance, setAttendanceState] = useState(student.attendance);
   const [attendancePending, startAttendanceTransition] = useTransition();
 
-  const entry = useRecitationEntry({ plan, position, reach, memorizedRanges, subject: groupGender, directional });
-  const { surahNumber, fromAyah, toAyah, sessionType, classification, pageResult, isNew } = entry;
+  // a course student: combined entries are split, earlier mistakes shown
+  const course = useMemo(() => ({ previousMistakes: mistakes }), [mistakes]);
+  const entry = useRecitationEntry({ plan, position, reach, memorizedRanges, subject: groupGender, directional, course });
+  const { surahNumber, fromAyah, toAyah, sessionType, classification, pageResult, isNew, combo } = entry;
   const hasRangeError = "error" in pageResult;
   const [quality, setQuality] = useState<Quality>("EXCELLENT");
   const [mode, setMode] = useState<Mode>("IN_PERSON");
@@ -291,7 +296,9 @@ export function DetailView({
 
       const saved = !isNew
         ? `تم حفظ جلسة ال${SESSION_TYPE_LABEL[sessionType]} ✓`
-        : classification.situation === "SURAH_GAP" || classification.situation === "AYAH_GAP"
+        : combo
+          ? `تم حفظ التسميع: ${partsLabel(combo.parts)} ✓`
+          : classification.situation === "SURAH_GAP" || classification.situation === "AYAH_GAP"
           ? "تم الحفظ مع تسجيل ملاحظة الفجوة ✓"
           : "تم حفظ التسميع ✓";
       // a juz direction this entry decided: one short line, shown a little longer
@@ -479,6 +486,9 @@ export function DetailView({
             flags={entry.wordFlags}
             onChange={entry.setWordFlags}
             subject={groupGender}
+            previous={entry.previousFlags}
+            mastered={entry.mastered}
+            onToggleMastered={entry.toggleMastered}
           />
         )}
 
@@ -666,7 +676,15 @@ export function DetailView({
               <div className={styles.logDate}>{e.date}</div>
               <div className={styles.logBody}>
                 <div className={styles.logTitle}>
-                  {SURAH_NAME[e.surahNumber]} — آية {e.fromAyah} إلى {e.toAyah}
+                  {e.parts ? (
+                    <>
+                      {SURAH_NAME[e.surahNumber]} — {partsLabel(e.parts)}
+                    </>
+                  ) : (
+                    <>
+                      {SURAH_NAME[e.surahNumber]} — آية {e.fromAyah} إلى {e.toAyah}
+                    </>
+                  )}
                 </div>
                 <div className={styles.logMeta}>
                   {e.source === "PRIOR" ? (
@@ -681,7 +699,7 @@ export function DetailView({
                       <span className={`${styles.logBadge} ${styles.mode}`}>
                         {e.mode === "ONLINE" ? "أونلاين" : "حضوري"}
                       </span>
-                      {e.type !== "NEW" && (
+                      {e.type !== "NEW" && !e.parts && (
                         <span className={`${styles.logBadge} ${styles.typeBadge}`}>↺ {SESSION_TYPE_LABEL[e.type]}</span>
                       )}
                     </>

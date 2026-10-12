@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import {
   advancesPosition,
@@ -12,6 +13,7 @@ import {
   type SessionType,
 } from "@/lib/recitation/logic";
 import { classifyWithDirections, type JuzAdoption, type JuzDirections } from "@/lib/recitation/juz-direction";
+import type { CombinedEntry } from "@/lib/recitation/combined";
 import type { GroupGender } from "@/lib/text/gender";
 import { markSegmentsRecited } from "@/lib/home-log/data";
 
@@ -79,6 +81,8 @@ export interface RecitationInput {
   reason: string | null;
   notes: string | null;
   occurredAt: Date;
+  // the rows of one combined entry (lib/recitation/combined.ts) share it
+  comboId?: string | null;
 }
 
 /** The session row (pages computed here), or the range's error. */
@@ -102,8 +106,30 @@ export function recitationCreateData(
       reason: r.reason,
       notes: r.notes,
       occurredAt: r.occurredAt,
+      comboId: r.comboId ?? null,
     },
   };
+}
+
+/**
+ * The rows a combined «حفظ جديد» entry is saved as: one per part, in reading
+ * order, sharing a new comboId — the same rating, mode and date; the notes
+ * with the first new part only (shown once); a reason only with the new
+ * parts whose gap check needs one.
+ */
+export function combinedRecords(r: RecitationInput, combo: CombinedEntry): RecitationInput[] {
+  const comboId = randomUUID();
+  const firstNew = combo.parts.find((p) => p.type === "NEW");
+  return combo.parts.map((p) => ({
+    ...r,
+    type: p.type,
+    fromAyah: p.fromAyah,
+    toAyah: p.toAyah,
+    situation: p.situation,
+    reason: p.requiresReason ? r.reason : null,
+    notes: p === firstNew ? r.notes : null,
+    comboId,
+  }));
 }
 
 /**

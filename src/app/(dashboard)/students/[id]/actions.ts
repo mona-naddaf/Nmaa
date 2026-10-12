@@ -11,9 +11,10 @@ import { todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { imperative, thisDemonstrative, pickByGroup, type GroupGender } from "@/lib/text/gender";
 import type { Session } from "@/lib/auth/session";
-import { validateFlaggedWords, type FlaggedWordInput } from "@/lib/recitation/flagged-words";
+import { validateFlaggedWords, validateMasteredWords, type FlaggedWordInput } from "@/lib/recitation/flagged-words";
 import { BONUS_NOTE_MAX_LENGTH } from "@/lib/points/bonus";
-import { afterRecitationSaved, classifyPlanEntry, recitationCreateData } from "@/lib/recitation/record";
+import { afterRecitationSaved, classifyPlanEntry, combinedRecords, recitationCreateData } from "@/lib/recitation/record";
+import { entryContext, planCombinedEntry, type CombinedEntry } from "@/lib/recitation/combined";
 import { adoptionMessage, type JuzAdoption } from "@/lib/recitation/juz-direction";
 import { PLAN_INCLUDE, adoptJuzDirection, forPlanPosition, studentPlan } from "@/lib/students/plan";
 
@@ -71,6 +72,8 @@ export type SaveRecitationInput = {
   sessionDate: string; // "YYYY-MM-DD", defaults to today but can be backdated
   // words flagged as mistakes, within this surah and ayah range
   mistakes: FlaggedWordInput[];
+  // words in the range whose earlier mistakes are marked «تم الإتقان»
+  mastered?: { ayah: number; wordPosition: number }[];
 };
 
 export type SaveRecitationResult = { error: string } | { ok: true };
@@ -100,13 +103,25 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
   let requiresReason = false;
   // a reverse-plan entry may decide its juz's direction (saved with it)
   let adopt: JuzAdoption | null = null;
+  // new memorization that also covers memorized ayat: saved as its parts
+  let combo: CombinedEntry | null = null;
   if (advancesPosition(input)) {
     const sp = studentPlan(student);
     const priorSessions = await prisma.recitationSession.findMany({
       where: { studentId: student.id },
       select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true },
     });
-    ({ situation, requiresReason, adopt } = classifyPlanEntry(sp, forPlanPosition(priorSessions, sp.planChangedAt), input, student.group.gender));
+    const positionSessions = forPlanPosition(priorSessions, sp.planChangedAt);
+    combo = planCombinedEntry(
+      entryContext(sp.plan, sp.directions, positionSessions),
+      input.surahNumber,
+      input.fromAyah,
+      input.toAyah,
+      student.group.gender,
+      input.reason.trim() || "…",
+    );
+    if (combo) ({ requiresReason, adopt } = combo);
+    else ({ situation, requiresReason, adopt } = classifyPlanEntry(sp, positionSessions, input, student.group.gender));
     if (requiresReason && !input.reason.trim()) {
       return { error: "يُرجى كتابة سبب هذا التسجيل قبل الحفظ" };
     }
@@ -121,6 +136,9 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
   const checkedWords = validateFlaggedWords(input.mistakes, input.surahNumber, input.fromAyah, input.toAyah);
   if ("error" in checkedWords) return { error: checkedWords.error };
   const flaggedWords = checkedWords.words;
+  // earlier mistakes marked «تم الإتقان» in this form: removed with this save
+  const checkedMastered = validateMasteredWords(input.mastered, input.surahNumber, input.fromAyah, input.toAyah);
+  if ("error" in checkedMastered) return { error: checkedMastered.error };
 
   const sessionDay = parseDateOnlyInput(input.sessionDate);
   if (!sessionDay) {
@@ -146,32 +164,45 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
     notes: input.notes.trim() || null,
     occurredAt,
   };
-  const created = recitationCreateData(record);
-  if ("error" in created) return { error: created.error };
-
-  const saveSession = prisma.recitationSession.create({
-    data: {
-      ...created.data,
-      // same statement as the session, so they're saved together or not at all
-      mistakes: {
-        createMany: {
-          data: flaggedWords.map((m) => ({
-            studentId: student.id,
-            surahNumber: input.surahNumber,
-            ayah: m.ayah,
-            wordPosition: m.wordPosition,
-            wordText: m.wordText,
-            type: m.type,
-            teacherId,
-            flaggedAt: occurredAt,
-          })),
+  // one row, or one per part of a combined entry
+  const rows = combo ? combinedRecords(record, combo) : [record];
+  const creates = [];
+  for (const row of rows) {
+    const created = recitationCreateData(row);
+    if ("error" in created) return { error: created.error };
+    creates.push(
+      prisma.recitationSession.create({
+        data: {
+          ...created.data,
+          // same statement as the session, so they're saved together or not
+          // at all; each flagged word with the part that holds its ayah
+          mistakes: {
+            createMany: {
+              data: flaggedWords
+                .filter((m) => m.ayah >= row.fromAyah && m.ayah <= row.toAyah)
+                .map((m) => ({
+                  studentId: student.id,
+                  surahNumber: input.surahNumber,
+                  ayah: m.ayah,
+                  wordPosition: m.wordPosition,
+                  wordText: m.wordText,
+                  type: m.type,
+                  teacherId,
+                  flaggedAt: occurredAt,
+                })),
+            },
+          },
         },
-      },
-    },
-  });
-  // the direction is saved with the entry that decided it, or not at all
-  if (adopt) await prisma.$transaction([saveSession, adoptJuzDirection(prisma, student.id, adopt)]);
-  else await saveSession;
+      }),
+    );
+  }
+  // all saved together or not at all: the rows, the direction this entry
+  // decided, and the earlier mistakes marked «تم الإتقان» (removed for good)
+  await prisma.$transaction([
+    ...creates,
+    ...(adopt ? [adoptJuzDirection(prisma, student.id, adopt)] : []),
+    ...checkedMastered.words.map((w) => masteredDelete(student.id, input.surahNumber, w.ayah, w.wordPosition)),
+  ]);
 
   await afterRecitationSaved(record);
 
@@ -180,10 +211,19 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
 }
 
 /**
- * Marks every unresolved flag on one word as resolved — the student no
- * longer makes this mistake. Nothing is deleted: the rows keep their
- * history and just drop off the active lists. Same permission as logging
- * recitation for this student.
+ * «تم الإتقان»: every unresolved flag on one word is removed for good — it
+ * no longer appears anywhere (lists, counts, the recording form) and no
+ * history is kept. Flags resolved before this rule (resolvedAt set) are
+ * left as they are; nothing shows them. Only the course's flags: the
+ * student's own home-log marks are never touched.
+ */
+function masteredDelete(studentId: string, surahNumber: number, ayah: number, wordPosition: number) {
+  return prisma.recitationMistake.deleteMany({ where: { studentId, surahNumber, ayah, wordPosition, resolvedAt: null } });
+}
+
+/**
+ * «تم الإتقان» from «كلمات تحتاج مراجعة», applied right away (masteredDelete).
+ * Same permission as logging recitation for this student.
  */
 export async function resolveMistakeAction(
   studentId: string,
@@ -196,11 +236,7 @@ export async function resolveMistakeAction(
   const denied = await studentAccessError(session, student);
   if (denied) return { error: denied };
 
-  const teacherId = await resolveTeacherId(session);
-  await prisma.recitationMistake.updateMany({
-    where: { studentId: student.id, surahNumber, ayah, wordPosition, resolvedAt: null },
-    data: { resolvedAt: new Date(), resolvedById: teacherId },
-  });
+  await masteredDelete(student.id, surahNumber, ayah, wordPosition);
 
   revalidatePath(`/students/${student.id}`);
   return { ok: true };

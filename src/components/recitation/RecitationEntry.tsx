@@ -20,7 +20,9 @@ import {
 import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
 import { rangeIsMemorized } from "@/lib/students/progress";
 import { classifyWithDirections, reverseOrder, type DirectionalClassification, type JuzDirections } from "@/lib/recitation/juz-direction";
-import type { WordFlags } from "@/components/mistakes/WordFlagger";
+import { flagKey, type WordFlags } from "@/components/mistakes/FlaggableAyah";
+import type { MistakeType } from "@/lib/students/mistake-types";
+import { partsLabel, planCombinedEntry, rangeAllMemorized, type EntryContext } from "@/lib/recitation/combined";
 
 // The part of recording a session that the staff student page and «رفيق
 // الحفظ» share: what is being recited (type, surah, ayat), its page count,
@@ -47,6 +49,7 @@ export function useRecitationEntry({
   memorizedRanges,
   subject,
   directional = null,
+  course = null,
 }: {
   plan: number[];
   position: PlanPosition | null;
@@ -55,6 +58,10 @@ export function useRecitationEntry({
   subject: RecitationSubject;
   // only for a reverse plan with juz directions; null = judged on `plan`
   directional?: DirectionalPlan | null;
+  // a course student's page only: a «حفظ جديد» entry over memorized ayat is
+  // split (lib/recitation/combined.ts), and her earlier unresolved mistakes
+  // are shown on the memorized ayat she recites
+  course?: { previousMistakes: { surahNumber: number; ayah: number; wordPosition: number; type: MistakeType }[] } | null;
 }) {
   const initialEntry = nextExpectedEntry(plan, position);
   const [surahNumber, setSurahNumber] = useState(initialEntry.surahNumber);
@@ -65,6 +72,8 @@ export function useRecitationEntry({
   // words flagged as mistakes, keyed "surah:ayah:word"; only those inside
   // the current surah and range are submitted
   const [wordFlags, setWordFlags] = useState<WordFlags>({});
+  // earlier mistakes marked «تم الإتقان» in this form (removed on save)
+  const [mastered, setMastered] = useState<Record<string, true>>({});
 
   // A juz direction correction, a plan change or added prior memorization
   // moves where she stands without a save from this form: suggest the new
@@ -78,6 +87,7 @@ export function useRecitationEntry({
     setFromAyah(initialEntry.fromAyah);
     setToAyah(initialEntry.toAyah);
     setReason("");
+    setMastered({});
   }
 
   const judged = useMemo<DirectionalClassification>(
@@ -87,15 +97,51 @@ export function useRecitationEntry({
         : { classification: classifyRecitation(plan, reach, surahNumber, fromAyah, subject), adopt: null },
     [directional, plan, reach, surahNumber, fromAyah, subject],
   );
-  const classification = judged.classification;
   const pageResult = useMemo(() => calculatePageRange(surahNumber, fromAyah, toAyah), [surahNumber, fromAyah, toAyah]);
 
   // gap detection (and its mandatory reason) applies to new memorization only
   const isNew = sessionType === "NEW";
-  const requiresReason = isNew && classification.requiresReason;
+  const hasRangeError = "error" in pageResult;
+
+  // a course entry over memorized ayat: what will be saved, exactly as the
+  // server will split and judge it (null: an ordinary entry)
+  const entryCtx = useMemo<EntryContext | null>(
+    () => (course ? { plan, reach, directional: directional ? { directions: directional.directions, sessions: directional.sessions } : null } : null),
+    [course, plan, reach, directional],
+  );
+  const combo = useMemo(
+    () => (entryCtx && isNew && !hasRangeError ? planCombinedEntry(entryCtx, surahNumber, fromAyah, toAyah, subject) : null),
+    [entryCtx, isNew, hasRangeError, surahNumber, fromAyah, toAyah, subject],
+  );
+  // every ayah already memorized: a re-recording, as before (with a hint)
+  const allMemorized = !!entryCtx && isNew && !hasRangeError && rangeAllMemorized(entryCtx, surahNumber, fromAyah, toAyah);
+
+  const classification = combo ? combo.classification : judged.classification;
+  const requiresReason = isNew && (combo ? combo.requiresReason : classification.requiresReason);
   const reviewOfUnmemorized = !isNew && !rangeIsMemorized(memorizedRanges[surahNumber], fromAyah, toAyah);
   const reasonFilled = reason.trim().length > 0;
-  const hasRangeError = "error" in pageResult;
+
+  // her earlier unresolved mistakes on the memorized ayat she recites now:
+  // the whole range of a review/link, the «ربط» parts of a combined entry
+  const previousFlags = useMemo<WordFlags>(() => {
+    if (!course || hasRangeError) return {};
+    const shownAyah = (a: number) =>
+      isNew ? !!combo?.parts.some((p) => p.type === "LINK" && a >= p.fromAyah && a <= p.toAyah) : a >= fromAyah && a <= toAyah;
+    return Object.fromEntries(
+      course.previousMistakes
+        .filter((m) => m.surahNumber === surahNumber && shownAyah(m.ayah))
+        .map((m) => [flagKey(m.surahNumber, m.ayah, m.wordPosition), m.type]),
+    );
+  }, [course, hasRangeError, isNew, combo, surahNumber, fromAyah, toAyah]);
+
+  function toggleMastered(key: string) {
+    setMastered((m) => {
+      const next = { ...m };
+      if (next[key]) delete next[key];
+      else next[key] = true;
+      return next;
+    });
+  }
 
   /** A new surah picked from the list: its first ayat, at most 15. */
   function chooseSurah(n: number) {
@@ -124,6 +170,13 @@ export function useRecitationEntry({
         const [s, ayah, wordPosition] = key.split(":").map(Number);
         return s === surahNumber && ayah >= fromAyah && ayah <= toAyah ? [{ ayah, wordPosition, type }] : [];
       }),
+      // only words whose earlier mistake is shown right now
+      mastered: Object.keys(mastered)
+        .filter((key) => previousFlags[key])
+        .map((key) => {
+          const [, ayah, wordPosition] = key.split(":").map(Number);
+          return { ayah, wordPosition };
+        }),
     };
   }
 
@@ -135,7 +188,14 @@ export function useRecitationEntry({
   function afterSave() {
     setWordFlags({});
     setReason("");
-    if (isNew && classification.situation !== "EDIT") {
+    setMastered({});
+    if (combo) {
+      // from where she stands once every part is saved
+      const next = nextExpectedEntry(combo.after.plan, deriveCurrentPosition(combo.after.plan, combo.after.reach));
+      setSurahNumber(next.surahNumber);
+      setFromAyah(next.fromAyah);
+      setToAyah(next.toAyah);
+    } else if (isNew && classification.situation !== "EDIT") {
       // from where she stands with this entry included — which may skip
       // past surahs already covered further ahead
       const saved = { surahNumber, fromAyah, toAyah, type: sessionType, situation: classification.situation, reason };
@@ -173,6 +233,11 @@ export function useRecitationEntry({
     reviewOfUnmemorized,
     reasonFilled,
     hasRangeError,
+    combo,
+    allMemorized,
+    previousFlags,
+    mastered,
+    toggleMastered,
   };
 }
 
@@ -258,6 +323,22 @@ export function EntryStatus({
       ) : (
         <div className={`${styles.modeBadge} ${styles.next}`}>
           ↺ {SESSION_TYPE_LABEL[sessionType]} — لا تغيّر {positionOf} ولا تخضع لفحص الفجوات
+        </div>
+      )}
+
+      {entry.combo && (
+        <div className={styles.comboNote}>
+          ✂️ بعض هذه الآيات محفوظ سابقًا، فسيُسجَّل التسميع هكذا: <strong>{partsLabel(entry.combo.parts)}</strong> — بتقييم واحد،
+          وفي السجل تسميعٌ واحد.
+        </div>
+      )}
+
+      {entry.allMemorized && (
+        <div className={styles.comboNote}>
+          كل هذه الآيات محفوظة سابقًا، فسيُسجَّل التسميع إعادةَ تسجيل.
+          <button type="button" className={styles.comboBtn} onClick={() => entry.setSessionType("LINK")}>
+            تسجيله ربطًا
+          </button>
         </div>
       )}
 

@@ -175,3 +175,31 @@
   border-color: var(--sage-deep);
   color: #fff;
 }
+
+/* a «حفظ جديد» entry over memorized ayat: how it will be saved (course form only) */
+.comboNote {
+  background: rgba(107, 124, 99, 0.09);
+  border: 1px solid rgba(107, 124, 99, 0.3);
+  color: var(--sage-deep);
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  margin-bottom: 14px;
+}
+
+.comboBtn {
+  margin-inline-start: 8px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--sage-deep);
+  background: transparent;
+  color: var(--sage-deep);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.comboBtn:hover {
+  background: rgba(107, 124, 99, 0.12);
+}

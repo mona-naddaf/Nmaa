@@ -8,6 +8,7 @@ import { SURAH_NAME } from "@/lib/quran-data";
 import { imperative, absentWord, presentWord, type PersonGender } from "@/lib/text/gender";
 import { confirmOfflineSheetAction, previewOfflineSheetAction, type ConfirmResult, type PreviewResult } from "./actions";
 import type { PreviewEntry, PreviewRow } from "@/lib/offline-sheet/validate";
+import { partsLabel } from "@/lib/recitation/combined";
 import { countLabel, REASONS, ROWS, SESSIONS } from "@/lib/text/count";
 
 const TYPE_LABEL = { NEW: "حفظ جديد", REVIEW: "مراجعة", LINK: "ربط" } as const;
@@ -317,6 +318,7 @@ function Entry({ e, reason, onReason }: { e: PreviewEntry; reason: string; onRea
       <div className={o.line}>
         {TYPE_LABEL[e.type]}: سورة {SURAH_NAME[e.surahNumber]} — آية {e.fromAyah} إلى {e.toAyah} · {QUALITY_LABEL[e.quality]} ·{" "}
         {e.pages} صفحة
+        {e.parts && !e.duplicate && <span className={o.badge}>✂️ يُسجَّل: {partsLabel(e.parts)}</span>}
         {e.duplicate ? (
           <span className={`${o.badge} ${o.badgeSkip}`}>مسجَّل مسبقًا لهذا اليوم — يُتخطّى</span>
         ) : (

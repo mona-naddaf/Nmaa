@@ -30,6 +30,13 @@ function flaggedWordsText(n: number): string {
   return `${n} ${n <= 10 ? "كلمات محدّدة" : "كلمة محدّدة"}`;
 }
 
+// «3 كلمات من أخطاء سابقة»
+function previousWordsText(n: number): string {
+  if (n === 1) return "كلمة واحدة من أخطاء سابقة";
+  if (n === 2) return "كلمتان من أخطاء سابقة";
+  return `${n} ${n <= 10 ? "كلمات" : "كلمة"} من أخطاء سابقة`;
+}
+
 /**
  * The recitation form's word-level mistake picker: the Quran text of the
  * entered range, word by word; tapping a word opens a small menu of the 3
@@ -45,6 +52,9 @@ export function WordFlagger({
   onChange,
   subject,
   afterAyah,
+  previous,
+  mastered,
+  onToggleMastered,
 }: {
   surahNumber: number;
   fromAyah: number;
@@ -56,13 +66,24 @@ export function WordFlagger({
   subject: RecitationSubject;
   // anything to show right after each ayah number (e.g. a note marker)
   afterAyah?: (ayah: number) => ReactNode;
+  // the course form only: her earlier unresolved mistakes in this range,
+  // shown from the start (the picker opens by itself when there are any)
+  // and offered «تم الإتقان»
+  previous?: WordFlags;
+  mastered?: Record<string, true>;
+  onToggleMastered?: (key: string) => void;
 }) {
   const [ayahs, setAyahs] = useState<{ surah: number; text: string[] } | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [expanded, setExpanded] = useState<boolean | null>(null); // null = automatic
   const menu = useWordMenu();
 
-  const open = expanded ?? !startCollapsed;
+  const inRange = (k: string) => {
+    const [s, a] = k.split(":").map(Number);
+    return s === surahNumber && a >= fromAyah && a <= toAyah;
+  };
+  const previousHere = Object.keys(previous ?? {}).filter(inRange).length;
+  const open = expanded ?? (!startCollapsed || previousHere > 0);
   const loaded = ayahs?.surah === surahNumber ? ayahs.text : null;
 
   useEffect(() => {
@@ -83,10 +104,7 @@ export function WordFlagger({
     };
   }, [open, loaded, surahNumber]);
 
-  const flaggedHere = Object.keys(flags).filter((k) => {
-    const [s, a] = k.split(":").map(Number);
-    return s === surahNumber && a >= fromAyah && a <= toAyah;
-  }).length;
+  const flaggedHere = Object.keys(flags).filter(inRange).length;
 
   function setFlag(key: string, type: MistakeType | null) {
     const next = { ...flags };
@@ -100,6 +118,7 @@ export function WordFlagger({
       <button type="button" className={styles.flaggerHead} onClick={() => setExpanded(!open)} aria-expanded={open}>
         <span>🔖 تحديد الأخطاء على مستوى الكلمة (اختياري)</span>
         <span className={styles.flaggerCount}>
+          {previousHere > 0 && <span className={styles.flaggerPrevious}>{previousWordsText(previousHere)}</span>}
           {flaggedHere > 0 ? flaggedWordsText(flaggedHere) : ""}
           <span className={styles.chevron}>{open ? "▴" : "▾"}</span>
         </span>
@@ -124,6 +143,9 @@ export function WordFlagger({
                     onFlag={setFlag}
                     subject={subject}
                     after={afterAyah?.(ayah)}
+                    previous={previous}
+                    mastered={mastered}
+                    onToggleMastered={onToggleMastered}
                   />
                 </Fragment>
               ))}

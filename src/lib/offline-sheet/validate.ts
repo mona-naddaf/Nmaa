@@ -2,7 +2,9 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import { calculatePageRange, deriveReach, withSession, type PositionSession, type Reach, type SessionType } from "@/lib/recitation/logic";
-import { afterRecitationSaved, classifyEntry, classifyPlanEntry, recitationCreateData, type Quality } from "@/lib/recitation/record";
+import { afterRecitationSaved, classifyEntry, classifyPlanEntry, combinedRecords, recitationCreateData, type Quality, type RecitationInput } from "@/lib/recitation/record";
+import { entryContext, groupCombos, memorizedRuns, planCombinedEntry, type EntryContext, type EntryPart } from "@/lib/recitation/combined";
+import { randomUUID } from "node:crypto";
 import { adoptionMessage, orderForRange, reverseOrder, type JuzDirections } from "@/lib/recitation/juz-direction";
 import { PLAN_FIELDS, adoptJuzDirection, forPlanPosition, studentPlan } from "@/lib/students/plan";
 import { parseSurah, toInteger } from "@/lib/excel/cells";
@@ -39,6 +41,10 @@ export interface PreviewEntry {
   warning: string | null;
   // «تم اعتماد اتجاه الجزء …» when this entry decides its juz's direction
   adopted: string | null;
+  // a «حفظ جديد» block over memorized ayat: how this surah is saved — its
+  // new ayat as new memorization, the memorized ones as «ربط» (one entry);
+  // null when saved as written
+  parts: EntryPart[] | null;
 }
 
 export interface PreviewRow {
@@ -213,6 +219,7 @@ export async function validateSheet(
         reason: true,
         occurredAt: true,
         createdAt: true,
+        comboId: true,
       },
     }),
     prisma.attendanceLog.findMany({ where: { studentId: { in: ids }, day }, select: { studentId: true, status: true } }),
@@ -305,16 +312,29 @@ export async function validateSheet(
 
     // sessions, in order, each seeing the ones before it
     const existing = sessionsOf.get(s.id) ?? [];
-    const sameDay = existing.filter((x) => x.source === "LOGGED" && x.occurredAt >= day && x.occurredAt < nextDay);
+    // a combined entry counts as the one range it was entered as
+    const sameDay = groupCombos(existing.filter((x) => x.source === "LOGGED" && x.occurredAt >= day && x.occurredAt < nextDay));
     const positionSessions: PositionSession[] = forPlanPosition(existing, sp.planChangedAt);
     let reach: Reach = deriveReach(plan, positionSessions);
     for (const { type, segments, quality } of blocks) {
+      // a «حفظ جديد» block that covers memorized ayat as well as new ones is
+      // saved split, surah by surah, as the recording form does (a surah
+      // all memorized becomes «ربط»); a block all memorized stays as written
+      // (a re-recording, with its reason)
+      const runsOf = (seg: Segment) => memorizedRuns(reach.covered[seg.surahNumber], seg.fromAyah, seg.toAyah);
+      const blockRuns = type === "NEW" ? segments.flatMap(runsOf) : [];
+      const mixed = blockRuns.some((r) => r.type === "NEW") && blockRuns.some((r) => r.type === "LINK");
       segments.forEach((seg, i) => {
         const key = `${s.id}:${type}:${i}`;
         const pages = calculatePageRange(seg.surahNumber, seg.fromAyah, seg.toAyah);
         const duplicate = sameDay.some(
-          (x) => x.type === type && x.surahNumber === seg.surahNumber && x.fromAyah === seg.fromAyah && x.toAyah === seg.toAyah,
+          (x) =>
+            (x.parts ? type === "NEW" : x.type === type) &&
+            x.surahNumber === seg.surahNumber &&
+            x.fromAyah === seg.fromAyah &&
+            x.toAyah === seg.toAyah,
         );
+        const runs = mixed ? runsOf(seg) : null;
         const entry: PreviewEntry = {
           key,
           type,
@@ -326,8 +346,28 @@ export async function validateSheet(
           badgeText: null,
           warning: null,
           adopted: null,
+          parts: null,
         };
-        if (!duplicate) {
+        if (!duplicate && runs && runs.every((r) => r.type === "LINK")) {
+          // a surah all memorized inside a mixed block: «ربط»
+          entry.parts = [{ type: "LINK", fromAyah: seg.fromAyah, toAyah: seg.toAyah }];
+        } else if (!duplicate && runs && runs.length > 1) {
+          const ctx: EntryContext = directions ? entryContext(reverseOrder(directions), directions, positionSessions) : { plan, reach, directional: null };
+          const combo = planCombinedEntry(ctx, seg.surahNumber, seg.fromAyah, seg.toAyah, g, reasons[key]?.trim() || "…")!;
+          entry.parts = combo.parts.map(({ type: t, fromAyah, toAyah }) => ({ type: t, fromAyah, toAyah }));
+          entry.requiresReason = combo.requiresReason;
+          entry.badgeText = combo.classification.badgeText;
+          entry.warning = combo.classification.warningMessage;
+          if (directions && combo.adopt) {
+            directions = { ...directions, [combo.adopt.juz]: combo.adopt.direction };
+            entry.adopted = adoptionMessage(combo.adopt);
+          }
+          for (const p of combo.parts.filter((x) => x.type === "NEW")) {
+            const saved = { type: "NEW" as const, surahNumber: seg.surahNumber, fromAyah: p.fromAyah, toAyah: p.toAyah, situation: p.situation, reason: p.requiresReason ? reasons[key]?.trim() || "…" : null };
+            positionSessions.push(saved);
+            reach = withSession(plan, reach, saved);
+          }
+        } else if (!duplicate) {
           const c = directions
             ? classifyPlanEntry({ plan: reverseOrder(directions), directions }, positionSessions, { type, ...seg }, g)
             : { ...classifyEntry(plan, reach, { type, ...seg }, g), adopt: null };
@@ -463,8 +503,14 @@ export async function saveSheet(
             reason: null as string | null,
             notes: null,
             occurredAt,
+            comboId: null as string | null,
           };
-          if (e.type === "NEW") {
+          // the rows this entry is saved as: itself, or the parts of a split
+          let rowsToSave: RecitationInput[] = [record];
+          if (e.parts && e.parts.every((p) => p.type === "LINK")) {
+            // a surah all memorized inside a mixed «حفظ جديد» block
+            rowsToSave = [{ ...record, type: "LINK", comboId: randomUUID() }];
+          } else if (e.type === "NEW") {
             // re-judged here against what's saved so far (in this same
             // transaction), exactly as the form would at that moment
             const sp = studentPlan(await tx.student.findUniqueOrThrow({ where: { id: r.studentId }, select: PLAN_FIELDS }));
@@ -472,7 +518,11 @@ export async function saveSheet(
               where: { studentId: r.studentId },
               select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true },
             });
-            const c = classifyPlanEntry(sp, forPlanPosition(sessions, sp.planChangedAt), e, r.groupGender);
+            const positionSessions = forPlanPosition(sessions, sp.planChangedAt);
+            const combo = e.parts
+              ? planCombinedEntry(entryContext(sp.plan, sp.directions, positionSessions), e.surahNumber, e.fromAyah, e.toAyah, r.groupGender, reasons[e.key]?.trim() || "…")
+              : null;
+            const c = combo ? { ...combo, situation: null } : classifyPlanEntry(sp, positionSessions, e, r.groupGender);
             record.situation = c.situation;
             if (c.adopt) {
               await adoptJuzDirection(tx, r.studentId, c.adopt);
@@ -483,10 +533,14 @@ export async function saveSheet(
               if (!reason) throw new MissingReasonError();
               record.reason = reason;
             }
+            if (combo) rowsToSave = combinedRecords(record, combo);
           }
-          const created = recitationCreateData(record);
-          if ("error" in created) throw new Error(created.error);
-          await tx.recitationSession.create({ data: created.data });
+          for (const row of rowsToSave) {
+            const created = recitationCreateData(row);
+            if ("error" in created) throw new Error(created.error);
+            await tx.recitationSession.create({ data: created.data });
+          }
+          // the home-log follow-up on the range as entered
           saved.push(record);
           summary.sessions++;
           touched = true;

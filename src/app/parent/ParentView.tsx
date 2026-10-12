@@ -15,6 +15,7 @@ import { HomeLogSummary } from "@/components/home-log/HomeLogSummary";
 import { AssignmentList } from "@/components/student-work/AssignmentList";
 import { TrackerWeek } from "@/components/student-work/TrackerWeek";
 import { ParentStudentInfo } from "./ParentStudentInfo";
+import { partsLabel } from "@/lib/recitation/combined";
 
 const QUALITY_LABEL = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" } as const;
 const QUALITY_BADGE = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" } as const;
@@ -212,7 +213,15 @@ export function ParentView({ data }: { data: ParentViewData }) {
                     <div className={styles.logDate}>{e.date}</div>
                     <div className={styles.logBody}>
                       <div className={styles.logTitle}>
-                        {SURAH_NAME[e.surahNumber]} — آية {e.fromAyah} إلى {e.toAyah}
+                        {e.parts ? (
+                          <>
+                            {SURAH_NAME[e.surahNumber]} — {partsLabel(e.parts)}
+                          </>
+                        ) : (
+                          <>
+                            {SURAH_NAME[e.surahNumber]} — آية {e.fromAyah} إلى {e.toAyah}
+                          </>
+                        )}
                       </div>
                       <div className={styles.logMeta}>
                         {e.source === "PRIOR" ? (
@@ -224,7 +233,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
                             </span>
                           )
                         )}
-                        {e.type !== "NEW" && (
+                        {e.type !== "NEW" && !e.parts && (
                           <span className={`${styles.logBadge} ${styles.typeBadge}`}>↺ {SESSION_TYPE_LABEL[e.type]}</span>
                         )}
                         <span className={styles.logTeacher}>بواسطة {e.teacherName}</span>

@@ -386,10 +386,16 @@ model RecitationSession {
   // change drops gap approvals saved before it. Rows that existed before
   // this column get the migration's time, which precedes any such change.
   createdAt       DateTime             @default(now())
+  // One «حفظ جديد» entry that also covered ayat she had already memorized is
+  // saved as several rows — the new ayat as NEW, the memorized ones as LINK
+  // — sharing this id (lib/recitation/combined.ts). Shown and counted as
+  // one entry everywhere. null for every other session.
+  comboId         String?
 
   mistakes RecitationMistake[]
 
   @@index([studentId, occurredAt])
+  @@index([comboId])
 }
 
 // One word a teacher flagged as a mistake during a recitation session, for

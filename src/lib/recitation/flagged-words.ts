@@ -39,3 +39,29 @@ export function validateFlaggedWords(
   }
   return { words };
 }
+
+/**
+ * Words whose earlier mistakes the teacher marked «تم الإتقان» in this
+ * session's form: each a real word inside the range, listed once.
+ */
+export function validateMasteredWords(
+  raw: unknown,
+  surahNumber: number,
+  fromAyah: number,
+  toAyah: number,
+): { error: string } | { words: { ayah: number; wordPosition: number }[] } {
+  const list = (Array.isArray(raw) ? raw : []) as { ayah: number; wordPosition: number }[];
+  if (list.length > MAX_MISTAKES_PER_SESSION) return { error: "عدد الكلمات المحدّدة كبير جدًا" };
+  const words: { ayah: number; wordPosition: number }[] = [];
+  const seen = new Set<string>();
+  for (const m of list) {
+    const key = `${m?.ayah}:${m?.wordPosition}`;
+    const inRange = Number.isInteger(m?.ayah) && m.ayah >= fromAyah && m.ayah <= toAyah;
+    if (!inRange || !Number.isInteger(m.wordPosition) || !wordAt(surahNumber, m.ayah, m.wordPosition) || seen.has(key)) {
+      return { error: "بيانات الكلمات المُتقَنة غير صحيحة" };
+    }
+    seen.add(key);
+    words.push({ ayah: m.ayah, wordPosition: m.wordPosition });
+  }
+  return { words };
+}

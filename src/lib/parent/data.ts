@@ -6,6 +6,7 @@ import { buildCoverage, coveredQuranPages } from "@/lib/students/progress";
 import { TOTAL_PAGES } from "@/lib/quran-data";
 import type { GroupGender } from "@/lib/text/gender";
 import { getActiveMistakes } from "@/lib/students/mistakes";
+import { groupCombos } from "@/lib/recitation/combined";
 import { BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { getHomeLog, type HomeLogView } from "@/lib/home-log/data";
@@ -30,6 +31,8 @@ export interface ParentHistoryEntry {
   pages: number;
   quality: "EXCELLENT" | "GOOD" | "NEEDS_REPEAT" | null;
   teacherName: string;
+  // one recitation saved as parts (new memorization + «ربط»): shown as one entry
+  parts?: { type: "NEW" | "REVIEW" | "LINK"; fromAyah: number; toAyah: number }[];
 }
 
 export interface ParentViewData {
@@ -93,6 +96,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
         toAyah: true,
         pagesCalculated: true,
         quality: true,
+        comboId: true,
         teacher: { select: { name: true } },
       },
     }),
@@ -118,7 +122,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     position: deriveCurrentPosition(plan, deriveReach(plan, sessions)),
     mistakes: await getActiveMistakes(studentId, plan),
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
-    history: sessions.map((s) => ({
+    history: groupCombos(sessions).map((s) => ({
       id: s.id,
       date: s.occurredAt.toISOString().slice(0, 10),
       source: s.source,
@@ -126,9 +130,10 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
       surahNumber: s.surahNumber,
       fromAyah: s.fromAyah,
       toAyah: s.toAyah,
-      pages: Number(s.pagesCalculated),
+      pages: s.parts ? s.parts.reduce((sum, p) => sum + Number(p.pagesCalculated), 0) : Number(s.pagesCalculated),
       quality: s.quality,
       teacherName: s.teacher.name,
+      ...(s.parts ? { parts: s.parts.map((p) => ({ type: p.type, fromAyah: p.fromAyah, toAyah: p.toAyah })) } : {}),
     })),
     attendance: attendanceLogs.map((a) => ({
       date: a.day.toISOString().slice(0, 10),

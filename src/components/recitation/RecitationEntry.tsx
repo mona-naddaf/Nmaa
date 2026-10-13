@@ -34,7 +34,7 @@ export interface SecondTrackForm {
   ctx: EntryContext | null;
   // the track of each surah's latest new memorization (tracks.ts)
   latest: Partial<Record<number, TrackKey>>;
-  // its next entry, for the chip; null for «حر» or once it is complete
+  // its next entry, for the «المسار الثاني» toggle; null for «حر» or once it is complete
   next: NextEntryDefaults | null;
 }
 
@@ -102,6 +102,10 @@ export function useRecitationEntry({
   const [wordFlags, setWordFlags] = useState<WordFlags>({});
   // earlier mistakes marked «تم الإتقان» in this form (removed on save)
   const [mastered, setMastered] = useState<Record<string, true>>({});
+  // the toggle «المسار الثاني» / «المسار الأول» (a second track only): whose
+  // suggested entry is filled in. While the range is still that suggestion,
+  // the entry goes to that track; edited by hand, detection decides.
+  const [prefill, setPrefill] = useState<TrackKey>("MAIN");
 
   // A juz direction correction, a plan change or added prior memorization
   // moves where she stands without a save from this form: suggest the new
@@ -116,6 +120,7 @@ export function useRecitationEntry({
     setToAyah(initialEntry.toAyah);
     setReason("");
     setMastered({});
+    setPrefill("MAIN");
   }
 
   const judged = useMemo<DirectionalClassification>(
@@ -148,6 +153,12 @@ export function useRecitationEntry({
   // is judged there — exactly as the server will (null without a track)
   const second = course?.second ?? null;
   const [chosenTrack, setChosenTrack] = useState<TrackKey | null>(null);
+  const prefillTrack: TrackKey = second?.next ? prefill : "MAIN";
+  const prefillEntry = prefillTrack === "SECOND" && second?.next ? second.next : initialEntry;
+  const pinnedTrack: TrackKey | null =
+    second && isNew && surahNumber === prefillEntry.surahNumber && fromAyah === prefillEntry.fromAyah && toAyah === prefillEntry.toAyah
+      ? prefillTrack
+      : null;
   const detectedTrack = useMemo(
     () =>
       second && entryCtx && isNew && !hasRangeError
@@ -155,8 +166,8 @@ export function useRecitationEntry({
         : null,
     [second, entryCtx, isNew, hasRangeError, surahNumber, fromAyah, toAyah, subject],
   );
-  const needsTrackChoice = !!second && isNew && !hasRangeError && detectedTrack === null;
-  const track: TrackKey | null = second && isNew ? (detectedTrack ?? chosenTrack) : null;
+  const needsTrackChoice = !!second && isNew && !hasRangeError && !pinnedTrack && detectedTrack === null;
+  const track: TrackKey | null = second && isNew ? (pinnedTrack ?? detectedTrack ?? chosenTrack) : null;
   const planned = useMemo(
     () => (second && entryCtx && track && !hasRangeError ? planEntryInTrack(track, entryCtx, second.ctx, surahNumber, fromAyah, toAyah, subject) : null),
     [second, entryCtx, track, hasRangeError, surahNumber, fromAyah, toAyah, subject],
@@ -219,7 +230,8 @@ export function useRecitationEntry({
         const [s, ayah, wordPosition] = key.split(":").map(Number);
         return s === surahNumber && ayah >= fromAyah && ayah <= toAyah ? [{ ayah, wordPosition, type }] : [];
       }),
-      ...(second && isNew && track ? { track } : {}),
+      // the teacher's choice only; a detected track the server detects too
+      ...(second && isNew && track && track !== detectedTrack ? { track } : {}),
       // only words whose earlier mistake is shown right now
       mastered: Object.keys(mastered)
         .filter((key) => previousFlags[key])
@@ -270,13 +282,16 @@ export function useRecitationEntry({
     }
   }
 
-  /** The chip «التالي في المسار الثاني»: her second track's next entry. */
-  function startSecondNext() {
+  /** The toggle «المسار الثاني» / «المسار الأول»: the other track's suggested entry. */
+  function togglePrefill() {
     if (!second?.next) return;
+    const t: TrackKey = prefillTrack === "MAIN" ? "SECOND" : "MAIN";
+    const e = t === "SECOND" ? second.next : initialEntry;
+    setPrefill(t);
     setSessionType("NEW");
-    setSurahNumber(second.next.surahNumber);
-    setFromAyah(second.next.fromAyah);
-    setToAyah(second.next.toAyah);
+    setSurahNumber(e.surahNumber);
+    setFromAyah(e.fromAyah);
+    setToAyah(e.toAyah);
     setChosenTrack(null);
   }
 
@@ -312,8 +327,10 @@ export function useRecitationEntry({
     track,
     detectedTrack,
     needsTrackChoice,
+    pinnedTrack,
     chooseTrack: setChosenTrack,
-    startSecondNext,
+    prefillTrack,
+    togglePrefill,
   };
 }
 
@@ -421,7 +438,8 @@ export function EntryStatus({
             </>
           ) : (
             <>
-              المسار: <strong>{TRACK_LABEL[entry.track!]}</strong> (تلقائيًا)
+              المسار: <strong>{TRACK_LABEL[entry.track!]}</strong>
+              {!entry.pinnedTrack && " (تلقائيًا)"}
             </>
           )}
         </div>

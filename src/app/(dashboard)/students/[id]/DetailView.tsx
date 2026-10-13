@@ -420,8 +420,8 @@ export function DetailView({
       <div className={styles.card}>
         <SessionTypePills entry={entry} />
         {entry.secondTrack?.next && (
-          <button type="button" className={rs.comboBtn} style={{ marginBottom: 12, marginInlineStart: 0 }} onClick={entry.startSecondNext}>
-            ↪ التالي في المسار الثاني: {SURAH_NAME[entry.secondTrack.next.surahNumber]} {entry.secondTrack.next.fromAyah}
+          <button type="button" className={rs.comboBtn} style={{ marginBottom: 12, marginInlineStart: 0 }} onClick={entry.togglePrefill}>
+            ↪ {entry.prefillTrack === "MAIN" ? "المسار الثاني" : "المسار الأول"}
           </button>
         )}
         <div className={rs.fieldRow}>

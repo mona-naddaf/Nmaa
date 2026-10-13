@@ -75,8 +75,9 @@ export type SaveRecitationInput = {
   mistakes: FlaggedWordInput[];
   // words in the range whose earlier mistakes are marked «تم الإتقان»
   mastered?: { ayah: number; wordPosition: number }[];
-  // «حفظ جديد» for a student with a second track: the teacher's choice,
-  // used only where detection leaves it open (lib/recitation/tracks.ts)
+  // «حفظ جديد» for a student with a second track: the teacher's choice —
+  // the track whose suggested entry she recites, or her pick where
+  // detection leaves it open; without it, detection (lib/recitation/tracks.ts)
   track?: TrackKey;
 };
 
@@ -129,12 +130,12 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
       },
     });
     const { main, second } = trackContexts(sp, priorSessions);
-    // which track: detected (tracks.ts), or the teacher's choice where the rules leave it open
+    // which track: the teacher's choice when the form sends one, else detected (tracks.ts)
     let track: TrackKey = "MAIN";
     if (sp.second) {
       const detected = detectTrack(main, second, latestTrackBySurah(priorSessions, sp.second.id), input.surahNumber, input.fromAyah, input.toAyah, student.group.gender);
-      if (detected) track = detected;
-      else if (input.track === "MAIN" || input.track === "SECOND") track = input.track;
+      if (input.track === "MAIN" || input.track === "SECOND") track = input.track;
+      else if (detected) track = detected;
       else return { error: "يُرجى اختيار المسار الذي يُسجَّل فيه هذا الحفظ" };
       if (track === "SECOND") trackId = sp.second.id;
     }

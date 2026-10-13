@@ -41,7 +41,7 @@ export const TRACK_KIND_LABEL: Record<TrackKind, string> = {
   REVERSE: "بالعكس",
   FREE: "حر (سور متفرقة)",
 };
-export const TRACK_LABEL: Record<TrackKey, string> = { MAIN: "الأساسي", SECOND: "الثاني" };
+export const TRACK_LABEL: Record<TrackKey, string> = { MAIN: "الأول", SECOND: "الثاني" };
 
 export interface SecondTrack {
   id: string;

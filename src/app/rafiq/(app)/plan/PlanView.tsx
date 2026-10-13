@@ -8,7 +8,10 @@ import { PriorPicker, usePriorState, type PriorPickerWords } from "@/components/
 import { templateSurahs, type TemplateKey } from "@/lib/students/new-student";
 import { localToday } from "@/lib/home-log/rules";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
-import { addPriorAction, savePlanAction } from "../actions";
+import { addPriorAction, removeGoalAction, saveGoalAction, savePlanAction } from "../actions";
+import { GoalEditor } from "@/components/goal/GoalEditor";
+import { useToday } from "@/lib/calendar/useToday";
+import type { GoalSpec } from "@/lib/goals/goal";
 
 // Her plan: set up the first time (with memorization from before), and
 // changed whenever she likes afterwards.
@@ -16,11 +19,14 @@ export function PlanView({
   gender,
   initialTemplate,
   initialPlan,
+  goal = null,
 }: {
   gender: PersonGender;
   // null the first time
   initialTemplate: TemplateKey | null;
   initialPlan: number[];
+  // her memorization goal (lib/goals/goal.ts), or null
+  goal?: GoalSpec | null;
 }) {
   const router = useRouter();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
@@ -34,6 +40,7 @@ export function PlanView({
   const [priorError, setPriorError] = useState<string | null>(null);
   const [priorOk, setPriorOk] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const today = useToday();
 
   const priorWords: PriorPickerWords = {
     none: "لا يوجد حفظ سابق",
@@ -110,6 +117,27 @@ export function PlanView({
       <button className={styles.saveBtn} onClick={savePlan} disabled={pending || !changed} type="button">
         {pending ? "جارٍ الحفظ..." : firstTime ? "حفظ الخطة والبدء" : "حفظ الخطة"}
       </button>
+
+      {!firstTime && (
+        <div className={styles.card} style={{ marginTop: 24 }}>
+          <GoalEditor
+            plan={initialPlan}
+            current={goal}
+            today={today}
+            hint={`يُحسب المطلوب يوميًا تلقائيًا من المتبقي حتى الموعد، وكل أيام الأسبوع محسوبة. ما ${p("حفظتَه", "حفظتِه")} قبل وضع الهدف هو نقطة البداية.`}
+            onSave={async (input) => {
+              const r = await saveGoalAction({ goal: input, today: localToday() });
+              if (!r.error) router.refresh();
+              return r;
+            }}
+            onRemove={async () => {
+              const r = await removeGoalAction();
+              if (!r.error) router.refresh();
+              return r;
+            }}
+          />
+        </div>
+      )}
 
       {!firstTime && (
         <>

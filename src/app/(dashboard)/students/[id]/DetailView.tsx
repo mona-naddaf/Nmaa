@@ -31,6 +31,8 @@ import {
   type SecondTrackForm,
 } from "@/components/recitation/RecitationEntry";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
+import { GoalLine } from "@/components/goal/GoalLine";
+import type { GoalView } from "@/lib/goals/goal";
 import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
 import {
   presentWord,
@@ -107,6 +109,7 @@ export function DetailView({
   mistakes,
   secondTrack = null,
   secondForm = null,
+  goal = null,
   reviewReminderDays,
   onlineRecitationEnabled,
   pointsActivities,
@@ -140,6 +143,8 @@ export function DetailView({
   // her second track (lib/recitation/tracks.ts): its line under the position, and what the form needs
   secondTrack?: { title: string; positionText: string } | null;
   secondForm?: SecondTrackForm | null;
+  // her memorization goal (lib/goals/goal.ts), or null
+  goal?: GoalView | null;
   reviewReminderDays: number | null;
   onlineRecitationEnabled: boolean;
   pointsActivities: PointsActivity[];
@@ -386,6 +391,7 @@ export function DetailView({
               المسار الثاني ({secondTrack.title}): <b>{secondTrack.positionText}</b>
             </div>
           )}
+          <GoalLine goal={goal} feminine={groupGender === "GIRLS"} invalidHint="الهدف لم يعد ضمن الخطة الحالية — يُرجى تعديله من «خطة الحفظ»." />
           <div className={styles.sub}>
             {cumPages} صفحة تراكميًا · {onlineCount} تسميع أونلاين
           </div>

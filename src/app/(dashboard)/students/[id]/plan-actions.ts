@@ -11,6 +11,8 @@ import { PLAN_FIELDS, inferDirectionsFromHistory, studentPlan } from "@/lib/stud
 import { pickByGroup, studentNounDef, type GroupGender } from "@/lib/text/gender";
 import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import type { TrackKind } from "@/lib/recitation/tracks";
+import { parseGoalInput, sameTarget } from "@/lib/goals/input";
+import { goalSpecOf, riyadhDay } from "@/lib/goals/data";
 
 // «خطة الحفظ» on the student page: changing her plan (any template, then
 // freely reordered as when she was added), and correcting the direction of
@@ -22,6 +24,8 @@ import type { TrackKind } from "@/lib/recitation/tracks";
 // change stamps planChangedAt, so gaps approved before it stop counting; a
 // direction correction doesn't (approvals are re-read in the corrected
 // order). A correction is stored as MANUAL, which nothing automatic replaces.
+// Her memorization goal («هدف الحفظ», lib/goals/goal.ts) is set, changed and
+// removed here too, with the same permission.
 
 export type PlanEditResult = { error: string } | { ok: true };
 
@@ -151,5 +155,43 @@ export async function endSecondTrackAction(studentId: string): Promise<PlanEditR
   await prisma.studentTrack.updateMany({ where: { studentId: student.id, endedAt: null }, data: { endedAt: new Date() } });
 
   revalidatePath(`/students/${student.id}`);
+  return { ok: true };
+}
+
+/**
+ * Sets her goal (replacing any earlier one). Changing only the deadline
+ * keeps its start day; a new target starts over from today (Riyadh).
+ */
+export async function saveStudentGoalAction(studentId: string, input: unknown): Promise<PlanEditResult> {
+  const session = await requireSession();
+  const access = await planAccess(session, studentId);
+  if ("error" in access) return { error: access.error };
+  const { student } = access;
+
+  const [sessions, existing] = await Promise.all([
+    prisma.recitationSession.findMany({
+      where: { studentId: student.id },
+      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true },
+    }),
+    prisma.studentGoal.findUnique({ where: { studentId: student.id } }),
+  ]);
+  const today = riyadhDay();
+  const parsed = parseGoalInput(input, studentPlan(student).plan, sessions, today);
+  if ("error" in parsed) return { error: parsed.error };
+
+  const startDay = existing && sameTarget(goalSpecOf(existing), parsed.target) ? goalSpecOf(existing).startDay : today;
+  const data = { ...parsed.target, startDay: new Date(`${startDay}T00:00:00Z`), deadline: new Date(`${parsed.deadline}T00:00:00Z`) };
+  await prisma.studentGoal.upsert({ where: { studentId: student.id }, create: { studentId: student.id, ...data }, update: data });
+
+  revalidatePath(`/students/${student.id}`);
+  return { ok: true };
+}
+
+export async function removeStudentGoalAction(studentId: string): Promise<PlanEditResult> {
+  const session = await requireSession();
+  const access = await planAccess(session, studentId);
+  if ("error" in access) return { error: access.error };
+  await prisma.studentGoal.deleteMany({ where: { studentId: access.student.id } });
+  revalidatePath(`/students/${access.student.id}`);
   return { ok: true };
 }

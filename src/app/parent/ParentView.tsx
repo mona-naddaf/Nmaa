@@ -9,6 +9,7 @@ import { useDateRange } from "@/components/date-range/useDateRange";
 import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import { pickByGroup, presentWord, absentWord } from "@/lib/text/gender";
 import type { ParentViewData } from "@/lib/parent/data";
+import { GoalLine } from "@/components/goal/GoalLine";
 import { parentLogoutAction } from "./actions";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { HomeLogSummary } from "@/components/home-log/HomeLogSummary";
@@ -110,6 +111,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
                 المسار الثاني ({data.secondTrack.title}): <b>{data.secondTrack.positionText}</b>
               </div>
             )}
+            <GoalLine goal={data.goal} feminine={data.groupGender === "GIRLS"} />
             <div className={styles.sub}>{data.quranPercent}٪ من إنجاز القرآن كامل</div>
           </div>
         </div>

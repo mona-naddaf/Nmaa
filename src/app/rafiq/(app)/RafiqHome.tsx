@@ -15,6 +15,8 @@ import { useToday } from "@/lib/calendar/useToday";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
 import { DAYS_AFTER_PREP, SESSIONS, SURAHS_COUNT, WORDS, countLabel } from "@/lib/text/count";
 import { Collapsible } from "@/components/collapsible/Collapsible";
+import { GoalLine } from "@/components/goal/GoalLine";
+import { computeGoal } from "@/lib/goals/goal";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { WordFlagger } from "@/components/mistakes/WordFlagger";
 import { VerseNoteMarker } from "./notes/NotesProvider";
@@ -92,6 +94,20 @@ export function RafiqHome({ data, gender, commitment }: { data: MemorizationView
     document.getElementById("record")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // her goal, by her own day (null until her browser's day is known)
+  const goal = useMemo(
+    () =>
+      data.goal && today
+        ? computeGoal(
+            data.plan,
+            data.goal,
+            data.history.map((h) => ({ ...h, prior: h.source === "PRIOR" })),
+            today,
+          )
+        : null,
+    [data.goal, data.plan, data.history, today],
+  );
+
   const quranPercent = Math.min(100, Math.round((data.memorizedPages / TOTAL_PAGES) * 1000) / 10);
   const ayahCount = AYAH_COUNT[surahNumber];
 
@@ -107,6 +123,7 @@ export function RafiqHome({ data, gender, commitment }: { data: MemorizationView
               ? `${SURAH_NAME[data.position.surahNumber]} — الآية ${data.position.ayah} من ${AYAH_COUNT[data.position.surahNumber]}`
               : `لم ${p("تبدأ", "تبدئي")} بعد — أول سورة في خطتك: ${SURAH_NAME[data.plan[0]]}`}
           </div>
+          <GoalLine goal={goal} feminine={gender === "FEMALE"} invalidHint="الهدف لم يعد ضمن خطتك الحالية — يمكن تعديله من «خطتي»." />
         </div>
       </div>
 

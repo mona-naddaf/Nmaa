@@ -37,6 +37,7 @@ import { fieldLabel, isMultilineField, isPhoneField } from "@/lib/students/extra
 import { MissingInfoBadge, StudentInfoList } from "@/components/student-info/StudentInfoList";
 import { Collapsible } from "@/components/collapsible/Collapsible";
 import { SEGMENTS, countLabel } from "@/lib/text/count";
+import { getStudentGoal, riyadhDay } from "@/lib/goals/data";
 
 async function loginUrl(path: "/parent/login" | "/student/login") {
   const origin = await requestOrigin();
@@ -118,6 +119,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     : null;
   const overdueSurahs = computeOverdueSurahs(sessions, course.reviewReminderDays, today);
   const mistakes = await getActiveMistakes(student.id, plan);
+  // her memorization goal, if any (lib/goals/goal.ts)
+  const goal = await getStudentGoal(student.id, plan, sessions);
   // the whole group is needed: a week with no class for the group is neutral
   const streak = course.streakMode
     ? {
@@ -198,6 +201,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         mistakes={mistakes}
         secondTrack={second ? { title: second.title, positionText: second.positionText } : null}
         secondForm={secondForm}
+        goal={goal?.view ?? null}
         reviewReminderDays={course.reviewReminderDays}
         onlineRecitationEnabled={course.onlineRecitationEnabled}
         pointsActivities={course.pointsActivities.map((a) => ({
@@ -316,6 +320,9 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           editedReverse={student.planTemplate === "MUSHAF_REVERSE" && !sp.directions}
           canEdit={canChangePlan}
           secondTrack={second ? { title: second.title, positionText: second.positionText, done: second.done } : null}
+          goalPlan={plan}
+          goal={goal ? { target: goal.spec.target, juz: goal.spec.juz, surah: goal.spec.surah, ayah: goal.spec.ayah, deadline: goal.spec.deadline } : null}
+          today={riyadhDay()}
         />
       </Collapsible>
       {homeLog && (

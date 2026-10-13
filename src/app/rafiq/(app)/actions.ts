@@ -11,6 +11,7 @@ import { validateFlaggedWords } from "@/lib/recitation/flagged-words";
 import { planProblem, priorOverlapProblem, priorProblem, TEMPLATE_KEY_PLAN, type PriorPartial, type TemplateKey } from "@/lib/students/new-student";
 import { acceptLocalDay } from "@/lib/home-log/rules";
 import { AYAH_COUNT } from "@/lib/quran-data";
+import { parseGoalInput, sameTarget } from "@/lib/goals/input";
 
 // «رفيق الحفظ»: her plan, her sessions and her mistakes. Every action
 // re-checks her session and only ever touches rows with her user id.
@@ -236,6 +237,46 @@ export async function addPriorAction(input: { prior: unknown; today: string }): 
   const today = acceptLocalDay(String(input.today ?? ""));
   if (!today) return { error: "يُرجى تحديث الصفحة والمحاولة مرة أخرى" };
   await prisma.rafiqSession.createMany({ data: priorSessions(user.id, prior.completed, prior.partial, today) });
+  refresh();
+  return {};
+}
+
+/**
+ * Her memorization goal (lib/goals/goal.ts), set or changed in «خطتي»;
+ * a new one replaces the old. Days are her own: `today` is her local day
+ * (checked against the server's). Changing only the deadline keeps its
+ * start day; a new target starts over from today.
+ */
+export async function saveGoalAction(input: { goal: unknown; today: string }): Promise<RafiqResult> {
+  const user = await getRafiqUser();
+  if (!user) return SIGNED_OUT;
+  const { planTemplate, plan } = await getPlan(user.id);
+  if (!planTemplate) return NO_PLAN;
+  const today = acceptLocalDay(String(input?.today ?? ""));
+  if (!today) return { error: "تعذّر التحقق من تاريخ اليوم — يُرجى تحديث الصفحة" };
+
+  const [sessions, existing] = await Promise.all([
+    prisma.rafiqSession.findMany({ where: { userId: user.id }, select: { surahNumber: true, fromAyah: true, toAyah: true, type: true } }),
+    prisma.rafiqGoal.findUnique({ where: { userId: user.id } }),
+  ]);
+  const parsed = parseGoalInput(input?.goal, plan, sessions, today);
+  if ("error" in parsed) return { error: parsed.error };
+
+  const keepStart = existing && sameTarget(existing, parsed.target);
+  const data = {
+    ...parsed.target,
+    startDay: keepStart ? existing.startDay : new Date(`${today}T00:00:00Z`),
+    deadline: new Date(`${parsed.deadline}T00:00:00Z`),
+  };
+  await prisma.rafiqGoal.upsert({ where: { userId: user.id }, create: { userId: user.id, ...data }, update: data });
+  refresh();
+  return {};
+}
+
+export async function removeGoalAction(): Promise<RafiqResult> {
+  const user = await getRafiqUser();
+  if (!user) return SIGNED_OUT;
+  await prisma.rafiqGoal.deleteMany({ where: { userId: user.id } });
   refresh();
   return {};
 }

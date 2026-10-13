@@ -8,6 +8,8 @@ import { TOTAL_PAGES } from "@/lib/quran-data";
 import { BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import type { GroupGender } from "@/lib/text/gender";
+import { getStudentGoal } from "@/lib/goals/data";
+import type { GoalView } from "@/lib/goals/goal";
 
 // The ONLY data source for the student's own page. Every query is keyed on
 // the single studentId from the student session, with explicit selects:
@@ -23,6 +25,8 @@ export interface StudentHomeData {
   position: PlanPosition | null;
   // her second track (type and start, and where it stands), when she has one
   secondTrack: { title: string; positionText: string } | null;
+  // her memorization goal (lib/goals/goal.ts), or null
+  goal: GoalView | null;
   quranPercent: number;
   // the bars the course has turned on (may be empty)
   progressBars: ProgressBar[];
@@ -69,7 +73,19 @@ export async function getStudentHomeData(studentId: string): Promise<StudentHome
     prisma.recitationSession.findMany({
       where: { studentId },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-      select: { surahNumber: true, fromAyah: true, toAyah: true, type: true, situation: true, reason: true, createdAt: true, trackId: true },
+      select: {
+        surahNumber: true,
+        fromAyah: true,
+        toAyah: true,
+        type: true,
+        situation: true,
+        reason: true,
+        createdAt: true,
+        trackId: true,
+        // the day each counts for her goal, and whether it is prior memorization
+        occurredAt: true,
+        source: true,
+      },
     }),
     prisma.pointsLog.findMany({
       where: { studentId },
@@ -96,6 +112,7 @@ export async function getStudentHomeData(studentId: string): Promise<StudentHome
     position,
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
     secondTrack: second ? { title: second.title, positionText: second.positionText } : null,
+    goal: (await getStudentGoal(studentId, plan, sessions))?.view ?? null,
     progressBars,
     mistakes: await getActiveMistakes(studentId, plan),
     points: pointsLogs.map((p) => ({

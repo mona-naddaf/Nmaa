@@ -7,6 +7,8 @@ import { TOTAL_PAGES } from "@/lib/quran-data";
 import type { GroupGender } from "@/lib/text/gender";
 import { getActiveMistakes } from "@/lib/students/mistakes";
 import { groupCombos } from "@/lib/recitation/combined";
+import { getStudentGoal } from "@/lib/goals/data";
+import type { GoalView } from "@/lib/goals/goal";
 import { BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { getHomeLog, type HomeLogView } from "@/lib/home-log/data";
@@ -43,6 +45,8 @@ export interface ParentViewData {
   position: PlanPosition | null;
   // her second track (type and start, and where it stands), when she has one
   secondTrack: { title: string; positionText: string } | null;
+  // her memorization goal (lib/goals/goal.ts), or null
+  goal: GoalView | null;
   quranPercent: number;
   // unresolved flagged words to practise at home (word, place, type, date — no teacher details)
   mistakes: ActiveMistake[];
@@ -132,6 +136,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     // as the staff page and the student portal read it (a manual plan change, a second track's approvals)
     position: deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(sessions, sp.planChangedAt))),
     secondTrack: second ? { title: second.title, positionText: second.positionText } : null,
+    goal: (await getStudentGoal(studentId, plan, sessions))?.view ?? null,
     mistakes: await getActiveMistakes(studentId, plan),
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
     history: groupCombos(sessions).map((s) => ({

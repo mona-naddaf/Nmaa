@@ -6,6 +6,8 @@ import { computeOverdueSurahs, type OverdueSurah } from "@/lib/students/review";
 import { mergeActiveMistakes } from "@/lib/students/mistakes";
 import { todayDateOnly } from "@/lib/attendance";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
+import { goalSpecOf } from "@/lib/goals/data";
+import type { GoalSpec } from "@/lib/goals/goal";
 
 // Everything «رفيق الحفظ» shows about her memorization, derived from her own
 // sessions with the same logic as a course student's page (position, gap
@@ -81,6 +83,15 @@ export interface MemorizationView {
   reviewReminderDays: number | null;
   overdue: OverdueSurah[];
   history: HistoryEntry[];
+  // her memorization goal, worked out in her browser with her own day
+  // (lib/goals/goal.ts, from `history`); null without one
+  goal: GoalSpec | null;
+}
+
+/** Her goal as stored (null without one). */
+export async function getGoal(userId: string): Promise<GoalSpec | null> {
+  const row = await prisma.rafiqGoal.findUnique({ where: { userId } });
+  return row ? goalSpecOf(row) : null;
 }
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
@@ -91,7 +102,7 @@ export async function getMemorization(userId: string): Promise<MemorizationView 
   const { planTemplate, planChangedAt, reviewReminderDays, plan } = await getPlan(userId);
   if (!planTemplate) return null;
 
-  const [sessions, mistakeRows, homeMarkRows] = await Promise.all([
+  const [sessions, mistakeRows, homeMarkRows, goal] = await Promise.all([
     prisma.rafiqSession.findMany({
       where: { userId },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
@@ -107,6 +118,7 @@ export async function getMemorization(userId: string): Promise<MemorizationView 
       where: { userId, resolvedAt: null },
       select: { surahNumber: true, ayah: true, wordPosition: true, wordText: true, type: true, flaggedAt: true },
     }),
+    getGoal(userId),
   ]);
   // oldest first across both sources, so each word keeps its latest type
   const allMarks = [
@@ -144,5 +156,6 @@ export async function getMemorization(userId: string): Promise<MemorizationView 
       notes: s.notes,
       mistakes: s._count.mistakes,
     })),
+    goal,
   };
 }

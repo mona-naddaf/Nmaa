@@ -8,6 +8,7 @@ import { MistakesList } from "@/components/mistakes/MistakesList";
 import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import { pickByGroup } from "@/lib/text/gender";
 import type { StudentHomeData } from "@/lib/student-portal/data";
+import { GoalLine } from "@/components/goal/GoalLine";
 
 // Read-only by construction (phase 1): no inputs besides the points date
 // filter. Wording follows the student's group (طالب/طالبة).
@@ -54,6 +55,7 @@ export function StudentHome({ data }: { data: StudentHomeData }) {
               المسار الثاني ({data.secondTrack.title}): <b>{data.secondTrack.positionText}</b>
             </div>
           )}
+          <GoalLine goal={data.goal} feminine={data.groupGender === "GIRLS"} />
           <div className={styles.sub}>{data.quranPercent}٪ من إنجاز القرآن كامل</div>
         </div>
       </div>

@@ -1,0 +1,139 @@
+/* the goal line under her position (src/components/goal/GoalLine.tsx) */
+.goalLine {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+  line-height: 1.9;
+}
+
+.goalLine b {
+  color: var(--ink);
+}
+
+.daily {
+  color: var(--sage-deep);
+}
+
+.status {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 0 9px;
+  margin-inline-start: 6px;
+  line-height: 1.8;
+  white-space: nowrap;
+}
+
+/* green: on schedule; the brand colour: ahead; amber: behind (as the gap badges) */
+.ON_TRACK {
+  background: rgba(76, 120, 98, 0.15);
+  color: var(--rose-deep);
+}
+
+.AHEAD {
+  background: rgba(143, 90, 80, 0.15);
+  color: var(--sage-deep);
+}
+
+.BEHIND {
+  background: rgba(189, 122, 62, 0.18);
+  color: var(--gold-deep);
+}
+
+.reached {
+  color: var(--rose-deep);
+  font-weight: 800;
+}
+
+.alert {
+  color: var(--gold-deep);
+  font-weight: 700;
+}
+
+/* ---------- the editor («هدف الحفظ» in «خطة الحفظ» / «خطتي») ---------- */
+.box {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.head {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--sage-deep);
+  margin-bottom: 6px;
+}
+
+.current {
+  font-size: 13.5px;
+  margin-bottom: 6px;
+}
+
+.hint {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.pill {
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pill.sel {
+  background: var(--sage-deep);
+  border-color: var(--sage-deep);
+  color: #fff;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.link,
+.linkDanger {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 0;
+  font-family: inherit;
+}
+
+.link {
+  color: var(--sage-deep);
+}
+
+.linkDanger {
+  color: var(--rose-deep);
+}
+
+.err {
+  color: var(--gold-deep);
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-top: 10px;
+}

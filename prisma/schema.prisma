@@ -261,6 +261,7 @@ model Student {
   planItems          PlanItem[]
   juzDirections      StudentJuzDirection[]
   secondTracks       StudentTrack[]
+  goal               StudentGoal?
   recitationSessions RecitationSession[]
   pointsLogs         PointsLog[]
   attendanceLogs     AttendanceLog[]
@@ -379,6 +380,28 @@ model StudentTrack {
   sessions RecitationSession[]
 
   @@index([studentId])
+}
+
+// An optional memorization goal with a deadline (src/lib/goals/goal.ts): at
+// most one per student, and a new goal replaces it. The target is kept as
+// its kind, never as a list of ayat, so it always follows her current plan
+// order (and juz directions). startDay is the Riyadh day it was set: what
+// was memorized before it is her starting point. Changing only the deadline
+// keeps startDay; changing the target starts over from that day.
+model StudentGoal {
+  id        String     @id @default(cuid())
+  studentId String     @unique
+  student   Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  target    GoalTarget
+  // JUZ: «حتى نهاية الجزء N»
+  juz       Int?
+  // POINT: «حتى سورة/آية»
+  surah     Int?
+  ayah      Int?
+  startDay  DateTime   @db.Date
+  deadline  DateTime   @db.Date
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
 model RecitationSession {
@@ -896,6 +919,7 @@ model RafiqUser {
   calendarAdjustments RafiqCalendarAdjustment[]
   templates       TrackerTemplate[]
   templateReports TrackerTemplateReport[]
+  goal            RafiqGoal?
 
   // her calendar: the optional occasions she turned on (the core ones are
   // always shown), as Course.enabledOccasions
@@ -943,6 +967,22 @@ model RafiqCommitDays {
   createdAt     DateTime  @default(now())
 
   @@unique([userId, effectiveFrom])
+}
+
+// Her optional memorization goal (same meaning as StudentGoal); startDay
+// and deadline are her own local days, as her sessions are.
+model RafiqGoal {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      RafiqUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  target    GoalTarget
+  juz       Int?
+  surah     Int?
+  ayah      Int?
+  startDay  DateTime   @db.Date
+  deadline  DateTime   @db.Date
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
 // One item of her own follow-up tracker («جدول المتابعة»), with its mark
@@ -1357,6 +1397,15 @@ enum JuzDirectionSource {
   AUTO
   BACKFILL
   MANUAL
+}
+
+enum GoalTarget {
+  // «إكمال الخطة»
+  PLAN
+  // «حتى نهاية الجزء N» (in her plan's order)
+  JUZ
+  // «حتى سورة/آية» (in her plan's order)
+  POINT
 }
 
 enum TrackKind {

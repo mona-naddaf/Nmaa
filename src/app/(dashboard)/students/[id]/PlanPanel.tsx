@@ -8,9 +8,18 @@ import { PlanEditor } from "@/components/plan/PlanEditor";
 import { JUZ_DIRECTION_LABEL, type JuzDirection } from "@/lib/recitation/juz-direction";
 import { templateSurahs, type TemplateKey } from "@/lib/students/new-student";
 import { imperative, pickByGroup, studentNounDef, type GroupGender, type PersonGender } from "@/lib/text/gender";
-import { addSecondTrackAction, endSecondTrackAction, saveStudentPlanAction, setJuzDirectionAction } from "./plan-actions";
+import {
+  addSecondTrackAction,
+  endSecondTrackAction,
+  removeStudentGoalAction,
+  saveStudentGoalAction,
+  saveStudentPlanAction,
+  setJuzDirectionAction,
+} from "./plan-actions";
 import { TRACK_KIND_LABEL, type TrackKind } from "@/lib/recitation/tracks";
 import { AYAH_COUNT, SURAHS } from "@/lib/quran-data";
+import { GoalEditor } from "@/components/goal/GoalEditor";
+import type { GoalTarget } from "@/lib/goals/goal";
 
 // «خطة الحفظ» on the student page: her plan, the direction of each juz in an
 // untouched «ترتيب المصحف بالعكس», and — with «تعديل خطة الحفظ» — changing
@@ -38,6 +47,9 @@ export function PlanPanel({
   editedReverse,
   canEdit,
   secondTrack = null,
+  goalPlan,
+  goal = null,
+  today,
 }: {
   studentId: string;
   groupGender: GroupGender;
@@ -52,6 +64,10 @@ export function PlanPanel({
   canEdit: boolean;
   // her active second track (lib/recitation/tracks.ts), or null
   secondTrack?: { title: string; positionText: string; done: boolean } | null;
+  // her plan in walking order, her goal (lib/goals/goal.ts) and today (Riyadh), for «هدف الحفظ»
+  goalPlan: number[];
+  goal?: (GoalTarget & { deadline: string }) | null;
+  today: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -318,6 +334,27 @@ export function PlanPanel({
             </button>
           )}
         </div>
+      )}
+
+      {canEdit && (
+        <GoalEditor
+          plan={goalPlan}
+          current={goal}
+          today={today}
+          hint="يُحسب المطلوب يوميًا تلقائيًا من المتبقي حتى الموعد، وكل أيام الأسبوع محسوبة (مع الحفظ في البيت). ما حُفظ قبل وضع الهدف هو نقطة البداية."
+          onSave={async (input) => {
+            const r = await saveStudentGoalAction(studentId, input);
+            if ("error" in r) return { error: r.error };
+            router.refresh();
+            return {};
+          }}
+          onRemove={async () => {
+            const r = await removeStudentGoalAction(studentId);
+            if ("error" in r) return { error: r.error };
+            router.refresh();
+            return {};
+          }}
+        />
       )}
     </div>
   );

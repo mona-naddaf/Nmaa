@@ -1,7 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
-import { parseDateOnlyInput, todayDateOnly } from "@/lib/attendance";
+import { parseDateOnlyInput } from "@/lib/attendance";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { isoOf, zoneDateOnly, zoneDayOf, zoneDayRange } from "@/lib/time/zone";
 import type { Session } from "@/lib/auth/session";
 import { NEUTRAL_GROUP_GENDER, type GroupGender } from "@/lib/text/gender";
 
@@ -22,8 +24,12 @@ export interface ResolvedReportScope {
   scope: "course" | "group" | "student";
   groupIds?: string[]; // filter applied to the query; undefined = no group restriction
   studentId?: string;
+  // the course's days (its time zone, lib/time/zone.ts), as date-only values
   from: Date;
   to: Date;
+  // "YYYY-MM-DD": today and the day the course was created, for «الكل»
+  today: string;
+  courseStart: string;
   // for rendering the filter UI with the right options
   visibleGroups: { id: string; name: string }[];
   visibleStudents: { id: string; name: string; groupId: string; archived: boolean }[];
@@ -92,8 +98,11 @@ export async function resolveReportScope(
 
   const fromParam = single(searchParams.from);
   const toParam = single(searchParams.to);
-  const to = (fromParam && toParam && parseDateOnlyInput(toParam)) || todayDateOnly();
-  const from = (fromParam && parseDateOnlyInput(fromParam)) || new Date(course.createdAt.toISOString().slice(0, 10));
+  const timeZone = await courseTimeZone(course.id);
+  const today = zoneDateOnly(timeZone);
+  const courseStart = zoneDayOf(timeZone, course.createdAt);
+  const to = (fromParam && toParam && parseDateOnlyInput(toParam, timeZone)) || today;
+  const from = (fromParam && parseDateOnlyInput(fromParam, timeZone)) || new Date(`${courseStart}T00:00:00Z`);
 
   const genderByGroupId = new Map(course.groups.map((g) => [g.id, g.gender]));
   const scopeGender: GroupGender =
@@ -111,6 +120,8 @@ export async function resolveReportScope(
       studentId,
       from,
       to,
+      today: isoOf(today),
+      courseStart,
       visibleGroups: visibleGroups.map((g) => ({ id: g.id, name: g.name })),
       visibleStudents,
       courseName: course.name,
@@ -133,14 +144,14 @@ export async function getReportRows(courseId: string, resolved: ResolvedReportSc
   if (students.length === 0) return [];
   const studentIds = students.map((s) => s.id);
 
-  const rangeStart = resolved.from;
-  const rangeEnd = new Date(resolved.to.getTime() + 24 * 60 * 60 * 1000 - 1); // end of day, inclusive
+  // sessions within the range's days in the course's time zone
+  const range = zoneDayRange(await courseTimeZone(courseId), isoOf(resolved.from), isoOf(resolved.to));
 
   const [sessions, pointsLogs, attendanceLogs] = await Promise.all([
     prisma.recitationSession.findMany({
       // prior-to-joining memorization didn't happen within any real date
       // range, so it's excluded here exactly like on the leaderboard
-      where: { studentId: { in: studentIds }, source: "LOGGED", occurredAt: { gte: rangeStart, lte: rangeEnd } },
+      where: { studentId: { in: studentIds }, source: "LOGGED", occurredAt: range },
       select: { studentId: true, pagesCalculated: true },
     }),
     prisma.pointsLog.findMany({

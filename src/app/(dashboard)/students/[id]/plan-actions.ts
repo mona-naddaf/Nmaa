@@ -12,7 +12,9 @@ import { pickByGroup, studentNounDef, type GroupGender } from "@/lib/text/gender
 import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import type { TrackKind } from "@/lib/recitation/tracks";
 import { parseGoalInput, sameTarget } from "@/lib/goals/input";
-import { goalSpecOf, riyadhDay } from "@/lib/goals/data";
+import { goalSpecOf } from "@/lib/goals/data";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneToday } from "@/lib/time/zone";
 
 // «خطة الحفظ» on the student page: changing her plan (any template, then
 // freely reordered as when she was added), and correcting the direction of
@@ -160,7 +162,7 @@ export async function endSecondTrackAction(studentId: string): Promise<PlanEditR
 
 /**
  * Sets her goal (replacing any earlier one). Changing only the deadline
- * keeps its start day; a new target starts over from today (Riyadh).
+ * keeps its start day; a new target starts over from today (the course's day).
  */
 export async function saveStudentGoalAction(studentId: string, input: unknown): Promise<PlanEditResult> {
   const session = await requireSession();
@@ -175,7 +177,7 @@ export async function saveStudentGoalAction(studentId: string, input: unknown): 
     }),
     prisma.studentGoal.findUnique({ where: { studentId: student.id } }),
   ]);
-  const today = riyadhDay();
+  const today = zoneToday(await courseTimeZone(session.courseId));
   const parsed = parseGoalInput(input, studentPlan(student).plan, sessions, today);
   if ("error" in parsed) return { error: parsed.error };
 

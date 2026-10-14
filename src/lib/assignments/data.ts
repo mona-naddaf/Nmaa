@@ -5,6 +5,8 @@ import { EMPTY_COUNTS, allTargetsMet, type HomeCounts, type HomeTapKind, type Ho
 import { inScope, ownsRecord, type StaffScope } from "@/lib/staff-scope";
 import { NEUTRAL_GROUP_GENDER, type GroupGender } from "@/lib/text/gender";
 import type { AssignmentType } from "./rules";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDayOf } from "@/lib/time/zone";
 
 // The only place assignments are read for display (student, staff and
 // parent views all use this). Who an assignment targets is always worked out
@@ -35,7 +37,7 @@ export interface StudentAssignment {
   range: AssignmentRange | null;
   createdAt: string; // YYYY-MM-DD
   done: boolean;
-  doneAt: string | null; // ISO timestamp — shown as her local day by the browser
+  doneAt: string | null; // ISO timestamp — shown as the course's day by the browser
   // QURAN only: her «واجب» segment in the home log, if it exists
   segment: AssignmentSegment | null;
 }
@@ -56,6 +58,8 @@ export const assignmentsForStudentWhere = (s: { id: string; courseId: string; gr
 /** Her assignments: open first (soonest due first), then done (latest first). */
 export async function getStudentAssignments(studentId: string): Promise<StudentAssignment[]> {
   const student = await prisma.student.findUniqueOrThrow({ where: { id: studentId }, select: { id: true, courseId: true, groupId: true } });
+  // dates are the course's days (lib/time/zone.ts)
+  const tz = await courseTimeZone(student.courseId);
   const rows = await prisma.assignment.findMany({
     where: assignmentsForStudentWhere(student),
     orderBy: { createdAt: "desc" },
@@ -104,7 +108,7 @@ export async function getStudentAssignments(studentId: string): Promise<StudentA
       type: r.type,
       dueDate: r.dueDate ? day(r.dueDate) : null,
       range: rangeOf(r),
-      createdAt: day(r.createdAt),
+      createdAt: zoneDayOf(tz, r.createdAt),
       done: !!completion,
       doneAt: completion ? completion.doneAt.toISOString() : null,
       segment,
@@ -155,6 +159,7 @@ export async function getStaffAssignments(
   const limit = scope.groupLimit;
   const groupIn = filter.groupId ? [filter.groupId] : limit;
   const where: Prisma.AssignmentWhereInput = { courseId: scope.courseId };
+  const tz = await courseTimeZone(scope.courseId);
   if (filter.studentId) {
     const s = await prisma.student.findFirst({ where: { id: filter.studentId, courseId: scope.courseId }, select: { id: true, groupId: true } });
     if (!s || !inScope(scope, s.groupId)) return [];
@@ -226,7 +231,7 @@ export async function getStaffAssignments(
       type: r.type,
       dueDate: r.dueDate ? day(r.dueDate) : null,
       range: rangeOf(r),
-      createdAt: day(r.createdAt),
+      createdAt: zoneDayOf(tz, r.createdAt),
       target: r.targetGroup ? { kind: "GROUP", groupId: r.targetGroup.id, groupName: r.targetGroup.name } : { kind: "STUDENTS" },
       gender,
       creatorName: r.createdByTeacherId ? (r.createdByTeacher?.name ?? null) : null,

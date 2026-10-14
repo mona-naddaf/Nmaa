@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { wordAt } from "@/lib/quran-data/quran-text";
 import { MISTAKE_TYPES, type MistakeType } from "@/lib/students/mistake-types";
 import { mergeActiveMistakes } from "@/lib/students/mistakes";
+import { studentTimeZone } from "@/lib/time/course-zone";
+import { zoneDayOf } from "@/lib/time/zone";
 import type { WordFlags } from "@/components/mistakes/FlaggableAyah";
 
 // Self-marked mistakes in home practice (course students: HomeMistake).
@@ -50,7 +52,8 @@ export async function homeMarkList(studentId: string, plan: number[]) {
     select: { surahNumber: true, ayah: true, wordPosition: true, wordText: true, type: true, flaggedAt: true },
     orderBy: { flaggedAt: "asc" },
   });
-  return mergeActiveMistakes(rows, plan);
+  const timeZone = await studentTimeZone(studentId);
+  return mergeActiveMistakes(rows, plan, (d) => zoneDayOf(timeZone, d));
 }
 
 /** Marks (or re-types, or removes) one word of hers. At most one open mark per word. */

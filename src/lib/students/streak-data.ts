@@ -1,11 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { todayDateOnly } from "@/lib/attendance";
+import { zoneDateOnly, zoneDateOnlyOf } from "@/lib/time/zone";
 import { computeStreak, weekIndex, type StreakMode } from "@/lib/students/streak";
 
 /**
  * Current streak for each of `students`, which must include every member of
  * their groups — a week's neutrality depends on the whole group's activity.
+ * Weeks run on the course's days (its time zone, lib/time/zone.ts).
  * Only the dates of qualifying events are loaded:
  *  - ATTENDANCE: days marked present (IN)
  *  - RECITATION: logged sessions of any type; PRIOR baselines are the
@@ -14,6 +15,8 @@ import { computeStreak, weekIndex, type StreakMode } from "@/lib/students/streak
 export async function computeStreaks(
   mode: StreakMode,
   students: { id: string; groupId: string }[],
+  timeZone: string,
+  now: Date = new Date(),
 ): Promise<Map<string, number>> {
   const ids = students.map((s) => s.id);
   const events: { studentId: string; date: Date }[] =
@@ -29,7 +32,7 @@ export async function computeStreaks(
             where: { studentId: { in: ids }, source: "LOGGED" },
             select: { studentId: true, occurredAt: true },
           })
-        ).map((s) => ({ studentId: s.studentId, date: s.occurredAt }));
+        ).map((s) => ({ studentId: s.studentId, date: zoneDateOnlyOf(timeZone, s.occurredAt) }));
 
   const groupOf = new Map(students.map((s) => [s.id, s.groupId]));
   const studentWeeks = new Map<string, Set<number>>();
@@ -43,7 +46,7 @@ export async function computeStreaks(
     groupWeeks.get(group)!.add(w);
   }
 
-  const currentWeek = weekIndex(todayDateOnly());
+  const currentWeek = weekIndex(zoneDateOnly(timeZone, now));
   return new Map(
     students.map((s) => [
       s.id,

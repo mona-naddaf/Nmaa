@@ -3,7 +3,9 @@ import { prisma } from "@/lib/db";
 import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
 import { PLAN_INCLUDE, forPlanPosition, secondTrackView, studentPlan } from "./plan";
 import { SURAH_NAME, AYAH_COUNT } from "@/lib/quran-data";
-import { attendanceDay, attendanceStatusForDay, todayDateOnly, type AttendanceStatus } from "@/lib/attendance";
+import { attendanceStatusForDay, type AttendanceStatus } from "@/lib/attendance";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDateOnly, zoneDayOf, zoneToday } from "@/lib/time/zone";
 import { pickByGroup } from "@/lib/text/gender";
 import { computeOverdueSurahs } from "@/lib/students/review";
 import { computeStreaks } from "@/lib/students/streak-data";
@@ -38,13 +40,14 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
   const course = await prisma.course.findUnique({ where: { id: courseId }, select: { reviewReminderDays: true, streakMode: true } });
   const reviewDays = course?.reviewReminderDays ?? null;
   // the list always shows whole groups, so each group's full membership is here
-  const streaks = course?.streakMode ? await computeStreaks(course.streakMode, students) : null;
+  const timeZone = await courseTimeZone(courseId);
+  const streaks = course?.streakMode ? await computeStreaks(course.streakMode, students, timeZone) : null;
 
   const studentIds = students.map((s) => s.id);
 
-  const today = todayDateOnly();
-  // today's attendance status: Riyadh's day (lib/attendance.ts)
-  const attendanceToday = attendanceDay();
+  // today in the course's time zone (lib/time/zone.ts)
+  const today = zoneToday(timeZone);
+  const attendanceToday = zoneDateOnly(timeZone);
   const [sessions, pointsLogs, attendanceLogs] = await Promise.all([
     prisma.recitationSession.findMany({
       where: { studentId: { in: studentIds } },
@@ -128,7 +131,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
           ? `${SURAH_NAME[second.progress.position.surahNumber]} — آية ${second.progress.position.ayah} من ${AYAH_COUNT[second.progress.position.surahNumber]}`
           : second.positionText
         : null,
-      overdueReviewCount: computeOverdueSurahs(studentSessions, reviewDays, today).length,
+      overdueReviewCount: computeOverdueSurahs(studentSessions, reviewDays, today, (s) => zoneDayOf(timeZone, s.occurredAt)).length,
       streak: streaks ? (streaks.get(student.id) ?? 0) : null,
     };
   });

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getOfflineAccess } from "@/lib/offline-sheet/access";
-import { riyadhTodayISO } from "@/lib/offline-sheet/dates";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneToday } from "@/lib/time/zone";
 import { buildOfflineSheet } from "@/lib/offline-sheet/template";
 import { sheetGroupsFor } from "@/lib/offline-sheet/students";
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   const sheetGroups = await sheetGroupsFor(access.courseId, groups);
 
-  const dateISO = riyadhTodayISO();
+  const dateISO = zoneToday(await courseTimeZone(access.courseId));
   const buffer = await buildOfflineSheet({ groups: sheetGroups, dateISO, viewerGender: access.viewerGender });
   return new NextResponse(new Uint8Array(buffer), {
     headers: {

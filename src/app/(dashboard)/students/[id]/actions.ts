@@ -7,7 +7,9 @@ import { issueParentCode } from "@/lib/auth/parent-code";
 import { advancesPosition, calculatePageRange, type RecitationSituation, type SessionType } from "@/lib/recitation/logic";
 
 const SESSION_TYPES: SessionType[] = ["NEW", "REVIEW", "LINK"];
-import { attendanceDay, todayDateOnly, parseDateOnlyInput } from "@/lib/attendance";
+import { parseDateOnlyInput } from "@/lib/attendance";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { backdatedAt, zoneDateOnly } from "@/lib/time/zone";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { imperative, thisDemonstrative, pickByGroup, type GroupGender } from "@/lib/text/gender";
 import type { Session } from "@/lib/auth/session";
@@ -18,10 +20,6 @@ import type { CombinedEntry } from "@/lib/recitation/combined";
 import { detectTrack, latestTrackBySurah, planEntryInTrack, type TrackKey } from "@/lib/recitation/tracks";
 import { adoptionMessage, type JuzAdoption } from "@/lib/recitation/juz-direction";
 import { PLAN_INCLUDE, adoptJuzDirection, studentPlan, trackContexts } from "@/lib/students/plan";
-
-function addHoursUTC(date: Date, hours: number): Date {
-  return new Date(date.getTime() + hours * 60 * 60 * 1000);
-}
 
 async function loadStudentForCourse(studentId: string, courseId: string) {
   // archived students can't be acted on (their history stays as it was)
@@ -159,13 +157,17 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
   const checkedMastered = validateMasteredWords(input.mastered, input.surahNumber, input.fromAyah, input.toAyah);
   if ("error" in checkedMastered) return { error: checkedMastered.error };
 
-  const sessionDay = parseDateOnlyInput(input.sessionDate);
+  // days are the course's (lib/time/zone.ts): today there is accepted
+  // right after midnight too
+  const timeZone = await courseTimeZone(session.courseId);
+  const now = new Date();
+  const sessionDay = parseDateOnlyInput(input.sessionDate, timeZone, now);
   if (!sessionDay) {
     return { error: "تاريخ الجلسة غير صحيح — لا يمكن أن يكون في المستقبل" };
   }
   // today keeps full time-of-day precision for correct same-day ordering;
   // a backdated entry is pinned to noon of the chosen day
-  const occurredAt = sessionDay.getTime() === todayDateOnly().getTime() ? new Date() : addHoursUTC(sessionDay, 12);
+  const occurredAt = sessionDay.getTime() === zoneDateOnly(timeZone, now).getTime() ? now : backdatedAt(timeZone, sessionDay);
 
   const teacherId = await resolveTeacherId(session);
 
@@ -268,8 +270,8 @@ export async function setAttendanceAction(studentId: string, status: "IN" | "OUT
   const denied = await studentAccessError(session, student);
   if (denied) return { error: denied };
   const teacherId = await resolveTeacherId(session);
-  // Riyadh's day, as the students list and the bulk bar read it
-  const day = attendanceDay();
+  // the course's today, as the students list and the bulk bar read it
+  const day = zoneDateOnly(await courseTimeZone(session.courseId));
 
   await prisma.attendanceLog.upsert({
     where: { studentId_day: { studentId, day } },
@@ -291,7 +293,7 @@ export async function togglePointAction(studentId: string, activityId: string, d
   });
   if (!activity) throw new Error("نشاط غير موجود");
 
-  const day = parseDateOnlyInput(dayInput);
+  const day = parseDateOnlyInput(dayInput, await courseTimeZone(session.courseId));
   if (!day) throw new Error("تاريخ غير صحيح");
 
   const teacherId = await resolveTeacherId(session);
@@ -338,7 +340,7 @@ export async function addBonusPointAction(studentId: string, dayInput: string, n
   const note = noteInput.trim();
   if (!note) return { error: "يُرجى كتابة سبب النقطة الإضافية" };
   if (note.length > BONUS_NOTE_MAX_LENGTH) return { error: "السبب طويل جدًا" };
-  const day = parseDateOnlyInput(dayInput);
+  const day = parseDateOnlyInput(dayInput, await courseTimeZone(session.courseId));
   if (!day) return { error: "تاريخ غير صحيح" };
 
   const teacherId = await resolveTeacherId(session);

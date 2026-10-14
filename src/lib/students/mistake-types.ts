@@ -38,7 +38,10 @@ export interface ActiveMistake {
   type: MistakeType;
   /** how many unresolved flags this word has */
   count: number;
-  /** "YYYY-MM-DD" of the earliest unresolved flag */
+  /**
+   * The earliest unresolved flag: "YYYY-MM-DD" (a course's day), or for
+   * «رفيق الحفظ» its ISO timestamp, shown as her own day (ShownDay)
+   */
   firstFlagged: string;
   /**
    * Where its flags came from, only in «رفيق الحفظ»'s one list (her

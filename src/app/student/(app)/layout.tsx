@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { requireStudentAccess } from "@/lib/auth/student-session";
 import { studentLogoutAction } from "../actions";
 import { StudentTabs } from "./StudentTabs";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { TimeZoneProvider } from "@/lib/time/TimeZoneProvider";
 
 // Shell for every signed-in student page. Phases 2–3 (home memorization log,
 // assignments) add a tab in StudentTabs and a page next to page.tsx.
@@ -37,7 +39,10 @@ export default async function StudentAreaLayout({ children }: { children: React.
           </form>
         </div>
       </div>
-      <div className={shell.content}>{children}</div>
+      <div className={shell.content}>
+        {/* the course's days for every client component below (lib/time/zone.ts) */}
+        <TimeZoneProvider timeZone={await courseTimeZone(access.courseId)}>{children}</TimeZoneProvider>
+      </div>
     </div>
   );
 }

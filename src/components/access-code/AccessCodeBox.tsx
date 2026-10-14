@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import styles from "./access-code.module.css";
+import { dayOfInstant } from "@/lib/calendar/useToday";
+import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 
 export type AccessCodeResult = { error: string } | { code: string | null; createdAt: string | null };
 
@@ -31,6 +33,8 @@ export function AccessCodeBox({
 }) {
   const [code, setCode] = useState(initialCode);
   const [createdAt, setCreatedAt] = useState(initialCreatedAt);
+  // shown as the course's day (lib/time/zone.ts)
+  const tz = useTimeZone();
   const [confirming, setConfirming] = useState<Op | null>(null);
   const [running, setRunning] = useState<Op | null>(null);
   const [copied, setCopied] = useState(false);
@@ -77,7 +81,7 @@ export function AccessCodeBox({
           <div className={styles.codeVal} dir="ltr">
             {code}
           </div>
-          {createdAt && <div className={styles.created}>أُنشئ في {createdAt.slice(0, 10)}</div>}
+          {createdAt && <div className={styles.created}>أُنشئ في {dayOfInstant(createdAt, tz)}</div>}
           <div className={styles.actions}>
             <button className={styles.btn} onClick={copy} type="button">
               {copied ? "تم النسخ ✓" : "نسخ الرمز 📋"}

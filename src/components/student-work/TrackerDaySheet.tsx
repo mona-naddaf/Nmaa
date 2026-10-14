@@ -6,6 +6,7 @@ import styles from "./work.module.css";
 import { gregorianLabelWithWeekday } from "@/lib/calendar/hijri";
 import { addDays, dayScore, isComplete, lastSevenDays, shownOn, weekdayOf, WEEKDAY_SHORT, withLocalDays } from "@/lib/tracker/rules";
 import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
+import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 
 const pointsLabel = (n: number) => (n === 1 ? "درجة" : n === 2 ? "درجتان" : n <= 10 ? `${n} درجات` : `${n} درجة`);
@@ -34,9 +35,10 @@ export function TrackerDaySheet({
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
+  const tz = useTimeZone();
 
-  // items exist from her local creation day (not the UTC one)
-  const allItems = withLocalDays(sheet.items);
+  // items exist from the day they were created (the course's day, or hers in «رفيق الحفظ»; not the UTC one)
+  const allItems = withLocalDays(sheet.items, tz);
   const yesterday = addDays(today, -1);
   const day = which === "today" ? today : yesterday;
   const checkedOn = (d: string) => {

@@ -116,6 +116,11 @@ model Course {
   // fill/edit the fields visible to them from the parent portal.
   studentInfoEnabled      Boolean                @default(false)
   parentStudentInfoEdit   Boolean                @default(false)
+  // «التوقيت»: the IANA zone the course's days are counted in — today,
+  // yesterday, weeks, deadlines, the day a recitation happened
+  // (src/lib/time/zone.ts). Supervisor only. Stored date-only values never
+  // shift when it changes; only which day "now" falls on does.
+  timeZone                String                 @default("Asia/Riyadh")
   createdAt               DateTime               @default(now())
 
   teachers            Teacher[]

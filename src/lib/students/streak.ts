@@ -4,8 +4,9 @@
 // streak-data.ts.
 //
 // Rules:
-//  - Weeks are calendar weeks starting on Sunday, on the same UTC calendar
-//    days the rest of the app uses (attendance days, session dates).
+//  - Weeks are calendar weeks starting on Sunday, on the course's days (its
+//    time zone): attendance days as stored, a session on the day it
+//    happened there (streak-data.ts).
 //  - The current week never breaks a streak: if she hasn't qualified yet this
 //    week, the streak simply runs to last week.
 //  - A week in which nobody in her group qualified (no class — Eid, a
@@ -19,8 +20,9 @@ export type StreakMode = "ATTENDANCE" | "RECITATION";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Sunday-based week number of a date's UTC calendar day. 1970-01-01 was a
- * Thursday, so shifting by 4 days puts every Sunday on a multiple of 7.
+ * Sunday-based week number of a date-only value (UTC midnight of its day).
+ * 1970-01-01 was a Thursday, so shifting by 4 days puts every Sunday on a
+ * multiple of 7.
  */
 export function weekIndex(date: Date): number {
   return Math.floor((Math.floor(date.getTime() / DAY_MS) + 4) / 7);

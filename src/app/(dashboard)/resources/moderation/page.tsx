@@ -8,12 +8,16 @@ import { urlHost } from "@/lib/resources/validate";
 import styles from "../bank.module.css";
 import { Moderation } from "./Moderation";
 import { rafiqEnabled } from "@/lib/rafiq/enabled";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDayOf } from "@/lib/time/zone";
 
 // Site owner only. The one place that shows who added a resource and from
 // which course.
 export default async function ModerationPage() {
   const session = await requireSession();
   if (!(await isSiteOwner(session))) redirect("/resources");
+  // dates in the viewer's course time zone
+  const timeZone = await courseTimeZone(session.courseId);
 
   const [reported, types, tags] = await Promise.all([
     prisma.resource.findMany({
@@ -69,7 +73,7 @@ export default async function ModerationPage() {
           title: r.title,
           hidden: r.hiddenAt !== null,
           creator: creatorLabel(r),
-          reports: r.reports.map((x) => ({ id: x.id, reason: x.reason, date: x.createdAt.toISOString().slice(0, 10) })),
+          reports: r.reports.map((x) => ({ id: x.id, reason: x.reason, date: zoneDayOf(timeZone, x.createdAt) })),
         }))}
         types={types.map((t) => ({ id: t.id, name: t.name, count: t._count.resources }))}
         tags={tags.map((t) => ({ id: t.id, name: t.name, count: t._count.resources }))}

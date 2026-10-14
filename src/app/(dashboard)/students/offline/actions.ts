@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { getOfflineAccess } from "@/lib/offline-sheet/access";
+import { courseTimeZone } from "@/lib/time/course-zone";
 import { parseOfflineSheet } from "@/lib/offline-sheet/parse";
 import {
   MissingReasonError,
@@ -75,7 +76,7 @@ export async function confirmOfflineSheetAction(formData: FormData): Promise<Con
 
   const teacherId = await resolveTeacherId(upload.session);
   try {
-    const saved = await saveSheet(check, reasons, teacherId);
+    const saved = await saveSheet(check, reasons, teacherId, await courseTimeZone(upload.access.courseId));
     revalidatePath("/students", "layout");
     return { saved, date: check.date };
   } catch (e) {

@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
 import { canEditEvent, canManageCalendar } from "@/lib/calendar/data";
 import { addDays, isValidIso, toHijri } from "@/lib/calendar/hijri";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneToday } from "@/lib/time/zone";
 import {
   adjustableYears,
   isOccasion,
@@ -152,11 +154,11 @@ export async function setAdjustmentAction(
     return { error: "يمكن تعديل الموعد بيوم أو يومين فقط" };
   }
 
-  // The browser decides "today", and may be up to a day ahead of or behind
-  // the server's UTC day; accept the adjustable years of either side.
-  const utcToday = new Date().toISOString().slice(0, 10);
+  // "Today" is the course's (its time zone, as the page shows it); a day of
+  // slack either side keeps a page left open over midnight working.
+  const today = zoneToday(await courseTimeZone(session.courseId));
   const allowed = new Set(
-    [-1, 0, 1].flatMap((d) => adjustableYears(toHijri(addDays(utcToday, d)).year)),
+    [-1, 0, 1].flatMap((d) => adjustableYears(toHijri(addDays(today, d)).year)),
   );
   if (!allowed.has(hijriYear)) return { error: "يمكن تعديل الموعد الحالي والقادم فقط" };
 

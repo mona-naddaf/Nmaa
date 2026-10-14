@@ -1,6 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { EMPTY_COUNTS, allTargetsMet, type HomeCounts, type HomeTapKind, type HomeTargets } from "./rules";
+import { studentTimeZone } from "@/lib/time/course-zone";
+import { addDaysISO, zoneDayOf, zoneDayStart } from "@/lib/time/zone";
 
 // The only place home-log data is read for display (student, staff and
 // parent views all use this). Counts are derived from HomeTap rows; nothing
@@ -17,7 +19,9 @@ export interface HomeSegmentView {
   // free per-ayah practice, keyed by ayah number (only ayat with taps)
   ayahCounts: Record<number, HomeCounts>;
   targetsMet: boolean;
-  createdAt: string; // YYYY-MM-DD
+  // a course's day ("YYYY-MM-DD"), or for «رفيق الحفظ» the ISO timestamp,
+  // shown as her own day (ShownDay)
+  createdAt: string;
   finishedAt: string | null;
   finishedBy: "STUDENT" | "TEACHER_RECITED" | null;
   lastActivity: string | null; // YYYY-MM-DD (her local day of the latest tap)
@@ -69,7 +73,9 @@ export async function getHomeLog(studentId: string, { pastLimit = 30 }: { pastLi
     prisma.homeTap.findFirst({ where: { studentId }, orderBy: { createdAt: "desc" }, select: { day: true } }),
   ]);
 
-  return buildHomeLogView({ activeRows, pastRows, grouped, latest, lastTapDay: lastTap?.day ?? null });
+  // segment dates are the course's days (lib/time/zone.ts)
+  const timeZone = await studentTimeZone(studentId);
+  return buildHomeLogView({ activeRows, pastRows, grouped, latest, lastTapDay: lastTap?.day ?? null, dayOf: (d) => zoneDayOf(timeZone, d) });
 }
 
 /** A segment row as stored (the course's HomeSegment, or «رفيق الحفظ»'s own). */
@@ -91,6 +97,8 @@ export interface HomeSegmentRow {
  * The display view from the rows and tap aggregates: tap counts per segment
  * (ayah null = the whole-segment counters) and the latest tap day per
  * segment. Pure, so «رفيق الحفظ» builds the same view from its own tables.
+ * dayOf: the day a segment's created/finished time is shown as (a course's:
+ * its time zone). Tap days are stored days and shown as they are.
  */
 export function buildHomeLogView({
   activeRows,
@@ -98,12 +106,14 @@ export function buildHomeLogView({
   grouped,
   latest,
   lastTapDay,
+  dayOf = day,
 }: {
   activeRows: HomeSegmentRow[];
   pastRows: HomeSegmentRow[];
   grouped: { segmentId: string; ayah: number | null; kind: string; _count: { _all: number } }[];
   latest: { segmentId: string; _max: { day: Date | null } }[];
   lastTapDay: Date | null;
+  dayOf?: (d: Date) => string;
 }): HomeLogView {
   const counts = new Map<string, HomeCounts>();
   const ayahCounts = new Map<string, Record<number, HomeCounts>>();
@@ -134,8 +144,8 @@ export function buildHomeLogView({
       counts: c,
       ayahCounts: ayahCounts.get(r.id) ?? {},
       targetsMet: allTargetsMet(c, targets),
-      createdAt: day(r.createdAt),
-      finishedAt: r.finishedAt ? day(r.finishedAt) : null,
+      createdAt: dayOf(r.createdAt),
+      finishedAt: r.finishedAt ? dayOf(r.finishedAt) : null,
       finishedBy: r.finishedBy,
       lastActivity: lastBySegment.get(r.id) ?? null,
       assignmentId: r.assignmentId,
@@ -158,7 +168,9 @@ export async function markSegmentsRecited(
   toAyah: number,
   occurredAt: Date,
 ): Promise<number> {
-  const endOfDay = new Date(Date.UTC(occurredAt.getUTCFullYear(), occurredAt.getUTCMonth(), occurredAt.getUTCDate(), 23, 59, 59, 999));
+  // the end of the recitation's day in the course's time zone
+  const timeZone = await studentTimeZone(studentId);
+  const endOfDay = new Date(zoneDayStart(timeZone, addDaysISO(zoneDayOf(timeZone, occurredAt), 1)).getTime() - 1);
   const { count } = await prisma.homeSegment.updateMany({
     where: {
       studentId,

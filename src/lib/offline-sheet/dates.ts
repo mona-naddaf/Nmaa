@@ -3,19 +3,15 @@
 // UTC-midnight "date-only" value the rest of the app stores (attendance
 // days, points days), with no shift.
 //
-// "Today" here is today in Riyadh, not the server's UTC day — scoped to this
-// feature only (the site-wide todayDateOnly() is still UTC). A file may be
-// dated up to today and as far back as MAX_DAYS_BACK days. Client-safe.
+// "Today" here is the course's today, in its time zone (lib/time/zone.ts),
+// not the server's UTC day. A file may be dated up to today and as far back
+// as MAX_DAYS_BACK days. Client-safe.
 
-export const SHEET_TIME_ZONE = "Asia/Riyadh";
+import { backdatedAt, zoneToday } from "@/lib/time/zone";
+
 export const MAX_DAYS_BACK = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** "YYYY-MM-DD" of today in Riyadh. */
-export function riyadhTodayISO(now: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: SHEET_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
-}
 
 /** "YYYY-MM-DD" → the date-only value (UTC midnight of that day), or null if not a real date. */
 export function isoToDateOnly(iso: string): Date | null {
@@ -30,8 +26,8 @@ export function isoToDateOnly(iso: string): Date | null {
 export const dateOnlyToISO = (d: Date) => d.toISOString().slice(0, 10);
 
 /** Why this day can't be a sheet's date, or null when it can. */
-export function sheetDateProblem(day: Date, now: Date = new Date()): string | null {
-  const today = isoToDateOnly(riyadhTodayISO(now))!;
+export function sheetDateProblem(day: Date, timeZone: string, now: Date = new Date()): string | null {
+  const today = isoToDateOnly(zoneToday(timeZone, now))!;
   if (day.getTime() > today.getTime()) return "تاريخ الملف في المستقبل";
   if (today.getTime() - day.getTime() > MAX_DAYS_BACK * DAY_MS) {
     return `تاريخ الملف أقدم من ${MAX_DAYS_BACK} يومًا؛ لا يمكن رفع ملف بتاريخ أقدم من ذلك`;
@@ -41,16 +37,12 @@ export function sheetDateProblem(day: Date, now: Date = new Date()): string | nu
 
 /**
  * The time a sheet's sessions are stored at, i-th of the day (to keep their
- * order). The server's own today: now, like the form. A past day: noon UTC
- * of it, like a backdated entry on the form. Riyadh's today while the UTC
- * date is still yesterday (00:00–03:00 Riyadh): the start of that day,
- * which is at most three hours ahead.
+ * order), like the form: the course's today: now. A past day: when a
+ * backdated entry on the form is stored (backdatedAt: noon UTC of it).
  */
-export function sheetOccurredAt(day: Date, i: number, now: Date = new Date()): Date {
-  const utcToday = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  if (day.getTime() === utcToday) return new Date(now.getTime() + i);
-  if (day.getTime() > utcToday) return new Date(day.getTime() + i * 1000);
-  return new Date(day.getTime() + 12 * 60 * 60 * 1000 + i * 1000);
+export function sheetOccurredAt(day: Date, i: number, timeZone: string, now: Date = new Date()): Date {
+  if (dateOnlyToISO(day) === zoneToday(timeZone, now)) return new Date(now.getTime() + i);
+  return new Date(backdatedAt(timeZone, day).getTime() + i * 1000);
 }
 
 /**

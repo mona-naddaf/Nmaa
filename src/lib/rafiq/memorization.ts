@@ -2,9 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveCurrentPosition, deriveReach, type PlanPosition, type Reach } from "@/lib/recitation/logic";
 import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages, type ProgressBar } from "@/lib/students/progress";
-import { computeOverdueSurahs, type OverdueSurah } from "@/lib/students/review";
+import { reviewAges, type ReviewAge } from "@/lib/students/review";
 import { mergeActiveMistakes } from "@/lib/students/mistakes";
-import { todayDateOnly } from "@/lib/attendance";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { goalSpecOf } from "@/lib/goals/data";
 import type { GoalSpec } from "@/lib/goals/goal";
@@ -81,7 +80,10 @@ export interface MemorizationView {
   progressBars: ProgressBar[];
   mistakes: ActiveMistake[];
   reviewReminderDays: number | null;
-  overdue: OverdueSurah[];
+  // each completed surah's review clock, on the days she logged her
+  // sessions; her browser picks the overdue ones with her own today
+  // (overdueFrom), as the server can't know her day
+  reviewAges: ReviewAge[];
   history: HistoryEntry[];
   // her memorization goal, worked out in her browser with her own day
   // (lib/goals/goal.ts, from `history`); null without one
@@ -139,9 +141,10 @@ export async function getMemorization(userId: string): Promise<MemorizationView 
     recitedPages: round3(sessions.filter((s) => s.source === "LOGGED").reduce((sum, s) => sum + Number(s.pagesCalculated), 0)),
     loggedSessions: sessions.filter((s) => s.source === "LOGGED").length,
     progressBars: computeProgressBars({ settings: ALL_BARS, plan, position, coverage }),
-    mistakes: mergeActiveMistakes(allMarks, plan),
+    // first-flag times go out whole: her browser shows them as her own day
+    mistakes: mergeActiveMistakes(allMarks, plan, (d) => d.toISOString()),
     reviewReminderDays,
-    overdue: computeOverdueSurahs(sessions, reviewReminderDays, todayDateOnly()),
+    reviewAges: reviewReminderDays ? reviewAges(sessions, (s) => day(s.day)) : [],
     history: sessions.map((s) => ({
       id: s.id,
       day: day(s.day),

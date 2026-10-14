@@ -11,6 +11,8 @@ import { parseSurah, toInteger } from "@/lib/excel/cells";
 import { absentWord, presentWord, pickByGroup, pickByPerson, studentNounDef, type GroupGender } from "@/lib/text/gender";
 import type { OfflineAccess } from "./access";
 import { dateOnlyToISO, sheetDateProblem, sheetOccurredAt } from "./dates";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDayRange } from "@/lib/time/zone";
 import { BLOCK_TITLE, BLOCK_TYPES, MAX_POINTS, POINTS_NOTE, QUALITY_LABEL, SECOND_TITLE } from "./layout";
 import { planEntryInTrack, trackContext, trackOrder } from "@/lib/recitation/tracks";
 import type { RawBlock, RawRow, RawSheet } from "./parse";
@@ -179,7 +181,9 @@ export async function validateSheet(
     return { fatal: `تاريخ الملف ${sheet.dateText ? `«${sheet.dateText}» ` : ""}غير صحيح. يُرجى كتابته بالصيغة سنة-شهر-يوم.` };
   }
   const day = sheet.date;
-  const dateProblem = sheetDateProblem(day);
+  // the course's days (lib/time/zone.ts)
+  const timeZone = await courseTimeZone(access.courseId);
+  const dateProblem = sheetDateProblem(day, timeZone);
   if (dateProblem) return { fatal: `${dateProblem} (${dateOnlyToISO(day)}).` };
 
   // every id in the file must be a student of this course that she can
@@ -206,7 +210,8 @@ export async function validateSheet(
     }
   }
 
-  const nextDay = new Date(day.getTime() + 24 * 60 * 60 * 1000);
+  // sessions that happened on that day in the course's time zone
+  const dayRange = zoneDayRange(timeZone, dateOnlyToISO(day));
   const [allSessions, attendance, points] = await Promise.all([
     prisma.recitationSession.findMany({
       where: { studentId: { in: ids } },
@@ -331,7 +336,7 @@ export async function validateSheet(
     // sessions, in order, each seeing the ones before it
     const existing = sessionsOf.get(s.id) ?? [];
     // a combined entry counts as the one range it was entered as
-    const sameDay = groupCombos(existing.filter((x) => x.source === "LOGGED" && x.occurredAt >= day && x.occurredAt < nextDay));
+    const sameDay = groupCombos(existing.filter((x) => x.source === "LOGGED" && x.occurredAt >= dayRange.gte && x.occurredAt < dayRange.lt));
     const positionSessions: PositionSession[] = forPlanPosition(existing, sp.planChangedAt);
     let reach: Reach = deriveReach(plan, positionSessions);
     const rowStart = positionSessions.length;
@@ -527,6 +532,7 @@ export async function saveSheet(
   check: Extract<SheetCheck, { rows: PreviewRow[] }>,
   reasons: Record<string, string>,
   teacherId: string,
+  timeZone: string,
 ): Promise<SaveSummary> {
   const day = new Date(`${check.date}T00:00:00Z`);
   const now = new Date();
@@ -563,7 +569,7 @@ export async function saveSheet(
             summary.duplicates++;
             continue;
           }
-          const occurredAt = sheetOccurredAt(day, seq++, now);
+          const occurredAt = sheetOccurredAt(day, seq++, timeZone, now);
           const record = {
             studentId: r.studentId,
             teacherId,

@@ -1,5 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDayOf } from "@/lib/time/zone";
 
 export interface LeaderboardStudent {
   id: string;
@@ -47,8 +49,10 @@ export async function getLeaderboardData(courseId: string) {
     return entry;
   }
 
+  // a session counts on the course's day it happened (lib/time/zone.ts)
+  const timeZone = await courseTimeZone(courseId);
   for (const s of sessions) {
-    const date = s.occurredAt.toISOString().slice(0, 10);
+    const date = zoneDayOf(timeZone, s.occurredAt);
     bucket(s.studentId, date).pages += Number(s.pagesCalculated);
   }
   for (const p of pointsLogs) {

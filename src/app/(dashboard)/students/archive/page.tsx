@@ -3,11 +3,14 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
 import { ArchiveList } from "./ArchiveList";
 import styles from "../[id]/manage.module.css";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDayOf } from "@/lib/time/zone";
 
 // Supervisor-only (also guarded in proxy.ts): archived students, with
 // restore, the per-student "keep in reports" choice, and permanent delete.
 export default async function ArchivePage() {
   const session = await requireAdmin();
+  const timeZone = await courseTimeZone(session.courseId);
   const students = await prisma.student.findMany({
     where: { courseId: session.courseId, archivedAt: { not: null } },
     orderBy: { archivedAt: "desc" },
@@ -37,7 +40,7 @@ export default async function ArchivePage() {
           grade: s.grade,
           groupName: s.group.name,
           gender: s.group.gender,
-          archivedAt: s.archivedAt!.toISOString().slice(0, 10),
+          archivedAt: zoneDayOf(timeZone, s.archivedAt!),
           keepInReports: s.keepInReports,
         }))}
       />

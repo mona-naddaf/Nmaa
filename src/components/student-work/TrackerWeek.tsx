@@ -4,6 +4,7 @@ import { useState } from "react";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "./work.module.css";
 import { useToday } from "@/lib/calendar/useToday";
+import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { gregorianLabel } from "@/lib/calendar/hijri";
 import { addDays, countsOn, dayScore, isComplete, shownOn, weekdayOf, weekDays, WEEKDAY_SHORT, withLocalDays } from "@/lib/tracker/rules";
 import type { TrackerSheet } from "@/lib/tracker/data";
@@ -11,14 +12,15 @@ import type { TrackerSheet } from "@/lib/tracker/data";
 /**
  * One student's week (Sunday–Saturday), read-only: a row per item, a ✓ per
  * ticked day, each day's score and the week's total. For staff and parents.
- * Weeks are the viewer's own local week; scores are calculated (D6).
+ * Weeks are the course's (its time zone), or «رفيق الحفظ»'s local ones; scores are calculated (D6).
  */
 export function TrackerWeek({ sheet }: { sheet: TrackerSheet }) {
   const today = useToday();
+  const tz = useTimeZone();
   const [offset, setOffset] = useState(0);
   if (!today) return <div className={hl.empty}>…</div>;
 
-  const items = withLocalDays(sheet.items);
+  const items = withLocalDays(sheet.items, tz);
   const days = weekDays(addDays(today, offset * 7));
   const scores = days.map((d) => (d > today ? null : dayScore(items, new Set(sheet.checks[d] ?? []), d)));
   const earned = scores.reduce((n, s) => n + (s?.earned ?? 0), 0);

@@ -14,7 +14,6 @@ export default async function ReportsPage({
 
   const fromISO = resolved.from.toISOString().slice(0, 10);
   const toISO = resolved.to.toISOString().slice(0, 10);
-  const courseCreatedISO = fromISO; // resolveReportScope already defaults `from` to course creation
 
   const downloadQuery = new URLSearchParams({
     scope: resolved.scope,
@@ -37,8 +36,8 @@ export default async function ReportsPage({
         studentId={resolved.studentId}
         from={fromISO}
         to={toISO}
-        courseCreatedAt={courseCreatedISO}
-        today={new Date().toISOString().slice(0, 10)}
+        courseCreatedAt={resolved.courseStart}
+        today={resolved.today}
         groups={resolved.visibleGroups}
         students={resolved.visibleStudents}
         scopeGender={resolved.scopeGender}

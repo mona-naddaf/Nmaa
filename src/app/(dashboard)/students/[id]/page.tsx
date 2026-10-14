@@ -5,7 +5,9 @@ import { requireSession } from "@/lib/auth/require";
 import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
 import { getActiveMistakes } from "@/lib/students/mistakes";
 import { computeStreaks } from "@/lib/students/streak-data";
-import { attendanceDay, attendanceStatusForDay, todayDateOnly } from "@/lib/attendance";
+import { attendanceStatusForDay } from "@/lib/attendance";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDateOnly, zoneDayOf, zoneToday } from "@/lib/time/zone";
 import { SURAH_NAME, TOTAL_PAGES } from "@/lib/quran-data";
 import { juzGroupSurahs } from "@/lib/quran-data/juz";
 import { DIRECTIONAL_JUZ } from "@/lib/recitation/juz-direction";
@@ -37,7 +39,7 @@ import { fieldLabel, isMultilineField, isPhoneField } from "@/lib/students/extra
 import { MissingInfoBadge, StudentInfoList } from "@/components/student-info/StudentInfoList";
 import { Collapsible } from "@/components/collapsible/Collapsible";
 import { SEGMENTS, countLabel } from "@/lib/text/count";
-import { getStudentGoal, riyadhDay } from "@/lib/goals/data";
+import { getStudentGoal } from "@/lib/goals/data";
 
 async function loginUrl(path: "/parent/login" | "/student/login") {
   const origin = await requestOrigin();
@@ -82,9 +84,11 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     }
   }
 
-  const today = todayDateOnly();
-  // today's attendance: Riyadh's day (lib/attendance.ts)
-  const attendanceToday = attendanceDay();
+  // today and every day below: the course's days (lib/time/zone.ts)
+  const timeZone = await courseTimeZone(course.id);
+  const today = zoneToday(timeZone);
+  const attendanceToday = zoneDateOnly(timeZone);
+  const dayOf = (d: Date) => zoneDayOf(timeZone, d);
   const [sessions, pointsLogs, todayAttendance] = await Promise.all([
     prisma.recitationSession.findMany({
       where: { studentId: student.id },
@@ -117,10 +121,10 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const secondForm: SecondTrackForm | null = sp.second
     ? { kind: sp.second.kind, ctx: secondCtx, latest: latestTrackBySurah(sessions, sp.second.id), next: second?.progress?.next ?? null }
     : null;
-  const overdueSurahs = computeOverdueSurahs(sessions, course.reviewReminderDays, today);
+  const overdueSurahs = computeOverdueSurahs(sessions, course.reviewReminderDays, today, (s) => dayOf(s.occurredAt));
   const mistakes = await getActiveMistakes(student.id, plan);
   // her memorization goal, if any (lib/goals/goal.ts)
-  const goal = await getStudentGoal(student.id, plan, sessions);
+  const goal = await getStudentGoal(student.id, plan, sessions, timeZone);
   // the whole group is needed: a week with no class for the group is neutral
   const streak = course.streakMode
     ? {
@@ -133,6 +137,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
                 where: { groupId: student.groupId, archivedAt: null },
                 select: { id: true, groupId: true },
               }),
+              timeZone,
             )
           ).get(student.id) ?? 0,
       }
@@ -162,6 +167,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
 
   const view = (
       <DetailView
+        today={today}
         student={{
           id: student.id,
           name: student.name,
@@ -218,7 +224,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         }))}
         history={groupCombos(sessions).map((s) => ({
           id: s.id,
-          date: s.occurredAt.toISOString().slice(0, 10),
+          date: dayOf(s.occurredAt),
           source: s.source,
           surahNumber: s.surahNumber,
           fromAyah: s.fromAyah,
@@ -267,7 +273,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       <>
         <div className={styles.archivedBanner}>
           <span>
-            🗄 {studentNounDef(g)} في الأرشيف منذ {student.archivedAt!.toISOString().slice(0, 10)} — هذه الصفحة للاطلاع
+            🗄 {studentNounDef(g)} في الأرشيف منذ {dayOf(student.archivedAt!)} — هذه الصفحة للاطلاع
             فقط، ورمز ولي الأمر {pickByGroup(g, { m: "الخاص به", f: "الخاص بها" })} متوقف.
           </span>
           <Link href="/students/archive">→ العودة إلى الأرشيف</Link>
@@ -322,7 +328,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           secondTrack={second ? { title: second.title, positionText: second.positionText, done: second.done } : null}
           goalPlan={plan}
           goal={goal ? { target: goal.spec.target, juz: goal.spec.juz, surah: goal.spec.surah, ayah: goal.spec.ayah, deadline: goal.spec.deadline } : null}
-          today={riyadhDay()}
+          today={today}
         />
       </Collapsible>
       {homeLog && (

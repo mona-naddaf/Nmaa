@@ -1,10 +1,16 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
+import { useTimeZone } from "@/lib/time/TimeZoneProvider";
+import { zoneToday } from "@/lib/time/zone";
 
-// "Today" for the calendar is the viewer's own civil day, in the browser's
-// time zone — never the server's (which is UTC on Vercel). null during
-// server rendering and hydration; callers render a placeholder until then.
+export { dayOfInstant, shownDay } from "@/lib/time/shown-day";
+
+// "Today" in the browser: on course pages, today in the course's time zone
+// (TimeZoneProvider); in «رفيق الحفظ», which has no provider, her own civil
+// day in the browser's time zone. Never the server's (UTC on Vercel). null
+// during server rendering and hydration; callers render a placeholder until
+// then.
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -27,5 +33,7 @@ function subscribe(onChange: () => void) {
 }
 
 export function useToday(): string | null {
-  return useSyncExternalStore(subscribe, localToday, () => null);
+  const tz = useTimeZone();
+  const snapshot = useCallback(() => (tz ? zoneToday(tz) : localToday()), [tz]);
+  return useSyncExternalStore(subscribe, snapshot, () => null);
 }

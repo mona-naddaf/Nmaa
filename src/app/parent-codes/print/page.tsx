@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
 import { getParentCodeRows } from "@/lib/parent/codes";
 import { studentNounDef, studentsNoun, NEUTRAL_GROUP_GENDER } from "@/lib/text/gender";
-import { todayISO } from "@/lib/attendance";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneToday } from "@/lib/time/zone";
 import { PrintTrigger } from "@/app/reports/print/PrintTrigger";
 import styles from "@/app/reports/print/print.module.css";
 
@@ -27,7 +28,7 @@ export default async function ParentCodesPrintPage() {
         <BrandLogo variant="print" priority />
       </div>
       <div className={styles.meta}>{course.name}</div>
-      <div className={styles.meta}>رموز دخول أولياء الأمور — {todayISO()}</div>
+      <div className={styles.meta}>رموز دخول أولياء الأمور — {zoneToday(await courseTimeZone(session.courseId))}</div>
       {loginUrl && (
         <div className={styles.meta}>
           يسجّل وليّ الأمر دخوله من الصفحة <bdi dir="ltr">{loginUrl}</bdi> باسم {studentNounDef(g)} والرمز

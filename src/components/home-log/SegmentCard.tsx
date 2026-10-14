@@ -3,6 +3,7 @@ import styles from "./home-log.module.css";
 import { TargetProgress, segmentTitle } from "./TargetProgress";
 import type { HomeSegmentView } from "@/lib/home-log/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
+import { ShownDay } from "@/components/shown-day/ShownDay";
 
 /**
  * One segment in a list: a link to practise it while active.
@@ -29,8 +30,13 @@ export function SegmentCard({
         {s.finishedBy === "TEACHER_RECITED" && <span className={`${styles.badge} ${styles.teacher}`}>{recitedLabel}</span>}
       </div>
       <div className={styles.segMeta}>
-        بدأ {s.createdAt}
-        {s.finishedAt && ` · انتهى ${s.finishedAt}`}
+        بدأ <ShownDay value={s.createdAt} />
+        {s.finishedAt && (
+          <>
+            {" "}
+            · انتهى <ShownDay value={s.finishedAt} />
+          </>
+        )}
       </div>
       <TargetProgress counts={s.counts} targets={s.targets} />
     </>

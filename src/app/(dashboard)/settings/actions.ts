@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
+import { isValidTimeZone } from "@/lib/time/zone";
 import { generateUniqueBoardCode } from "@/lib/auth/board-code";
 import { pickByGroup, studentsNoun, type GroupGender } from "@/lib/text/gender";
 import { validateTargets, type HomeTargets } from "@/lib/home-log/rules";
@@ -227,6 +228,18 @@ export async function setStreakModeAction(mode: "ATTENDANCE" | "RECITATION" | nu
   await prisma.course.update({ where: { id: cid }, data: { streakMode: mode } });
   revalidatePath("/settings");
   revalidatePath("/students", "layout");
+  return {};
+}
+
+// ---------- Time zone («التوقيت») ----------
+
+/** The zone the course's days are counted in (lib/time/zone.ts). Stored days are never shifted. */
+export async function setTimeZoneAction(timeZone: string): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  if (!isValidTimeZone(timeZone)) return { error: "منطقة زمنية غير معروفة" };
+  await prisma.course.update({ where: { id: cid }, data: { timeZone } });
+  // every course page reads its days from it
+  revalidatePath("/", "layout");
   return {};
 }
 

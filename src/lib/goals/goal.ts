@@ -6,7 +6,7 @@ import { DAYS_AFTER_PREP, countLabel, type CountForms } from "@/lib/text/count";
 
 // An optional memorization goal with a deadline, for a course student and
 // for «رفيق الحفظ» alike: how much is left, how much per day, and whether
-// she is on schedule. Pure, so the server (courses, Riyadh day) and the
+// she is on schedule. Pure, so the server (courses, the course's day) and the
 // browser («رفيق الحفظ», her own day) compute it the same way.
 //
 // The target is a stretch of her CURRENT plan, in its walking order (juz

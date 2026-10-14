@@ -5,7 +5,8 @@ import { requireSession } from "@/lib/auth/require";
 import { getStudentCodeRows, studentCodeAccess } from "@/lib/students/student-codes";
 import { requestOrigin } from "@/lib/request-origin";
 import { studentNounDef, studentsNoun, NEUTRAL_GROUP_GENDER } from "@/lib/text/gender";
-import { todayISO } from "@/lib/attendance";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneToday } from "@/lib/time/zone";
 import { PrintTrigger } from "@/app/reports/print/PrintTrigger";
 import styles from "@/app/reports/print/print.module.css";
 
@@ -29,7 +30,7 @@ export default async function StudentCodesPrintPage() {
         <BrandLogo variant="print" priority />
       </div>
       <div className={styles.meta}>{course.name}</div>
-      <div className={styles.meta}>رموز دخول {studentsNoun(g)} — {todayISO()}</div>
+      <div className={styles.meta}>رموز دخول {studentsNoun(g)} — {zoneToday(await courseTimeZone(session.courseId))}</div>
       {loginUrl && (
         <div className={styles.meta}>
           يدخل {studentNounDef(g)} من الصفحة <bdi dir="ltr">{loginUrl}</bdi> بالاسم والرمز

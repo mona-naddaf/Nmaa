@@ -64,7 +64,7 @@ export function PlanPanel({
   canEdit: boolean;
   // her active second track (lib/recitation/tracks.ts), or null
   secondTrack?: { title: string; positionText: string; done: boolean } | null;
-  // her plan in walking order, her goal (lib/goals/goal.ts) and today (Riyadh), for «هدف الحفظ»
+  // her plan in walking order, her goal (lib/goals/goal.ts) and today (the course's day), for «هدف الحفظ»
   goalPlan: number[];
   goal?: (GoalTarget & { deadline: string }) | null;
   today: string;

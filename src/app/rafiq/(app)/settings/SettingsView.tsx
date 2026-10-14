@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { WeekdayPicker } from "@/components/student-work/TrackerControls";
 import { localToday } from "@/lib/home-log/rules";
 import { daysLabel } from "@/lib/tracker/rules";
+import { dayOfInstant, useToday } from "@/lib/calendar/useToday";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "../../rafiq.module.css";
 import { RecoveryCodeCard } from "../../RecoveryCodeCard";
@@ -227,6 +228,8 @@ function Password({ p }: { p: P }) {
 function Recovery({ p, gender, createdAt }: { p: P; gender: RafiqGender; createdAt: string }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(regenerateRecoveryCodeAction, null);
   const [open, setOpen] = useState(false);
+  // the day it was created on her own calendar, known once in her browser
+  const ready = useToday() !== null;
   return (
     <div className={hl.section}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
@@ -238,7 +241,7 @@ function Recovery({ p, gender, createdAt }: { p: P; gender: RafiqGender; created
         <>
           <p className={hl.muted} style={{ marginTop: 0 }}>
             {p("تحتاجه", "تحتاجينه")} لتعيين كلمة مرور جديدة إن {p("نسيتَها", "نسيتِها")}. آخر رمز أُنشئ في{" "}
-            <bdi dir="ltr">{createdAt}</bdi>. إنشاء رمز جديد يُلغي الرمز السابق.
+            <bdi dir="ltr">{ready ? dayOfInstant(createdAt, null) : "…"}</bdi>. إنشاء رمز جديد يُلغي الرمز السابق.
           </p>
           {open ? (
             <form action={action}>

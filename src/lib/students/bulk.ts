@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import type { Session } from "@/lib/auth/session";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { createScopedToken } from "@/lib/auth/scoped-token";
-import { attendanceDay } from "@/lib/attendance";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDateOnly } from "@/lib/time/zone";
 import { BONUS_NOTE_MAX_LENGTH } from "@/lib/points/bonus";
 
 // The students page's «تحديد» bar (students/bulk-actions.ts): today's
@@ -65,13 +66,13 @@ const signUndo = (session: Session, data: UndoData) => undoTokens.sign({ u: user
 
 export type BulkResult = Denied | { ok: true; done: number; skipped: number; undo: string; touched?: string[] };
 
-/** Today's attendance (Riyadh) for every selected student; an existing record is overwritten. */
+/** Today's attendance (the course's day) for every selected student; an existing record is overwritten. */
 export async function bulkAttendance(session: Session, studentIds: unknown, status: unknown): Promise<BulkResult> {
   if (status !== "IN" && status !== "OUT") return { error: "حالة الحضور غير صحيحة" };
   const picked = await selectedStudents(session, studentIds);
   if ("error" in picked) return picked;
   const teacherId = await resolveTeacherId(session);
-  const day = attendanceDay();
+  const day = zoneDateOnly(await courseTimeZone(session.courseId));
 
   const prev = await prisma.$transaction(async (tx) => {
     const before = await tx.attendanceLog.findMany({
@@ -106,7 +107,7 @@ export async function bulkPoint(session: Session, studentIds: unknown, activityI
   const picked = await selectedStudents(session, studentIds);
   if ("error" in picked) return picked;
   const teacherId = await resolveTeacherId(session);
-  const day = attendanceDay();
+  const day = zoneDateOnly(await courseTimeZone(session.courseId));
 
   let created: { id: string }[];
   let skipped = 0;

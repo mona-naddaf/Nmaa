@@ -8,6 +8,8 @@ import type { GroupGender } from "@/lib/text/gender";
 import { getActiveMistakes } from "@/lib/students/mistakes";
 import { groupCombos } from "@/lib/recitation/combined";
 import { getStudentGoal } from "@/lib/goals/data";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDayOf } from "@/lib/time/zone";
 import type { GoalView } from "@/lib/goals/goal";
 import { BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
@@ -87,6 +89,8 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     },
   });
   if (!student) return null;
+  // dates are the course's days (lib/time/zone.ts)
+  const timeZone = await courseTimeZone(student.course.id);
 
   const [sessions, attendanceLogs, pointsLogs] = await Promise.all([
     prisma.recitationSession.findMany({
@@ -136,12 +140,12 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     // as the staff page and the student portal read it (a manual plan change, a second track's approvals)
     position: deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(sessions, sp.planChangedAt))),
     secondTrack: second ? { title: second.title, positionText: second.positionText } : null,
-    goal: (await getStudentGoal(studentId, plan, sessions))?.view ?? null,
+    goal: (await getStudentGoal(studentId, plan, sessions, timeZone))?.view ?? null,
     mistakes: await getActiveMistakes(studentId, plan),
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
     history: groupCombos(sessions).map((s) => ({
       id: s.id,
-      date: s.occurredAt.toISOString().slice(0, 10),
+      date: zoneDayOf(timeZone, s.occurredAt),
       source: s.source,
       type: s.type,
       surahNumber: s.surahNumber,

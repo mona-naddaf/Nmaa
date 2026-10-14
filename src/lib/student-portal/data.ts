@@ -9,6 +9,7 @@ import { BONUS_POINTS_LABEL } from "@/lib/points/bonus";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import type { GroupGender } from "@/lib/text/gender";
 import { getStudentGoal } from "@/lib/goals/data";
+import { studentTimeZone } from "@/lib/time/course-zone";
 import type { GoalView } from "@/lib/goals/goal";
 
 // The ONLY data source for the student's own page. Every query is keyed on
@@ -112,7 +113,7 @@ export async function getStudentHomeData(studentId: string): Promise<StudentHome
     position,
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
     secondTrack: second ? { title: second.title, positionText: second.positionText } : null,
-    goal: (await getStudentGoal(studentId, plan, sessions))?.view ?? null,
+    goal: (await getStudentGoal(studentId, plan, sessions, await studentTimeZone(studentId)))?.view ?? null,
     progressBars,
     mistakes: await getActiveMistakes(studentId, plan),
     points: pointsLogs.map((p) => ({

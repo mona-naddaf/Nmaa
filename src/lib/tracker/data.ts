@@ -4,20 +4,22 @@ import type { Prisma } from "@prisma/client";
 import { inScope, ownsRecord, type StaffScope } from "@/lib/staff-scope";
 import type { GroupGender } from "@/lib/text/gender";
 import { addDays, TRACKER_LIMITS, type ScoredItem } from "./rules";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDayOf, zoneToday } from "@/lib/time/zone";
 
 // The only place tracker data is read for display (student, staff and
 // parent views all use this). Scores are never computed or stored here:
 // each view gets items + ticks for a short window of days and works the
-// scores out with the pure rules (dayScore), using the viewer's own local
-// "today" — the server (UTC) can't know it.
+// scores out with the pure rules (dayScore), on the course's days (its time
+// zone, lib/time/zone.ts).
 
 export interface TrackerItemView extends ScoredItem {
   title: string;
   // she created it herself (shown with «بانتظار الاعتماد» / «لم يُعتمد»)
   own: boolean;
   reviewedDay: string | null;
-  // ISO timestamps: the browser re-derives createdDay/archivedDay in its own
-  // time zone (withLocalDays); the UTC days above are the server's view
+  // ISO timestamps: the browser re-derives createdDay/archivedDay from them
+  // (withLocalDays), in the course's time zone like the days above
   createdAt: string;
   archivedAt: string | null;
 }
@@ -29,10 +31,8 @@ export interface TrackerSheet {
 }
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
-const utcToday = () => day(new Date());
-
-/** Window start: far enough back for this week + last week in any time zone. */
-const windowStart = (days: number) => addDays(utcToday(), -days);
+/** Window start: far enough back for this week + last week (plus a day of slack). */
+const windowStart = (days: number, tz: string) => addDays(zoneToday(tz), -days);
 
 /** Prisma `where` for every item that reaches this student (archived included — they still count before their archive day). */
 export const itemsForStudentWhere = (s: { id: string; courseId: string; groupId: string }): Prisma.TrackerItemWhereInput => ({
@@ -54,15 +54,15 @@ const itemSelect = {
 
 type ItemRow = Prisma.TrackerItemGetPayload<{ select: typeof itemSelect }>;
 
-const toView = (r: ItemRow, studentId: string | null): TrackerItemView => ({
+const toView = (r: ItemRow, studentId: string | null, tz: string): TrackerItemView => ({
   id: r.id,
   title: r.title,
   value: r.value,
   status: r.status,
   days: r.days,
-  createdDay: day(r.createdAt),
-  archivedDay: r.archivedAt ? day(r.archivedAt) : null,
-  reviewedDay: r.reviewedAt ? day(r.reviewedAt) : null,
+  createdDay: zoneDayOf(tz, r.createdAt),
+  archivedDay: r.archivedAt ? zoneDayOf(tz, r.archivedAt) : null,
+  reviewedDay: r.reviewedAt ? zoneDayOf(tz, r.reviewedAt) : null,
   createdAt: r.createdAt.toISOString(),
   archivedAt: r.archivedAt ? r.archivedAt.toISOString() : null,
   own: studentId !== null && r.createdByStudentId === studentId,
@@ -83,7 +83,8 @@ function windowWhere(fromDay: string): Prisma.TrackerItemWhereInput {
 /** One student's sheet for the last `days` days (plus a day of time-zone slack). */
 export async function getStudentTracker(studentId: string, days = 16): Promise<TrackerSheet> {
   const s = await prisma.student.findUniqueOrThrow({ where: { id: studentId }, select: { id: true, courseId: true, groupId: true } });
-  const fromDay = windowStart(days);
+  const tz = await courseTimeZone(s.courseId);
+  const fromDay = windowStart(days, tz);
   const [rows, checks] = await Promise.all([
     prisma.trackerItem.findMany({
       where: { AND: [itemsForStudentWhere(s), windowWhere(fromDay)] },
@@ -97,7 +98,7 @@ export async function getStudentTracker(studentId: string, days = 16): Promise<T
   ]);
   const byDay: Record<string, string[]> = {};
   for (const c of checks) (byDay[day(c.day)] ??= []).push(c.itemId);
-  return { items: rows.map((r) => toView(r, studentId)), checks: byDay };
+  return { items: rows.map((r) => toView(r, studentId, tz)), checks: byDay };
 }
 
 // ---------- Staff ----------
@@ -120,7 +121,8 @@ export async function getGroupTracker(groupId: string, days = 16): Promise<Group
   });
   if (students.length === 0) return { students: [], items: [], itemIds: {}, checks: {} };
   const ids = students.map((s) => s.id);
-  const fromDay = windowStart(days);
+  const tz = await courseTimeZone(students[0].courseId);
+  const fromDay = windowStart(days, tz);
   const [rows, checks] = await Promise.all([
     prisma.trackerItem.findMany({
       where: {
@@ -149,7 +151,7 @@ export async function getGroupTracker(groupId: string, days = 16): Promise<Group
 
   return {
     students: students.map(({ id, name }) => ({ id, name })),
-    items: rows.map((r) => toView(r, null)),
+    items: rows.map((r) => toView(r, null, tz)),
     itemIds,
     checks: byStudent,
   };
@@ -191,7 +193,7 @@ const staffSelect = {
 
 type StaffRow = Prisma.TrackerItemGetPayload<{ select: typeof staffSelect }>;
 
-function toStaff(scope: StaffScope, r: StaffRow): StaffTrackerItem {
+function toStaff(scope: StaffScope, r: StaffRow, tz: string): StaffTrackerItem {
   let target: StaffTrackerItem["target"];
   let canEdit: boolean;
   if (r.createdByStudent) {
@@ -216,7 +218,7 @@ function toStaff(scope: StaffScope, r: StaffRow): StaffTrackerItem {
     creatorName: r.createdByTeacherId ? (r.createdByTeacher?.name ?? null) : null,
     canEdit,
     archived: r.archivedAt !== null,
-    createdDay: day(r.createdAt),
+    createdDay: zoneDayOf(tz, r.createdAt),
   };
 }
 
@@ -237,7 +239,8 @@ export async function getStaffTrackerItems(scope: StaffScope, groupId: string): 
     take: 200,
     select: staffSelect,
   });
-  return rows.map((r) => toStaff(scope, r));
+  const tz = await courseTimeZone(scope.courseId);
+  return rows.map((r) => toStaff(scope, r, tz));
 }
 
 export interface PendingItem {
@@ -245,7 +248,7 @@ export interface PendingItem {
   title: string;
   days: number;
   student: { id: string; name: string; groupId: string; groupName: string; gender: GroupGender };
-  createdAt: string; // ISO — shown as the viewer's local day
+  createdAt: string; // ISO — shown as the course's day (withLocalDays / localDayOf)
 }
 
 /** Students' own items awaiting approval, in her groups, oldest first. */

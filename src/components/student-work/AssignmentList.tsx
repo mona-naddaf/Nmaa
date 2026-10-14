@@ -5,18 +5,13 @@ import Link from "next/link";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "./work.module.css";
 import { segmentTitle } from "@/components/home-log/TargetProgress";
-import { useToday } from "@/lib/calendar/useToday";
+import { dayOfInstant, useToday } from "@/lib/calendar/useToday";
+import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { countdownLabel, daysBetween, gregorianLabel } from "@/lib/calendar/hijri";
 import { HOME_TAP_ICON, HOME_TAP_KINDS, HOME_TAP_LABEL, targetFor } from "@/lib/home-log/rules";
 import { ASSIGNMENT_TYPE_ICON, ASSIGNMENT_TYPE_LABEL, isOverdue } from "@/lib/assignments/rules";
 import type { StudentAssignment } from "@/lib/assignments/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
-
-/** Her local calendar day of a timestamp (browser time zone). */
-const localDay = (iso: string) => {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
 
 /**
  * One student's assignments: open first, then done. With onToggle (her own
@@ -35,6 +30,7 @@ export function AssignmentList({
   linkSegments?: boolean;
 }) {
   const today = useToday();
+  const tz = useTimeZone();
   // optimistic ticks, dropped once the server's list catches up
   const [override, setOverride] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +102,7 @@ export function AssignmentList({
               <span className={styles.tag}>{ASSIGNMENT_TYPE_LABEL[a.type]}</span>
               {a.range && !seg && <span>{segmentTitle(a.range)}</span>}
               {due}
-              {d && a.doneAt && today && <span>✓ أُنجز {gregorianLabel(localDay(a.doneAt))}</span>}
+              {d && a.doneAt && today && <span>✓ أُنجز {gregorianLabel(dayOfInstant(a.doneAt, tz))}</span>}
             </div>
           </div>
           {onToggle ? (

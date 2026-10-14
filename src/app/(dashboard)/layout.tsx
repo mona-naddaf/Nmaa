@@ -6,6 +6,8 @@ import { NavLinks } from "./NavLinks";
 import { GenderPrompt } from "./GenderPrompt";
 import styles from "./shell.module.css";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { TimeZoneProvider } from "@/lib/time/TimeZoneProvider";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
@@ -51,7 +53,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </span>
         </div>
       </div>
-      <div className={styles.content}>{children}</div>
+      <div className={styles.content}>
+        {/* the course's days for every client component below (lib/time/zone.ts) */}
+        <TimeZoneProvider timeZone={await courseTimeZone(session.courseId)}>{children}</TimeZoneProvider>
+      </div>
     </div>
   );
 }

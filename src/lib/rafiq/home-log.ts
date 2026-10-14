@@ -54,6 +54,8 @@ export async function getRafiqHomeLog(userId: string, { pastLimit = 30 }: { past
     grouped,
     latest,
     lastTapDay: lastTap?.day ?? null,
+    // started/finished times go out whole: her browser shows them as her own day
+    dayOf: (d) => d.toISOString(),
   });
 }
 

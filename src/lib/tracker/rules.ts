@@ -1,9 +1,12 @@
 // Rules for the daily tracker («جدول المتابعة»), shared by the server
 // actions (which enforce them) and the UI (which only mirrors them). Pure:
-// no DB, no server-only imports. Days are "YYYY-MM-DD" strings (her local
-// date); weekdays are 0 = Sunday … 6 = Saturday; a week runs Sunday–Saturday.
+// no DB, no server-only imports. Days are "YYYY-MM-DD" strings (a course
+// student's: the course's day, in its time zone — lib/time/zone.ts; «رفيق
+// الحفظ»: her local date); weekdays are 0 = Sunday … 6 = Saturday; a week
+// runs Sunday–Saturday.
 
 import { acceptLocalDay } from "@/lib/home-log/rules";
+import { zoneDayOf } from "@/lib/time/zone";
 
 // D7 — all checked on the server.
 export const TRACKER_LIMITS = {
@@ -55,13 +58,18 @@ export function validateTitle(raw: unknown): { title: string } | { error: string
 }
 
 /**
- * The day she may tick: her local today (checked like every home-log day)
- * or the day before it. Returns that day, or null.
+ * «رفيق الحفظ»: the day she may tick: her local today (checked like every
+ * home-log day) or the day before it. Returns that day, or null.
  */
 export function acceptTickDay(day: string, today: string, now: Date = new Date()): string | null {
   const t = acceptLocalDay(today, now);
   if (!t || typeof day !== "string") return null;
   return day === t || day === addDays(t, -1) ? day : null;
+}
+
+/** A course student: the course's today (server-side) or the day before it. */
+export function acceptCourseTickDay(day: unknown, today: string): string | null {
+  return typeof day === "string" && (day === today || day === addDays(today, -1)) ? day : null;
 }
 
 export interface ScoredItem {
@@ -110,17 +118,19 @@ export function daysLabel(days: number): string {
   return WEEKDAY_LABELS.filter((_, i) => (days & (1 << i)) !== 0).join("، ");
 }
 
-/** The viewer's local calendar day of a timestamp (browser time zone). */
-export function localDayOf(iso: string): string {
+/** The day of a timestamp: in the course's time zone, or (tz null: «رفيق الحفظ») the browser's. */
+export function localDayOf(iso: string, tz: string | null = null): string {
+  if (tz) return zoneDayOf(tz, new Date(iso));
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /**
- * Browser-side: an item exists from the viewer's local day it was created
- * (and stops on the local day it was archived), not the UTC one — so an item
- * added just after local midnight doesn't reach back into yesterday.
+ * Browser-side: an item exists from the day it was created (and stops on the
+ * day it was archived) — the course's day (tz), or «رفيق الحفظ»'s local one —
+ * not the UTC one, so an item added just after midnight doesn't reach back
+ * into yesterday.
  */
-export function withLocalDays<T extends ScoredItem & { createdAt: string; archivedAt: string | null }>(items: T[]): T[] {
-  return items.map((i) => ({ ...i, createdDay: localDayOf(i.createdAt), archivedDay: i.archivedAt ? localDayOf(i.archivedAt) : null }));
+export function withLocalDays<T extends ScoredItem & { createdAt: string; archivedAt: string | null }>(items: T[], tz: string | null = null): T[] {
+  return items.map((i) => ({ ...i, createdDay: localDayOf(i.createdAt, tz), archivedDay: i.archivedAt ? localDayOf(i.archivedAt, tz) : null }));
 }

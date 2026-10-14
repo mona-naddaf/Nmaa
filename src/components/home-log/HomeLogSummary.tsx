@@ -3,6 +3,7 @@ import { HOME_TAP_ICON, HOME_TAP_KINDS, type HomeCounts } from "@/lib/home-log/r
 import type { HomeLogView, HomeSegmentView } from "@/lib/home-log/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { TargetProgress, segmentTitle } from "./TargetProgress";
+import { ShownDay } from "@/components/shown-day/ShownDay";
 
 // Read-only view of a student's home log, for the staff student page and the
 // parent view. Staff pass `segmentExtra` to add target editing per segment.
@@ -58,8 +59,13 @@ function SegmentList({
               {s.finishedBy === "STUDENT" && <span className={styles.badge}>أُتمّ</span>}
             </div>
             <div className={styles.segMeta}>
-              بدأ {s.createdAt}
-              {s.finishedAt && ` · انتهى ${s.finishedAt}`}
+              بدأ <ShownDay value={s.createdAt} />
+              {s.finishedAt && (
+                <>
+                  {" "}
+                  · انتهى <ShownDay value={s.finishedAt} />
+                </>
+              )}
               {s.lastActivity && ` · آخر نشاط ${s.lastActivity}`}
             </div>
             <TargetProgress counts={s.counts} targets={s.targets} />

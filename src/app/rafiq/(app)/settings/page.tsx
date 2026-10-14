@@ -14,7 +14,7 @@ export default async function RafiqSettingsPage() {
       email={user.email}
       name={user.name}
       gender={user.gender}
-      recoveryCodeCreatedAt={recoveryCodeCreatedAt.toISOString().slice(0, 10)}
+      recoveryCodeCreatedAt={recoveryCodeCreatedAt.toISOString()}
       reviewReminderDays={reviewReminderDays}
       commitDays={await currentCommitDays(user.id)}
     />

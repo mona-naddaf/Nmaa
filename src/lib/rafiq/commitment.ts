@@ -3,12 +3,14 @@ import { prisma } from "@/lib/db";
 import type { CommitSchedule } from "./streak";
 
 // What her browser needs to work out her commitment days (streak.ts):
-// her schedule history, the days she logged a session, and her first day.
+// her schedule history, the days she logged a session, and when she signed
+// up (her first day is worked out on her own day, commitStart in streak.ts).
 
 export interface CommitmentData {
   schedule: CommitSchedule;
   loggedDays: string[];
-  start: string;
+  // ISO timestamp of her signup; its day is her browser's (not UTC)
+  createdAt: string;
 }
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
@@ -21,12 +23,10 @@ export async function getCommitment(userId: string): Promise<CommitmentData> {
     prisma.rafiqSession.findMany({ where: { userId, source: "LOGGED" }, distinct: ["day"], select: { day: true } }),
   ]);
   const loggedDays = sessions.map((s) => day(s.day)).sort();
-  const created = day(user.createdAt);
   return {
     schedule: rows.map((r) => ({ from: day(r.effectiveFrom), days: r.days })),
     loggedDays,
-    // a session backdated before she signed up still counts from its day
-    start: loggedDays.length && loggedDays[0] < created ? loggedDays[0] : created,
+    createdAt: user.createdAt.toISOString(),
   };
 }
 

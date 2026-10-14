@@ -1,33 +1,19 @@
-export function todayDateOnly(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-}
+import { zoneDateOnly } from "@/lib/time/zone";
 
-// "YYYY-MM-DD", the format a native <input type="date"> uses
-export function todayISO(): string {
-  return todayDateOnly().toISOString().slice(0, 10);
-}
+// A course's "today" and day boundaries come from its time zone
+// (lib/time/zone.ts: zoneDateOnly, zoneToday…): attendance, points and the
+// recording form all use the same day, after midnight too.
 
 // parses a "YYYY-MM-DD" string (as produced by a native <input type="date">)
-// into a UTC date-only value, rejecting anything malformed or in the future
-export function parseDateOnlyInput(raw: string): Date | null {
+// into a UTC date-only value, rejecting anything malformed or after today in
+// the course's time zone
+export function parseDateOnlyInput(raw: string, timeZone: string, now: Date = new Date()): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
   const [y, m, d] = raw.split("-").map(Number);
   const parsed = new Date(Date.UTC(y, m - 1, d));
   if (parsed.getUTCFullYear() !== y || parsed.getUTCMonth() !== m - 1 || parsed.getUTCDate() !== d) return null;
-  if (parsed.getTime() > todayDateOnly().getTime()) return null;
+  if (parsed.getTime() > zoneDateOnly(timeZone, now).getTime()) return null;
   return parsed;
-}
-
-/**
- * Today's attendance day in Riyadh time (as «التسميع بدون إنترنت» dates its
- * file): the student page's attendance, the students list's status and the
- * bulk bar all record and read this day, so they agree after midnight too.
- * (Elsewhere the site still uses todayDateOnly.)
- */
-export function attendanceDay(now: Date = new Date()): Date {
-  const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
-  return new Date(`${iso}T00:00:00Z`);
 }
 
 export type AttendanceStatus = "IN" | "OUT" | "PENDING";

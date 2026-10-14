@@ -7,11 +7,12 @@ import { AYAH_COUNT, SURAH_NAME, TOTAL_PAGES } from "@/lib/quran-data";
 import type { RecitationSubject } from "@/lib/recitation/logic";
 import type { MemorizationView } from "@/lib/rafiq/memorization";
 import type { CommitmentData } from "@/lib/rafiq/commitment";
-import { computeStreak, streakDaysText, weekView } from "@/lib/rafiq/streak";
+import { commitStart, computeStreak, streakDaysText, weekView } from "@/lib/rafiq/streak";
 import { WEEKDAY_SHORT, weekdayOf } from "@/lib/tracker/rules";
 import Link from "next/link";
 import { loggableDays } from "@/lib/rafiq/days";
-import { useToday } from "@/lib/calendar/useToday";
+import { dayOfInstant, useToday } from "@/lib/calendar/useToday";
+import { overdueFrom } from "@/lib/students/review";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
 import { DAYS_AFTER_PREP, SESSIONS, SURAHS_COUNT, WORDS, countLabel } from "@/lib/text/count";
 import { Collapsible } from "@/components/collapsible/Collapsible";
@@ -42,6 +43,8 @@ export function RafiqHome({ data, gender, commitment }: { data: MemorizationView
   const router = useRouter();
   const today = useToday();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
+  // surahs overdue for review, on her own today
+  const overdue = today ? overdueFrom(data.reviewAges, data.reviewReminderDays, today) : [];
   const subject: RecitationSubject = useMemo(() => ({ self: gender }), [gender]);
 
   const entry = useRecitationEntry({
@@ -255,12 +258,12 @@ export function RafiqHome({ data, gender, commitment }: { data: MemorizationView
         </Collapsible>
       )}
 
-      {data.overdue.length > 0 && (
-        <Collapsible title="🔁 سور تحتاج مراجعة" tag={countLabel(data.overdue.length, SURAHS_COUNT)} persistKey="rafiq.review">
+      {overdue.length > 0 && (
+        <Collapsible title="🔁 سور تحتاج مراجعة" tag={countLabel(overdue.length, SURAHS_COUNT)} persistKey="rafiq.review">
           <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 8 }}>
             لم تُراجع كاملةً منذ أكثر من {countLabel(data.reviewReminderDays ?? 0, DAYS_AFTER_PREP)}
           </div>
-          {data.overdue.map((o) => (
+          {overdue.map((o) => (
             <button key={o.surahNumber} type="button" className={styles.reviewRow} onClick={() => startReview(o.surahNumber)}>
               <span className={styles.reviewSurah}>{SURAH_NAME[o.surahNumber]}</span>
               <span className={styles.reviewMeta}>
@@ -289,8 +292,10 @@ const WEEK_MARK = { done: "✓", missed: "✗", off: "—", today: "•", future
 function CommitCard({ commitment, today }: { commitment: CommitmentData; today: string | null }) {
   if (!today) return <div className={styles.commitCard} style={{ minHeight: 70 }} aria-busy />;
   const logged = new Set(commitment.loggedDays);
-  const { current, best } = computeStreak(commitment.schedule, logged, today, commitment.start);
-  const week = weekView(commitment.schedule, logged, today, commitment.start);
+  // her first day: the local day she signed up (not the UTC one)
+  const start = commitStart(commitment.loggedDays, dayOfInstant(commitment.createdAt, null));
+  const { current, best } = computeStreak(commitment.schedule, logged, today, start);
+  const week = weekView(commitment.schedule, logged, today, start);
   return (
     <div className={styles.commitCard}>
       <div>

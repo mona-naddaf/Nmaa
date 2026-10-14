@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import styles from "./detail.module.css";
 import type { PlanPosition, Reach, SessionType } from "@/lib/recitation/logic";
 import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
-import { todayISO } from "@/lib/attendance";
+import { useToday } from "@/lib/calendar/useToday";
 import type { ProgressBar } from "@/lib/students/progress";
 import type { OverdueSurah } from "@/lib/students/review";
 import { addBonusPointAction, resolveMistakeAction, saveRecitationAction, setAttendanceAction, togglePointAction } from "./actions";
@@ -120,7 +120,10 @@ export function DetailView({
   infoSection,
   canManagePrior = false,
   expandAll = false,
+  today: serverToday,
 }: {
+  // today in the course's time zone, as the server saw it (lib/time/zone.ts)
+  today: string;
   student: { id: string; name: string; age: number; grade: string | null; attendance: Attendance };
   groupGender: GroupGender;
   viewerGender: PersonGender;
@@ -164,7 +167,8 @@ export function DetailView({
   expandAll?: boolean;
 }) {
   const router = useRouter();
-  const today = todayISO();
+  // the course's today; rolls over while the page stays open past midnight
+  const today = useToday() ?? serverToday;
   const [attendance, setAttendanceState] = useState(student.attendance);
   const [attendancePending, startAttendanceTransition] = useTransition();
 
@@ -176,7 +180,7 @@ export function DetailView({
   const [quality, setQuality] = useState<Quality>("EXCELLENT");
   const [mode, setMode] = useState<Mode>("IN_PERSON");
   const [notes, setNotes] = useState("");
-  const [sessionDate, setSessionDate] = useState(today);
+  const [sessionDate, setSessionDate] = useState(serverToday);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savePending, startSaveTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);

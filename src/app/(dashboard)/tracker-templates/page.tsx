@@ -6,6 +6,8 @@ import { isSiteOwner } from "@/lib/resources/access";
 import styles from "../resources/bank.module.css";
 import { TemplateModeration } from "./TemplateModeration";
 import { rafiqEnabled } from "@/lib/rafiq/enabled";
+import { courseTimeZone } from "@/lib/time/course-zone";
+import { zoneDayOf } from "@/lib/time/zone";
 
 // Site owner only: the tracker template bank of «رفيق الحفظ». Unlike the
 // resource bank's moderation, it never shows who published or reported a
@@ -13,6 +15,8 @@ import { rafiqEnabled } from "@/lib/rafiq/enabled";
 export default async function TrackerTemplatesPage() {
   const session = await requireSession();
   if (!rafiqEnabled() || !(await isSiteOwner(session))) redirect("/resources");
+  // dates in the viewer's course time zone
+  const timeZone = await courseTimeZone(session.courseId);
 
   const templates = await prisma.trackerTemplate.findMany({
     orderBy: [{ suggested: "desc" }, { createdAt: "desc" }],
@@ -48,9 +52,9 @@ export default async function TrackerTemplatesPage() {
           suggested: t.suggested,
           hidden: t.hiddenAt !== null,
           useCount: t.useCount,
-          date: t.createdAt.toISOString().slice(0, 10),
+          date: zoneDayOf(timeZone, t.createdAt),
           items: t.items,
-          reports: t.reports.map((r) => ({ id: r.id, reason: r.reason, date: r.createdAt.toISOString().slice(0, 10) })),
+          reports: t.reports.map((r) => ({ id: r.id, reason: r.reason, date: zoneDayOf(timeZone, r.createdAt) })),
         }))}
       />
     </div>

@@ -19,6 +19,10 @@ import { ensureBuiltinFields, getCourseInfoFields } from "@/lib/students/extra-i
 import { Collapsible } from "@/components/collapsible/Collapsible";
 import { onOffTag } from "@/components/collapsible/tags";
 import { ACTIVITIES, GROUPS, countLabel } from "@/lib/text/count";
+import { TimeZoneCard } from "./TimeZoneCard";
+import { safeTimeZone } from "@/lib/time/zone";
+import { COMMON_ZONES, zoneLabel } from "@/lib/time/zones";
+import { zoneOffsetLabel } from "@/lib/time/zone";
 
 export default async function SettingsPage() {
   const session = await requireAdmin();
@@ -105,6 +109,14 @@ export default async function SettingsPage() {
             showQuranProgress: course.showQuranProgress,
             showPlanProgress: course.showPlanProgress,
           }}
+        />
+      </Collapsible>
+
+      <Collapsible title="التوقيت" tag={zoneLabel(safeTimeZone(course.timeZone))}>
+        <TimeZoneCard
+          timeZone={safeTimeZone(course.timeZone)}
+          currentLabel={zoneLabel(safeTimeZone(course.timeZone))}
+          offsets={Object.fromEntries([...COMMON_ZONES.map((z) => z.id), safeTimeZone(course.timeZone)].map((id) => [id, zoneOffsetLabel(id)]))}
         />
       </Collapsible>
 

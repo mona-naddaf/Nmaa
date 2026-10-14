@@ -17,6 +17,15 @@ import { countLabel, type CountForms } from "@/lib/text/count";
 
 export type CommitSchedule = { from: string; days: number }[];
 
+/**
+ * Her first day: the day she signed up (createdDay, her own local day), or
+ * the day of a session backdated before it — it still counts from its day.
+ * loggedDays: sorted.
+ */
+export function commitStart(loggedDays: string[], createdDay: string): string {
+  return loggedDays.length && loggedDays[0] < createdDay ? loggedDays[0] : createdDay;
+}
+
 /** Her intended weekdays on a given day (no schedule yet = every day). */
 export function scheduledDays(schedule: CommitSchedule, day: string): number {
   let days = EVERY_DAY;

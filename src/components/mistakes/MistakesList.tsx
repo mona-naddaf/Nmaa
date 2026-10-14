@@ -7,6 +7,7 @@ import { TYPE_CLASS } from "./WordFlagger";
 import { SURAH_NAME } from "@/lib/quran-data";
 import { mistakeSourceLabel, mistakeTypeLabel, type ActiveMistake } from "@/lib/students/mistake-types";
 import type { RecitationSubject } from "@/lib/recitation/logic";
+import { ShownDay } from "@/components/shown-day/ShownDay";
 
 // Arabic number agreement: مرتين، 3–10 مرات، 11+ مرة
 const timesText = (n: number) => (n === 2 ? "تكرّر مرتين" : `تكرّر ${n} ${n <= 10 ? "مرات" : "مرة"}`);
@@ -78,7 +79,7 @@ export function MistakesList({
                 <span className={`${styles.typeBadge} ${TYPE_CLASS[m.type]}`}>{mistakeTypeLabel(m.type, subject)}</span>
                 {m.sources && <span className={styles.sourceTag}>{mistakeSourceLabel(m.sources)}</span>}
                 <span className={styles.rowDate}>
-                  منذ <bdi dir="ltr">{m.firstFlagged}</bdi>
+                  منذ <bdi dir="ltr"><ShownDay value={m.firstFlagged} /></bdi>
                   {m.count > 1 && <span className={styles.rowCount}> · {timesText(m.count)}</span>}
                 </span>
               </span>

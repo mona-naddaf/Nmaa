@@ -6,6 +6,7 @@ import styles from "@/components/student-work/work.module.css";
 import { WeekdayPicker } from "@/components/student-work/TrackerControls";
 import { TrackerDaySheet } from "@/components/student-work/TrackerDaySheet";
 import { useToday } from "@/lib/calendar/useToday";
+import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { daysBetween } from "@/lib/calendar/hijri";
 import { daysLabel, EVERY_DAY, TRACKER_LIMITS, withLocalDays } from "@/lib/tracker/rules";
 import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
@@ -14,10 +15,11 @@ import { addOwnTrackerItemAction, deleteOwnTrackerItemAction, renameOwnTrackerIt
 
 export function StudentTracker({ sheet, groupGender: g }: { sheet: TrackerSheet; groupGender: GroupGender }) {
   const today = useToday();
+  const tz = useTimeZone();
   if (!today) return <div className={hl.empty}>…</div>;
 
-  // items exist from her local creation day (not the UTC one)
-  const allItems = withLocalDays(sheet.items);
+  // items exist from the course's day they were created (not the UTC one)
+  const allItems = withLocalDays(sheet.items, tz);
 
   // D8: «لم يُعتمد» shows for a week after the decision, then disappears
   const ownWaiting = allItems.filter(

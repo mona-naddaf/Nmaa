@@ -6,6 +6,7 @@ import hl from "@/components/home-log/home-log.module.css";
 import styles from "@/components/student-work/work.module.css";
 import { ValuePicker, WeekdayPicker } from "@/components/student-work/TrackerControls";
 import { useToday } from "@/lib/calendar/useToday";
+import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { gregorianLabel } from "@/lib/calendar/hijri";
 import { addDays, dayScore, daysLabel, EVERY_DAY, isComplete, TRACKER_LIMITS, weekdayOf, weekDays, WEEKDAY_SHORT, localDayOf, withLocalDays } from "@/lib/tracker/rules";
 import type { GroupTracker, PendingItem, StaffTrackerItem } from "@/lib/tracker/data";
@@ -130,6 +131,7 @@ function useAction() {
 
 function PendingRow({ q }: { q: PendingItem }) {
   const today = useToday();
+  const tz = useTimeZone();
   const [value, setValue] = useState(1);
   const { error, pending, run } = useAction();
   return (
@@ -140,7 +142,7 @@ function PendingRow({ q }: { q: PendingItem }) {
           {q.student.name} · {q.student.groupName}
         </span>
         <span>{daysLabel(q.days)}</span>
-        {today && <span>اقتُرح {gregorianLabel(localDayOf(q.createdAt))}</span>}
+        {today && <span>اقتُرح {gregorianLabel(localDayOf(q.createdAt, tz))}</span>}
       </div>
       <div className={styles.fieldLabel} style={{ marginTop: 10 }}>
         الدرجة عند الاعتماد
@@ -161,12 +163,13 @@ function PendingRow({ q }: { q: PendingItem }) {
 
 function GroupOverview({ data, gender: g }: { data: GroupTracker; gender: GroupGender }) {
   const today = useToday();
+  const tz = useTimeZone();
   const [offset, setOffset] = useState(0);
   if (!today) return <div className={hl.empty}>…</div>;
   if (data.students.length === 0) return <div className={hl.empty}>لا يوجد {pickByGroup(g, { m: "طلاب", f: "طالبات" })} في هذه المجموعة.</div>;
 
   const days = weekDays(addDays(today, offset * 7));
-  const itemsById = new Map(withLocalDays(data.items).map((i) => [i.id, i]));
+  const itemsById = new Map(withLocalDays(data.items, tz).map((i) => [i.id, i]));
 
   return (
     <div>

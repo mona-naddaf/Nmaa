@@ -10,6 +10,7 @@ import { quranFont } from "@/components/mistakes/quran-font";
 import { FlaggableAyah, useWordMenu, type WordFlags } from "@/components/mistakes/FlaggableAyah";
 import type { MistakeType } from "@/lib/students/mistake-types";
 import type { RecitationSubject } from "@/lib/recitation/logic";
+import { ShownDay } from "@/components/shown-day/ShownDay";
 import {
   allTargetsMet,
   EMPTY_COUNTS,
@@ -116,7 +117,9 @@ export function SegmentPractice({
           {segmentTitle(s)}
           {s.assignmentId && <span className={`${styles.badge} ${styles.teacher}`}>📌 واجب</span>}
         </div>
-        <div className={styles.segMeta}>بدأ {s.createdAt}</div>
+        <div className={styles.segMeta}>
+          بدأ <ShownDay value={s.createdAt} />
+        </div>
 
         {done && (
           <div className={styles.celebrate} role="status">

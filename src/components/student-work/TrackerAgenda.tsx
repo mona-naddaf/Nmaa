@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useSyncExternalStore, useTransition } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "./agenda.module.css";
 import work from "./work.module.css";
@@ -21,8 +21,9 @@ import {
   nowKey,
   timeFromInputs,
   timeLabel,
+  cardEnd,
+  timelineScale,
   timelineSegments,
-  timelineY,
   type AgendaTime,
 } from "@/lib/tracker/agenda";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
@@ -44,6 +45,8 @@ const FOLD_PX = 34;
 const TOP_PAD = 12;
 const LABEL_W = 58;
 const BLOCK_MIN_H = 40;
+// the space kept between two cards that follow each other
+const CARD_GAP = 3;
 
 // the minute now, re-read every 30 seconds and when the tab comes back
 function subscribe(onChange: () => void) {
@@ -270,10 +273,54 @@ function Timeline({
   tickButton: (item: TrackerItemView) => React.ReactNode;
   editButton: (item: TrackerItemView) => React.ReactNode;
 }) {
+  // each card's natural height as rendered (title and time in full, at its
+  // lane's width), measured after layout; the scale stretches to fit them
+  const [natural, setNatural] = useState<Record<string, number>>({});
+  const inner = useRef(new Map<string, HTMLDivElement>());
+  const box = useRef<HTMLDivElement>(null);
+  const observer = useRef<ResizeObserver | null>(null);
+  useLayoutEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+    let width = 0;
+    // fires on first layout and whenever a card's content or the timeline's width changes
+    const ro = new ResizeObserver(() => {
+      const w = box.current?.clientWidth ?? 0;
+      // a different width (rotation, resize) re-measures from scratch
+      const widthChanged = width !== 0 && Math.abs(w - width) > 1;
+      width = w;
+      const measured: [string, number][] = [...inner.current].map(([id, el]) => [id, el.offsetHeight + 14 + CARD_GAP]); // + the card's padding and border
+      setNatural((prev) => {
+        const next = widthChanged ? {} : { ...prev };
+        let changed = widthChanged;
+        // heights only ever grow (until the width changes), so this settles
+        for (const [id, need] of measured) {
+          if (need > (next[id] ?? 0) + 0.5) {
+            next[id] = need;
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    });
+    observer.current = ro;
+    if (box.current) ro.observe(box.current);
+    for (const el of inner.current.values()) ro.observe(el);
+    return () => {
+      ro.disconnect();
+      observer.current = null;
+    };
+  }, []);
+
   const segments = timelineSegments(items, nowMin);
   const fromMin = segments[0].fromMin;
   const toMin = segments[segments.length - 1].toMin;
-  const y = (min: number) => TOP_PAD + timelineY(segments, min, PX_PER_MIN, FOLD_PX);
+  const scale = timelineScale(
+    segments,
+    items.map((i) => ({ startMin: i.time.startMin, endMin: cardEnd(i.time), minPx: Math.max(BLOCK_MIN_H + CARD_GAP, natural[i.id] ?? 0) })),
+    PX_PER_MIN,
+    FOLD_PX,
+  );
+  const y = (min: number) => TOP_PAD + scale(min);
   const height = y(toMin) + 10;
   // hour lines only where the timeline is to scale
   const hours: number[] = [];
@@ -284,7 +331,7 @@ function Timeline({
   const lanes = layoutLanes(items);
 
   return (
-    <div className={styles.timeline} style={{ height }}>
+    <div ref={box} className={styles.timeline} style={{ height }}>
       {toMin > DAY_MINUTES && (
         <div className={styles.afterMidnight} style={{ top: y(DAY_MINUTES), height: y(toMin) - y(DAY_MINUTES) + 8 }}>
           <span className={styles.afterMidnightLabel}>بعد منتصف الليل</span>
@@ -303,8 +350,9 @@ function Timeline({
         </div>
       ))}
       {lanes.map(({ item, lane, lanes: n }) => {
+        // exactly its own minutes on the (stretched) scale: cards meet only when their times overlap
         const top = y(item.time.startMin);
-        const h = Math.max(BLOCK_MIN_H, (item.time.durationMin ?? POINT_MINUTES) * PX_PER_MIN - 3);
+        const h = y(cardEnd(item.time)) - top - CARD_GAP;
         const running = nowMin !== null && item.time.startMin <= nowMin && nowMin < endOf(item.time);
         return (
           <div
@@ -317,15 +365,28 @@ function Timeline({
               width: `calc((100% - ${LABEL_W + 6}px) / ${n} - 4px)`,
             }}
           >
-            {tickButton(item)}
-            <div className={styles.blockBody}>
-              <div className={styles.blockTitle}>{item.title}</div>
-              <div className={styles.blockTime}>
-                {timeLabel(item.time)}
-                {item.own && item.status === "PENDING" && " · بانتظار الاعتماد"}
+            <div
+              className={styles.blockInner}
+              ref={(el) => {
+                const old = inner.current.get(item.id);
+                if (old && old !== el) observer.current?.unobserve(old);
+                if (el) {
+                  inner.current.set(item.id, el);
+                  observer.current?.observe(el);
+                } else inner.current.delete(item.id);
+              }}
+            >
+              {tickButton(item)}
+              {/* title and time on one line when they fit, wrapping (never cut) when not */}
+              <div className={styles.blockBody}>
+                <span className={styles.blockTitle}>{item.title}</span>
+                <span className={styles.blockTime}>
+                  {timeLabel(item.time)}
+                  {item.own && item.status === "PENDING" && " · بانتظار الاعتماد"}
+                </span>
+                {editButton(item)}
               </div>
             </div>
-            {editButton(item)}
           </div>
         );
       })}

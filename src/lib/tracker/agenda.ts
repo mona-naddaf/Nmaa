@@ -78,7 +78,8 @@ export function clockLabel(min: number): string {
   const m = ((min % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
   const h = Math.floor(m / 60);
   const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${String(m % 60).padStart(2, "0")} ${h < 12 ? "ص" : "م"}`;
+  // a no-break space keeps «ص/م» with its time when a label wraps
+  return `${h12}:${String(m % 60).padStart(2, "0")} ${h < 12 ? "ص" : "م"}`;
 }
 
 /** "7:30 ص – 8:00 ص", or just the start. */
@@ -269,6 +270,51 @@ export function timelineY(segments: TimelineSegment[], min: number, pxPerMin: nu
     y += h;
   }
   return y;
+}
+
+/** What a card needs on the timeline: its minutes (end = start + duration, or POINT_MINUTES) and its rendered height. */
+export type CardNeed = { startMin: number; endMin: number; minPx: number };
+
+/** The end a card occupies on the timeline. */
+export const cardEnd = (t: AgendaTime) => endOf(t);
+
+/**
+ * The timeline's vertical scale: to scale (pxPerMin) or folded, as
+ * timelineSegments says, but stretched locally wherever a card needs more
+ * room than its minutes give it (a 5-minute item still gets a readable
+ * card). Every card's box is then exactly [y(start), y(end)], so cards only
+ * meet when their times truly overlap (those go side by side), and the
+ * «now» line — placed with the same scale — stays accurate.
+ */
+export function timelineScale(segments: TimelineSegment[], cards: CardNeed[], pxPerMin: number, foldPx: number): (min: number) => number {
+  const from = segments[0].fromMin;
+  const to = segments[segments.length - 1].toMin;
+  const clamp = (m: number) => Math.min(to, Math.max(from, m));
+  const points = [...new Set([...segments.flatMap((s) => [s.fromMin, s.toMin]), ...cards.flatMap((c) => [clamp(c.startMin), clamp(c.endMin)])])].sort((a, b) => a - b);
+  // the pieces between consecutive points, with their height
+  const pieces = points.slice(0, -1).map((p, i) => {
+    const q = points[i + 1];
+    const seg = segments.find((s) => p >= s.fromMin && q <= s.toMin)!;
+    const h = seg.folded ? (foldPx * (q - p)) / (seg.toMin - seg.fromMin) : (q - p) * pxPerMin;
+    return { from: p, to: q, h };
+  });
+  // stretch: a card whose minutes are too short for it grows its own pieces
+  // (only ever growing, so a card already satisfied stays satisfied)
+  for (const c of cards) {
+    const s = clamp(c.startMin);
+    const e = clamp(c.endMin);
+    const inside = pieces.filter((p) => p.from >= s && p.to <= e);
+    const span = inside.reduce((n, p) => n + p.h, 0);
+    if (span > 0 && span < c.minPx) for (const p of inside) p.h *= c.minPx / span;
+  }
+  return (min: number) => {
+    let y = 0;
+    for (const p of pieces) {
+      if (min <= p.to) return y + (p.h * Math.max(0, min - p.from)) / (p.to - p.from || 1);
+      y += p.h;
+    }
+    return y;
+  };
 }
 
 /**

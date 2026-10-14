@@ -116,8 +116,14 @@
   border: 1px solid #cddbd2;
   border-inline-start: 4px solid var(--rose-deep);
   overflow: hidden;
+}
+
+/* the card's content; its natural height is measured to size the scale */
+/* in a narrow lane the text drops under the tick and takes the full width */
+.blockInner {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px 6px;
   align-items: flex-start;
 }
 
@@ -130,9 +136,19 @@
   box-shadow: 0 0 0 2px var(--gold-deep);
 }
 
+/* title and time on one line when they fit; otherwise they wrap, never cut */
 .blockBody {
-  flex: 1;
+  flex: 1 1 76px;
   min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+}
+
+.blockBody .iconBtn {
+  padding: 0 4px;
+  line-height: 1.2;
 }
 
 .blockTitle {
@@ -140,8 +156,7 @@
   font-size: 13.5px;
   line-height: 1.35;
   color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: break-word;
 }
 
 .done .blockTitle {
@@ -151,10 +166,8 @@
 
 .blockTime {
   font-size: 11.5px;
+  line-height: 1.35;
   color: var(--ink-soft);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .nowLine {

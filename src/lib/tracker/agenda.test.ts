@@ -19,6 +19,8 @@ import {
   shiftEnd,
   timelineSegments,
   timelineY,
+  timelineScale,
+  cardEnd,
   type Timed,
 } from "./agenda";
 
@@ -48,11 +50,13 @@ test("times: validation, inputs and labels", () => {
   assert.equal(shiftEnd("05:00", "05:30", "06:00"), "06:30"); // the end follows the start
   assert.equal(shiftEnd("23:30", "00:30", "23:45"), "00:45");
   assert.equal(shiftEnd("05:00", "", "06:00"), "");
-  assert.equal(clockLabel(0), "12:00 ص");
-  assert.equal(clockLabel(450), "7:30 ص");
-  assert.equal(clockLabel(12 * 60 + 5), "12:05 م");
-  assert.equal(clockLabel(1410 + 60), "12:30 ص");
-  assert.equal(timeLabel({ startMin: 1410, durationMin: 60 }), "11:30 م – 12:30 ص");
+  // «ص/م» stay with their time (a no-break space) when a label wraps
+  const nb = (s: string) => s.replace(/ (ص|م)/g, " $1");
+  assert.equal(clockLabel(0), nb("12:00 ص"));
+  assert.equal(clockLabel(450), nb("7:30 ص"));
+  assert.equal(clockLabel(12 * 60 + 5), nb("12:05 م"));
+  assert.equal(clockLabel(1410 + 60), nb("12:30 ص"));
+  assert.equal(timeLabel({ startMin: 1410, durationMin: 60 }), nb("11:30 م – 12:30 ص"));
   assert.equal(minutesLabel(1), "دقيقة");
   assert.equal(minutesLabel(2), "دقيقتان");
   assert.equal(minutesLabel(7), "7 دقائق");
@@ -140,6 +144,60 @@ test("timeline: long empty gaps fold; busy hours and «now» stay to scale", () 
     { id: "b", time: { startMin: 720, durationMin: 60 } },
   ];
   assert.deepEqual(timelineSegments(busy, null), [{ fromMin: 600, toMin: 780, folded: false }]);
+});
+
+test("timeline scale: dense, short and overlapping items never collide; «now» stays accurate", () => {
+  const t = (id: string, s: string, e: string | null): Timed => {
+    const [sh, sm] = s.split(":").map(Number);
+    const start = sh * 60 + sm;
+    if (!e) return { id, time: { startMin: start, durationMin: null } };
+    const [eh, em] = e.split(":").map(Number);
+    return { id, time: { startMin: start, durationMin: eh * 60 + em - start } };
+  };
+  const items: Timed[] = [
+    // the reported case: «استيقاظ» 4:00–4:30 beside «تهجد» 4:00–4:20 then «الوتر» 4:20–4:25
+    t("wake", "04:00", "04:30"),
+    t("tahajjud", "04:00", "04:20"),
+    t("witr", "04:20", "04:25"),
+    // five 5-minute items back to back
+    t("d1", "05:00", "05:05"),
+    t("d2", "05:05", "05:10"),
+    t("d3", "05:10", "05:15"),
+    t("d4", "05:15", "05:20"),
+    t("d5", "05:20", "05:25"),
+    // two items sharing start and end
+    t("s1", "06:00", "06:30"),
+    t("s2", "06:00", "06:30"),
+    // a three-item overlap
+    t("o1", "07:00", "08:00"),
+    t("o2", "07:15", "07:45"),
+    t("o3", "07:30", "08:30"),
+    // a long item and a short one inside it; a point item
+    t("long", "09:00", "11:00"),
+    t("short", "09:30", "09:35"),
+    t("point", "11:00", null),
+  ];
+  const MIN = 46; // a card's rendered height
+  const segs = timelineSegments(items, 9 * 60 + 32);
+  const y = timelineScale(segs, items.map((i) => ({ startMin: i.time.startMin, endMin: cardEnd(i.time), minPx: MIN })), 1.1, 34);
+  const box = (i: Timed) => [y(i.time.startMin), y(cardEnd(i.time))] as const;
+  // every card gets at least its rendered height
+  for (const i of items) assert.ok(box(i)[1] - box(i)[0] >= MIN - 1e-6, `${i.id} too short`);
+  // cards that follow each other in time never overlap on screen
+  for (const a of items) {
+    for (const b of items) {
+      if (a === b || cardEnd(a.time) > b.time.startMin) continue;
+      assert.ok(box(a)[1] <= box(b)[0] + 1e-6, `${a.id} covers ${b.id}`);
+    }
+  }
+  // the scale only grows with time
+  for (let m = segs[0].fromMin; m < segs[segs.length - 1].toMin; m++) assert.ok(y(m + 1) >= y(m));
+  // «now» (9:32, inside «short» 9:30–9:35): exactly at its share of that card
+  const [s0, s1] = box(items.find((i) => i.id === "short")!);
+  assert.ok(Math.abs(y(9 * 60 + 32) - (s0 + ((s1 - s0) * 2) / 5)) < 1e-6);
+  // and the truly overlapping ones still overlap (they go side by side)
+  const lanes = Object.fromEntries(layoutLanes(items).map((l) => [l.item.id, l.lanes]));
+  assert.deepEqual([lanes.wake, lanes.tahajjud, lanes.witr, lanes.s1, lanes.o1, lanes.d1], [2, 2, 2, 2, 3, 1]);
 });
 
 test("order: personal first, then template order, then creation; moves and validation", () => {

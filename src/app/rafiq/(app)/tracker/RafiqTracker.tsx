@@ -12,11 +12,13 @@ import { daysLabel, EVERY_DAY, TRACKER_LIMITS } from "@/lib/tracker/rules";
 import type { RafiqTrackerData } from "@/lib/rafiq/tracker";
 import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
-import { addItemAction, removeItemAction, reorderItemsAction, setCheckAction, setItemTimeAction, updateItemAction } from "./actions";
+import { addItemAction, removeItemAction, reorderItemsAction, setCheckAction, setItemScheduleAction, updateItemAction } from "./actions";
 import { TrackerAgenda } from "@/components/student-work/TrackerAgenda";
 import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
 import agendaStyles from "@/components/student-work/agenda.module.css";
-import { timeLabel, type AgendaTime } from "@/lib/tracker/agenda";
+import { scheduleLabel, type SlotRow } from "@/lib/tracker/schedule";
+import type { ScheduleInput } from "@/components/student-work/ScheduleEditor";
+import type { PrayerLocation } from "@/lib/prayer/times";
 import { publishTemplateAction } from "../templates/actions";
 import { TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 
@@ -33,12 +35,15 @@ export function RafiqTracker({
   g,
   agenda = false,
   summary = false,
+  place = null,
 }: {
   data: RafiqTrackerData;
   g: GroupGender;
   agenda?: boolean;
   // «المحصّلات» (her setting): a link to her summaries
   summary?: boolean;
+  // her place for prayer times (null: anchors unavailable)
+  place?: PrayerLocation | null;
 }) {
   const today = useToday();
   const router = useRouter();
@@ -96,7 +101,8 @@ export function RafiqTracker({
               groupGender={g}
               course={false}
               onTick={setCheckAction}
-              onTime={(id, choice) => setItemTimeAction(id, choice === "STAFF" ? null : choice)}
+              onSchedule={setItemScheduleAction}
+              place={place}
               onReorder={reorderItemsAction}
             />
           )}
@@ -117,6 +123,7 @@ export function RafiqTracker({
         <ItemForm
           submitLabel="إضافة البند"
           agenda={agenda}
+          place={place}
           pending={pending}
           onCancel={() => setAdding(false)}
           onSubmit={(fields) => run(() => addItemAction(fields), () => setAdding(false))}
@@ -130,7 +137,7 @@ export function RafiqTracker({
       {data.active.length > 0 && (
         <div className={hl.section}>
           {data.active.map((item) => (
-            <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} />
+            <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} />
           ))}
         </div>
       )}
@@ -225,20 +232,22 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
   );
 }
 
-type ItemFields = { title: string; value: number; days: number; time?: AgendaTime | null };
+type ItemFields = { title: string; value: number; days: number; schedule?: ScheduleInput };
 
 function ItemForm({
-  initial = { title: "", value: 1, days: EVERY_DAY, time: null },
+  initial = { title: "", value: 1, days: EVERY_DAY, slots: [] },
   submitLabel,
   agenda = false,
+  place = null,
   pending,
   onSubmit,
   onCancel,
 }: {
-  initial?: { title: string; value: number; days: number; time: AgendaTime | null };
+  initial?: { title: string; value: number; days: number; slots: SlotRow[] };
   submitLabel: string;
-  // «الجدول اليومي» on: the item's time too
+  // «الجدول اليومي» on: the item's schedule too
   agenda?: boolean;
+  place?: PrayerLocation | null;
   pending: boolean;
   onSubmit: (fields: ItemFields) => void;
   onCancel: () => void;
@@ -246,7 +255,7 @@ function ItemForm({
   const [title, setTitle] = useState(initial.title);
   const [value, setValue] = useState(initial.value);
   const [days, setDays] = useState(initial.days);
-  const time = useTimeFields(initial.time);
+  const time = useTimeFields(initial.slots);
   const [problem, setProblem] = useState<string | null>(null);
   return (
     <form
@@ -257,7 +266,7 @@ function ItemForm({
         const t = time.read();
         if ("error" in t) return setProblem(t.error);
         setProblem(null);
-        onSubmit({ title, value, days, time: t.time });
+        onSubmit({ title, value, days, schedule: t.schedule });
       }}
     >
       <div className={styles.field}>
@@ -280,7 +289,7 @@ function ItemForm({
         <span className={styles.fieldLabel}>الأيام</span>
         <WeekdayPicker days={days} onChange={setDays} />
       </div>
-      {agenda && <TimeFields fields={time} />}
+      {agenda && <TimeFields fields={time} days={days} place={place} />}
       {problem && <div className={hl.err}>{problem}</div>}
       <div className={hl.actionsRow}>
         <button type="submit" className={hl.primaryBtn} disabled={pending}>
@@ -294,13 +303,14 @@ function ItemForm({
   );
 }
 
-function ItemRow({ item, run, pending, agenda }: { item: Item; run: Run; pending: boolean; agenda: boolean }) {
+function ItemRow({ item, run, pending, agenda, place }: { item: Item; run: Run; pending: boolean; agenda: boolean; place: PrayerLocation | null }) {
   const [mode, setMode] = useState<"view" | "edit" | "remove">("view");
   if (mode === "edit") {
     return (
       <ItemForm
         initial={item}
         agenda={agenda}
+        place={place}
         submitLabel="حفظ"
         pending={pending}
         onCancel={() => setMode("view")}
@@ -314,7 +324,7 @@ function ItemRow({ item, run, pending, agenda }: { item: Item; run: Run; pending
       <div className={styles.meta}>
         <span className={styles.tag}>{marksLabel(item.value)}</span>
         <span>{daysLabel(item.days)}</span>
-        {agenda && <span className={agendaStyles.timeChip}>{item.time ? timeLabel(item.time) : "بلا وقت"}</span>}
+        {agenda && <span className={agendaStyles.timeChip}>{scheduleLabel(item.slots)}</span>}
       </div>
       <div className={styles.cardActions}>
         {mode === "view" ? (

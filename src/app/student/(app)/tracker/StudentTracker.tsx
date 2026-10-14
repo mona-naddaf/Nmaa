@@ -14,11 +14,12 @@ import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { TrackerAgenda } from "@/components/student-work/TrackerAgenda";
 import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
+import type { PrayerLocation } from "@/lib/prayer/times";
 import {
   addOwnTrackerItemAction,
   deleteOwnTrackerItemAction,
   renameOwnTrackerItemAction,
-  setMyItemTimeAction,
+  setMyItemScheduleAction,
   setMyOrderAction,
   setTrackerCheckAction,
 } from "./actions";
@@ -28,12 +29,15 @@ export function StudentTracker({
   groupGender: g,
   agenda = false,
   summary = false,
+  place = null,
 }: {
   sheet: TrackerSheet;
   groupGender: GroupGender;
   agenda?: boolean;
   // «المحصّلات» (course setting): a link to her summaries
   summary?: boolean;
+  // the course's place for prayer times (null: anchors unavailable)
+  place?: PrayerLocation | null;
 }) {
   const today = useToday();
   const tz = useTimeZone();
@@ -69,7 +73,8 @@ export function StudentTracker({
           groupGender={g}
           course
           onTick={setTrackerCheckAction}
-          onTime={setMyItemTimeAction}
+          onSchedule={setMyItemScheduleAction}
+          place={place}
           onReorder={setMyOrderAction}
           onRemoveOwn={deleteOwnTrackerItemAction}
         />
@@ -77,16 +82,16 @@ export function StudentTracker({
 
       <TrackerDaySheet sheet={sheet} groupGender={g} today={today} onTick={setTrackerCheckAction} />
 
-      <OwnItems items={ownWaiting} g={g} agenda={agenda} />
+      <OwnItems items={ownWaiting} g={g} agenda={agenda} place={place} />
     </div>
   );
 }
 
-function OwnItems({ items, g, agenda }: { items: TrackerItemView[]; g: GroupGender; agenda: boolean }) {
+function OwnItems({ items, g, agenda, place }: { items: TrackerItemView[]; g: GroupGender; agenda: boolean; place: PrayerLocation | null }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [days, setDays] = useState(EVERY_DAY);
-  const time = useTimeFields(null);
+  const time = useTimeFields([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
@@ -115,10 +120,10 @@ function OwnItems({ items, g, agenda }: { items: TrackerItemView[]; g: GroupGend
           className={hl.section}
           onSubmit={(e) => {
             e.preventDefault();
-            const t = agenda ? time.read() : { time: undefined };
+            const t = agenda ? time.read() : { schedule: undefined };
             if ("error" in t) return setError(t.error);
             run(
-              () => addOwnTrackerItemAction({ title, days, ...(agenda ? { time: t.time } : {}) }),
+              () => addOwnTrackerItemAction({ title, days, ...(agenda ? { schedule: t.schedule } : {}) }),
               () => {
                 setAdding(false);
                 setTitle("");
@@ -144,7 +149,7 @@ function OwnItems({ items, g, agenda }: { items: TrackerItemView[]; g: GroupGend
             <span className={styles.fieldLabel}>الأيام</span>
             <WeekdayPicker days={days} onChange={setDays} />
           </div>
-          {agenda && <TimeFields fields={time} />}
+          {agenda && <TimeFields fields={time} days={days} place={place} />}
           <div className={styles.hint} style={{ marginBottom: 8 }}>
             {p("يعتمده المعلم ويحدّد درجته، ويمكنك تعليمه قبل ذلك لكنه لا يُحتسب حتى يُعتمد.", "تعتمده المعلمة وتحدّد درجته، ويمكنكِ تعليمه قبل ذلك لكنه لا يُحتسب حتى يُعتمد.")}
           </div>

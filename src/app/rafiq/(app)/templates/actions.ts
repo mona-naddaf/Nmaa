@@ -39,12 +39,27 @@ export async function publishTemplateAction(input: { title: string; description:
     await prisma.rafiqTrackerItem.findMany({
       where: { id: { in: ids }, userId: user.id, archivedAt: null },
       orderBy: { createdAt: "asc" },
-      select: { title: true, value: true, days: true, sortOrder: true, slots: { where: { weekdays: 127 }, select: { startMin: true, durationMin: true } } },
+      // the every-day timing (a clock time or a prayer anchor) travels with the item
+      select: {
+        title: true,
+        value: true,
+        days: true,
+        sortOrder: true,
+        slots: { where: { weekdays: 127 }, select: { startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true } },
+      },
     })
   )
     // in her order (unplaced items last), as her tracker shows them
     .sort((a, b) => placeOf(a.sortOrder) - placeOf(b.sortOrder))
-    .map((it) => ({ title: it.title, value: it.value, days: it.days, startMin: it.slots[0]?.startMin ?? null, durationMin: it.slots[0]?.durationMin ?? null }));
+    .map((it) => ({
+      title: it.title,
+      value: it.value,
+      days: it.days,
+      startMin: it.slots[0]?.startMin ?? null,
+      durationMin: it.slots[0]?.durationMin ?? null,
+      anchor: it.slots[0]?.anchor ?? null,
+      anchorOffsetMin: it.slots[0]?.anchorOffsetMin ?? null,
+    }));
   if (items.length !== ids.length) return { error: "بعض البنود المختارة لم تعد موجودة — يُرجى تحديث الصفحة" };
 
   const [today, total] = await Promise.all([
@@ -73,7 +88,7 @@ export async function applyTemplateAction(templateId: string): Promise<BankResul
   if (!user) return SIGNED_OUT;
   const template = await prisma.trackerTemplate.findFirst({
     where: { id: String(templateId ?? ""), OR: [{ hiddenAt: null }, { createdByRafiqId: user.id }] },
-    select: { id: true, items: { orderBy: { sortOrder: "asc" }, select: { title: true, value: true, days: true, startMin: true, durationMin: true } } },
+    select: { id: true, items: { orderBy: { sortOrder: "asc" }, select: { title: true, value: true, days: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true } } },
   });
   if (!template) return NOT_FOUND;
   const active = await prisma.rafiqTrackerItem.count({ where: { userId: user.id, archivedAt: null } });
@@ -86,14 +101,17 @@ export async function applyTemplateAction(templateId: string): Promise<BankResul
   // after her own items, in the template's order, each with its time if it had one
   const first = await nextRafiqSortOrder(user.id);
   await prisma.$transaction([
-    ...template.items.map(({ startMin, durationMin, ...it }, i) =>
+    // a prayer anchor is kept as is: it's placed with her own city (or waits for one)
+    ...template.items.map(({ startMin, durationMin, anchor, anchorOffsetMin, ...it }, i) =>
       prisma.rafiqTrackerItem.create({
         data: {
           userId: user.id,
           ...it,
           // her own order continues (or, never reordered, creation order: 0)
           sortOrder: first > 0 ? first + i : 0,
-          ...(startMin !== null ? { slots: { create: { userId: user.id, weekdays: 127, startMin, durationMin } } } : {}),
+          ...(startMin !== null || anchor !== null
+            ? { slots: { create: { userId: user.id, weekdays: 127, startMin: anchor ? null : startMin, durationMin, anchor, anchorOffsetMin: anchor ? (anchorOffsetMin ?? 0) : null } } }
+            : {}),
         },
       }),
     ),

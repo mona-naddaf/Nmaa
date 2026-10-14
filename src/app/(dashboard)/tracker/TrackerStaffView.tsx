@@ -22,7 +22,8 @@ import {
 import { OrderList } from "@/components/student-work/OrderList";
 import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
 import agendaStyles from "@/components/student-work/agenda.module.css";
-import { timeLabel } from "@/lib/tracker/agenda";
+import { scheduleLabel } from "@/lib/tracker/schedule";
+import type { PrayerLocation } from "@/lib/prayer/times";
 
 export interface TrackerGroup {
   id: string;
@@ -39,6 +40,7 @@ export function TrackerStaffView({
   items,
   students,
   agenda = false,
+  place = null,
 }: {
   groups: TrackerGroup[];
   group: TrackerGroup;
@@ -48,6 +50,8 @@ export function TrackerStaffView({
   students: { id: string; name: string }[];
   // «الجدول اليومي» (course setting): items' times and the group's order
   agenda?: boolean;
+  // the course's place for prayer times (null: anchors unavailable)
+  place?: PrayerLocation | null;
 }) {
   const [adding, setAdding] = useState(false);
   const [ordering, setOrdering] = useState(false);
@@ -110,19 +114,19 @@ export function TrackerStaffView({
       {ordering && (
         <OrderList
           hint={`${p("اسحب", "اسحبي")} البند من المقبض ⠿ أو ${p("استخدم", "استخدمي")} السهمين ▲ ▼، ثم ${p("احفظ", "احفظي")} الترتيب. هذا ترتيب المجموعة، ${p("ويستطيع كل طالب", "وتستطيع كل طالبة")} ترتيب جدوله لنفسه.`}
-          entries={active.map((i) => ({ id: i.id, title: i.title, note: i.time ? timeLabel(i.time) : "بلا وقت" }))}
+          entries={active.map((i) => ({ id: i.id, title: i.title, note: scheduleLabel(i.slots) }))}
           pending={order.pending}
           error={order.error}
           onCancel={() => setOrdering(false)}
           onSave={(ids) => order.run(() => reorderTrackerItemsAction(group.id, ids), () => setOrdering(false))}
         />
       )}
-      {adding && <NewItem group={group} students={students} agenda={agenda} onDone={() => setAdding(false)} />}
+      {adding && <NewItem group={group} students={students} agenda={agenda} place={place} onDone={() => setAdding(false)} />}
       <div className={hl.section}>
         {active.length === 0 ? (
           <div className={hl.empty}>لا توجد بنود بعد — {p("أضف", "أضيفي")} بندًا مثل «الورد اليومي» أو «أذكار الصباح».</div>
         ) : (
-          active.map((item) => <ItemRow key={item.id} item={item} gender={g} agenda={agenda} />)
+          active.map((item) => <ItemRow key={item.id} item={item} gender={g} agenda={agenda} place={place} />)
         )}
       </div>
 
@@ -133,7 +137,7 @@ export function TrackerStaffView({
           </summary>
           <div className={hl.section}>
             {archived.map((item) => (
-              <ItemRow key={item.id} item={item} gender={g} agenda={agenda} />
+              <ItemRow key={item.id} item={item} gender={g} agenda={agenda} place={place} />
             ))}
           </div>
         </details>
@@ -263,11 +267,13 @@ function NewItem({
   group,
   students,
   agenda,
+  place,
   onDone,
 }: {
   group: TrackerGroup;
   students: { id: string; name: string }[];
   agenda: boolean;
+  place: PrayerLocation | null;
   onDone: () => void;
 }) {
   const [title, setTitle] = useState("");
@@ -276,19 +282,19 @@ function NewItem({
   const [kind, setKind] = useState<"GROUP" | "STUDENTS">("GROUP");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const { error, pending, run } = useAction();
-  const time = useTimeFields(null);
+  const time = useTimeFields([]);
   const [problem, setProblem] = useState<string | null>(null);
   const p = (m: string, f: string) => pickByGroup(group.gender, { m, f });
 
   function save(e: React.FormEvent) {
     e.preventDefault();
-    const t = agenda ? time.read() : { time: undefined };
+    const t = agenda ? time.read() : { schedule: undefined };
     if ("error" in t) return setProblem(t.error);
     setProblem(null);
     run(
       () =>
         createTrackerItemAction(
-          { title, value, days, ...(agenda ? { time: t.time } : {}) },
+          { title, value, days, ...(agenda ? { schedule: t.schedule } : {}) },
           kind === "GROUP" ? { kind: "GROUP", groupId: group.id } : { kind: "STUDENTS", studentIds: [...picked] },
         ),
       onDone,
@@ -355,7 +361,7 @@ function NewItem({
           <div className={styles.hint}>المختار: {picked.size}</div>
         </div>
       )}
-      {agenda && <TimeFields fields={time} />}
+      {agenda && <TimeFields fields={time} days={days} place={place} />}
       {(problem || error) && <div className={hl.err}>{problem ?? error}</div>}
       <div className={hl.actionsRow}>
         <button type="submit" className={hl.primaryBtn} disabled={pending}>
@@ -369,20 +375,20 @@ function NewItem({
   );
 }
 
-function ItemRow({ item, gender: g, agenda }: { item: StaffTrackerItem; gender: GroupGender; agenda: boolean }) {
+function ItemRow({ item, gender: g, agenda, place }: { item: StaffTrackerItem; gender: GroupGender; agenda: boolean; place: PrayerLocation | null }) {
   const [mode, setMode] = useState<"view" | "edit" | "archive">("view");
   const [title, setTitle] = useState(item.title);
   const [value, setValue] = useState(item.value ?? 1);
   const [days, setDays] = useState(item.days);
-  const time = useTimeFields(item.time);
+  const time = useTimeFields(item.slots);
   const [problem, setProblem] = useState<string | null>(null);
   const { error, pending, run } = useAction();
 
   function saveEdit() {
-    const t = agenda ? time.read() : { time: undefined };
+    const t = agenda ? time.read() : { schedule: undefined };
     if ("error" in t) return setProblem(t.error);
     setProblem(null);
-    run(() => updateTrackerItemAction(item.id, { title, value, days, ...(agenda ? { time: t.time } : {}) }), () => setMode("view"));
+    run(() => updateTrackerItemAction(item.id, { title, value, days, ...(agenda ? { schedule: t.schedule } : {}) }), () => setMode("view"));
   }
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
 
@@ -401,7 +407,7 @@ function ItemRow({ item, gender: g, agenda }: { item: StaffTrackerItem; gender: 
             <span>{daysLabel(item.days)}</span>
             <span>{target}</span>
             {item.target.kind !== "OWN" && <span>أنشأه: {item.creatorName ?? "الإشراف"}</span>}
-            {agenda && !item.archived && <span className={agendaStyles.timeChip}>{item.time ? timeLabel(item.time) : "بلا وقت"}</span>}
+            {agenda && !item.archived && <span className={agendaStyles.timeChip}>{scheduleLabel(item.slots)}</span>}
             {item.archived && <span className={`${styles.tag} ${styles.grey}`}>مؤرشف</span>}
           </div>
         </div>
@@ -421,7 +427,7 @@ function ItemRow({ item, gender: g, agenda }: { item: StaffTrackerItem; gender: 
             <span className={styles.fieldLabel}>الأيام</span>
             <WeekdayPicker days={days} onChange={setDays} />
           </div>
-          {agenda && <TimeFields fields={time} />}
+          {agenda && <TimeFields fields={time} days={days} place={place} />}
           <div className={styles.hint}>
             تُحسب الدرجات دائمًا بالقيم الحالية للبند، بما فيها الأيام السابقة.
             {agenda && ` ويستطيع ${p("كل طالب", "كل طالبة")} تغيير الوقت لنفسه.`}

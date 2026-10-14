@@ -4,7 +4,8 @@ import type { Prisma } from "@prisma/client";
 import { inScope, ownsRecord, type StaffScope } from "@/lib/staff-scope";
 import type { GroupGender } from "@/lib/text/gender";
 import { addDays, TRACKER_LIMITS, type ScoredItem } from "./rules";
-import { byAgendaOrder, placeOf, type AgendaTime } from "./agenda";
+import { byAgendaOrder, placeOf } from "./agenda";
+import type { SlotRow } from "./schedule";
 import { courseTimeZone } from "@/lib/time/course-zone";
 import { zoneDayOf, zoneToday } from "@/lib/time/zone";
 
@@ -28,11 +29,10 @@ export interface TrackerItemView extends ScoredItem {
   sortOrder: number;
   // her personal place in the order, if she set one
   position?: number | null;
-  // the time she sees: her own if she set one, else staff's; null = «بلا وقت»
-  time?: AgendaTime | null;
-  // staff's time for the item (course items only), and whether hers replaces it
-  staffTime?: AgendaTime | null;
-  ownTime?: boolean;
+  // its timing rows (schedule.ts): staff's (course) or hers («رفيق الحفظ»)
+  slots?: SlotRow[];
+  // a course student's own rows for it, which come first on their days
+  ownSlots?: SlotRow[];
 }
 
 export interface TrackerSheet {
@@ -81,28 +81,29 @@ const toView = (r: ItemRow, studentId: string | null, tz: string): TrackerItemVi
   sortOrder: r.sortOrder,
 });
 
-const timeOf = (slot: { startMin: number | null; durationMin: number | null } | undefined): AgendaTime | null =>
-  slot && slot.startMin !== null ? { startMin: slot.startMin, durationMin: slot.durationMin } : null;
+const ROW = { weekdays: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true } as const;
 
-/** Each item's time for this student (hers, else staff's) and her order, in her order. */
+/** Rows grouped by item, every-day row first. */
+function byItem(rows: (SlotRow & { itemId: string })[]): Map<string, SlotRow[]> {
+  const out = new Map<string, SlotRow[]>();
+  for (const { itemId, ...r } of rows) out.set(itemId, [...(out.get(itemId) ?? []), r]);
+  for (const list of out.values()) list.sort((a, b) => (b.weekdays === 127 ? 1 : 0) - (a.weekdays === 127 ? 1 : 0) || a.weekdays - b.weekdays);
+  return out;
+}
+
+/** Each item's timing rows (staff's and hers) and her order, in her order. */
 async function withAgenda(items: TrackerItemView[], studentId: string): Promise<TrackerItemView[]> {
   if (items.length === 0) return items;
   const ids = items.map((i) => i.id);
   const [staffSlots, ownSlots, order] = await Promise.all([
-    prisma.trackerSlot.findMany({ where: { itemId: { in: ids }, weekdays: 127 }, select: { itemId: true, startMin: true, durationMin: true } }),
-    prisma.trackerStudentSlot.findMany({ where: { studentId, itemId: { in: ids }, weekdays: 127 }, select: { itemId: true, startMin: true, durationMin: true } }),
+    prisma.trackerSlot.findMany({ where: { itemId: { in: ids } }, select: { itemId: true, ...ROW } }),
+    prisma.trackerStudentSlot.findMany({ where: { studentId, itemId: { in: ids } }, select: { itemId: true, ...ROW } }),
     prisma.trackerStudentOrder.findMany({ where: { studentId, itemId: { in: ids } }, select: { itemId: true, position: true } }),
   ]);
-  const staff = new Map(staffSlots.map((s) => [s.itemId, s]));
-  const own = new Map(ownSlots.map((s) => [s.itemId, s]));
+  const staff = byItem(staffSlots);
+  const own = byItem(ownSlots);
   const pos = new Map(order.map((o) => [o.itemId, o.position]));
-  return byAgendaOrder(
-    items.map((i) => {
-      const staffTime = timeOf(staff.get(i.id));
-      const ownTime = own.has(i.id);
-      return { ...i, position: pos.get(i.id) ?? null, staffTime, ownTime, time: ownTime ? timeOf(own.get(i.id)) : staffTime };
-    }),
-  );
+  return byAgendaOrder(items.map((i) => ({ ...i, position: pos.get(i.id) ?? null, slots: staff.get(i.id) ?? [], ownSlots: own.get(i.id) ?? [] })));
 }
 
 /** Items that matter inside the window: not archived before it; rejected only while still shown (D8). */
@@ -208,8 +209,8 @@ export interface StaffTrackerItem {
   canEdit: boolean;
   archived: boolean;
   createdDay: string;
-  // «الجدول اليومي»: staff's time for it (null = «بلا وقت») and its place in staff's order
-  time: AgendaTime | null;
+  // «الجدول اليومي»: staff's timing rows (schedule.ts) and its place in staff's order
+  slots: SlotRow[];
   sortOrder: number;
 }
 
@@ -230,7 +231,7 @@ const staffSelect = {
     select: { student: { select: { id: true, name: true, groupId: true } } },
   },
   sortOrder: true,
-  slots: { where: { weekdays: 127 }, select: { startMin: true, durationMin: true } },
+  slots: { select: { weekdays: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true }, orderBy: { weekdays: "desc" } },
 } as const;
 
 type StaffRow = Prisma.TrackerItemGetPayload<{ select: typeof staffSelect }>;
@@ -261,7 +262,7 @@ function toStaff(scope: StaffScope, r: StaffRow, tz: string): StaffTrackerItem {
     canEdit,
     archived: r.archivedAt !== null,
     createdDay: zoneDayOf(tz, r.createdAt),
-    time: timeOf(r.slots[0]),
+    slots: r.slots,
     sortOrder: r.sortOrder,
   };
 }

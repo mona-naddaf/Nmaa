@@ -14,8 +14,9 @@ import {
   ownsRecord,
   type StaffScope,
 } from "@/lib/staff-scope";
-import { setStaffItemTime, setStaffOrder } from "@/lib/tracker/agenda-data";
-import { validateTime, type AgendaTime } from "@/lib/tracker/agenda";
+import { setStaffItemSchedule, setStaffOrder, type ScheduleChoice } from "@/lib/tracker/agenda-data";
+import { validateSchedule } from "@/lib/tracker/schedule";
+import { coursePlace } from "@/lib/prayer/place-data";
 
 // Staff side of the daily tracker. Every action re-checks: the feature is
 // on, the group / every picked student is within her groups, and who may
@@ -23,8 +24,8 @@ import { validateTime, type AgendaTime } from "@/lib/tracker/agenda";
 // item, any staff member over her group (D9). D7 limits are enforced here.
 // Items are archived, never deleted (D6: they stop counting from that day).
 
-// time: «الجدول اليومي» only (ignored while it's off); null = «بلا وقت»
-export type TrackerItemInput = { title: string; value: number; days: number; time?: AgendaTime | null };
+// schedule: «الجدول اليومي» only (ignored while it's off): [{ weekdays, timing }] (lib/tracker/schedule.ts)
+export type TrackerItemInput = { title: string; value: number; days: number; schedule?: ScheduleChoice };
 export type TrackerTargetInput = { kind: "GROUP"; groupId: string } | { kind: "STUDENTS"; studentIds: string[] };
 export type TrackerResult = { error?: string };
 
@@ -34,12 +35,11 @@ const BAD_VALUE = { error: `يُرجى اختيار درجة من ${TRACKER_LIMI
 const BAD_DAYS = { error: "يُرجى اختيار يوم واحد على الأقل" };
 const BAD_TIME = { error: "الوقت غير صحيح" };
 
-/** The submitted time while «الجدول اليومي» is on: undefined = leave as is, null = «بلا وقت». */
-function readTime(scope: StaffScope, input: Partial<TrackerItemInput> | null | undefined): { time?: AgendaTime | null } | { error: string } {
-  if (!scope.trackerAgendaEnabled || input?.time === undefined) return {};
-  if (input.time === null) return { time: null };
-  const time = validateTime(input.time);
-  return time ? { time } : BAD_TIME;
+/** The submitted schedule while «الجدول اليومي» is on (undefined = leave as is), checked before anything is saved. */
+async function readSchedule(scope: StaffScope, input: Partial<TrackerItemInput> | null | undefined): Promise<{ schedule?: unknown; anchors: boolean } | { error: string }> {
+  if (!scope.trackerAgendaEnabled || !Array.isArray(input?.schedule)) return { anchors: false };
+  const anchors = (await coursePlace(scope.courseId)) !== null;
+  return validateSchedule(input.schedule, anchors) ? { schedule: input.schedule, anchors } : BAD_TIME;
 }
 
 function refresh() {
@@ -64,7 +64,7 @@ export async function createTrackerItemAction(input: TrackerItemInput, target: T
   if (!scope) return { error: FEATURE_OFF.tracker };
   const fields = checkFields(input);
   if ("error" in fields) return { error: fields.error };
-  const timed = readTime(scope, input);
+  const timed = await readSchedule(scope, input);
   if ("error" in timed) return { error: timed.error };
   let created: { id: string };
 
@@ -102,7 +102,7 @@ export async function createTrackerItemAction(input: TrackerItemInput, target: T
   } else {
     return { error: "يُرجى اختيار لمن البند" };
   }
-  if (timed.time) await setStaffItemTime(created.id, timed.time);
+  if (timed.schedule) await setStaffItemSchedule(created.id, timed.schedule, timed.anchors);
   refresh();
   return {};
 }
@@ -136,10 +136,10 @@ export async function updateTrackerItemAction(id: string, input: TrackerItemInpu
   if (found.item.status !== "APPROVED") return { error: "يُرجى اعتماد البند أولًا" };
   const fields = checkFields(input);
   if ("error" in fields) return { error: fields.error };
-  const timed = readTime(scope, input);
+  const timed = await readSchedule(scope, input);
   if ("error" in timed) return { error: timed.error };
   await prisma.trackerItem.update({ where: { id: found.item.id }, data: fields });
-  if (timed.time !== undefined) await setStaffItemTime(found.item.id, timed.time);
+  if (timed.schedule) await setStaffItemSchedule(found.item.id, timed.schedule, timed.anchors);
   refresh();
   return {};
 }

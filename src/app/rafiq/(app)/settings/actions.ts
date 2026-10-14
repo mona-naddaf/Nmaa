@@ -10,6 +10,8 @@ import { limited, record, TOO_MANY } from "@/lib/rafiq/limits";
 import { cleanName, DELETE_CONFIRM_WORD, parseGender, passwordProblem } from "@/lib/rafiq/rules";
 import { validateDays } from "@/lib/tracker/rules";
 import { acceptLocalDay } from "@/lib/home-log/rules";
+import { validateLocation } from "@/lib/prayer/times";
+import { placeColumns } from "@/lib/prayer/location";
 
 // Her own account settings. Every action re-checks her session; anything
 // that changes the password, the recovery رمز or deletes the account first
@@ -108,6 +110,17 @@ export async function setReviewRemindersAction(_prev: SettingsState, formData: F
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { reviewReminderDays: on ? days : null } });
   revalidatePath("/rafiq", "layout");
   return { ok: on ? "تم تفعيل تذكير المراجعة ✓" : "تم إيقاف تذكير المراجعة ✓" };
+}
+
+/** «مواقيت الصلاة»: her place (a city or a custom place), or null to remove it. */
+export async function setPlaceAction(input: unknown): Promise<{ error?: string }> {
+  const user = await getRafiqUser();
+  if (!user) return { error: "انتهت الجلسة، يُرجى تسجيل الدخول مرة أخرى" };
+  const loc = input === null ? null : validateLocation(input);
+  if (input !== null && !loc) return { error: "يُرجى اختيار مدينة صحيحة أو إدخال إحداثيات صحيحة" };
+  await prisma.rafiqUser.update({ where: { id: user.id }, data: placeColumns(loc) });
+  revalidatePath("/rafiq", "layout");
+  return {};
 }
 
 /** «المحصّلات» of her tracker: on or off (off by default). */

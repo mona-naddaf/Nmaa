@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "@/components/student-work/work.module.css";
 import { daysLabel } from "@/lib/tracker/rules";
-import { timeLabel } from "@/lib/tracker/agenda";
+import { rowTiming, timingLabel } from "@/lib/tracker/schedule";
 import { itemsAfterNoun, TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 import type { TemplateCard } from "@/lib/rafiq/templates";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
@@ -99,7 +99,8 @@ function Card({ c, p }: { c: TemplateCard; p: (m: string, f: string) => string }
         <ul style={{ margin: "8px 0", paddingInlineStart: 18, fontSize: 13.5, lineHeight: 1.9 }}>
           {c.items.map((it, i) => (
             <li key={i}>
-              {it.title} — <span className={hl.muted}>{marks(it.value)} · {daysLabel(it.days)}{it.startMin != null && ` · ${timeLabel({ startMin: it.startMin, durationMin: it.durationMin ?? null })}`}</span>
+              {it.title} — <span className={hl.muted}>{marks(it.value)} · {daysLabel(it.days)}{(it.startMin != null || it.anchor) &&
+                  ` · ${timingLabel(rowTiming({ weekdays: 127, startMin: it.startMin ?? null, durationMin: it.durationMin ?? null, anchor: it.anchor ?? null, anchorOffsetMin: it.anchorOffsetMin ?? null }))}`}</span>
             </li>
           ))}
         </ul>

@@ -7,35 +7,39 @@ import work from "./work.module.css";
 import { OrderList } from "./OrderList";
 import type { TickInput } from "./TrackerDaySheet";
 import { useTimeZone } from "@/lib/time/TimeZoneProvider";
-import { addDays, shownOn, withLocalDays } from "@/lib/tracker/rules";
+import { ScheduleEditor, type ScheduleInput } from "./ScheduleEditor";
+import { addDays, shownOn, weekdayOf, withLocalDays } from "@/lib/tracker/rules";
 import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
 import {
   DAY_MINUTES,
   POINT_MINUTES,
   clockLabel,
-  clockValue,
-  shiftEnd,
   layoutLanes,
   minutesLabel,
   nowAndNext,
   nowKey,
-  timeFromInputs,
-  timeLabel,
   cardEnd,
   timelineScale,
   timelineSegments,
   type AgendaTime,
 } from "@/lib/tracker/agenda";
+import { effectiveTiming, resolveTiming, scheduleLabel, timingLabelOn, type SlotRow, type Timing } from "@/lib/tracker/schedule";
+import { PRAYERS, PRAYER_NAME, prayerMinutes, type Prayer, type PrayerLocation } from "@/lib/prayer/times";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 
 // «الجدول اليومي»: the «الآن» card, today's timeline (a moving «now» line;
-// overlapping items side by side; past midnight in a lighter shade), the
-// items «بلا وقت», editing an item's time, and reordering. Shared by the
-// course student (course time zone, TimeZoneProvider) and «رفيق الحفظ» (her
-// browser's day). Ticking is the same as the day sheet: onTick, today only.
+// overlapping items side by side; past midnight in a lighter shade; the
+// day's prayer times as thin markers), the items «بلا وقت», editing an
+// item's schedule (clock times or prayer anchors, per weekday), and
+// reordering. Shared by the course student (course time zone,
+// TimeZoneProvider) and «رفيق الحفظ» (her browser's day). Ticking is the
+// same as the day sheet: onTick, today only.
 
-/** "STAFF" = back to staff's time (course students only). */
-export type TimeChoice = AgendaTime | null | "STAFF";
+/** A schedule to save, or "STAFF" = back to staff's (course students only). */
+export type ScheduleChoice = ScheduleInput | "STAFF";
+
+/** An item placed on a day: its timing that weekday and, resolved, its time (null: «بلا وقت»). */
+type Placed = TrackerItemView & { timing: Timing; time: AgendaTime | null; label: string; ownTiming: boolean };
 
 type Result = Promise<{ error?: string }>;
 
@@ -74,9 +78,10 @@ export function TrackerAgenda({
   groupGender: g,
   course,
   onTick,
-  onTime,
+  onSchedule,
   onReorder,
   onRemoveOwn,
+  place,
 }: {
   sheet: TrackerSheet;
   today: string;
@@ -84,10 +89,12 @@ export function TrackerAgenda({
   // a course student (staff's items, «وقت المعلم/ة», her own items); false = «رفيق الحفظ»
   course: boolean;
   onTick: (input: TickInput) => Result;
-  onTime: (itemId: string, choice: TimeChoice) => Result;
+  onSchedule: (itemId: string, choice: ScheduleChoice) => Result;
   onReorder: (ids: string[]) => Result;
   // a course student removing one of her own items (approved ones are archived)
   onRemoveOwn?: (itemId: string) => Result;
+  // the place for prayer times (course's, or hers); null: anchors unavailable
+  place: PrayerLocation | null;
 }) {
   const tz = useTimeZone();
   const now = useNow(tz);
@@ -102,13 +109,23 @@ export function TrackerAgenda({
   if (!now) return <div className={hl.empty}>…</div>;
 
   const all = withLocalDays(sheet.items, tz);
-  const items = all.filter((i) => shownOn(i, today));
-  const timed = items.filter((i): i is TrackerItemView & { time: AgendaTime } => !!i.time);
+  // today's (and yesterday's) prayer times, for anchors and the markers
+  const yesterday = addDays(today, -1);
+  const prayersToday = place ? prayerMinutes(place, today, tz) : null;
+  const prayersYesterday = place ? prayerMinutes(place, yesterday, tz) : null;
+  const placeOn = (i: TrackerItemView, day: string, prayers: Record<Prayer, number> | null): Placed => {
+    const e = effectiveTiming(i.ownSlots ?? [], i.slots ?? [], weekdayOf(day));
+    const time = resolveTiming(e.timing, prayers);
+    return { ...i, timing: e.timing, time, label: timingLabelOn(e.timing, time), ownTiming: e.own };
+  };
+  const items = all.filter((i) => shownOn(i, today)).map((i) => placeOn(i, today, prayersToday));
+  const timed = items.filter((i): i is Placed & { time: AgendaTime } => !!i.time);
   const untimed = items.filter((i) => !i.time);
   // yesterday's items still running after midnight
-  const yesterday = addDays(today, -1);
   const carried = all
-    .filter((i): i is TrackerItemView & { time: AgendaTime } => !!i.time && endOf(i.time) > DAY_MINUTES && shownOn(i, yesterday))
+    .filter((i) => shownOn(i, yesterday))
+    .map((i) => placeOn(i, yesterday, prayersYesterday))
+    .filter((i): i is Placed & { time: AgendaTime } => !!i.time && endOf(i.time) > DAY_MINUTES)
     .map((i) => ({ ...i, time: { ...i.time, startMin: i.time.startMin - DAY_MINUTES } }));
   const nowMin = now.day === today ? now.min : null;
   const status = nowMin === null ? null : nowAndNext([...timed, ...carried], nowMin);
@@ -163,8 +180,8 @@ export function TrackerAgenda({
     </button>
   );
 
-  const editingItem = editing ? items.find((i) => i.id === editing) ?? all.find((i) => i.id === editing) ?? null : null;
-  const orderable = all.filter((i) => i.archivedDay === null && i.status !== "REJECTED");
+  const editingItem = editing ? (items.find((i) => i.id === editing) ?? null) : null;
+  const orderable = all.filter((i) => i.archivedDay === null && i.status !== "REJECTED").map((i) => placeOn(i, today, prayersToday));
 
   return (
     <div>
@@ -206,7 +223,7 @@ export function TrackerAgenda({
       {ordering && (
         <OrderList
           hint={`${p("اسحب", "اسحبي")} البند من المقبض ⠿ أو ${p("استخدم", "استخدمي")} السهمين ▲ ▼، ثم ${p("احفظ", "احفظي")} الترتيب.${course ? ` الترتيب لك وحدك، ولا يغيّر جدول ${teacher}.` : ""}`}
-          entries={orderable.map((i) => ({ id: i.id, title: i.title, note: i.time ? timeLabel(i.time) : "بلا وقت" }))}
+          entries={orderable.map((i) => ({ id: i.id, title: i.title, note: i.label }))}
           pending={pending}
           error={error}
           onCancel={() => setOrdering(false)}
@@ -220,15 +237,19 @@ export function TrackerAgenda({
           item={editingItem}
           course={course}
           teacher={teacher}
+          place={place}
+          prayers={prayersToday}
           pending={pending}
           error={error}
           onCancel={() => setEditing(null)}
-          onChoose={(choice) => run(() => onTime(editingItem.id, choice), () => setEditing(null))}
+          onChoose={(choice) => run(() => onSchedule(editingItem.id, choice), () => setEditing(null))}
           onRemove={onRemoveOwn && editingItem.own ? () => run(() => onRemoveOwn(editingItem.id), () => setEditing(null)) : undefined}
         />
       )}
 
-      {timed.length > 0 && <Timeline items={timed} nowMin={nowMin} checked={checkedSet} tickButton={tickButton} editButton={editButton} />}
+      {timed.length > 0 && (
+        <Timeline items={timed} nowMin={nowMin} prayers={prayersToday} checked={checkedSet} tickButton={tickButton} editButton={editButton} />
+      )}
 
       {untimed.length > 0 && (
         <>
@@ -242,6 +263,8 @@ export function TrackerAgenda({
                 <span className={styles.rowTitle}>
                   {item.title}
                   {item.own && item.status === "PENDING" && <small>بانتظار الاعتماد</small>}
+                  {/* an anchor that can't be placed: no city yet */}
+                  {item.timing?.kind === "PRAYER" && <small>{item.label} — يتاح بعد تحديد المدينة</small>}
                 </span>
                 {editButton(item)}
               </div>
@@ -263,12 +286,14 @@ export function TrackerAgenda({
 function Timeline({
   items,
   nowMin,
+  prayers,
   checked,
   tickButton,
   editButton,
 }: {
-  items: (TrackerItemView & { time: AgendaTime })[];
+  items: (Placed & { time: AgendaTime })[];
   nowMin: number | null;
+  prayers: Record<Prayer, number> | null;
   checked: Set<string>;
   tickButton: (item: TrackerItemView) => React.ReactNode;
   editButton: (item: TrackerItemView) => React.ReactNode;
@@ -381,7 +406,7 @@ function Timeline({
               <div className={styles.blockBody}>
                 <span className={styles.blockTitle}>{item.title}</span>
                 <span className={styles.blockTime}>
-                  {timeLabel(item.time)}
+                  {item.label}
                   {item.own && item.status === "PENDING" && " · بانتظار الاعتماد"}
                 </span>
                 {editButton(item)}
@@ -390,6 +415,15 @@ function Timeline({
           </div>
         );
       })}
+      {/* the day's prayer times, as thin markers (only within the timeline's span) */}
+      {prayers &&
+        PRAYERS.filter((p) => prayers[p] >= fromMin && prayers[p] <= toMin && !segments.some((s) => s.folded && prayers[p] > s.fromMin && prayers[p] < s.toMin)).map((p) => (
+          <div key={p} className={styles.prayerLine} style={{ top: y(prayers[p]) }}>
+            <span className={styles.prayerTag}>
+              {PRAYER_NAME[p]} {clockLabel(prayers[p])}
+            </span>
+          </div>
+        ))}
       {nowMin !== null && nowMin >= fromMin && nowMin <= toMin && (
         <div className={styles.nowLine} style={{ top: y(nowMin) }}>
           <span className={styles.nowDot} />
@@ -404,72 +438,59 @@ function TimeEditor({
   item,
   course,
   teacher,
+  place,
+  prayers,
   pending,
   error,
   onCancel,
   onChoose,
   onRemove,
 }: {
-  item: TrackerItemView;
+  item: Placed;
   course: boolean;
   teacher: string;
+  place: PrayerLocation | null;
+  prayers: Record<Prayer, number> | null;
   pending: boolean;
   error: string | null;
   onCancel: () => void;
-  onChoose: (choice: TimeChoice) => void;
+  onChoose: (choice: ScheduleChoice) => void;
   onRemove?: () => void;
 }) {
-  const [start, setStart] = useState(item.time ? clockValue(item.time.startMin) : "");
-  const [end, setEnd] = useState(item.time?.durationMin ? clockValue(item.time.startMin + item.time.durationMin) : "");
-  const [problem, setProblem] = useState<string | null>(null);
-  const [confirmRemove, setConfirmRemove] = useState(false);
   const staffItem = course && !item.own;
-
-  function save() {
-    const t = timeFromInputs(start, end);
-    if ("error" in t) return setProblem(t.error);
-    setProblem(null);
-    onChoose(t);
-  }
+  const own = item.ownSlots ?? [];
+  // a course student edits her own rows (starting from staff's, if she has
+  // none yet); her own items and «رفيق الحفظ» items keep their rows in one place
+  const start: SlotRow[] = course ? (own.length ? own : (item.slots ?? [])) : (item.slots ?? []);
+  const [rows, setRows] = useState<ScheduleInput | null>(null);
+  const [valid, setValid] = useState(true);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   return (
     <div className={styles.editor}>
       <div className={styles.editorTitle}>وقت «{item.title}»</div>
       {staffItem && (
         <div className={hl.muted} style={{ marginBottom: 8 }}>
-          وقت {teacher}: {item.staffTime ? timeLabel(item.staffTime) : "بلا وقت"}
-          {item.ownTime && " · الوقت الحالي من اختيارك"}
+          وقت {teacher}: {scheduleLabel(item.slots ?? [])}
+          {own.length > 0 && " · الوقت الحالي من اختيارك"}
         </div>
       )}
-      <div className={styles.timeInputs}>
-        <label>
-          البداية
-          <input
-            type="time"
-            value={start}
-            onChange={(e) => {
-              // the end moves with the start, keeping the duration
-              setEnd(shiftEnd(start, end, e.target.value));
-              setStart(e.target.value);
-            }}
-          />
-        </label>
-        <label>
-          النهاية (اختياري)
-          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-        </label>
-      </div>
-      {(problem || error) && <div className={hl.err}>{problem ?? error}</div>}
-      <div className={hl.actionsRow}>
-        <button type="button" className={hl.primaryBtn} disabled={pending} onClick={save}>
+      <ScheduleEditor
+        rows={start}
+        activeDays={item.days}
+        anchors={place !== null}
+        prayers={prayers}
+        onChange={(r, ok) => {
+          setRows(r);
+          setValid(ok);
+        }}
+      />
+      {error && <div className={hl.err}>{error}</div>}
+      <div className={hl.actionsRow} style={{ marginTop: 10 }}>
+        <button type="button" className={hl.primaryBtn} disabled={pending || !valid || rows === null} onClick={() => rows && onChoose(rows)}>
           {pending ? "جارٍ الحفظ…" : "حفظ الوقت"}
         </button>
-        {item.time && (
-          <button type="button" className={hl.ghostBtn} disabled={pending} onClick={() => onChoose(null)}>
-            بلا وقت
-          </button>
-        )}
-        {staffItem && item.ownTime && (
+        {staffItem && own.length > 0 && (
           <button type="button" className={hl.ghostBtn} disabled={pending} onClick={() => onChoose("STAFF")}>
             العودة إلى وقت {teacher}
           </button>

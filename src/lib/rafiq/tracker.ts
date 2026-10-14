@@ -2,7 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
 import { addDays } from "@/lib/tracker/rules";
-import { placeOf, type AgendaTime } from "@/lib/tracker/agenda";
+import { placeOf } from "@/lib/tracker/agenda";
+import type { SlotRow } from "@/lib/tracker/schedule";
 
 // Her own «جدول المتابعة», in the same shape as a course student's sheet so
 // the shared TrackerDaySheet shows and scores it unchanged. Scores are never
@@ -13,11 +14,9 @@ const day = (d: Date) => d.toISOString().slice(0, 10);
 export interface RafiqTrackerData {
   sheet: TrackerSheet;
   // her items still in use, for managing them
-  active: { id: string; title: string; value: number; days: number; time: AgendaTime | null }[];
+  // slots: its timing rows (schedule.ts)
+  active: { id: string; title: string; value: number; days: number; slots: SlotRow[] }[];
 }
-
-const timeOf = (slot: { startMin: number | null; durationMin: number | null } | undefined): AgendaTime | null =>
-  slot && slot.startMin !== null ? { startMin: slot.startMin, durationMin: slot.durationMin } : null;
 
 /** The last `days` days (plus a day of time-zone slack). */
 export async function getRafiqTracker(userId: string, days = 9): Promise<RafiqTrackerData> {
@@ -36,7 +35,7 @@ export async function getRafiqTracker(userId: string, days = 9): Promise<RafiqTr
         createdAt: true,
         archivedAt: true,
         sortOrder: true,
-        slots: { where: { weekdays: 127 }, select: { startMin: true, durationMin: true } },
+        slots: { select: { weekdays: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true }, orderBy: { weekdays: "desc" } },
       },
     }),
     prisma.rafiqTrackerCheck.findMany({ where: { userId, day: { gte: from } }, select: { itemId: true, day: true } }),
@@ -58,10 +57,10 @@ export async function getRafiqTracker(userId: string, days = 9): Promise<RafiqTr
     archivedAt: r.archivedAt ? r.archivedAt.toISOString() : null,
     own: false,
     sortOrder: r.sortOrder,
-    time: timeOf(r.slots[0]),
+    slots: r.slots,
   }));
   return {
     sheet: { items: views, checks: byDay },
-    active: items.filter((r) => !r.archivedAt).map(({ id, title, value, days, slots }) => ({ id, title, value, days, time: timeOf(slots[0]) })),
+    active: items.filter((r) => !r.archivedAt).map(({ id, title, value, days, slots }) => ({ id, title, value, days, slots })),
   };
 }

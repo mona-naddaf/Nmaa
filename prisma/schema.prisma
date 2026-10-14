@@ -89,6 +89,16 @@ model Course {
   // tracker for the student, her teachers and the parent. Off by default;
   // only works while the tracker is on.
   trackerSummaryEnabled       Boolean               @default(false)
+  // «مواقيت الصلاة» (src/lib/prayer): the course's place for prayer-anchored
+  // items — a city of cities.ts (prayerCityKey) or a custom place (key
+  // null) — with its calculation method and Asr school. All null = no place:
+  // anchors are unavailable and clock times work as before.
+  prayerCityKey String?
+  prayerPlace   String?
+  prayerLat     Float?
+  prayerLng     Float?
+  prayerMethod  String?
+  prayerAsr     String?
   visibilityMode          VisibilityMode        @default(ALL_TEACHERS)
   onlineRecitationEnabled Boolean               @default(true)
   // optional progress bars on the student detail screen, each toggled
@@ -873,13 +883,18 @@ model TrackerSlot {
   id          String      @id @default(cuid())
   itemId      String
   item        TrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  // which weekdays this time applies to (bitmask as TrackerItem.days; 127 =
-  // every day — the only value until per-weekday schedules)
+  // which weekdays this time applies to (bitmask as TrackerItem.days): 127 =
+  // every day, or a day-specific row (disjoint sets) that overrides it
   weekdays    Int         @default(127)
   // minutes after midnight in the course's time zone (0–1439); null = «بلا وقت»
   startMin    Int?
   // 5–720 minutes; null = a start only. An item may run past midnight.
   durationMin Int?
+  // a prayer anchor instead of a clock time (src/lib/tracker/schedule.ts):
+  // the prayer, and minutes after (+) or before (−) it; resolved each day
+  // from the place's prayer times
+  anchor          Prayer?
+  anchorOffsetMin Int?
 
   @@unique([itemId, weekdays])
 }
@@ -899,6 +914,9 @@ model TrackerStudentSlot {
   startMin    Int?
   // 5–720 minutes; null = a start only. An item may run past midnight.
   durationMin Int?
+  // a prayer anchor instead of a clock time (as TrackerSlot)
+  anchor          Prayer?
+  anchorOffsetMin Int?
 
   @@unique([itemId, studentId, weekdays])
   @@index([studentId])
@@ -1002,6 +1020,16 @@ model RafiqUser {
   // «المحصّلات» of her tracker. Off by default: nothing changes until she
   // turns it on.
   summaryEnabled   Boolean    @default(false)
+  // «مواقيت الصلاة» (src/lib/prayer): her's place for prayer-anchored
+  // items — a city of cities.ts (prayerCityKey) or a custom place (key
+  // null) — with its calculation method and Asr school. All null = no place:
+  // anchors are unavailable and clock times work as before.
+  prayerCityKey String?
+  prayerPlace   String?
+  prayerLat     Float?
+  prayerLng     Float?
+  prayerMethod  String?
+  prayerAsr     String?
 }
 
 // A personal day she added to her calendar (same meaning as CalendarEvent).
@@ -1098,6 +1126,11 @@ model RafiqTrackerSlot {
   weekdays    Int              @default(127)
   startMin    Int?
   durationMin Int?
+  // a prayer anchor instead of a clock time (src/lib/tracker/schedule.ts):
+  // the prayer, and minutes after (+) or before (−) it; resolved each day
+  // from the place's prayer times
+  anchor          Prayer?
+  anchorOffsetMin Int?
 
   @@unique([itemId, weekdays])
   @@index([userId])
@@ -1324,8 +1357,14 @@ model TrackerTemplateItem {
   days       Int
   sortOrder  Int             @default(0)
   // «الجدول اليومي»: the item's time when it was published, if it had one
+  // (a clock time, or a prayer anchor — applied with the user's own place)
   startMin    Int?
   durationMin Int?
+  // a prayer anchor instead of a clock time (src/lib/tracker/schedule.ts):
+  // the prayer, and minutes after (+) or before (−) it; resolved each day
+  // from the place's prayer times
+  anchor          Prayer?
+  anchorOffsetMin Int?
 
   @@index([templateId])
 }
@@ -1363,6 +1402,16 @@ model LoginAttempt {
 
 // Labels live in src/lib/students/extra-info.ts. Values are never renamed:
 // StudentInfoField rows store them.
+// the times an item can be anchored to (src/lib/prayer/times.ts)
+enum Prayer {
+  FAJR
+  SUNRISE
+  DHUHR
+  ASR
+  MAGHRIB
+  ISHA
+}
+
 enum StudentInfoBuiltin {
   MOTHER_NAME
   MOTHER_PHONE

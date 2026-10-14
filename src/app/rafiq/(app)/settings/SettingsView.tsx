@@ -11,12 +11,15 @@ import styles from "../../rafiq.module.css";
 import { RecoveryCodeCard } from "../../RecoveryCodeCard";
 import { ACCOUNT_LIMITS, DELETE_CONFIRM_WORD, type RafiqGender } from "@/lib/rafiq/rules";
 import { pickByPerson } from "@/lib/text/gender";
+import { CityPicker } from "@/components/prayer/CityPicker";
+import type { PrayerLocation } from "@/lib/prayer/times";
 import {
   changePasswordAction,
   deleteAccountAction,
   regenerateRecoveryCodeAction,
   setCommitDaysAction,
   setAgendaEnabledAction,
+  setPlaceAction,
   setSummaryEnabledAction,
   setReviewRemindersAction,
   signOutEverywhereAction,
@@ -33,9 +36,11 @@ type Props = {
   commitDays: number;
   agendaEnabled: boolean;
   summaryEnabled: boolean;
+  // her place for prayer times (null: none)
+  place: PrayerLocation | null;
 };
 
-export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled, summaryEnabled }: Props) {
+export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled, summaryEnabled, place }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
 
   return (
@@ -47,6 +52,17 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
       <CommitDays p={p} initial={commitDays} />
       <ReviewReminders p={p} days={reviewReminderDays} />
       <Agenda p={p} enabled={agendaEnabled} />
+      <div className={hl.section}>
+        <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+          المدينة (لمواقيت الصلاة)
+        </div>
+        <CityPicker
+          initial={place}
+          previewZone={null}
+          intro={`تحديد ${p("مدينتك", "مدينتكِ")} يتيح في الجدول اليومي أوقاتًا بالنسبة إلى الصلاة (مثل «بعد الفجر» أو «قبل المغرب بـ 15 دقيقة») تتغيّر مع المواسم، وتظهر مواقيت اليوم على جدول يومك.`}
+          onSave={setPlaceAction}
+        />
+      </div>
       <Summaries p={p} enabled={summaryEnabled} />
       <Password p={p} />
       <Recovery p={p} gender={gender} createdAt={recoveryCodeCreatedAt} />

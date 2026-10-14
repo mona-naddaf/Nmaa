@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import styles from "./settings.module.css";
-import { setTimeZoneAction } from "./actions";
+import { setCourseLocationAction, setTimeZoneAction } from "./actions";
+import { CityPicker } from "@/components/prayer/CityPicker";
+import type { PrayerLocation } from "@/lib/prayer/times";
 import { COMMON_ZONES, allZoneIds, zoneName } from "@/lib/time/zones";
 import { zoneOffsetLabel } from "@/lib/time/zone";
 
@@ -28,7 +30,18 @@ const noteStyle: React.CSSProperties = {
  * the server decides the course's days, and a browser's own zone tables can
  * differ (and would break hydration). Search results use the browser's.
  */
-export function TimeZoneCard({ timeZone, currentLabel, offsets }: { timeZone: string; currentLabel: string; offsets: Record<string, string> }) {
+export function TimeZoneCard({
+  timeZone,
+  currentLabel,
+  offsets,
+  place,
+}: {
+  timeZone: string;
+  currentLabel: string;
+  offsets: Record<string, string>;
+  // the course's place for prayer times (null: none)
+  place: PrayerLocation | null;
+}) {
   const [current, setCurrent] = useState(timeZone);
   const [label, setLabel] = useState(currentLabel);
   const [picked, setPicked] = useState<string | null>(null);
@@ -150,6 +163,17 @@ export function TimeZoneCard({ timeZone, currentLabel, offsets }: { timeZone: st
         </div>
       )}
       {error && <div style={{ color: "var(--rose-deep)", fontSize: 12.5, marginTop: 8 }}>{error}</div>}
+
+      <div className={styles.settingTitle} style={{ marginTop: 22 }}>
+        مدينة الدورة (لمواقيت الصلاة)
+      </div>
+      <CityPicker
+        initial={place}
+        previewZone={current}
+        intro="تحديد مدينة الدورة يتيح في الجدول اليومي أوقاتًا بالنسبة إلى الصلاة (مثل «بعد الفجر» أو «قبل المغرب بـ 15 دقيقة») تتغيّر مع المواسم، وتظهر مواقيت اليوم على جدول اليوم. اختيار مدينة يقترح منطقتها الزمنية أعلاه (ويمكن تغييرها). من غير مدينة تعمل الأوقات المحدّدة كما هي."
+        onSave={setCourseLocationAction}
+        onCity={(c) => c.tz !== current && pick(c.tz)}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { normalizeArabic } from "@/lib/resources/normalize";
+import type { Prayer } from "@/lib/prayer/times";
 
 // Reading the tracker template bank. The publisher is never sent to anyone:
 // bank queries select createdByRafiqId only to work out "is this mine" on
@@ -13,8 +14,8 @@ export interface TemplateCard {
   description: string | null;
   suggested: boolean;
   useCount: number;
-  // startMin/durationMin: the item's time («الجدول اليومي»), sent only to viewers who use it
-  items: { title: string; value: number; days: number; startMin?: number | null; durationMin?: number | null }[];
+  // its timing («الجدول اليومي»: a clock time or a prayer anchor), sent only to viewers who use it
+  items: { title: string; value: number; days: number; startMin?: number | null; durationMin?: number | null; anchor?: Prayer | null; anchorOffsetMin?: number | null }[];
   own: boolean;
   hidden: boolean;
   reportedByMe: boolean;
@@ -45,7 +46,7 @@ export async function listTemplates(viewerId: string, query: string, withTimes =
       useCount: true,
       hiddenAt: true,
       createdByRafiqId: true,
-      items: { orderBy: { sortOrder: "asc" }, select: { title: true, value: true, days: true, startMin: true, durationMin: true } },
+      items: { orderBy: { sortOrder: "asc" }, select: { title: true, value: true, days: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true } },
       reports: { where: { resolvedAt: null, reporterRafiqId: viewerId }, select: { id: true } },
     },
   });
@@ -55,7 +56,7 @@ export async function listTemplates(viewerId: string, query: string, withTimes =
     description: r.description,
     suggested: r.suggested,
     useCount: r.useCount,
-    items: r.items.map(({ startMin, durationMin, ...it }) => (withTimes ? { ...it, startMin, durationMin } : it)),
+    items: r.items.map(({ startMin, durationMin, anchor, anchorOffsetMin, ...it }) => (withTimes ? { ...it, startMin, durationMin, anchor, anchorOffsetMin } : it)),
     own: r.createdByRafiqId === viewerId,
     hidden: r.hiddenAt !== null,
     reportedByMe: r.reports.length > 0,

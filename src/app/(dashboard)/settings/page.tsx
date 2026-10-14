@@ -23,6 +23,7 @@ import { TimeZoneCard } from "./TimeZoneCard";
 import { safeTimeZone } from "@/lib/time/zone";
 import { COMMON_ZONES, zoneLabel } from "@/lib/time/zones";
 import { zoneOffsetLabel } from "@/lib/time/zone";
+import { locationOf } from "@/lib/prayer/location";
 
 export default async function SettingsPage() {
   const session = await requireAdmin();
@@ -117,6 +118,7 @@ export default async function SettingsPage() {
           timeZone={safeTimeZone(course.timeZone)}
           currentLabel={zoneLabel(safeTimeZone(course.timeZone))}
           offsets={Object.fromEntries([...COMMON_ZONES.map((z) => z.id), safeTimeZone(course.timeZone)].map((id) => [id, zoneOffsetLabel(id)]))}
+          place={locationOf(course)}
         />
       </Collapsible>
 

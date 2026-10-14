@@ -3,30 +3,36 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { inScope, NO_GROUP_ACCESS, type StaffScope } from "@/lib/staff-scope";
 import { itemsForStudentWhere } from "./data";
-import { validateOrder, validateTime, type AgendaTime } from "./agenda";
+import { validateOrder } from "./agenda";
+import { ALL_DAYS, validateSchedule, type SlotRow } from "./schedule";
 
-// Writes for «الجدول اليومي» (phase 1: every time applies to every weekday,
-// weekdays = 127). The server actions are thin wrappers that check the
-// session and the feature switches; every rule about *which* item may be
-// changed lives here. Times and order never touch ticks or scores.
-
-const ALL_DAYS = 127;
+// Writes for «الجدول اليومي»: an item's schedule (schedule.ts — clock times
+// or prayer anchors, every day or per weekday) and the order. The server
+// actions are thin wrappers that check the session and the feature
+// switches; every rule about *which* item may be changed lives here. Times
+// and order never touch ticks or scores.
 
 export type AgendaResult = { error?: string };
 
 const BAD_TIME = { error: "الوقت غير صحيح" };
+const NO_PLACE = { error: "يُرجى تحديد المدينة أولًا لاستخدام أوقات الصلاة" };
 const NOT_FOUND = { error: "لم يُعثر على هذا البند" };
 const BAD_ORDER = { error: "تعذّر حفظ الترتيب — يُرجى تحديث الصفحة والمحاولة مرة أخرى" };
 
-/** A submitted time: a valid time, null («بلا وقت»), or "STAFF" (back to staff's time; course students only). */
-export type TimeChoice = AgendaTime | null | "STAFF";
+/** A submitted schedule: [{ weekdays, timing }] (schedule.ts), or "STAFF" (back to staff's; course students only). */
+export type ScheduleChoice = { weekdays: number; timing: unknown }[] | "STAFF";
 
-function readChoice(input: unknown, allowStaff: boolean): { choice: TimeChoice } | { error: string } {
-  if (input === null) return { choice: null };
-  if (input === "STAFF") return allowStaff ? { choice: "STAFF" } : BAD_TIME;
-  const t = validateTime(input);
-  return t ? { choice: t } : BAD_TIME;
+/** The rows to store, or what's wrong (an anchor without a place is refused). */
+function readSchedule(input: unknown, allowAnchors: boolean): SlotRow[] | { error: string } {
+  const rows = validateSchedule(input, allowAnchors);
+  if (rows) return rows;
+  return !allowAnchors && validateSchedule(input, true) ? NO_PLACE : BAD_TIME;
 }
+
+/** An every-day row with no time is the same as no row (staff's and Rafiq items). */
+const withoutEmptyBase = (rows: SlotRow[]) => rows.filter((r) => !(r.weekdays === ALL_DAYS && r.startMin === null && r.anchor === null));
+
+const rowData = (r: SlotRow) => ({ weekdays: r.weekdays, startMin: r.startMin, durationMin: r.durationMin, anchor: r.anchor, anchorOffsetMin: r.anchorOffsetMin });
 
 // ---------- a course student ----------
 
@@ -38,23 +44,21 @@ const placeableWhere = (s: StudentRef): Prisma.TrackerItemWhereInput => ({
 });
 
 /**
- * Her own time for an item reaching her: a time, «بلا وقت» (null), or back
- * to staff's time ("STAFF" — for her own items that means «بلا وقت»). She
- * may re-time any item reaching her, staff's included; she never deletes
- * staff's items.
+ * Her own schedule for an item reaching her (it replaces staff's on the days
+ * it covers; her every-day row with no time = «بلا وقت»), or back to staff's
+ * ("STAFF" — for her own items that means «بلا وقت»). She may re-time any
+ * item reaching her, staff's included; she never deletes staff's items.
+ * allowAnchors: the course has a place.
  */
-export async function setStudentItemTime(s: StudentRef, itemId: unknown, input: unknown): Promise<AgendaResult> {
-  const read = readChoice(input, true);
-  if ("error" in read) return read;
+export async function setStudentItemSchedule(s: StudentRef, itemId: unknown, input: unknown, allowAnchors: boolean): Promise<AgendaResult> {
   const item = await prisma.trackerItem.findFirst({ where: { id: String(itemId ?? ""), ...placeableWhere(s) }, select: { id: true } });
   if (!item) return NOT_FOUND;
-  const key = { itemId_studentId_weekdays: { itemId: item.id, studentId: s.id, weekdays: ALL_DAYS } };
-  if (read.choice === "STAFF") {
-    await prisma.trackerStudentSlot.deleteMany({ where: { itemId: item.id, studentId: s.id, weekdays: ALL_DAYS } });
-  } else {
-    const data = { startMin: read.choice?.startMin ?? null, durationMin: read.choice?.durationMin ?? null };
-    await prisma.trackerStudentSlot.upsert({ where: key, create: { itemId: item.id, studentId: s.id, weekdays: ALL_DAYS, ...data }, update: data });
-  }
+  const rows = input === "STAFF" ? [] : readSchedule(input, allowAnchors);
+  if ("error" in rows) return rows;
+  await prisma.$transaction([
+    prisma.trackerStudentSlot.deleteMany({ where: { itemId: item.id, studentId: s.id } }),
+    prisma.trackerStudentSlot.createMany({ data: rows.map((r) => ({ itemId: item.id, studentId: s.id, ...rowData(r) })) }),
+  ]);
   return {};
 }
 
@@ -72,16 +76,14 @@ export async function setStudentOrder(s: StudentRef, input: unknown): Promise<Ag
 
 // ---------- staff ----------
 
-/** Staff's time for an item (the caller has checked she may edit it). null = «بلا وقت». */
-export async function setStaffItemTime(itemId: string, input: unknown): Promise<AgendaResult> {
-  const read = readChoice(input, false);
-  if ("error" in read) return read;
-  if (read.choice === null || read.choice === "STAFF") {
-    await prisma.trackerSlot.deleteMany({ where: { itemId, weekdays: ALL_DAYS } });
-  } else {
-    const data = { startMin: read.choice.startMin, durationMin: read.choice.durationMin };
-    await prisma.trackerSlot.upsert({ where: { itemId_weekdays: { itemId, weekdays: ALL_DAYS } }, create: { itemId, weekdays: ALL_DAYS, ...data }, update: data });
-  }
+/** Staff's schedule for an item (the caller has checked she may edit it). allowAnchors: the course has a place. */
+export async function setStaffItemSchedule(itemId: string, input: unknown, allowAnchors: boolean): Promise<AgendaResult> {
+  const rows = readSchedule(input, allowAnchors);
+  if ("error" in rows) return rows;
+  await prisma.$transaction([
+    prisma.trackerSlot.deleteMany({ where: { itemId } }),
+    prisma.trackerSlot.createMany({ data: withoutEmptyBase(rows).map((r) => ({ itemId, ...rowData(r) })) }),
+  ]);
   return {};
 }
 
@@ -111,22 +113,16 @@ export async function setStaffOrder(scope: StaffScope, groupId: unknown, input: 
 
 // ---------- «رفيق الحفظ» ----------
 
-/** The time of one of her items. null = «بلا وقت». */
-export async function setRafiqItemTime(userId: string, itemId: unknown, input: unknown): Promise<AgendaResult> {
-  const read = readChoice(input, false);
-  if ("error" in read) return read;
+/** The schedule of one of her items. allowAnchors: she has set her place. */
+export async function setRafiqItemSchedule(userId: string, itemId: unknown, input: unknown, allowAnchors: boolean): Promise<AgendaResult> {
   const item = await prisma.rafiqTrackerItem.findFirst({ where: { id: String(itemId ?? ""), userId, archivedAt: null }, select: { id: true } });
   if (!item) return NOT_FOUND;
-  if (read.choice === null || read.choice === "STAFF") {
-    await prisma.rafiqTrackerSlot.deleteMany({ where: { itemId: item.id, weekdays: ALL_DAYS } });
-  } else {
-    const data = { startMin: read.choice.startMin, durationMin: read.choice.durationMin };
-    await prisma.rafiqTrackerSlot.upsert({
-      where: { itemId_weekdays: { itemId: item.id, weekdays: ALL_DAYS } },
-      create: { itemId: item.id, userId, weekdays: ALL_DAYS, ...data },
-      update: data,
-    });
-  }
+  const rows = readSchedule(input, allowAnchors);
+  if ("error" in rows) return rows;
+  await prisma.$transaction([
+    prisma.rafiqTrackerSlot.deleteMany({ where: { itemId: item.id } }),
+    prisma.rafiqTrackerSlot.createMany({ data: withoutEmptyBase(rows).map((r) => ({ itemId: item.id, userId, ...rowData(r) })) }),
+  ]);
   return {};
 }
 

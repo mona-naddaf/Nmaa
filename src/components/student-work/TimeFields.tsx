@@ -1,53 +1,61 @@
 "use client";
 
 import { useState } from "react";
-import styles from "./agenda.module.css";
 import work from "./work.module.css";
-import { clockValue, shiftEnd, timeFromInputs, type AgendaTime } from "@/lib/tracker/agenda";
+import { ScheduleEditor, type ScheduleInput } from "./ScheduleEditor";
+import { scheduleModel, scheduleRows, type SlotRow } from "@/lib/tracker/schedule";
+import { prayerMinutes, type PrayerLocation } from "@/lib/prayer/times";
+import { useToday } from "@/lib/calendar/useToday";
+import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 
-// An item's optional time in the add / edit forms («الجدول اليومي»): a start
-// and an optional end. Both empty = «بلا وقت».
+// An item's optional schedule in the add / edit forms («الجدول اليومي»):
+// every day or per weekday, a clock time or a prayer anchor (with a place),
+// or «بلا وقت» (lib/tracker/schedule.ts).
 
-export function useTimeFields(initial: AgendaTime | null) {
-  const [start, setStart] = useState(initial ? clockValue(initial.startMin) : "");
-  const [end, setEnd] = useState(initial?.durationMin ? clockValue(initial.startMin + initial.durationMin) : "");
+const asInput = (rows: SlotRow[]): ScheduleInput => {
+  const m = scheduleModel(rows);
+  return scheduleRows(m.base, m.days);
+};
+
+export function useTimeFields(initial: SlotRow[]) {
+  const [start, setStart] = useState(initial);
+  const [rows, setRows] = useState<ScheduleInput>(() => asInput(initial));
+  const [valid, setValid] = useState(true);
+  const [version, setVersion] = useState(0);
   return {
     start,
-    end,
-    // moving the start moves the end too, keeping the duration
-    setStart: (v: string) => {
-      setEnd((e) => shiftEnd(start, e, v));
-      setStart(v);
+    version,
+    set(r: ScheduleInput, ok: boolean) {
+      setRows(r);
+      setValid(ok);
     },
-    setEnd,
-    /** The time to save (null = «بلا وقت»), or what's wrong. */
-    read(): { time: AgendaTime | null } | { error: string } {
-      if (!start && !end) return { time: null };
-      const t = timeFromInputs(start, end);
-      return "error" in t ? t : { time: t };
+    /** The schedule to save, or what's wrong. */
+    read(): { schedule: ScheduleInput } | { error: string } {
+      return valid ? { schedule: rows } : { error: "يُرجى تصحيح الوقت قبل الحفظ" };
     },
     reset() {
-      setStart("");
-      setEnd("");
+      setStart([]);
+      setRows([]);
+      setValid(true);
+      setVersion((v) => v + 1);
     },
   };
 }
 
-export function TimeFields({ fields }: { fields: ReturnType<typeof useTimeFields> }) {
+export function TimeFields({ fields, days, place }: { fields: ReturnType<typeof useTimeFields>; days: number; place: PrayerLocation | null }) {
+  const today = useToday();
+  const tz = useTimeZone();
   return (
     <div className={work.field}>
       <span className={work.fieldLabel}>الوقت (اختياري)</span>
-      <div className={styles.timeInputs} style={{ marginBottom: 0 }}>
-        <label>
-          البداية
-          <input type="time" value={fields.start} onChange={(e) => fields.setStart(e.target.value)} />
-        </label>
-        <label>
-          النهاية
-          <input type="time" value={fields.end} onChange={(e) => fields.setEnd(e.target.value)} />
-        </label>
-      </div>
-      <div className={work.hint}>دون وقت يظهر البند في «بلا وقت».</div>
+      <ScheduleEditor
+        key={fields.version}
+        rows={fields.start}
+        activeDays={days}
+        anchors={place !== null}
+        prayers={place && today ? prayerMinutes(place, today, tz) : null}
+        onChange={fields.set}
+      />
     </div>
   );
 }

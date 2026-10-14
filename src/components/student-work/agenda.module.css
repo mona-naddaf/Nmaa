@@ -400,3 +400,34 @@
     font-size: 12.5px;
   }
 }
+
+/* the day's prayer times on the timeline: a thin, quiet marker */
+.prayerLine {
+  position: absolute;
+  inset-inline: 58px 0;
+  border-top: 1px dotted rgba(168, 92, 54, 0.55);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.prayerTag {
+  position: absolute;
+  inset-inline-end: 6px;
+  top: -8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold-deep);
+  background: var(--paper);
+  border-radius: 6px;
+  padding: 0 4px;
+}
+
+.timeInputs select {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 15px;
+  color: var(--ink);
+  min-width: 90px;
+}

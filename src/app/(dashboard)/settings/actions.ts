@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require";
 import { isValidTimeZone } from "@/lib/time/zone";
+import { validateLocation } from "@/lib/prayer/times";
+import { placeColumns } from "@/lib/prayer/location";
 import { generateUniqueBoardCode } from "@/lib/auth/board-code";
 import { pickByGroup, studentsNoun, type GroupGender } from "@/lib/text/gender";
 import { validateTargets, type HomeTargets } from "@/lib/home-log/rules";
@@ -239,6 +241,16 @@ export async function setTimeZoneAction(timeZone: string): Promise<{ error?: str
   if (!isValidTimeZone(timeZone)) return { error: "منطقة زمنية غير معروفة" };
   await prisma.course.update({ where: { id: cid }, data: { timeZone } });
   // every course page reads its days from it
+  revalidatePath("/", "layout");
+  return {};
+}
+
+/** «مواقيت الصلاة»: the course's place (a city or a custom place), or null to remove it. */
+export async function setCourseLocationAction(input: unknown): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  const loc = input === null ? null : validateLocation(input);
+  if (input !== null && !loc) return { error: "يُرجى اختيار مدينة صحيحة أو إدخال إحداثيات صحيحة" };
+  await prisma.course.update({ where: { id: cid }, data: placeColumns(loc) });
   revalidatePath("/", "layout");
   return {};
 }

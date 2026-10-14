@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getApprovalQueue, getGroupTracker, getStaffTrackerItems } from "@/lib/tracker/data";
 import { getStaffScope, scopedGroups } from "@/lib/staff-scope";
 import { TrackerStaffView } from "./TrackerStaffView";
+import { coursePlace } from "@/lib/prayer/place-data";
 
 // Staff: per group — the approval queue for students' own items, the week
 // overview table and the group's items. Refused (not just hidden) while the
@@ -43,6 +44,7 @@ export default async function TrackerPage({
       items={items}
       students={students}
       agenda={scope.trackerAgendaEnabled}
+      place={scope.trackerAgendaEnabled ? await coursePlace(scope.courseId) : null}
     />
   );
 }

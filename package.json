@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
+    "adhan": "4.4.6",
     "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
     "jose": "^6.2.12",

@@ -40,6 +40,7 @@ Name each new folder in `prisma/migrations` so it sorts after the last one. The 
 ## Pending
 
 - **Next surah after a plan change.** The recitation check (`classifyRecitation` in `src/lib/recitation/logic.ts`) only asks whether the surah just before the entry in the plan is complete. After a plan change, gaps approved under the old plan stop counting, so her position goes back, but a surah whose predecessor she has fully memorized is still accepted as «تقدّم طبيعي» without a reason (e.g. Al-Ḥāqqa 1 after a fully memorized Al-Maʿārij) while her position stays where it was. This predates the juz directions; handle it separately.
+- **Morocco offsets.** Verify Morocco offsets in the browser vs server if a Moroccan course is added. The server's time-zone data (UTC+1 all year, UTC+0 during Ramadan) is the source of truth for course days and prayer times, but browsers and some references have disagreed for late 2026 (see `src/lib/prayer/times.test.ts`).
 
 ## Learn More
 

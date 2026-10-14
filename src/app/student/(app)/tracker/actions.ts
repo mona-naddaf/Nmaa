@@ -7,8 +7,9 @@ import { itemsForStudentWhere } from "@/lib/tracker/data";
 import { acceptCourseTickDay, shownOn, TRACKER_LIMITS, validateDays, validateTitle } from "@/lib/tracker/rules";
 import { courseTimeZone } from "@/lib/time/course-zone";
 import { dateOnly, zoneDayOf, zoneToday } from "@/lib/time/zone";
-import { setStudentItemTime, setStudentOrder, type TimeChoice } from "@/lib/tracker/agenda-data";
-import { validateTime, type AgendaTime } from "@/lib/tracker/agenda";
+import { setStudentItemSchedule, setStudentOrder, type ScheduleChoice } from "@/lib/tracker/agenda-data";
+import { validateSchedule } from "@/lib/tracker/schedule";
+import { coursePlace } from "@/lib/prayer/place-data";
 import { courseSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
 import { clampOffset, isPeriodKind } from "@/lib/tracker/summary";
 
@@ -74,9 +75,9 @@ export async function setTrackerCheckAction(input: { itemId: string; day: string
 
 /**
  * «+ بند خاص»: waits for approval; staff set its score (D7: at most 10 of
- * her own). With «الجدول اليومي» on she may give it a time straight away.
+ * her own). With «الجدول اليومي» on she may give it a schedule straight away.
  */
-export async function addOwnTrackerItemAction(input: { title: string; days: number; time?: AgendaTime | null }): Promise<TrackerStudentResult> {
+export async function addOwnTrackerItemAction(input: { title: string; days: number; schedule?: ScheduleChoice }): Promise<TrackerStudentResult> {
   const access = await trackerStudent();
   if (!access) return OFF;
   const t = validateTitle(input?.title);
@@ -89,13 +90,15 @@ export async function addOwnTrackerItemAction(input: { title: string; days: numb
   if (own >= TRACKER_LIMITS.ownItemsPerStudent) {
     return { error: `يمكن إضافة ${TRACKER_LIMITS.ownItemsPerStudent} بنود خاصة على الأكثر` };
   }
-  const time = access.trackerAgendaEnabled && input?.time ? validateTime(input.time) : null;
-  if (access.trackerAgendaEnabled && input?.time && !time) return { error: "الوقت غير صحيح" };
+  // a schedule only with «الجدول اليومي» on; checked before the item is saved
+  const schedule = access.trackerAgendaEnabled && Array.isArray(input?.schedule) ? input.schedule : null;
+  const anchors = schedule ? (await coursePlace(access.courseId)) !== null : false;
+  if (schedule && !validateSchedule(schedule, anchors)) return { error: "الوقت غير صحيح" };
   const item = await prisma.trackerItem.create({
     data: { courseId: access.courseId, title: t.title, days, status: "PENDING", value: null, createdByStudentId: access.studentId },
     select: { id: true },
   });
-  if (time) await setStudentItemTime(ref(access), item.id, time);
+  if (schedule) await setStudentItemSchedule(ref(access), item.id, schedule, anchors);
   refresh();
   return {};
 }
@@ -150,11 +153,11 @@ export async function mySummaryAction(kind: unknown, offset: unknown): Promise<S
 
 // ---------- «الجدول اليومي» ----------
 
-/** Her time for an item reaching her: a time, «بلا وقت» (null), or back to staff's ("STAFF"). */
-export async function setMyItemTimeAction(itemId: string, time: TimeChoice): Promise<TrackerStudentResult> {
+/** Her own schedule for an item reaching her, or back to staff's ("STAFF"). */
+export async function setMyItemScheduleAction(itemId: string, schedule: ScheduleChoice): Promise<TrackerStudentResult> {
   const access = await agendaStudent();
   if (!access) return AGENDA_OFF;
-  const r = await setStudentItemTime(ref(access), itemId, time);
+  const r = await setStudentItemSchedule(ref(access), itemId, schedule, (await coursePlace(access.courseId)) !== null);
   if (!r.error) refresh();
   return r;
 }

@@ -81,6 +81,10 @@ model Course {
   // hidden and every page and action refuses.
   assignmentsEnabled          Boolean               @default(false)
   trackerEnabled              Boolean               @default(false)
+  // «الجدول اليومي» (src/lib/tracker/agenda.ts): times and order for the
+  // tracker's items, with today's timeline. Off by default; only works while
+  // the tracker is on. While off, nothing changes on any page.
+  trackerAgendaEnabled        Boolean               @default(false)
   visibilityMode          VisibilityMode        @default(ALL_TEACHERS)
   onlineRecitationEnabled Boolean               @default(true)
   // optional progress bars on the student detail screen, each toggled
@@ -279,6 +283,8 @@ model Student {
   trackerTargets     TrackerItemStudent[]
   trackerItemsOwn    TrackerItem[]          @relation("TrackerItemByStudent")
   trackerChecks      TrackerCheck[]
+  trackerSlots       TrackerStudentSlot[]
+  trackerOrder       TrackerStudentOrder[]
   infoValues         StudentInfoValue[]
 
   @@index([courseId])
@@ -829,11 +835,17 @@ model TrackerItem {
   // when staff approved or rejected it (a rejection shows for a week)
   reviewedAt         DateTime?
   archivedAt         DateTime?
+  // «الجدول اليومي»: staff's order of the items (the template; a student may
+  // set her own, TrackerStudentOrder). Ties: creation order.
+  sortOrder          Int               @default(0)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  students TrackerItemStudent[]
-  checks   TrackerCheck[]
+  students     TrackerItemStudent[]
+  checks       TrackerCheck[]
+  slots        TrackerSlot[]
+  studentSlots TrackerStudentSlot[]
+  orders       TrackerStudentOrder[]
 
   @@index([courseId, status])
   @@index([targetGroupId])
@@ -848,6 +860,55 @@ model TrackerItemStudent {
 
   @@id([itemId, studentId])
   @@index([studentId])
+}
+
+// «الجدول اليومي»: the time staff gave an item (its group's template, or
+// for an individual item, its students'). No row = «بلا وقت». A student may
+// set her own time for any item reaching her (TrackerStudentSlot).
+model TrackerSlot {
+  id          String      @id @default(cuid())
+  itemId      String
+  item        TrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  // which weekdays this time applies to (bitmask as TrackerItem.days; 127 =
+  // every day — the only value until per-weekday schedules)
+  weekdays    Int         @default(127)
+  // minutes after midnight in the course's time zone (0–1439); null = «بلا وقت»
+  startMin    Int?
+  // 5–720 minutes; null = a start only. An item may run past midnight.
+  durationMin Int?
+
+  @@unique([itemId, weekdays])
+}
+
+// Her own time for an item (a staff item's override, or her own item's
+// time). startMin null = she moved it to «بلا وقت». No row = staff's time.
+model TrackerStudentSlot {
+  id          String      @id @default(cuid())
+  itemId      String
+  item        TrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  // which weekdays this time applies to (bitmask as TrackerItem.days; 127 =
+  // every day — the only value until per-weekday schedules)
+  weekdays    Int         @default(127)
+  // minutes after midnight in the course's time zone (0–1439); null = «بلا وقت»
+  startMin    Int?
+  // 5–720 minutes; null = a start only. An item may run past midnight.
+  durationMin Int?
+
+  @@unique([itemId, studentId, weekdays])
+  @@index([studentId])
+}
+
+// Her personal order of the items reaching her (no rows = staff's order).
+model TrackerStudentOrder {
+  studentId String
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  itemId    String
+  item      TrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  position  Int
+
+  @@id([studentId, itemId])
 }
 
 // One tick: item × student × her local day. Only today and yesterday can be
@@ -920,6 +981,7 @@ model RafiqUser {
   commitDays    RafiqCommitDays[]
   trackerItems  RafiqTrackerItem[]
   trackerChecks RafiqTrackerCheck[]
+  trackerSlots  RafiqTrackerSlot[]
   calendarDays  RafiqCalendarDay[]
   calendarAdjustments RafiqCalendarAdjustment[]
   templates       TrackerTemplate[]
@@ -929,6 +991,10 @@ model RafiqUser {
   // her calendar: the optional occasions she turned on (the core ones are
   // always shown), as Course.enabledOccasions
   enabledOccasions Occasion[] @default([])
+
+  // «الجدول اليومي» on her tracker page. Off by default: nothing changes
+  // until she turns it on.
+  agendaEnabled    Boolean    @default(false)
 }
 
 // A personal day she added to her calendar (same meaning as CalendarEvent).
@@ -1004,9 +1070,30 @@ model RafiqTrackerItem {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
+  // «الجدول اليومي»: her order (ties: creation order)
+  sortOrder  Int       @default(0)
+
   checks RafiqTrackerCheck[]
+  slots  RafiqTrackerSlot[]
 
   @@index([userId, archivedAt])
+}
+
+// «الجدول اليومي»: the time of one of her items. No row = «بلا وقت».
+model RafiqTrackerSlot {
+  id          String           @id @default(cuid())
+  itemId      String
+  item        RafiqTrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId      String
+  user        RafiqUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // weekdays bitmask (127 = every day); minutes after midnight on her own
+  // day; duration 5–720 or null
+  weekdays    Int              @default(127)
+  startMin    Int?
+  durationMin Int?
+
+  @@unique([itemId, weekdays])
+  @@index([userId])
 }
 
 // One tick: item × her local day (today or yesterday only).
@@ -1229,6 +1316,9 @@ model TrackerTemplateItem {
   value      Int
   days       Int
   sortOrder  Int             @default(0)
+  // «الجدول اليومي»: the item's time when it was published, if it had one
+  startMin    Int?
+  durationMin Int?
 
   @@index([templateId])
 }

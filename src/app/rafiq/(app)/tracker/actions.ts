@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { getRafiqUser } from "@/lib/rafiq/session";
 import { acceptTickDay, addDays, shownOn, validateDays, validateTitle, validateValue } from "@/lib/tracker/rules";
 import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
+import { nextRafiqSortOrder, setRafiqItemTime, setRafiqOrder } from "@/lib/tracker/agenda-data";
+import { validateTime, type AgendaTime } from "@/lib/tracker/agenda";
 
 // Her own follow-up tracker: she creates, edits and removes her items (no
 // approval), and ticks today or yesterday only. Every action re-checks her
@@ -20,7 +22,20 @@ function refresh() {
   revalidatePath("/rafiq/tracker");
 }
 
-type ItemInput = { title: string; value: number; days: number };
+// time: «الجدول اليومي» only (ignored while she has it off); null = «بلا وقت»
+type ItemInput = { title: string; value: number; days: number; time?: AgendaTime | null };
+
+const AGENDA_OFF = { error: "الجدول اليومي غير مفعّل — يمكن تفعيله من الإعدادات" };
+const agendaOn = async (userId: string) =>
+  (await prisma.rafiqUser.findUniqueOrThrow({ where: { id: userId }, select: { agendaEnabled: true } })).agendaEnabled;
+
+/** The submitted time while her agenda is on: undefined = leave as is, null = «بلا وقت». */
+async function readTime(userId: string, input: ItemInput): Promise<{ time?: AgendaTime | null } | { error: string }> {
+  if (input?.time === undefined || !(await agendaOn(userId))) return {};
+  if (input.time === null) return { time: null };
+  const time = validateTime(input.time);
+  return time ? { time } : { error: "الوقت غير صحيح" };
+}
 
 function checkFields(input: ItemInput): { error: string } | { title: string; value: number; days: number } {
   const t = validateTitle(input?.title);
@@ -39,7 +54,11 @@ export async function addItemAction(input: ItemInput): Promise<TrackerResult> {
   if ("error" in fields) return { error: fields.error };
   const active = await prisma.rafiqTrackerItem.count({ where: { userId: user.id, archivedAt: null } });
   if (active >= RAFIQ_TRACKER_MAX_ITEMS) return { error: `يمكن أن يضم الجدول ${RAFIQ_TRACKER_MAX_ITEMS} بندًا على الأكثر` };
-  await prisma.rafiqTrackerItem.create({ data: { userId: user.id, ...fields } });
+  const timed = await readTime(user.id, input);
+  if ("error" in timed) return { error: timed.error };
+  // new items go last in her order
+  const item = await prisma.rafiqTrackerItem.create({ data: { userId: user.id, ...fields, sortOrder: await nextRafiqSortOrder(user.id) }, select: { id: true } });
+  if (timed.time) await setRafiqItemTime(user.id, item.id, timed.time);
   refresh();
   return {};
 }
@@ -50,10 +69,33 @@ export async function updateItemAction(id: string, input: ItemInput): Promise<Tr
   if (!user) return SIGNED_OUT;
   const fields = checkFields(input);
   if ("error" in fields) return { error: fields.error };
+  const timed = await readTime(user.id, input);
+  if ("error" in timed) return { error: timed.error };
   const { count } = await prisma.rafiqTrackerItem.updateMany({ where: { id: String(id ?? ""), userId: user.id, archivedAt: null }, data: fields });
   if (count === 0) return { error: "هذا البند غير موجود" };
+  if (timed.time !== undefined) await setRafiqItemTime(user.id, id, timed.time);
   refresh();
   return {};
+}
+
+/** «الجدول اليومي»: the time of one of her items (null = «بلا وقت»). */
+export async function setItemTimeAction(id: string, time: AgendaTime | null): Promise<TrackerResult> {
+  const user = await getRafiqUser();
+  if (!user) return SIGNED_OUT;
+  if (!(await agendaOn(user.id))) return AGENDA_OFF;
+  const r = await setRafiqItemTime(user.id, id, time);
+  if (!r.error) refresh();
+  return r;
+}
+
+/** «الجدول اليومي»: her order of her items. */
+export async function reorderItemsAction(itemIds: string[]): Promise<TrackerResult> {
+  const user = await getRafiqUser();
+  if (!user) return SIGNED_OUT;
+  if (!(await agendaOn(user.id))) return AGENDA_OFF;
+  const r = await setRafiqOrder(user.id, itemIds);
+  if (!r.error) refresh();
+  return r;
 }
 
 /** Removes it from today on; earlier days keep it and their ticks. */

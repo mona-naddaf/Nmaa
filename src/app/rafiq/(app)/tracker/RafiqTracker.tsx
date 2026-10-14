@@ -12,7 +12,11 @@ import { daysLabel, EVERY_DAY, TRACKER_LIMITS } from "@/lib/tracker/rules";
 import type { RafiqTrackerData } from "@/lib/rafiq/tracker";
 import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
-import { addItemAction, removeItemAction, setCheckAction, updateItemAction } from "./actions";
+import { addItemAction, removeItemAction, reorderItemsAction, setCheckAction, setItemTimeAction, updateItemAction } from "./actions";
+import { TrackerAgenda } from "@/components/student-work/TrackerAgenda";
+import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
+import agendaStyles from "@/components/student-work/agenda.module.css";
+import { timeLabel, type AgendaTime } from "@/lib/tracker/agenda";
 import { publishTemplateAction } from "../templates/actions";
 import { TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 
@@ -22,8 +26,9 @@ type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
 const marksLabel = (n: number) => (n === 1 ? "درجة" : n === 2 ? "درجتان" : n <= 10 ? `${n} درجات` : `${n} درجة`);
 
 // Her «جدول المتابعة»: the shared today/yesterday sheet, then her own items,
-// which she creates and edits herself (no approval).
-export function RafiqTracker({ data, g }: { data: RafiqTrackerData; g: GroupGender }) {
+// which she creates and edits herself (no approval). With «الجدول اليومي»
+// on (her settings): today's agenda first, and a time in the item forms.
+export function RafiqTracker({ data, g, agenda = false }: { data: RafiqTrackerData; g: GroupGender; agenda?: boolean }) {
   const today = useToday();
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
@@ -61,7 +66,20 @@ export function RafiqTracker({ data, g }: { data: RafiqTrackerData; g: GroupGend
           </div>
         </div>
       ) : (
-        <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={setCheckAction} />
+        <>
+          {agenda && (
+            <TrackerAgenda
+              sheet={data.sheet}
+              today={today}
+              groupGender={g}
+              course={false}
+              onTick={setCheckAction}
+              onTime={(id, choice) => setItemTimeAction(id, choice === "STAFF" ? null : choice)}
+              onReorder={reorderItemsAction}
+            />
+          )}
+          <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={setCheckAction} />
+        </>
       )}
 
       <div className={hl.sectionTitle}>
@@ -76,6 +94,7 @@ export function RafiqTracker({ data, g }: { data: RafiqTrackerData; g: GroupGend
       {adding && (
         <ItemForm
           submitLabel="إضافة البند"
+          agenda={agenda}
           pending={pending}
           onCancel={() => setAdding(false)}
           onSubmit={(fields) => run(() => addItemAction(fields), () => setAdding(false))}
@@ -89,18 +108,18 @@ export function RafiqTracker({ data, g }: { data: RafiqTrackerData; g: GroupGend
       {data.active.length > 0 && (
         <div className={hl.section}>
           {data.active.map((item) => (
-            <ItemRow key={item.id} item={item} run={run} pending={pending} />
+            <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} />
           ))}
         </div>
       )}
 
-      {data.active.length > 0 && <Publish items={data.active} p={p} />}
+      {data.active.length > 0 && <Publish items={data.active} p={p} agenda={agenda} />}
     </div>
   );
 }
 
 /** Shares a snapshot of some of her items in the template bank. */
-function Publish({ items, p }: { items: Item[]; p: (m: string, f: string) => string }) {
+function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string) => string; agenda: boolean }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -149,7 +168,7 @@ function Publish({ items, p }: { items: Item[]; p: (m: string, f: string) => str
       {open && (
         <div className={hl.section}>
           <p className={hl.muted} style={{ marginTop: 0 }}>
-            يُنشر ما {p("تختاره", "تختارينه")} من بنودك بعنوانه ودرجاته وأيامه، دون اسمك. ما {p("تعدّله", "تعدّلينه")} في جدولك بعد النشر لا
+            يُنشر ما {p("تختاره", "تختارينه")} من بنودك بعنوانه ودرجاته وأيامه{agenda && " وترتيبه ووقته"}، دون اسمك. ما {p("تعدّله", "تعدّلينه")} في جدولك بعد النشر لا
             يغيّر الجدول المنشور.
           </p>
           <div className={styles.field}>
@@ -184,28 +203,39 @@ function Publish({ items, p }: { items: Item[]; p: (m: string, f: string) => str
   );
 }
 
+type ItemFields = { title: string; value: number; days: number; time?: AgendaTime | null };
+
 function ItemForm({
-  initial = { title: "", value: 1, days: EVERY_DAY },
+  initial = { title: "", value: 1, days: EVERY_DAY, time: null },
   submitLabel,
+  agenda = false,
   pending,
   onSubmit,
   onCancel,
 }: {
-  initial?: { title: string; value: number; days: number };
+  initial?: { title: string; value: number; days: number; time: AgendaTime | null };
   submitLabel: string;
+  // «الجدول اليومي» on: the item's time too
+  agenda?: boolean;
   pending: boolean;
-  onSubmit: (fields: { title: string; value: number; days: number }) => void;
+  onSubmit: (fields: ItemFields) => void;
   onCancel: () => void;
 }) {
   const [title, setTitle] = useState(initial.title);
   const [value, setValue] = useState(initial.value);
   const [days, setDays] = useState(initial.days);
+  const time = useTimeFields(initial.time);
+  const [problem, setProblem] = useState<string | null>(null);
   return (
     <form
       className={hl.section}
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({ title, value, days });
+        if (!agenda) return onSubmit({ title, value, days });
+        const t = time.read();
+        if ("error" in t) return setProblem(t.error);
+        setProblem(null);
+        onSubmit({ title, value, days, time: t.time });
       }}
     >
       <div className={styles.field}>
@@ -228,6 +258,8 @@ function ItemForm({
         <span className={styles.fieldLabel}>الأيام</span>
         <WeekdayPicker days={days} onChange={setDays} />
       </div>
+      {agenda && <TimeFields fields={time} />}
+      {problem && <div className={hl.err}>{problem}</div>}
       <div className={hl.actionsRow}>
         <button type="submit" className={hl.primaryBtn} disabled={pending}>
           {pending ? "جارٍ الحفظ…" : submitLabel}
@@ -240,12 +272,13 @@ function ItemForm({
   );
 }
 
-function ItemRow({ item, run, pending }: { item: Item; run: Run; pending: boolean }) {
+function ItemRow({ item, run, pending, agenda }: { item: Item; run: Run; pending: boolean; agenda: boolean }) {
   const [mode, setMode] = useState<"view" | "edit" | "remove">("view");
   if (mode === "edit") {
     return (
       <ItemForm
         initial={item}
+        agenda={agenda}
         submitLabel="حفظ"
         pending={pending}
         onCancel={() => setMode("view")}
@@ -259,6 +292,7 @@ function ItemRow({ item, run, pending }: { item: Item; run: Run; pending: boolea
       <div className={styles.meta}>
         <span className={styles.tag}>{marksLabel(item.value)}</span>
         <span>{daysLabel(item.days)}</span>
+        {agenda && <span className={agendaStyles.timeChip}>{item.time ? timeLabel(item.time) : "بلا وقت"}</span>}
       </div>
       <div className={styles.cardActions}>
         {mode === "view" ? (

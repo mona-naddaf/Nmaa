@@ -14,6 +14,8 @@ import {
   ownsRecord,
   type StaffScope,
 } from "@/lib/staff-scope";
+import { setStaffItemTime, setStaffOrder } from "@/lib/tracker/agenda-data";
+import { validateTime, type AgendaTime } from "@/lib/tracker/agenda";
 
 // Staff side of the daily tracker. Every action re-checks: the feature is
 // on, the group / every picked student is within her groups, and who may
@@ -21,7 +23,8 @@ import {
 // item, any staff member over her group (D9). D7 limits are enforced here.
 // Items are archived, never deleted (D6: they stop counting from that day).
 
-export type TrackerItemInput = { title: string; value: number; days: number };
+// time: «الجدول اليومي» only (ignored while it's off); null = «بلا وقت»
+export type TrackerItemInput = { title: string; value: number; days: number; time?: AgendaTime | null };
 export type TrackerTargetInput = { kind: "GROUP"; groupId: string } | { kind: "STUDENTS"; studentIds: string[] };
 export type TrackerResult = { error?: string };
 
@@ -29,6 +32,15 @@ const NOT_FOUND = { error: "لم يُعثر على هذا البند" };
 const NOT_OWNER = { error: "يمكن تعديل البند لمن أنشأه أو للإشراف فقط" };
 const BAD_VALUE = { error: `يُرجى اختيار درجة من ${TRACKER_LIMITS.valueMin} إلى ${TRACKER_LIMITS.valueMax}` };
 const BAD_DAYS = { error: "يُرجى اختيار يوم واحد على الأقل" };
+const BAD_TIME = { error: "الوقت غير صحيح" };
+
+/** The submitted time while «الجدول اليومي» is on: undefined = leave as is, null = «بلا وقت». */
+function readTime(scope: StaffScope, input: Partial<TrackerItemInput> | null | undefined): { time?: AgendaTime | null } | { error: string } {
+  if (!scope.trackerAgendaEnabled || input?.time === undefined) return {};
+  if (input.time === null) return { time: null };
+  const time = validateTime(input.time);
+  return time ? { time } : BAD_TIME;
+}
 
 function refresh() {
   revalidatePath("/tracker");
@@ -52,6 +64,9 @@ export async function createTrackerItemAction(input: TrackerItemInput, target: T
   if (!scope) return { error: FEATURE_OFF.tracker };
   const fields = checkFields(input);
   if ("error" in fields) return { error: fields.error };
+  const timed = readTime(scope, input);
+  if ("error" in timed) return { error: timed.error };
+  let created: { id: string };
 
   if (target?.kind === "GROUP") {
     const group = await checkGroup(scope, target.groupId);
@@ -60,7 +75,10 @@ export async function createTrackerItemAction(input: TrackerItemInput, target: T
     if (active >= TRACKER_LIMITS.activeItemsPerGroup) {
       return { error: `للمجموعة ${TRACKER_LIMITS.activeItemsPerGroup} بندًا نشطًا على الأكثر — يُرجى أرشفة بند أولًا` };
     }
-    await prisma.trackerItem.create({ data: { ...fields, courseId: scope.courseId, targetGroupId: group.id, createdByTeacherId: creatorId(scope) } });
+    created = await prisma.trackerItem.create({
+      data: { ...fields, courseId: scope.courseId, targetGroupId: group.id, createdByTeacherId: creatorId(scope) },
+      select: { id: true },
+    });
   } else if (target?.kind === "STUDENTS") {
     const students = await checkStudents(scope, target.studentIds, 100);
     if (!students) return { error: "يُرجى اختيار طلاب صحيحين من مجموعاتك" };
@@ -72,17 +90,19 @@ export async function createTrackerItemAction(input: TrackerItemInput, target: T
     if (counts.some((c) => c._count._all >= TRACKER_LIMITS.individualItemsPerStudent)) {
       return { error: `لا يمكن أن يُخصَّص لأحد أكثر من ${TRACKER_LIMITS.individualItemsPerStudent} بندًا فرديًا نشطًا` };
     }
-    await prisma.trackerItem.create({
+    created = await prisma.trackerItem.create({
       data: {
         ...fields,
         courseId: scope.courseId,
         createdByTeacherId: creatorId(scope),
         students: { create: students.map((s) => ({ studentId: s.id })) },
       },
+      select: { id: true },
     });
   } else {
     return { error: "يُرجى اختيار لمن البند" };
   }
+  if (timed.time) await setStaffItemTime(created.id, timed.time);
   refresh();
   return {};
 }
@@ -116,9 +136,22 @@ export async function updateTrackerItemAction(id: string, input: TrackerItemInpu
   if (found.item.status !== "APPROVED") return { error: "يُرجى اعتماد البند أولًا" };
   const fields = checkFields(input);
   if ("error" in fields) return { error: fields.error };
+  const timed = readTime(scope, input);
+  if ("error" in timed) return { error: timed.error };
   await prisma.trackerItem.update({ where: { id: found.item.id }, data: fields });
+  if (timed.time !== undefined) await setStaffItemTime(found.item.id, timed.time);
   refresh();
   return {};
+}
+
+/** «الجدول اليومي»: the group's order of its items (any staff member over the group). */
+export async function reorderTrackerItemsAction(groupId: string, itemIds: string[]): Promise<TrackerResult> {
+  const scope = await getStaffScope("tracker");
+  if (!scope) return { error: FEATURE_OFF.tracker };
+  if (!scope.trackerAgendaEnabled) return { error: "الجدول اليومي غير مفعّل في هذه الدورة" };
+  const r = await setStaffOrder(scope, groupId, itemIds);
+  if (!r.error) refresh();
+  return r;
 }
 
 export async function archiveTrackerItemAction(id: string): Promise<TrackerResult> {

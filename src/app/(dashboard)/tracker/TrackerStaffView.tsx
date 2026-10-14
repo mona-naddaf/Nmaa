@@ -16,8 +16,13 @@ import {
   archiveTrackerItemAction,
   createTrackerItemAction,
   rejectTrackerItemAction,
+  reorderTrackerItemsAction,
   updateTrackerItemAction,
 } from "./actions";
+import { OrderList } from "@/components/student-work/OrderList";
+import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
+import agendaStyles from "@/components/student-work/agenda.module.css";
+import { timeLabel } from "@/lib/tracker/agenda";
 
 export interface TrackerGroup {
   id: string;
@@ -33,6 +38,7 @@ export function TrackerStaffView({
   overview,
   items,
   students,
+  agenda = false,
 }: {
   groups: TrackerGroup[];
   group: TrackerGroup;
@@ -40,8 +46,12 @@ export function TrackerStaffView({
   overview: GroupTracker;
   items: StaffTrackerItem[];
   students: { id: string; name: string }[];
+  // «الجدول اليومي» (course setting): items' times and the group's order
+  agenda?: boolean;
 }) {
   const [adding, setAdding] = useState(false);
+  const [ordering, setOrdering] = useState(false);
+  const order = useAction();
   const g = group.gender;
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const active = items.filter((i) => !i.archived);
@@ -84,18 +94,35 @@ export function TrackerStaffView({
         <span>
           بنود المجموعة ({active.length})
         </span>
-        {!adding && (
-          <button type="button" className={hl.primaryBtn} onClick={() => setAdding(true)}>
-            + بند جديد
-          </button>
-        )}
+        <span style={{ display: "flex", gap: 8 }}>
+          {agenda && !ordering && active.length > 1 && (
+            <button type="button" className={hl.ghostBtn} onClick={() => setOrdering(true)}>
+              ترتيب البنود
+            </button>
+          )}
+          {!adding && (
+            <button type="button" className={hl.primaryBtn} onClick={() => setAdding(true)}>
+              + بند جديد
+            </button>
+          )}
+        </span>
       </div>
-      {adding && <NewItem group={group} students={students} onDone={() => setAdding(false)} />}
+      {ordering && (
+        <OrderList
+          hint={`${p("اسحب", "اسحبي")} البند من المقبض ⠿ أو ${p("استخدم", "استخدمي")} السهمين ▲ ▼، ثم ${p("احفظ", "احفظي")} الترتيب. هذا ترتيب المجموعة، ${p("ويستطيع كل طالب", "وتستطيع كل طالبة")} ترتيب جدوله لنفسه.`}
+          entries={active.map((i) => ({ id: i.id, title: i.title, note: i.time ? timeLabel(i.time) : "بلا وقت" }))}
+          pending={order.pending}
+          error={order.error}
+          onCancel={() => setOrdering(false)}
+          onSave={(ids) => order.run(() => reorderTrackerItemsAction(group.id, ids), () => setOrdering(false))}
+        />
+      )}
+      {adding && <NewItem group={group} students={students} agenda={agenda} onDone={() => setAdding(false)} />}
       <div className={hl.section}>
         {active.length === 0 ? (
           <div className={hl.empty}>لا توجد بنود بعد — {p("أضف", "أضيفي")} بندًا مثل «الورد اليومي» أو «أذكار الصباح».</div>
         ) : (
-          active.map((item) => <ItemRow key={item.id} item={item} gender={g} />)
+          active.map((item) => <ItemRow key={item.id} item={item} gender={g} agenda={agenda} />)
         )}
       </div>
 
@@ -106,7 +133,7 @@ export function TrackerStaffView({
           </summary>
           <div className={hl.section}>
             {archived.map((item) => (
-              <ItemRow key={item.id} item={item} gender={g} />
+              <ItemRow key={item.id} item={item} gender={g} agenda={agenda} />
             ))}
           </div>
         </details>
@@ -232,21 +259,36 @@ function GroupOverview({ data, gender: g }: { data: GroupTracker; gender: GroupG
   );
 }
 
-function NewItem({ group, students, onDone }: { group: TrackerGroup; students: { id: string; name: string }[]; onDone: () => void }) {
+function NewItem({
+  group,
+  students,
+  agenda,
+  onDone,
+}: {
+  group: TrackerGroup;
+  students: { id: string; name: string }[];
+  agenda: boolean;
+  onDone: () => void;
+}) {
   const [title, setTitle] = useState("");
   const [value, setValue] = useState(1);
   const [days, setDays] = useState(EVERY_DAY);
   const [kind, setKind] = useState<"GROUP" | "STUDENTS">("GROUP");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const { error, pending, run } = useAction();
+  const time = useTimeFields(null);
+  const [problem, setProblem] = useState<string | null>(null);
   const p = (m: string, f: string) => pickByGroup(group.gender, { m, f });
 
   function save(e: React.FormEvent) {
     e.preventDefault();
+    const t = agenda ? time.read() : { time: undefined };
+    if ("error" in t) return setProblem(t.error);
+    setProblem(null);
     run(
       () =>
         createTrackerItemAction(
-          { title, value, days },
+          { title, value, days, ...(agenda ? { time: t.time } : {}) },
           kind === "GROUP" ? { kind: "GROUP", groupId: group.id } : { kind: "STUDENTS", studentIds: [...picked] },
         ),
       onDone,
@@ -313,7 +355,8 @@ function NewItem({ group, students, onDone }: { group: TrackerGroup; students: {
           <div className={styles.hint}>المختار: {picked.size}</div>
         </div>
       )}
-      {error && <div className={hl.err}>{error}</div>}
+      {agenda && <TimeFields fields={time} />}
+      {(problem || error) && <div className={hl.err}>{problem ?? error}</div>}
       <div className={hl.actionsRow}>
         <button type="submit" className={hl.primaryBtn} disabled={pending}>
           {pending ? "جارٍ الحفظ…" : "حفظ"}
@@ -326,12 +369,21 @@ function NewItem({ group, students, onDone }: { group: TrackerGroup; students: {
   );
 }
 
-function ItemRow({ item, gender: g }: { item: StaffTrackerItem; gender: GroupGender }) {
+function ItemRow({ item, gender: g, agenda }: { item: StaffTrackerItem; gender: GroupGender; agenda: boolean }) {
   const [mode, setMode] = useState<"view" | "edit" | "archive">("view");
   const [title, setTitle] = useState(item.title);
   const [value, setValue] = useState(item.value ?? 1);
   const [days, setDays] = useState(item.days);
+  const time = useTimeFields(item.time);
+  const [problem, setProblem] = useState<string | null>(null);
   const { error, pending, run } = useAction();
+
+  function saveEdit() {
+    const t = agenda ? time.read() : { time: undefined };
+    if ("error" in t) return setProblem(t.error);
+    setProblem(null);
+    run(() => updateTrackerItemAction(item.id, { title, value, days, ...(agenda ? { time: t.time } : {}) }), () => setMode("view"));
+  }
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
 
   let target: string;
@@ -349,6 +401,7 @@ function ItemRow({ item, gender: g }: { item: StaffTrackerItem; gender: GroupGen
             <span>{daysLabel(item.days)}</span>
             <span>{target}</span>
             {item.target.kind !== "OWN" && <span>أنشأه: {item.creatorName ?? "الإشراف"}</span>}
+            {agenda && !item.archived && <span className={agendaStyles.timeChip}>{item.time ? timeLabel(item.time) : "بلا وقت"}</span>}
             {item.archived && <span className={`${styles.tag} ${styles.grey}`}>مؤرشف</span>}
           </div>
         </div>
@@ -368,7 +421,11 @@ function ItemRow({ item, gender: g }: { item: StaffTrackerItem; gender: GroupGen
             <span className={styles.fieldLabel}>الأيام</span>
             <WeekdayPicker days={days} onChange={setDays} />
           </div>
-          <div className={styles.hint}>تُحسب الدرجات دائمًا بالقيم الحالية للبند، بما فيها الأيام السابقة.</div>
+          {agenda && <TimeFields fields={time} />}
+          <div className={styles.hint}>
+            تُحسب الدرجات دائمًا بالقيم الحالية للبند، بما فيها الأيام السابقة.
+            {agenda && ` ويستطيع ${p("كل طالب", "كل طالبة")} تغيير الوقت لنفسه.`}
+          </div>
         </div>
       )}
 
@@ -390,7 +447,7 @@ function ItemRow({ item, gender: g }: { item: StaffTrackerItem; gender: GroupGen
                 type="button"
                 className={hl.primaryBtn}
                 disabled={pending}
-                onClick={() => run(() => updateTrackerItemAction(item.id, { title, value, days }), () => setMode("view"))}
+                onClick={saveEdit}
               >
                 {pending ? "جارٍ الحفظ…" : "حفظ"}
               </button>
@@ -414,7 +471,7 @@ function ItemRow({ item, gender: g }: { item: StaffTrackerItem; gender: GroupGen
           )}
         </div>
       )}
-      {error && <div className={hl.err}>{error}</div>}
+      {(problem || error) && <div className={hl.err}>{problem ?? error}</div>}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
   deleteAccountAction,
   regenerateRecoveryCodeAction,
   setCommitDaysAction,
+  setAgendaEnabledAction,
   setReviewRemindersAction,
   signOutEverywhereAction,
   updateProfileAction,
@@ -29,9 +30,10 @@ type Props = {
   recoveryCodeCreatedAt: string;
   reviewReminderDays: number | null;
   commitDays: number;
+  agendaEnabled: boolean;
 };
 
-export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays }: Props) {
+export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
 
   return (
@@ -42,6 +44,7 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
       <Profile email={email} name={name} gender={gender} />
       <CommitDays p={p} initial={commitDays} />
       <ReviewReminders p={p} days={reviewReminderDays} />
+      <Agenda p={p} enabled={agendaEnabled} />
       <Password p={p} />
       <Recovery p={p} gender={gender} createdAt={recoveryCodeCreatedAt} />
       <div className={hl.section}>
@@ -181,6 +184,31 @@ function ReviewReminders({ p, days }: { p: P; days: number | null }) {
           <input id="review-days" name="days" type="number" min={1} max={90} className={styles.input} defaultValue={days ?? DEFAULT_REVIEW_DAYS} style={{ maxWidth: 120 }} />
         </div>
       )}
+      <Feedback state={state} />
+      <button type="submit" className={hl.primaryBtn} disabled={pending}>
+        {pending ? "جارٍ الحفظ…" : "حفظ"}
+      </button>
+    </form>
+  );
+}
+
+function Agenda({ p, enabled }: { p: P; enabled: boolean }) {
+  const [state, action, pending] = useActionState<SettingsState, FormData>(setAgendaEnabledAction, null);
+  const [on, setOn] = useState(enabled);
+  return (
+    <form className={hl.section} action={action}>
+      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+        الجدول اليومي
+      </div>
+      <p className={hl.muted} style={{ marginTop: 0 }}>
+        {p("رتّب", "رتّبي")} بنود جدول المتابعة {p("وأعطِ", "وأعطي")} كل بند وقته، {p("لترى", "لتري")} جدول يومك وما {p("عليك", "عليكِ")} الآن وما
+        بعده. لا يغيّر شيئًا في الدرجات.
+      </p>
+      <input type="hidden" name="on" value={on ? "1" : "0"} />
+      <label className={styles.confirmRow}>
+        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+        تفعيل الجدول اليومي
+      </label>
       <Feedback state={state} />
       <button type="submit" className={hl.primaryBtn} disabled={pending}>
         {pending ? "جارٍ الحفظ…" : "حفظ"}

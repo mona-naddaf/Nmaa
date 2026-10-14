@@ -6,6 +6,8 @@ import { getRafiqUser } from "@/lib/rafiq/session";
 import { templateSearchKey } from "@/lib/rafiq/templates";
 import { checkTemplateText, itemsObject, TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
+import { nextRafiqSortOrder } from "@/lib/tracker/agenda-data";
+import { placeOf } from "@/lib/tracker/agenda";
 
 // The tracker template bank, for «رفيق الحفظ» users. Publishing takes a
 // snapshot of her chosen tracker items; using a template copies its items
@@ -32,12 +34,17 @@ export async function publishTemplateAction(input: { title: string; description:
   if (ids.length === 0) return { error: "يُرجى اختيار بند واحد على الأقل" };
   if (ids.length > TEMPLATE_LIMITS.itemsMax) return { error: `يمكن أن يضم الجدول ${TEMPLATE_LIMITS.itemsMax} بندًا على الأكثر` };
 
-  // only her own items still in use, in her tracker's order
-  const items = await prisma.rafiqTrackerItem.findMany({
-    where: { id: { in: ids }, userId: user.id, archivedAt: null },
-    orderBy: { createdAt: "asc" },
-    select: { title: true, value: true, days: true },
-  });
+  // only her own items still in use, in her tracker's order, with their times
+  const items = (
+    await prisma.rafiqTrackerItem.findMany({
+      where: { id: { in: ids }, userId: user.id, archivedAt: null },
+      orderBy: { createdAt: "asc" },
+      select: { title: true, value: true, days: true, sortOrder: true, slots: { where: { weekdays: 127 }, select: { startMin: true, durationMin: true } } },
+    })
+  )
+    // in her order (unplaced items last), as her tracker shows them
+    .sort((a, b) => placeOf(a.sortOrder) - placeOf(b.sortOrder))
+    .map((it) => ({ title: it.title, value: it.value, days: it.days, startMin: it.slots[0]?.startMin ?? null, durationMin: it.slots[0]?.durationMin ?? null }));
   if (items.length !== ids.length) return { error: "بعض البنود المختارة لم تعد موجودة — يُرجى تحديث الصفحة" };
 
   const [today, total] = await Promise.all([
@@ -66,7 +73,7 @@ export async function applyTemplateAction(templateId: string): Promise<BankResul
   if (!user) return SIGNED_OUT;
   const template = await prisma.trackerTemplate.findFirst({
     where: { id: String(templateId ?? ""), OR: [{ hiddenAt: null }, { createdByRafiqId: user.id }] },
-    select: { id: true, items: { orderBy: { sortOrder: "asc" }, select: { title: true, value: true, days: true } } },
+    select: { id: true, items: { orderBy: { sortOrder: "asc" }, select: { title: true, value: true, days: true, startMin: true, durationMin: true } } },
   });
   if (!template) return NOT_FOUND;
   const active = await prisma.rafiqTrackerItem.count({ where: { userId: user.id, archivedAt: null } });
@@ -76,8 +83,20 @@ export async function applyTemplateAction(templateId: string): Promise<BankResul
       error: `يضم هذا الجدول ${itemsObject(template.items.length)}، ولا يتّسع جدولك إلا لـ${room} (الحدّ ${RAFIQ_TRACKER_MAX_ITEMS} بندًا) — يُرجى حذف بعض البنود أولًا`,
     };
   }
+  // after her own items, in the template's order, each with its time if it had one
+  const first = await nextRafiqSortOrder(user.id);
   await prisma.$transaction([
-    prisma.rafiqTrackerItem.createMany({ data: template.items.map((it) => ({ userId: user.id, ...it })) }),
+    ...template.items.map(({ startMin, durationMin, ...it }, i) =>
+      prisma.rafiqTrackerItem.create({
+        data: {
+          userId: user.id,
+          ...it,
+          // her own order continues (or, never reordered, creation order: 0)
+          sortOrder: first > 0 ? first + i : 0,
+          ...(startMin !== null ? { slots: { create: { userId: user.id, weekdays: 127, startMin, durationMin } } } : {}),
+        },
+      }),
+    ),
     prisma.trackerTemplate.update({ where: { id: template.id }, data: { useCount: { increment: 1 } } }),
   ]);
   refresh();

@@ -13,7 +13,8 @@ export interface TemplateCard {
   description: string | null;
   suggested: boolean;
   useCount: number;
-  items: { title: string; value: number; days: number }[];
+  // startMin/durationMin: the item's time («الجدول اليومي»), sent only to viewers who use it
+  items: { title: string; value: number; days: number; startMin?: number | null; durationMin?: number | null }[];
   own: boolean;
   hidden: boolean;
   reportedByMe: boolean;
@@ -23,8 +24,8 @@ export const templateSearchKey = (title: string, description: string | null) => 
 
 const LIST_MAX = 60;
 
-/** The bank as one Rafiq user sees it: suggested first, then newest. */
-export async function listTemplates(viewerId: string, query: string): Promise<TemplateCard[]> {
+/** The bank as one Rafiq user sees it: suggested first, then newest. withTimes: her «الجدول اليومي» is on. */
+export async function listTemplates(viewerId: string, query: string, withTimes = false): Promise<TemplateCard[]> {
   const q = normalizeArabic(query ?? "");
   const where: Prisma.TrackerTemplateWhereInput = {
     AND: [
@@ -44,7 +45,7 @@ export async function listTemplates(viewerId: string, query: string): Promise<Te
       useCount: true,
       hiddenAt: true,
       createdByRafiqId: true,
-      items: { orderBy: { sortOrder: "asc" }, select: { title: true, value: true, days: true } },
+      items: { orderBy: { sortOrder: "asc" }, select: { title: true, value: true, days: true, startMin: true, durationMin: true } },
       reports: { where: { resolvedAt: null, reporterRafiqId: viewerId }, select: { id: true } },
     },
   });
@@ -54,7 +55,7 @@ export async function listTemplates(viewerId: string, query: string): Promise<Te
     description: r.description,
     suggested: r.suggested,
     useCount: r.useCount,
-    items: r.items,
+    items: r.items.map(({ startMin, durationMin, ...it }) => (withTimes ? { ...it, startMin, durationMin } : it)),
     own: r.createdByRafiqId === viewerId,
     hidden: r.hiddenAt !== null,
     reportedByMe: r.reports.length > 0,

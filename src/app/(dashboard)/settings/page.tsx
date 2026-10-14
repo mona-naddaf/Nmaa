@@ -137,6 +137,7 @@ export default async function SettingsPage() {
           homeMistakesEnabled={course.homeMistakesEnabled}
           assignmentsEnabled={course.assignmentsEnabled}
           trackerEnabled={course.trackerEnabled}
+          trackerAgendaEnabled={course.trackerAgendaEnabled}
         />
       </Collapsible>
 

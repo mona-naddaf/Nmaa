@@ -44,6 +44,8 @@ export type StudentAccess = {
   homeMistakesEnabled: boolean;
   assignmentsEnabled: boolean;
   trackerEnabled: boolean;
+  // «الجدول اليومي» (only with the tracker)
+  trackerAgendaEnabled: boolean;
 };
 
 /** The signed-in student, or null. One lookup per request (cached). */
@@ -70,6 +72,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
           homeMistakesEnabled: true,
           assignmentsEnabled: true,
           trackerEnabled: true,
+          trackerAgendaEnabled: true,
         },
       },
     },
@@ -91,6 +94,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
     homeMistakesEnabled: student.course.homeLogEnabled && student.course.homeMistakesEnabled,
     assignmentsEnabled: student.course.assignmentsEnabled,
     trackerEnabled: student.course.trackerEnabled,
+    trackerAgendaEnabled: student.course.trackerEnabled && student.course.trackerAgendaEnabled,
   };
 });
 

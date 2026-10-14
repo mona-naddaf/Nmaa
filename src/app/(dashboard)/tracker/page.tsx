@@ -42,6 +42,7 @@ export default async function TrackerPage({
       overview={overview}
       items={items}
       students={students}
+      agenda={scope.trackerAgendaEnabled}
     />
   );
 }

@@ -21,6 +21,7 @@ export function StudentLoginCard({
   homeMistakesEnabled,
   assignmentsEnabled,
   trackerEnabled,
+  trackerAgendaEnabled,
 }: {
   enabled: boolean;
   boardEnabled: boolean;
@@ -29,6 +30,7 @@ export function StudentLoginCard({
   homeMistakesEnabled: boolean;
   assignmentsEnabled: boolean;
   trackerEnabled: boolean;
+  trackerAgendaEnabled: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,8 @@ export function StudentLoginCard({
   const dependent = enabled ? undefined : { opacity: 0.5, pointerEvents: "none" as const };
   // self-marked mistakes live inside the home log
   const homeDependent = enabled && homeLogEnabled ? undefined : { opacity: 0.5, pointerEvents: "none" as const };
+  // the daily agenda lives inside the tracker
+  const trackerDependent = enabled && trackerEnabled ? undefined : { opacity: 0.5, pointerEvents: "none" as const };
 
   function run(action: () => Promise<{ error?: string } | void>) {
     setError(null);
@@ -168,6 +172,22 @@ export function StudentLoginCard({
           </div>
         </div>
         <OnOffPills on={trackerEnabled} onChange={(v) => !pending && run(() => setStudentFeatureEnabledAction("tracker", v))} />
+      </div>
+
+      <div className={styles.settingRow} style={trackerDependent} aria-disabled={!(enabled && trackerEnabled)}>
+        <div className={styles.settingText}>
+          <div className={styles.settingTitle}>الجدول اليومي</div>
+          <div className={styles.settingDesc}>
+            ترتيب بنود جدول المتابعة وأوقاتها، مع جدول اليوم وبطاقة «الآن» للطالب. يحدّد المعلم ترتيب بنود المجموعة وأوقاتها،
+            ويستطيع الطالب تغيير الأوقات وترتيب البنود لنفسه وإضافة بنوده الخاصة، ولا يستطيع حذف بنود المعلم. لا يغيّر شيئًا في
+            الدرجات.
+            {!(enabled && trackerEnabled) && " (يتاح بعد تفعيل جدول المتابعة)"}
+          </div>
+        </div>
+        <OnOffPills
+          on={trackerAgendaEnabled}
+          onChange={(v) => !pending && run(() => setStudentFeatureEnabledAction("trackerAgenda", v))}
+        />
       </div>
       {error && <div className={styles.err}>{error}</div>}
     </>

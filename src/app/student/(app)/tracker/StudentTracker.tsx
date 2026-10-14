@@ -11,9 +11,18 @@ import { daysBetween } from "@/lib/calendar/hijri";
 import { daysLabel, EVERY_DAY, TRACKER_LIMITS, withLocalDays } from "@/lib/tracker/rules";
 import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
-import { addOwnTrackerItemAction, deleteOwnTrackerItemAction, renameOwnTrackerItemAction, setTrackerCheckAction } from "./actions";
+import { TrackerAgenda } from "@/components/student-work/TrackerAgenda";
+import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
+import {
+  addOwnTrackerItemAction,
+  deleteOwnTrackerItemAction,
+  renameOwnTrackerItemAction,
+  setMyItemTimeAction,
+  setMyOrderAction,
+  setTrackerCheckAction,
+} from "./actions";
 
-export function StudentTracker({ sheet, groupGender: g }: { sheet: TrackerSheet; groupGender: GroupGender }) {
+export function StudentTracker({ sheet, groupGender: g, agenda = false }: { sheet: TrackerSheet; groupGender: GroupGender; agenda?: boolean }) {
   const today = useToday();
   const tz = useTimeZone();
   if (!today) return <div className={hl.empty}>…</div>;
@@ -35,17 +44,32 @@ export function StudentTracker({ sheet, groupGender: g }: { sheet: TrackerSheet;
         <span style={{ fontSize: 16, color: "var(--ink)" }}>✅ جدول المتابعة</span>
       </div>
 
+      {/* «الجدول اليومي» (course setting): today's agenda above the usual sheet */}
+      {agenda && (
+        <TrackerAgenda
+          sheet={sheet}
+          today={today}
+          groupGender={g}
+          course
+          onTick={setTrackerCheckAction}
+          onTime={setMyItemTimeAction}
+          onReorder={setMyOrderAction}
+          onRemoveOwn={deleteOwnTrackerItemAction}
+        />
+      )}
+
       <TrackerDaySheet sheet={sheet} groupGender={g} today={today} onTick={setTrackerCheckAction} />
 
-      <OwnItems items={ownWaiting} g={g} />
+      <OwnItems items={ownWaiting} g={g} agenda={agenda} />
     </div>
   );
 }
 
-function OwnItems({ items, g }: { items: TrackerItemView[]; g: GroupGender }) {
+function OwnItems({ items, g, agenda }: { items: TrackerItemView[]; g: GroupGender; agenda: boolean }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [days, setDays] = useState(EVERY_DAY);
+  const time = useTimeFields(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
@@ -74,12 +98,15 @@ function OwnItems({ items, g }: { items: TrackerItemView[]; g: GroupGender }) {
           className={hl.section}
           onSubmit={(e) => {
             e.preventDefault();
+            const t = agenda ? time.read() : { time: undefined };
+            if ("error" in t) return setError(t.error);
             run(
-              () => addOwnTrackerItemAction({ title, days }),
+              () => addOwnTrackerItemAction({ title, days, ...(agenda ? { time: t.time } : {}) }),
               () => {
                 setAdding(false);
                 setTitle("");
                 setDays(EVERY_DAY);
+                time.reset();
               },
             );
           }}
@@ -100,6 +127,7 @@ function OwnItems({ items, g }: { items: TrackerItemView[]; g: GroupGender }) {
             <span className={styles.fieldLabel}>الأيام</span>
             <WeekdayPicker days={days} onChange={setDays} />
           </div>
+          {agenda && <TimeFields fields={time} />}
           <div className={styles.hint} style={{ marginBottom: 8 }}>
             {p("يعتمده المعلم ويحدّد درجته، ويمكنك تعليمه قبل ذلك لكنه لا يُحتسب حتى يُعتمد.", "تعتمده المعلمة وتحدّد درجته، ويمكنكِ تعليمه قبل ذلك لكنه لا يُحتسب حتى يُعتمد.")}
           </div>

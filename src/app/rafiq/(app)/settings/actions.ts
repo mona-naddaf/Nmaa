@@ -110,6 +110,16 @@ export async function setReviewRemindersAction(_prev: SettingsState, formData: F
   return { ok: on ? "تم تفعيل تذكير المراجعة ✓" : "تم إيقاف تذكير المراجعة ✓" };
 }
 
+/** «الجدول اليومي» on her tracker page: on or off (off by default). */
+export async function setAgendaEnabledAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const user = await getRafiqUser();
+  if (!user) return SIGNED_OUT;
+  const on = formData.get("on") === "1";
+  await prisma.rafiqUser.update({ where: { id: user.id }, data: { agendaEnabled: on } });
+  revalidatePath("/rafiq", "layout");
+  return { ok: on ? "تم تفعيل الجدول اليومي ✓" : "تم إيقاف الجدول اليومي ✓" };
+}
+
 /**
  * The weekdays she intends to commit to, from her today onward (earlier
  * days keep the schedule they had). today: her browser's local date.

@@ -1,0 +1,389 @@
+/* «الجدول اليومي»: the «الآن» card, today's timeline, «بلا وقت» and ordering. */
+
+.nowCard {
+  background: linear-gradient(135deg, var(--rose-deep), #2f4f3d);
+  color: #fff;
+  border-radius: 18px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 6px 18px rgba(63, 102, 80, 0.18);
+}
+
+.nowLabel {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.8;
+  letter-spacing: 0.02em;
+}
+
+.nowTitle {
+  font-size: 19px;
+  font-weight: 800;
+  margin: 4px 0 2px;
+  line-height: 1.4;
+}
+
+.nowMeta {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.nowNext {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 13.5px;
+}
+
+.nowNext b {
+  font-weight: 800;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 4px 10px;
+}
+
+.timeline {
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.afterMidnight {
+  position: absolute;
+  inset-inline: 0;
+  background: repeating-linear-gradient(135deg, rgba(168, 92, 54, 0.05) 0 8px, rgba(168, 92, 54, 0.09) 8px 16px);
+  pointer-events: none;
+}
+
+.afterMidnightLabel {
+  position: absolute;
+  z-index: 2;
+  inset-inline-end: 8px;
+  background: var(--paper);
+  border-radius: 6px;
+  padding: 0 5px;
+  font-size: 11px;
+  color: var(--gold-deep);
+  font-weight: 700;
+  transform: translateY(2px);
+}
+
+.fold {
+  position: absolute;
+  inset-inline: 58px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  background: repeating-linear-gradient(90deg, transparent 0 6px, rgba(63, 102, 80, 0.06) 6px 12px);
+  border-radius: 8px;
+}
+
+.hourLine {
+  position: absolute;
+  inset-inline: 0;
+  border-top: 1px dashed var(--line);
+}
+
+.hourLabel {
+  position: absolute;
+  inset-inline-start: 6px;
+  width: 50px;
+  font-size: 11px;
+  color: var(--ink-soft);
+  transform: translateY(-50%);
+  background: var(--paper);
+  padding: 0 2px;
+  white-space: nowrap;
+}
+
+.block {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 10px;
+  padding: 6px 8px;
+  background: #eef3ef;
+  border: 1px solid #cddbd2;
+  border-inline-start: 4px solid var(--rose-deep);
+  overflow: hidden;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.block.done {
+  background: #e3ede6;
+  border-inline-start-color: var(--rose);
+}
+
+.block.running {
+  box-shadow: 0 0 0 2px var(--gold-deep);
+}
+
+.blockBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.blockTitle {
+  font-weight: 800;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.done .blockTitle {
+  text-decoration: line-through;
+  text-decoration-color: rgba(49, 46, 39, 0.35);
+}
+
+.blockTime {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nowLine {
+  position: absolute;
+  inset-inline: 0;
+  height: 0;
+  border-top: 2px solid var(--gold-deep);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.nowDot {
+  position: absolute;
+  inset-inline-start: 52px;
+  top: -6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gold-deep);
+}
+
+.nowTag {
+  position: absolute;
+  inset-inline-end: 6px;
+  top: -10px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--gold-deep);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+
+.check {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--rose-deep);
+  background: #fff;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.check.on {
+  background: var(--rose-deep);
+}
+
+.check:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.iconBtn {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+.iconBtn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.untimed {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 6px 12px;
+  margin-bottom: 14px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowTitle {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 14.5px;
+}
+
+.rowTitle small {
+  display: block;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.editor {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  margin: 0 0 14px;
+}
+
+.editorTitle {
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.timeInputs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+
+.timeInputs label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.timeInputs input {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 15px;
+  color: var(--ink);
+  min-width: 120px;
+}
+
+.orderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  touch-action: pan-y;
+}
+
+.orderRow.dragging {
+  background: #eef3ef;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  position: relative;
+  z-index: 2;
+}
+
+.handle {
+  flex: none;
+  cursor: grab;
+  touch-action: none;
+  font-size: 18px;
+  color: var(--ink-soft);
+  padding: 4px 6px;
+  user-select: none;
+}
+
+.dragging .handle {
+  cursor: grabbing;
+}
+
+.orderTitle {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 14.5px;
+}
+
+.orderTitle small {
+  display: block;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.arrow {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.timeChip {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--rose-deep);
+  background: #eef3ef;
+  border-radius: 8px;
+  padding: 1px 7px;
+}
+
+@media (max-width: 520px) {
+  .nowTitle {
+    font-size: 17px;
+  }
+  .hourLabel {
+    width: 44px;
+    font-size: 10.5px;
+  }
+  .blockTitle {
+    font-size: 12.5px;
+  }
+}

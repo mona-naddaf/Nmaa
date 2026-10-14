@@ -7,6 +7,8 @@ import { itemsForStudentWhere } from "@/lib/tracker/data";
 import { acceptCourseTickDay, shownOn, TRACKER_LIMITS, validateDays, validateTitle } from "@/lib/tracker/rules";
 import { courseTimeZone } from "@/lib/time/course-zone";
 import { dateOnly, zoneDayOf, zoneToday } from "@/lib/time/zone";
+import { setStudentItemTime, setStudentOrder, type TimeChoice } from "@/lib/tracker/agenda-data";
+import { validateTime, type AgendaTime } from "@/lib/tracker/agenda";
 
 // The student's side of the daily tracker. Every action re-checks her
 // session, that the course has the tracker on, and that the item reaches
@@ -16,11 +18,20 @@ import { dateOnly, zoneDayOf, zoneToday } from "@/lib/time/zone";
 export type TrackerStudentResult = { error?: string };
 
 const OFF = { error: "جدول المتابعة غير متاح حاليًا" };
+const AGENDA_OFF = { error: "الجدول اليومي غير متاح حاليًا" };
 
 async function trackerStudent(): Promise<StudentAccess | null> {
   const access = await getStudentAccess();
   return access && access.trackerEnabled ? access : null;
 }
+
+/** «الجدول اليومي» needs the tracker and its own switch. */
+async function agendaStudent(): Promise<StudentAccess | null> {
+  const access = await trackerStudent();
+  return access && access.trackerAgendaEnabled ? access : null;
+}
+
+const ref = (a: StudentAccess) => ({ id: a.studentId, courseId: a.courseId, groupId: a.groupId });
 
 function refresh() {
   revalidatePath("/student/tracker");
@@ -59,8 +70,11 @@ export async function setTrackerCheckAction(input: { itemId: string; day: string
   return {};
 }
 
-/** «+ بند خاص»: waits for approval; staff set its score (D7: at most 10 of her own). */
-export async function addOwnTrackerItemAction(input: { title: string; days: number }): Promise<TrackerStudentResult> {
+/**
+ * «+ بند خاص»: waits for approval; staff set its score (D7: at most 10 of
+ * her own). With «الجدول اليومي» on she may give it a time straight away.
+ */
+export async function addOwnTrackerItemAction(input: { title: string; days: number; time?: AgendaTime | null }): Promise<TrackerStudentResult> {
   const access = await trackerStudent();
   if (!access) return OFF;
   const t = validateTitle(input?.title);
@@ -73,9 +87,13 @@ export async function addOwnTrackerItemAction(input: { title: string; days: numb
   if (own >= TRACKER_LIMITS.ownItemsPerStudent) {
     return { error: `يمكن إضافة ${TRACKER_LIMITS.ownItemsPerStudent} بنود خاصة على الأكثر` };
   }
-  await prisma.trackerItem.create({
+  const time = access.trackerAgendaEnabled && input?.time ? validateTime(input.time) : null;
+  if (access.trackerAgendaEnabled && input?.time && !time) return { error: "الوقت غير صحيح" };
+  const item = await prisma.trackerItem.create({
     data: { courseId: access.courseId, title: t.title, days, status: "PENDING", value: null, createdByStudentId: access.studentId },
+    select: { id: true },
   });
+  if (time) await setStudentItemTime(ref(access), item.id, time);
   refresh();
   return {};
 }
@@ -95,14 +113,45 @@ export async function renameOwnTrackerItemAction(itemId: string, title: string):
   return {};
 }
 
-/** D8: she may delete her own pending or rejected item (approved ones are staff's to archive). */
+/**
+ * D8: she may delete her own pending or rejected item. An approved own item
+ * is archived instead («الجدول اليومي»): it stops counting from today and
+ * its past days keep their scores. Staff's items are never hers to remove.
+ */
 export async function deleteOwnTrackerItemAction(itemId: string): Promise<TrackerStudentResult> {
   const access = await trackerStudent();
   if (!access) return OFF;
+  const id = String(itemId ?? "");
   const { count } = await prisma.trackerItem.deleteMany({
-    where: { id: String(itemId ?? ""), createdByStudentId: access.studentId, status: { in: ["PENDING", "REJECTED"] } },
+    where: { id, createdByStudentId: access.studentId, status: { in: ["PENDING", "REJECTED"] } },
   });
-  if (count === 0) return { error: "لا يمكن حذف هذا البند" };
+  if (count === 0) {
+    const archived = await prisma.trackerItem.updateMany({
+      where: { id, createdByStudentId: access.studentId, status: "APPROVED", archivedAt: null },
+      data: { archivedAt: new Date() },
+    });
+    if (archived.count === 0) return { error: "لا يمكن حذف هذا البند" };
+  }
   refresh();
   return {};
+}
+
+// ---------- «الجدول اليومي» ----------
+
+/** Her time for an item reaching her: a time, «بلا وقت» (null), or back to staff's ("STAFF"). */
+export async function setMyItemTimeAction(itemId: string, time: TimeChoice): Promise<TrackerStudentResult> {
+  const access = await agendaStudent();
+  if (!access) return AGENDA_OFF;
+  const r = await setStudentItemTime(ref(access), itemId, time);
+  if (!r.error) refresh();
+  return r;
+}
+
+/** Her personal order of the items reaching her. */
+export async function setMyOrderAction(itemIds: string[]): Promise<TrackerStudentResult> {
+  const access = await agendaStudent();
+  if (!access) return AGENDA_OFF;
+  const r = await setStudentOrder(ref(access), itemIds);
+  if (!r.error) refresh();
+  return r;
 }

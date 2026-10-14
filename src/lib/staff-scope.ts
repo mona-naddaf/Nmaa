@@ -19,6 +19,8 @@ export interface StaffScope {
   session: Session;
   courseId: string;
   homeLogEnabled: boolean;
+  /** «الجدول اليومي» is on (only with the tracker; lib/tracker/agenda.ts) */
+  trackerAgendaEnabled: boolean;
   /** null = every group in the course */
   groupLimit: string[] | null;
 }
@@ -32,6 +34,7 @@ export async function getStaffScope(feature: StudentFeature): Promise<StaffScope
       assignmentsEnabled: true,
       trackerEnabled: true,
       homeLogEnabled: true,
+      trackerAgendaEnabled: true,
       visibilityMode: true,
     },
   });
@@ -41,6 +44,7 @@ export async function getStaffScope(feature: StudentFeature): Promise<StaffScope
     session,
     courseId: session.courseId,
     homeLogEnabled: course.homeLogEnabled,
+    trackerAgendaEnabled: course.trackerEnabled && course.trackerAgendaEnabled,
     groupLimit: await teacherGroupLimit(session, course),
   };
 }

@@ -15,6 +15,8 @@ import { MistakesList } from "@/components/mistakes/MistakesList";
 import { HomeLogSummary } from "@/components/home-log/HomeLogSummary";
 import { AssignmentList } from "@/components/student-work/AssignmentList";
 import { TrackerWeek } from "@/components/student-work/TrackerWeek";
+import { TrackerSummary } from "@/components/student-work/TrackerSummary";
+import { parentSummaryAction } from "./actions";
 import { ParentStudentInfo } from "./ParentStudentInfo";
 import { partsLabel } from "@/lib/recitation/combined";
 
@@ -157,6 +159,15 @@ export function ParentView({ data }: { data: ParentViewData }) {
             <div className={styles.card}>
               <TrackerWeek sheet={data.tracker} />
             </div>
+          </>
+        )}
+
+        {data.summary && (
+          <>
+            <div className={styles.secTitle}>
+              <span className={styles.dot} /> 📊 المحصّلات
+            </div>
+            <TrackerSummary initial={data.summary} groupGender={data.groupGender} self={false} load={parentSummaryAction} />
           </>
         )}
 

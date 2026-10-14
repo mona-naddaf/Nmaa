@@ -138,6 +138,7 @@ export default async function SettingsPage() {
           assignmentsEnabled={course.assignmentsEnabled}
           trackerEnabled={course.trackerEnabled}
           trackerAgendaEnabled={course.trackerAgendaEnabled}
+          trackerSummaryEnabled={course.trackerSummaryEnabled}
         />
       </Collapsible>
 

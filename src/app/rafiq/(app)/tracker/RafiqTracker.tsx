@@ -28,7 +28,18 @@ const marksLabel = (n: number) => (n === 1 ? "درجة" : n === 2 ? "درجتا�
 // Her «جدول المتابعة»: the shared today/yesterday sheet, then her own items,
 // which she creates and edits herself (no approval). With «الجدول اليومي»
 // on (her settings): today's agenda first, and a time in the item forms.
-export function RafiqTracker({ data, g, agenda = false }: { data: RafiqTrackerData; g: GroupGender; agenda?: boolean }) {
+export function RafiqTracker({
+  data,
+  g,
+  agenda = false,
+  summary = false,
+}: {
+  data: RafiqTrackerData;
+  g: GroupGender;
+  agenda?: boolean;
+  // «المحصّلات» (her setting): a link to her summaries
+  summary?: boolean;
+}) {
   const today = useToday();
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
@@ -53,9 +64,20 @@ export function RafiqTracker({ data, g, agenda = false }: { data: RafiqTrackerDa
     <div>
       <div className={hl.sectionTitle}>
         <span style={{ fontSize: 16, color: "var(--ink)" }}>✅ جدول المتابعة</span>
-        <Link href="/rafiq/templates" className={hl.linkBtn}>
-          📚 بنك الجداول ←
-        </Link>
+        {summary ? (
+          <span style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <Link href="/rafiq/tracker/summary" className={hl.linkBtn}>
+              📊 المحصّلات ←
+            </Link>
+            <Link href="/rafiq/templates" className={hl.linkBtn}>
+              📚 بنك الجداول ←
+            </Link>
+          </span>
+        ) : (
+          <Link href="/rafiq/templates" className={hl.linkBtn}>
+            📚 بنك الجداول ←
+          </Link>
+        )}
       </div>
 
       {data.active.length === 0 && data.sheet.items.length === 0 ? (

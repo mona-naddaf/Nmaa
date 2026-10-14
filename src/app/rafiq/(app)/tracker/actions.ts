@@ -7,6 +7,8 @@ import { acceptTickDay, addDays, shownOn, validateDays, validateTitle, validateV
 import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
 import { nextRafiqSortOrder, setRafiqItemTime, setRafiqOrder } from "@/lib/tracker/agenda-data";
 import { validateTime, type AgendaTime } from "@/lib/tracker/agenda";
+import { rafiqSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
+import { clampOffset, isPeriodKind } from "@/lib/tracker/summary";
 
 // Her own follow-up tracker: she creates, edits and removes her items (no
 // approval), and ticks today or yesterday only. Every action re-checks her
@@ -76,6 +78,16 @@ export async function updateItemAction(id: string, input: ItemInput): Promise<Tr
   if (timed.time !== undefined) await setRafiqItemTime(user.id, id, timed.time);
   refresh();
   return {};
+}
+
+/** «المحصّلات» of her tracker, on her own days (zone: her browser's time zone). */
+export async function summaryAction(kind: unknown, offset: unknown, zone: unknown): Promise<SummaryPayload | { error: string }> {
+  const user = await getRafiqUser();
+  if (!user) return SIGNED_OUT;
+  const { summaryEnabled } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { summaryEnabled: true } });
+  if (!summaryEnabled) return { error: "المحصّلات غير مفعّلة — يمكن تفعيلها من الإعدادات" };
+  if (!isPeriodKind(kind)) return { error: "فترة غير صحيحة" };
+  return rafiqSummary(user.id, kind, clampOffset(offset), zone);
 }
 
 /** «الجدول اليومي»: the time of one of her items (null = «بلا وقت»). */

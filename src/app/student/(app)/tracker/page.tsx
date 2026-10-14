@@ -8,12 +8,12 @@ import { StudentTracker } from "./StudentTracker";
 // the last seven days, and her own items. Refused (not just hidden) when the
 // course has the tracker off.
 export default async function StudentTrackerPage() {
-  const { studentId, trackerEnabled, trackerAgendaEnabled } = await requireStudentAccess();
+  const { studentId, trackerEnabled, trackerAgendaEnabled, trackerSummaryEnabled } = await requireStudentAccess();
   if (!trackerEnabled) redirect("/student");
 
   const [sheet, { group }] = await Promise.all([
     getStudentTracker(studentId, 9),
     prisma.student.findUniqueOrThrow({ where: { id: studentId }, select: { group: { select: { gender: true } } } }),
   ]);
-  return <StudentTracker sheet={sheet} groupGender={group.gender} agenda={trackerAgendaEnabled} />;
+  return <StudentTracker sheet={sheet} groupGender={group.gender} agenda={trackerAgendaEnabled} summary={trackerSummaryEnabled} />;
 }

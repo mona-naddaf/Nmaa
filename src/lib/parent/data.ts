@@ -16,6 +16,7 @@ import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { getHomeLog, type HomeLogView } from "@/lib/home-log/data";
 import { getStudentAssignments, type StudentAssignment } from "@/lib/assignments/data";
 import { getStudentTracker, type TrackerSheet } from "@/lib/tracker/data";
+import { courseSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
 import { getStudentInfoValues, parentInfoAccess, plainValues, visibleInfoFields } from "@/lib/students/extra-info";
 import type { InfoField } from "@/lib/students/extra-info-rules";
 
@@ -61,6 +62,8 @@ export interface ParentViewData {
   assignments: StudentAssignment[] | null;
   // read-only daily tracker (D1); null when the course has it off
   tracker: TrackerSheet | null;
+  // «المحصّلات» (course setting, with the tracker): this month's, to start with
+  summary: SummaryPayload | null;
   // «معلومات الطالب/ة», which the parent may fill/edit: only the fields
   // shown to parents. null unless the course has the feature and parent
   // editing on.
@@ -81,6 +84,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
           studentLoginEnabled: true,
           assignmentsEnabled: true,
           trackerEnabled: true,
+          trackerSummaryEnabled: true,
           studentInfoEnabled: true,
           parentStudentInfoEdit: true,
         },
@@ -163,6 +167,10 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     homeLog: student.course.homeLogEnabled && student.course.studentLoginEnabled ? await getHomeLog(studentId) : null,
     assignments: student.course.assignmentsEnabled && student.course.studentLoginEnabled ? await getStudentAssignments(studentId) : null,
     tracker: student.course.trackerEnabled && student.course.studentLoginEnabled ? await getStudentTracker(studentId) : null,
+    summary:
+      student.course.trackerEnabled && student.course.studentLoginEnabled && student.course.trackerSummaryEnabled
+        ? await courseSummary(studentId, "month", 0)
+        : null,
     info:
       infoFields.length > 0
         ? { fields: infoFields, values: plainValues(await getStudentInfoValues(studentId, infoFields)) }

@@ -22,6 +22,7 @@ export function StudentLoginCard({
   assignmentsEnabled,
   trackerEnabled,
   trackerAgendaEnabled,
+  trackerSummaryEnabled,
 }: {
   enabled: boolean;
   boardEnabled: boolean;
@@ -31,6 +32,7 @@ export function StudentLoginCard({
   assignmentsEnabled: boolean;
   trackerEnabled: boolean;
   trackerAgendaEnabled: boolean;
+  trackerSummaryEnabled: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -187,6 +189,22 @@ export function StudentLoginCard({
         <OnOffPills
           on={trackerAgendaEnabled}
           onChange={(v) => !pending && run(() => setStudentFeatureEnabledAction("trackerAgenda", v))}
+        />
+      </div>
+
+      <div className={styles.settingRow} style={trackerDependent} aria-disabled={!(enabled && trackerEnabled)}>
+        <div className={styles.settingText}>
+          <div className={styles.settingTitle}>المحصّلات</div>
+          <div className={styles.settingDesc}>
+            ملخّص لكل أسبوع وشهر وربع ونصف سنة وسنة: نسبة الالتزام في كل بند وإجمالًا، وفسيفساء للأيام، ومقارنة بالفترة السابقة،
+            وما أُنجز من حفظ وتسميع. يراها الطالب في صفحته، والمعلم في صفحة الطالب، ووليّ الأمر في صفحته، ويُحسب من سجل الجدول
+            الموجود.
+            {!(enabled && trackerEnabled) && " (يتاح بعد تفعيل جدول المتابعة)"}
+          </div>
+        </div>
+        <OnOffPills
+          on={trackerSummaryEnabled}
+          onChange={(v) => !pending && run(() => setStudentFeatureEnabledAction("trackerSummary", v))}
         />
       </div>
       {error && <div className={styles.err}>{error}</div>}

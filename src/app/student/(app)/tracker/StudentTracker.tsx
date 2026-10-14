@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "@/components/student-work/work.module.css";
 import { WeekdayPicker } from "@/components/student-work/TrackerControls";
@@ -22,7 +23,18 @@ import {
   setTrackerCheckAction,
 } from "./actions";
 
-export function StudentTracker({ sheet, groupGender: g, agenda = false }: { sheet: TrackerSheet; groupGender: GroupGender; agenda?: boolean }) {
+export function StudentTracker({
+  sheet,
+  groupGender: g,
+  agenda = false,
+  summary = false,
+}: {
+  sheet: TrackerSheet;
+  groupGender: GroupGender;
+  agenda?: boolean;
+  // «المحصّلات» (course setting): a link to her summaries
+  summary?: boolean;
+}) {
   const today = useToday();
   const tz = useTimeZone();
   if (!today) return <div className={hl.empty}>…</div>;
@@ -42,6 +54,11 @@ export function StudentTracker({ sheet, groupGender: g, agenda = false }: { shee
     <div>
       <div className={hl.sectionTitle}>
         <span style={{ fontSize: 16, color: "var(--ink)" }}>✅ جدول المتابعة</span>
+        {summary && (
+          <Link href="/student/tracker/summary" className={hl.linkBtn}>
+            📊 المحصّلات ←
+          </Link>
+        )}
       </div>
 
       {/* «الجدول اليومي» (course setting): today's agenda above the usual sheet */}

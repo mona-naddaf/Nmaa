@@ -5,6 +5,6 @@ import { RafiqTracker } from "./RafiqTracker";
 
 export default async function RafiqTrackerPage() {
   const user = await requireRafiqUser();
-  const { agendaEnabled } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { agendaEnabled: true } });
-  return <RafiqTracker data={await getRafiqTracker(user.id)} g={user.gender === "FEMALE" ? "GIRLS" : "BOYS"} agenda={agendaEnabled} />;
+  const { agendaEnabled, summaryEnabled } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { agendaEnabled: true, summaryEnabled: true } });
+  return <RafiqTracker data={await getRafiqTracker(user.id)} g={user.gender === "FEMALE" ? "GIRLS" : "BOYS"} agenda={agendaEnabled} summary={summaryEnabled} />;
 }

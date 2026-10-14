@@ -46,6 +46,8 @@ export type StudentAccess = {
   trackerEnabled: boolean;
   // «الجدول اليومي» (only with the tracker)
   trackerAgendaEnabled: boolean;
+  // «المحصّلات» (only with the tracker)
+  trackerSummaryEnabled: boolean;
 };
 
 /** The signed-in student, or null. One lookup per request (cached). */
@@ -73,6 +75,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
           assignmentsEnabled: true,
           trackerEnabled: true,
           trackerAgendaEnabled: true,
+          trackerSummaryEnabled: true,
         },
       },
     },
@@ -95,6 +98,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
     assignmentsEnabled: student.course.assignmentsEnabled,
     trackerEnabled: student.course.trackerEnabled,
     trackerAgendaEnabled: student.course.trackerEnabled && student.course.trackerAgendaEnabled,
+    trackerSummaryEnabled: student.course.trackerEnabled && student.course.trackerSummaryEnabled,
   };
 });
 

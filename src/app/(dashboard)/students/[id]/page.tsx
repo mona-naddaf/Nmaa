@@ -33,6 +33,9 @@ import { pickByGroup, studentNounDef } from "@/lib/text/gender";
 import { getStudentAssignments } from "@/lib/assignments/data";
 import { StaffStudentAssignments } from "./StaffStudentAssignments";
 import { getStudentTracker } from "@/lib/tracker/data";
+import { courseSummary } from "@/lib/tracker/summary-data";
+import { TrackerSummary } from "@/components/student-work/TrackerSummary";
+import { studentSummaryAction } from "./summary-actions";
 import { StaffStudentTracker } from "./StaffStudentTracker";
 import { getStudentInfoValues, plainValues, staffInfoAccess, visibleInfoFields } from "@/lib/students/extra-info";
 import { fieldLabel, isMultilineField, isPhoneField } from "@/lib/students/extra-info-rules";
@@ -309,6 +312,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const homeLog = course.homeLogEnabled && course.studentLoginEnabled ? await getHomeLog(student.id) : null;
   const assignments = course.assignmentsEnabled && course.studentLoginEnabled ? await getStudentAssignments(student.id) : null;
   const tracker = course.trackerEnabled && course.studentLoginEnabled ? await getStudentTracker(student.id) : null;
+  // «المحصّلات» (course setting, with the tracker)
+  const summary = tracker && course.trackerSummaryEnabled ? await courseSummary(student.id, "month", 0) : null;
 
   return (
     <>
@@ -362,6 +367,11 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       {tracker && (
         <Collapsible title="✅ جدول المتابعة" persistKey="student.tracker">
           <StaffStudentTracker sheet={tracker} groupId={student.groupId} />
+        </Collapsible>
+      )}
+      {summary && (
+        <Collapsible title="📊 المحصّلات" persistKey="student.summary">
+          <TrackerSummary initial={summary} groupGender={student.group.gender} self={false} load={studentSummaryAction.bind(null, student.id)} />
         </Collapsible>
       )}
       {/* supervisor only: the code is never sent to a teacher's browser */}

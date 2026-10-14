@@ -85,6 +85,10 @@ model Course {
   // tracker's items, with today's timeline. Off by default; only works while
   // the tracker is on. While off, nothing changes on any page.
   trackerAgendaEnabled        Boolean               @default(false)
+  // «المحصّلات» (src/lib/tracker/summary.ts): periodic summaries of the
+  // tracker for the student, her teachers and the parent. Off by default;
+  // only works while the tracker is on.
+  trackerSummaryEnabled       Boolean               @default(false)
   visibilityMode          VisibilityMode        @default(ALL_TEACHERS)
   onlineRecitationEnabled Boolean               @default(true)
   // optional progress bars on the student detail screen, each toggled
@@ -995,6 +999,9 @@ model RafiqUser {
   // «الجدول اليومي» on her tracker page. Off by default: nothing changes
   // until she turns it on.
   agendaEnabled    Boolean    @default(false)
+  // «المحصّلات» of her tracker. Off by default: nothing changes until she
+  // turns it on.
+  summaryEnabled   Boolean    @default(false)
 }
 
 // A personal day she added to her calendar (same meaning as CalendarEvent).

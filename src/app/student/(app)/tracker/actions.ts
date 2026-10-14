@@ -9,6 +9,8 @@ import { courseTimeZone } from "@/lib/time/course-zone";
 import { dateOnly, zoneDayOf, zoneToday } from "@/lib/time/zone";
 import { setStudentItemTime, setStudentOrder, type TimeChoice } from "@/lib/tracker/agenda-data";
 import { validateTime, type AgendaTime } from "@/lib/tracker/agenda";
+import { courseSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
+import { clampOffset, isPeriodKind } from "@/lib/tracker/summary";
 
 // The student's side of the daily tracker. Every action re-checks her
 // session, that the course has the tracker on, and that the item reaches
@@ -134,6 +136,16 @@ export async function deleteOwnTrackerItemAction(itemId: string): Promise<Tracke
   }
   refresh();
   return {};
+}
+
+// ---------- «المحصّلات» ----------
+
+/** Her own summary for a period (the course has the tracker and the summaries on). */
+export async function mySummaryAction(kind: unknown, offset: unknown): Promise<SummaryPayload | { error: string }> {
+  const access = await trackerStudent();
+  if (!access || !access.trackerSummaryEnabled) return { error: "المحصّلات غير متاحة حاليًا" };
+  if (!isPeriodKind(kind)) return { error: "فترة غير صحيحة" };
+  return courseSummary(access.studentId, kind, clampOffset(offset));
 }
 
 // ---------- «الجدول اليومي» ----------

@@ -14,6 +14,8 @@ import {
   writeInfoChanges,
 } from "@/lib/students/extra-info";
 import { validateInfoSave } from "@/lib/students/extra-info-rules";
+import { courseSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
+import { clampOffset, isPeriodKind } from "@/lib/tracker/summary";
 
 export type ParentLoginState = { error?: string } | null;
 
@@ -90,4 +92,18 @@ export async function saveParentStudentInfoAction(values: Record<string, string>
     revalidatePath("/students/[id]", "page");
   }
   return {};
+}
+
+/** «المحصّلات» of her child's tracker (the course has the tracker and the summaries on). */
+export async function parentSummaryAction(kind: unknown, offset: unknown): Promise<SummaryPayload | { error: string }> {
+  const studentId = await getParentStudentId();
+  if (!studentId) return { error: "انتهت الجلسة، يُرجى الدخول من جديد" };
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
+    select: { course: { select: { studentLoginEnabled: true, trackerEnabled: true, trackerSummaryEnabled: true } } },
+  });
+  const c = student?.course;
+  if (!c || !c.studentLoginEnabled || !c.trackerEnabled || !c.trackerSummaryEnabled) return { error: "المحصّلات غير متاحة حاليًا" };
+  if (!isPeriodKind(kind)) return { error: "فترة غير صحيحة" };
+  return courseSummary(studentId, kind, clampOffset(offset));
 }

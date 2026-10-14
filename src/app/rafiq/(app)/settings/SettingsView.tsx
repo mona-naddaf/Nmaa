@@ -17,6 +17,7 @@ import {
   regenerateRecoveryCodeAction,
   setCommitDaysAction,
   setAgendaEnabledAction,
+  setSummaryEnabledAction,
   setReviewRemindersAction,
   signOutEverywhereAction,
   updateProfileAction,
@@ -31,9 +32,10 @@ type Props = {
   reviewReminderDays: number | null;
   commitDays: number;
   agendaEnabled: boolean;
+  summaryEnabled: boolean;
 };
 
-export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled }: Props) {
+export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled, summaryEnabled }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
 
   return (
@@ -45,6 +47,7 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
       <CommitDays p={p} initial={commitDays} />
       <ReviewReminders p={p} days={reviewReminderDays} />
       <Agenda p={p} enabled={agendaEnabled} />
+      <Summaries p={p} enabled={summaryEnabled} />
       <Password p={p} />
       <Recovery p={p} gender={gender} createdAt={recoveryCodeCreatedAt} />
       <div className={hl.section}>
@@ -208,6 +211,31 @@ function Agenda({ p, enabled }: { p: P; enabled: boolean }) {
       <label className={styles.confirmRow}>
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
         تفعيل الجدول اليومي
+      </label>
+      <Feedback state={state} />
+      <button type="submit" className={hl.primaryBtn} disabled={pending}>
+        {pending ? "جارٍ الحفظ…" : "حفظ"}
+      </button>
+    </form>
+  );
+}
+
+function Summaries({ p, enabled }: { p: P; enabled: boolean }) {
+  const [state, action, pending] = useActionState<SettingsState, FormData>(setSummaryEnabledAction, null);
+  const [on, setOn] = useState(enabled);
+  return (
+    <form className={hl.section} action={action}>
+      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+        المحصّلات
+      </div>
+      <p className={hl.muted} style={{ marginTop: 0 }}>
+        ملخّص لكل أسبوع وشهر وربع ونصف سنة وسنة من جدول المتابعة: نسبة {p("التزامك", "التزامكِ")} في كل بند وإجمالًا، وفسيفساء لأيامك، ومقارنة
+        بالفترة السابقة، وما {p("أنجزته", "أنجزتِه")} من حفظ وتسميع.
+      </p>
+      <input type="hidden" name="on" value={on ? "1" : "0"} />
+      <label className={styles.confirmRow}>
+        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+        تفعيل المحصّلات
       </label>
       <Feedback state={state} />
       <button type="submit" className={hl.primaryBtn} disabled={pending}>

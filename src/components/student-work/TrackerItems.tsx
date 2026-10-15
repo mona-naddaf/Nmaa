@@ -40,30 +40,29 @@ export function ItemsMenu({ entries }: { entries: MenuEntry[] }) {
       <button type="button" className={styles.pill} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
         ⚙ البنود
       </button>
-      {open && (
-        <div className={styles.menu} role="menu">
-          {entries.map((e) =>
-            "href" in e ? (
-              <Link key={e.label} href={e.href} role="menuitem" className={styles.menuItem}>
-                {e.label}
-              </Link>
-            ) : (
-              <button
-                key={e.label}
-                type="button"
-                role="menuitem"
-                className={styles.menuItem}
-                onClick={() => {
-                  setOpen(false);
-                  e.onSelect();
-                }}
-              >
-                {e.label}
-              </button>
-            ),
-          )}
-        </div>
-      )}
+      {/* always mounted so it can fade out; inert (and hidden) while closed */}
+      <div className={`${styles.menu} ${open ? styles.open : ""}`} role="menu" inert={!open} aria-hidden={!open}>
+        {entries.map((e) =>
+          "href" in e ? (
+            <Link key={e.label} href={e.href} role="menuitem" className={styles.menuItem}>
+              {e.label}
+            </Link>
+          ) : (
+            <button
+              key={e.label}
+              type="button"
+              role="menuitem"
+              className={styles.menuItem}
+              onClick={() => {
+                setOpen(false);
+                e.onSelect();
+              }}
+            >
+              {e.label}
+            </button>
+          ),
+        )}
+      </div>
     </div>
   );
 }
@@ -91,6 +90,9 @@ export function TrackerHeader({
         {onYesterday && (
           <button type="button" className={`${styles.pill} ${yesterday ? styles.sel : ""}`} aria-pressed={yesterday} onClick={onYesterday}>
             أمس
+            <span className={styles.chev} aria-hidden>
+              ▾
+            </span>
           </button>
         )}
         {summaryHref && (
@@ -108,7 +110,7 @@ export function TrackerHeader({
 export function ViewBar({ title, onBack, children }: { title: string; onBack: () => void; children?: React.ReactNode }) {
   return (
     <div className={styles.viewBar}>
-      <button type="button" className={styles.backBtn} onClick={onBack}>
+      <button type="button" className={`${styles.backBtn} pressable`} onClick={onBack}>
         → العودة إلى الجدول
       </button>
       <span className={styles.viewTitle}>{title}</span>

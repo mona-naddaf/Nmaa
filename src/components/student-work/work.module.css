@@ -345,6 +345,11 @@ a.segLink:hover {
   font-weight: 800;
   font-family: inherit;
   cursor: pointer;
+  transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), color 160ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+.dayTab:active {
+  transform: scale(0.97);
 }
 
 .dayTab.sel {
@@ -399,31 +404,43 @@ a.segLink:hover {
   overflow: hidden;
 }
 
+/* full width, scaled to the score (transform, not width) from the start
+   side: the right in RTL; the rounded track clips its ends */
 .scoreFill {
   height: 100%;
   background: var(--rose);
-  border-radius: 999px;
-  transition: width 0.3s;
+  transform-origin: right center;
+  transition: transform 280ms var(--ease-out), background-color 200ms var(--ease-out);
+}
+
+:global([dir="ltr"]) .scoreFill {
+  transform-origin: left center;
 }
 
 .complete .scoreFill {
   background: var(--rose-deep);
 }
 
+/* the 🎉: in from a near-full size, no overshoot */
 @keyframes pop {
-  0% { transform: scale(0.6); opacity: 0; }
-  60% { transform: scale(1.15); opacity: 1; }
-  100% { transform: scale(1); }
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: none; opacity: 1; }
 }
 
 .celebrateIcon {
+  display: inline-block;
   font-size: 28px;
-  animation: pop 0.5s ease-out;
+  animation: pop 240ms var(--ease-out);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .celebrateIcon { animation: none; }
-  .scoreFill { transition: none; }
+  .celebrateIcon { animation: fadeIn 200ms var(--ease-out); }
+  .scoreFill { transition: background-color 200ms var(--ease-out); }
 }
 
 .tiles {
@@ -448,16 +465,38 @@ a.segLink:hover {
   flex-direction: column;
   justify-content: space-between;
   gap: 8px;
-  transition: transform 0.1s, background 0.15s;
+  /* unmarking: quicker than marking */
+  transition: border-color 100ms var(--ease-out), transform 140ms var(--ease-out);
 }
 
 .tile:active {
   transform: scale(0.97);
 }
 
-.tile.on {
+/* the marked gradient fades in on a layer (gradients can't transition) */
+.tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   background: linear-gradient(135deg, rgba(76, 120, 98, 0.22), rgba(76, 120, 98, 0.08));
+  opacity: 0;
+  transition: opacity 100ms var(--ease-out);
+  pointer-events: none;
+}
+
+.tile > * {
+  position: relative;
+}
+
+.tile.on {
   border-color: var(--rose-deep);
+  transition: border-color 180ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+.tile.on::before {
+  opacity: 1;
+  transition: opacity 180ms var(--ease-out);
 }
 
 .tile.pending {
@@ -474,6 +513,12 @@ a.segLink:hover {
   font-weight: 800;
   line-height: 1.4;
   overflow-wrap: anywhere;
+  transition: color 100ms var(--ease-out);
+}
+
+.on .tileTitle {
+  color: var(--lavender);
+  transition: color 200ms var(--ease-out);
 }
 
 .tileFoot {
@@ -497,12 +542,21 @@ a.segLink:hover {
   font-size: 17px;
   background: var(--cream);
   flex-shrink: 0;
+  color: #fff;
+  transition: background-color 100ms var(--ease-out), border-color 100ms var(--ease-out);
 }
 
 .on .tileCheck {
   background: var(--rose-deep);
   border-color: var(--rose-deep);
-  color: #fff;
+  transition: background-color 180ms var(--ease-out), border-color 180ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile:active,
+  .dayTab:active {
+    transform: none;
+  }
 }
 
 /* 7-day strip */

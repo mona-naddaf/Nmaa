@@ -43,6 +43,12 @@
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
+  gap: 6px;
+  transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), color 160ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+.pill:active {
+  transform: scale(0.97);
 }
 
 .pill[aria-expanded="true"] {
@@ -55,11 +61,26 @@
   color: #fff;
 }
 
+/* the «أمس» pill's indicator turns with the panel (same timings) */
+.chev {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  transition: transform 160ms var(--ease-out);
+}
+
+.sel .chev {
+  transform: rotate(180deg);
+  transition: transform 220ms var(--ease-out);
+}
+
 .menuBox {
   position: relative;
   display: inline-block;
 }
 
+/* always mounted so closing can animate: it grows from the trigger's
+   corner (top-left in RTL, where inset-inline-end: 0 puts it) */
 .menu {
   position: absolute;
   inset-inline-end: 0;
@@ -73,6 +94,25 @@
   padding: 6px;
   display: flex;
   flex-direction: column;
+  transform-origin: top right;
+  opacity: 0;
+  transform: scale(0.95);
+  visibility: hidden;
+  pointer-events: none;
+  /* closing: faster, then hidden */
+  transition: opacity 120ms var(--ease-out), transform 120ms var(--ease-out), visibility 0s linear 120ms;
+}
+
+:global([dir="rtl"]) .menu {
+  transform-origin: top left;
+}
+
+.menu.open {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s;
 }
 
 .menuItem {
@@ -92,9 +132,22 @@
   cursor: pointer;
 }
 
-.menuItem:hover,
+.menuItem {
+  transition: background-color 120ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+.menuItem:active {
+  transform: scale(0.97);
+}
+
 .menuItem:focus-visible {
   background: var(--cream);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .menuItem:hover {
+    background: var(--cream);
+  }
 }
 
 .viewBar {
@@ -199,10 +252,17 @@
   cursor: pointer;
   display: grid;
   place-items: center;
+  transition: transform 140ms var(--ease-out);
 }
 
-.iconBtn:hover {
-  background: var(--cream);
+.iconBtn:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .iconBtn:hover {
+    background: var(--cream);
+  }
 }
 
 .iconBtn.danger {
@@ -222,6 +282,23 @@
   margin: 6px 0 4px;
   font-size: 13px;
   color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* fades and colours stay; no scaling or turning */
+  .pill:active,
+  .menuItem:active,
+  .iconBtn:active {
+    transform: none;
+  }
+  .menu,
+  .menu.open {
+    transform: none;
+  }
+  .chev,
+  .sel .chev {
+    transition: none;
+  }
 }
 
 /* the short line about her own items awaiting a decision */

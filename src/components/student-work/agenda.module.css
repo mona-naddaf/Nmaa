@@ -148,11 +148,17 @@
   line-height: 1.35;
   color: var(--ink);
   overflow-wrap: break-word;
+  /* the line-through fades in with the colour */
+  text-decoration: line-through;
+  text-decoration-color: transparent;
+  /* unmarking: quicker than marking */
+  transition: color 100ms var(--ease-out), text-decoration-color 100ms var(--ease-out);
 }
 
 .done .blockTitle {
-  text-decoration: line-through;
-  text-decoration-color: rgba(49, 46, 39, 0.35);
+  color: var(--lavender);
+  text-decoration-color: rgba(156, 148, 132, 0.6);
+  transition: color 200ms var(--ease-out), text-decoration-color 200ms var(--ease-out);
 }
 
 .blockTime {
@@ -209,8 +215,18 @@
   padding: 0;
 }
 
+/* marking: fill 180ms; unmarking: faster. transform is the press feedback */
+.check {
+  transition: background-color 100ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
 .check.on {
   background: var(--rose-deep);
+  transition: background-color 180ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+.check:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .check:disabled {
@@ -227,10 +243,17 @@
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 6px;
+  transition: transform 140ms var(--ease-out);
 }
 
-.iconBtn:hover {
-  background: rgba(0, 0, 0, 0.05);
+.iconBtn:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .iconBtn:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
 }
 
 /* «بلا وقت» (and yesterday's items): small chips that wrap; the whole chip
@@ -260,9 +283,22 @@
   border-radius: 999px;
 }
 
+.chip {
+  transition: background-color 100ms var(--ease-out), border-color 100ms var(--ease-out);
+}
+
 .chip.on {
   background: #eef3ef;
   border-color: var(--rose-deep);
+  transition: background-color 180ms var(--ease-out), border-color 180ms var(--ease-out);
+}
+
+.chipTick {
+  transition: transform 140ms var(--ease-out);
+}
+
+.chipTick:active {
+  transform: scale(0.97);
 }
 
 .chipTick {
@@ -303,8 +339,13 @@
   place-items: center;
 }
 
+.chipDot {
+  transition: background-color 100ms var(--ease-out);
+}
+
 .on .chipDot {
   background: var(--rose-deep);
+  transition: background-color 180ms var(--ease-out);
 }
 
 .chipText {
@@ -312,12 +353,15 @@
   font-weight: 700;
   font-size: 14px;
   line-height: 1.35;
+  text-decoration: line-through;
+  text-decoration-color: transparent;
+  transition: color 100ms var(--ease-out), text-decoration-color 100ms var(--ease-out);
 }
 
 .on .chipText {
-  color: var(--ink-soft);
-  text-decoration: line-through;
-  text-decoration-color: rgba(0, 0, 0, 0.25);
+  color: var(--lavender);
+  text-decoration-color: rgba(156, 148, 132, 0.6);
+  transition: color 200ms var(--ease-out), text-decoration-color 200ms var(--ease-out);
 }
 
 .chipText small {
@@ -328,13 +372,50 @@
   text-decoration: none;
 }
 
-/* yesterday's items (the header's «أمس» pill) */
+/* yesterday's items (the header's «أمس» pill): always mounted, opened by
+   growing its grid row 0fr → 1fr; the content fades in just after */
+.yesterdayWrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 160ms var(--ease-out);
+}
+
+.yesterdayWrap.open {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 220ms var(--ease-out);
+}
+
+.yesterdayClip {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .yesterday {
   background: var(--cream);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 10px 12px 2px;
   margin-bottom: 14px;
+  opacity: 0;
+  transition: opacity 100ms var(--ease-out);
+}
+
+.open .yesterday {
+  opacity: 1;
+  transition: opacity 180ms var(--ease-out) 60ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* no growing: it appears in place and only fades */
+  .yesterdayWrap,
+  .yesterdayWrap.open {
+    transition: none;
+  }
+  .chipTick:active,
+  .iconBtn:active,
+  .check:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 .yesterdayTitle {

@@ -32,6 +32,7 @@ export function StudentTracker({
   agenda = false,
   summary = false,
   place = null,
+  celebrateKey,
 }: {
   sheet: TrackerSheet;
   groupGender: GroupGender;
@@ -40,6 +41,8 @@ export function StudentTracker({
   summary?: boolean;
   // the course's place for prayer times (null: anchors unavailable)
   place?: PrayerLocation | null;
+  // who is ticking, for the once-a-day celebration
+  celebrateKey?: string;
 }) {
   const today = useToday();
   const tz = useTimeZone();
@@ -100,10 +103,10 @@ export function StudentTracker({
               onSchedule={setMyItemScheduleAction}
               place={place}
               onRemoveOwn={deleteOwnTrackerItemAction}
-              showYesterday={yesterday}
+              showYesterday={yesterday} celebrateKey={celebrateKey}
             />
           ) : (
-            <TrackerDaySheet sheet={sheet} groupGender={g} today={today} onTick={setTrackerCheckAction} />
+            <TrackerDaySheet sheet={sheet} groupGender={g} today={today} onTick={setTrackerCheckAction} celebrateKey={celebrateKey} />
           )}
         </>
       )}
@@ -127,7 +130,7 @@ function WaitingNotice({ items, g, onOpen }: { items: TrackerItemView[]; g: Grou
       <span>
         {pickByGroup(g, { m: "لديك", f: "لديكِ" })} {parts.join("، و")}.
       </span>
-      <button type="button" className={hl.linkBtn} onClick={onOpen}>
+      <button type="button" className={`${hl.linkBtn} pressable`} onClick={onOpen}>
         عرض البنود ←
       </button>
     </div>
@@ -177,7 +180,7 @@ function ManageItems({
     <>
       <ViewBar title="إدارة البنود" onBack={onBack}>
         {!adding && (
-          <button type="button" className={hl.primaryBtn} onClick={() => setAdding(true)}>
+          <button type="button" className={`${hl.primaryBtn} pressable`} onClick={() => setAdding(true)}>
             + بند خاص
           </button>
         )}
@@ -222,10 +225,10 @@ function ManageItems({
           </div>
           {error && <div className={hl.err}>{error}</div>}
           <div className={hl.actionsRow}>
-            <button type="submit" className={hl.primaryBtn} disabled={pending}>
+            <button type="submit" className={`${hl.primaryBtn} pressable`} disabled={pending}>
               {pending ? "جارٍ الإرسال…" : "إرسال للاعتماد"}
             </button>
-            <button type="button" className={hl.ghostBtn} onClick={() => setAdding(false)} disabled={pending}>
+            <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setAdding(false)} disabled={pending}>
               إلغاء
             </button>
           </div>
@@ -291,10 +294,10 @@ function OwnRow({
       {mode === "edit" && (
         <div className={itemStyles.confirm}>
           <input className={styles.input} style={{ flex: "1 1 200px" }} value={title} maxLength={TRACKER_LIMITS.titleMax} onChange={(e) => setTitle(e.target.value)} aria-label="اسم البند" autoFocus />
-          <button type="button" className={hl.primaryBtn} disabled={pending} onClick={() => run(() => renameOwnTrackerItemAction(item.id, title), () => setMode("view"))}>
+          <button type="button" className={`${hl.primaryBtn} pressable`} disabled={pending} onClick={() => run(() => renameOwnTrackerItemAction(item.id, title), () => setMode("view"))}>
             حفظ
           </button>
-          <button type="button" className={hl.ghostBtn} onClick={() => setMode("view")}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setMode("view")}>
             إلغاء
           </button>
         </div>
@@ -302,10 +305,10 @@ function OwnRow({
       {mode === "delete" && (
         <div className={itemStyles.confirm}>
           <span>{approved ? "يتوقف احتسابه من اليوم، وتبقى درجات الأيام السابقة. حذف البند؟" : "حذف هذا البند؟"}</span>
-          <button type="button" className={styles.dangerBtn} disabled={pending} onClick={() => run(() => deleteOwnTrackerItemAction(item.id))}>
+          <button type="button" className={`${styles.dangerBtn} pressable`} disabled={pending} onClick={() => run(() => deleteOwnTrackerItemAction(item.id))}>
             نعم، حذف
           </button>
-          <button type="button" className={hl.ghostBtn} onClick={() => setMode("view")}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setMode("view")}>
             تراجع
           </button>
         </div>

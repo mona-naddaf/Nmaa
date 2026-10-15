@@ -37,6 +37,7 @@ export function RafiqTracker({
   agenda = false,
   summary = false,
   place = null,
+  celebrateKey,
 }: {
   data: RafiqTrackerData;
   g: GroupGender;
@@ -45,6 +46,8 @@ export function RafiqTracker({
   summary?: boolean;
   // her place for prayer times (null: anchors unavailable)
   place?: PrayerLocation | null;
+  // who is ticking, for the once-a-day celebration
+  celebrateKey?: string;
 }) {
   const today = useToday();
   const router = useRouter();
@@ -96,7 +99,7 @@ export function RafiqTracker({
         <>
           <ViewBar title="إدارة البنود" onBack={() => show("day")}>
             {!adding && (
-              <button type="button" className={hl.primaryBtn} onClick={() => setAdding(true)} disabled={full}>
+              <button type="button" className={`${hl.primaryBtn} pressable`} onClick={() => setAdding(true)} disabled={full}>
                 + بند جديد
               </button>
             )}
@@ -139,20 +142,20 @@ export function RafiqTracker({
         (empty ? (
           <div className={hl.section}>
             <div className={hl.empty}>
-              {p("أضف", "أضيفي")} بنودًا يومية {p("تتابعها", "تتابعينها")} بنفسك (مثل: ورد المراجعة، أذكار الصباح)، لكل بند درجته
+              {p("أضف", "أضيفي")} بنودًا يومية {p("تتابعها", "تتابعينها")} {p("بنفسك", "بنفسكِ")} (مثل: ورد المراجعة، أذكار الصباح)، لكل بند درجته
               وأيامه.
             </div>
             <div className={hl.actionsRow} style={{ justifyContent: "center" }}>
-              <button type="button" className={hl.ghostBtn} onClick={() => show("items")}>
+              <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => show("items")}>
                 إدارة البنود
               </button>
             </div>
           </div>
         ) : agenda ? (
           // «الجدول اليومي»: the timeline is the only place to tick
-          <TrackerAgenda sheet={data.sheet} today={today} groupGender={g} course={false} onTick={setCheckAction} onSchedule={setItemScheduleAction} place={place} showYesterday={yesterday} />
+          <TrackerAgenda sheet={data.sheet} today={today} groupGender={g} course={false} onTick={setCheckAction} onSchedule={setItemScheduleAction} place={place} showYesterday={yesterday} celebrateKey={celebrateKey} />
         ) : (
-          <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={setCheckAction} />
+          <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={setCheckAction} celebrateKey={celebrateKey} />
         ))}
     </div>
   );
@@ -195,7 +198,7 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
       <div className={hl.sectionTitle}>
         <span>مشاركة جدولي</span>
         {!open && (
-          <button type="button" className={hl.ghostBtn} onClick={() => setOpen(true)}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setOpen(true)}>
             نشر في بنك الجداول
           </button>
         )}
@@ -208,7 +211,7 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
       {open && (
         <div className={hl.section}>
           <p className={hl.muted} style={{ marginTop: 0 }}>
-            يُنشر ما {p("تختاره", "تختارينه")} من بنودك بعنوانه ودرجاته وأيامه{agenda && " وترتيبه ووقته"}، دون اسمك. ما {p("تعدّله", "تعدّلينه")} في جدولك بعد النشر لا
+            يُنشر ما {p("تختاره", "تختارينه")} من {p("بنودك", "بنودكِ")} بعنوانه ودرجاته وأيامه{agenda && " وترتيبه ووقته"}، دون {p("اسمك", "اسمكِ")}. ما {p("تعدّله", "تعدّلينه")} في {p("جدولك", "جدولكِ")} بعد النشر لا
             يغيّر الجدول المنشور.
           </p>
           <div className={styles.field}>
@@ -230,10 +233,10 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
           </div>
           {msg && !msg.ok && <div className={hl.err}>{msg.text}</div>}
           <div className={hl.actionsRow}>
-            <button type="button" className={hl.primaryBtn} onClick={publish} disabled={pending || chosen.size === 0}>
+            <button type="button" className={`${hl.primaryBtn} pressable`} onClick={publish} disabled={pending || chosen.size === 0}>
               {pending ? "جارٍ النشر…" : "نشر"}
             </button>
-            <button type="button" className={hl.ghostBtn} onClick={() => setOpen(false)} disabled={pending}>
+            <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setOpen(false)} disabled={pending}>
               إلغاء
             </button>
           </div>
@@ -303,10 +306,10 @@ function ItemForm({
       {agenda && <TimeFields fields={time} days={days} place={place} />}
       {problem && <div className={hl.err}>{problem}</div>}
       <div className={hl.actionsRow}>
-        <button type="submit" className={hl.primaryBtn} disabled={pending}>
+        <button type="submit" className={`${hl.primaryBtn} pressable`} disabled={pending}>
           {pending ? "جارٍ الحفظ…" : submitLabel}
         </button>
-        <button type="button" className={hl.ghostBtn} onClick={onCancel} disabled={pending}>
+        <button type="button" className={`${hl.ghostBtn} pressable`} onClick={onCancel} disabled={pending}>
           إلغاء
         </button>
       </div>
@@ -342,10 +345,10 @@ function ItemRow({ item, run, pending, agenda, place }: { item: Item; run: Run; 
       {mode === "remove" && (
         <div className={itemStyles.confirm}>
           <span>حذف هذا البند؟ تبقى درجاته في الأيام السابقة.</span>
-          <button type="button" className={styles.dangerBtn} disabled={pending} onClick={() => run(() => removeItemAction(item.id))}>
+          <button type="button" className={`${styles.dangerBtn} pressable`} disabled={pending} onClick={() => run(() => removeItemAction(item.id))}>
             نعم، حذف
           </button>
-          <button type="button" className={hl.ghostBtn} onClick={() => setMode("view")}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setMode("view")}>
             تراجع
           </button>
         </div>

@@ -89,12 +89,12 @@ export function OrderList({
                 {e.title}
                 {e.note && <small>{e.note}</small>}
               </span>
-              <button type="button" className={styles.arrow} aria-label={`نقل «${e.title}» إلى أعلى`} disabled={i === 0 || pending} onClick={() => setIds(moveId(ids, id, -1))}>
+              <button type="button" className={`${styles.arrow} pressable`} aria-label={`نقل «${e.title}» إلى أعلى`} disabled={i === 0 || pending} onClick={() => setIds(moveId(ids, id, -1))}>
                 ▲
               </button>
               <button
                 type="button"
-                className={styles.arrow}
+                className={`${styles.arrow} pressable`}
                 aria-label={`نقل «${e.title}» إلى أسفل`}
                 disabled={i === ids.length - 1 || pending}
                 onClick={() => setIds(moveId(ids, id, 1))}
@@ -107,10 +107,10 @@ export function OrderList({
       </div>
       {error && <div className={hl.err}>{error}</div>}
       <div className={hl.actionsRow} style={{ marginTop: 10 }}>
-        <button type="button" className={hl.primaryBtn} disabled={pending || !changed} onClick={() => onSave(ids)}>
+        <button type="button" className={`${hl.primaryBtn} pressable`} disabled={pending || !changed} onClick={() => onSave(ids)}>
           {pending ? "جارٍ الحفظ…" : "حفظ الترتيب"}
         </button>
-        <button type="button" className={hl.ghostBtn} disabled={pending} onClick={onCancel}>
+        <button type="button" className={`${hl.ghostBtn} pressable`} disabled={pending} onClick={onCancel}>
           إلغاء
         </button>
       </div>

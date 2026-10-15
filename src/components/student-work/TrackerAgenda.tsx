@@ -5,11 +5,13 @@ import hl from "@/components/home-log/home-log.module.css";
 import styles from "./agenda.module.css";
 import work from "./work.module.css";
 import { OrderList } from "./OrderList";
-import { DayScoreBar, LastSevenDays, type TickInput } from "./TrackerDaySheet";
+import { DayScoreBar, LastSevenDays, pruneAgreed, type TickInput } from "./TrackerDaySheet";
 import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { ScheduleEditor, type ScheduleInput } from "./ScheduleEditor";
 import { gregorianLabelWithWeekday } from "@/lib/calendar/hijri";
-import { addDays, dayScore, shownOn, weekdayOf, withLocalDays } from "@/lib/tracker/rules";
+import { addDays, dayScore, isComplete, shownOn, weekdayOf, withLocalDays } from "@/lib/tracker/rules";
+import { TickMark } from "./TickMark";
+import { useDayCelebration } from "./DayCelebration";
 import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
 import {
   DAY_MINUTES,
@@ -92,12 +94,15 @@ export function TrackerAgenda({
   onRemoveOwn,
   place,
   showYesterday = false,
+  celebrateKey,
 }: {
   sheet: TrackerSheet;
   today: string;
   groupGender: GroupGender;
   // the header's «أمس» pill: yesterday's items, to tick what was missed
   showYesterday?: boolean;
+  // who is ticking, for the once-a-day celebration (none: never celebrates)
+  celebrateKey?: string;
   // a course student (staff's items, «وقت المعلم/ة», her own items); false = «رفيق الحفظ»
   course: boolean;
   onTick: (input: TickInput) => Result;
@@ -113,9 +118,16 @@ export function TrackerAgenda({
   const teacher = p("المعلم", "المعلمة");
   // optimistic ticks keyed "day|itemId", dropped once the server's sheet catches up
   const [override, setOverride] = useState<Record<string, boolean>>({});
+  // a new sheet from the server: forget the optimistic ticks it now agrees with
+  const [seen, setSeen] = useState(sheet);
+  if (seen !== sheet) {
+    setSeen(sheet);
+    setOverride((prev) => pruneAgreed(prev, sheet));
+  }
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const party = useDayCelebration(celebrateKey, today, g);
 
   if (!now) return <div className={hl.empty}>…</div>;
 
@@ -160,12 +172,17 @@ export function TrackerAgenda({
 
   function tick(item: TrackerItemView, day = today) {
     const key = `${day}|${item.id}`;
-    const on = !checkedOn(day).has(item.id);
+    const before = checkedOn(day);
+    const on = !before.has(item.id);
+    // her tick that first makes today complete: the celebration
+    if (on && day === today && !isComplete(dayScore(all, before, day)) && isComplete(dayScore(all, new Set(before).add(item.id), day))) party.celebrate();
     setError(null);
     setOverride((prev) => ({ ...prev, [key]: on }));
     startTransition(async () => {
       const r = await onTick({ itemId: item.id, day, today, on });
-      if (r.error) setError(r.error);
+      // success: kept until the refreshed sheet agrees (pruneAgreed)
+      if (!r.error) return;
+      setError(r.error);
       setOverride((prev) => {
         const next = { ...prev };
         delete next[key];
@@ -184,7 +201,7 @@ export function TrackerAgenda({
         aria-label={on ? `إلغاء تعليم «${item.title}»` : `تعليم «${item.title}»`}
         onClick={() => tick(item)}
       >
-        {on ? "✓" : ""}
+        <TickMark on={on} />
       </button>
     );
   };
@@ -199,7 +216,9 @@ export function TrackerAgenda({
   const yesterdayItems = all.filter((i) => shownOn(i, yesterday));
 
   return (
-    <div>
+    // relative: the celebration's layer covers (and is clipped to) the day area
+    <div style={{ position: "relative" }}>
+      {party.layer}
       {status && (status.current.length > 0 || status.next) && (
         <div className={styles.nowCard} aria-live="polite">
           {status.current.length > 0 ? (
@@ -224,18 +243,21 @@ export function TrackerAgenda({
         </div>
       )}
 
-      {/* yesterday: its items as the same compact strip, to tick what was missed */}
-      {showYesterday && (
-        <div className={styles.yesterday}>
-          <div className={styles.yesterdayTitle}>أمس — {gregorianLabelWithWeekday(yesterday)}</div>
-          {yesterdayItems.length === 0 ? (
-            <div className={hl.muted}>لا بنود في هذا اليوم.</div>
-          ) : (
-            <ChipStrip items={yesterdayItems} checked={checkedYesterday} onTick={(i) => tick(i, yesterday)} />
-          )}
-          <DayScoreBar score={dayScore(all, checkedYesterday, yesterday)} yesterday groupGender={g} />
+      {/* yesterday: its items as the same compact strip, to tick what was
+          missed; always mounted so it can open and close smoothly */}
+      <div className={`${styles.yesterdayWrap} ${showYesterday ? styles.open : ""}`} inert={!showYesterday} aria-hidden={!showYesterday}>
+        <div className={styles.yesterdayClip}>
+          <div className={styles.yesterday}>
+            <div className={styles.yesterdayTitle}>أمس — {gregorianLabelWithWeekday(yesterday)}</div>
+            {yesterdayItems.length === 0 ? (
+              <div className={hl.muted}>لا بنود في هذا اليوم.</div>
+            ) : (
+              <ChipStrip items={yesterdayItems} checked={checkedYesterday} onTick={(i) => tick(i, yesterday)} />
+            )}
+            <DayScoreBar score={dayScore(all, checkedYesterday, yesterday)} yesterday groupGender={g} />
+          </div>
         </div>
-      )}
+      </div>
 
       {/* the items with no time today: a compact strip above the timeline */}
       {untimed.length > 0 && <ChipStrip label="بلا وقت" items={untimed} checked={checkedSet} onTick={(i) => tick(i)} editButton={editButton} />}
@@ -246,6 +268,7 @@ export function TrackerAgenda({
           item={editingItem}
           course={course}
           teacher={teacher}
+          groupGender={g}
           place={place}
           prayers={prayersToday}
           pending={pending}
@@ -302,7 +325,7 @@ function ChipStrip({
               onClick={() => onTick(item)}
             >
               <span className={styles.chipDot} aria-hidden>
-                {on ? "✓" : ""}
+                <TickMark on={on} />
               </span>
               <span className={styles.chipText}>
                 {item.title}
@@ -349,7 +372,7 @@ export function AgendaOrder({
   if (orderable.length < 2) return <div className={hl.empty}>لا يوجد ما يُرتَّب؛ يلزم بندان على الأقل.</div>;
   return (
     <OrderList
-      hint={`${p("اسحب", "اسحبي")} البند من المقبض ⠿ أو ${p("استخدم", "استخدمي")} السهمين ▲ ▼، ثم ${p("احفظ", "احفظي")} الترتيب.${course ? ` الترتيب لك وحدك، ولا يغيّر جدول ${p("المعلم", "المعلمة")}.` : ""}`}
+      hint={`${p("اسحب", "اسحبي")} البند من المقبض ⠿ أو ${p("استخدم", "استخدمي")} السهمين ▲ ▼، ثم ${p("احفظ", "احفظي")} الترتيب.${course ? ` الترتيب ${p("لك وحدك", "لكِ وحدكِ")}، ولا يغيّر جدول ${p("المعلم", "المعلمة")}.` : ""}`}
       entries={orderable.map((i) => ({ id: i.id, title: i.title, note: i.label }))}
       pending={pending}
       error={error}
@@ -521,6 +544,7 @@ function TimeEditor({
   item,
   course,
   teacher,
+  groupGender: g,
   place,
   prayers,
   pending,
@@ -532,6 +556,7 @@ function TimeEditor({
   item: Placed;
   course: boolean;
   teacher: string;
+  groupGender: GroupGender;
   place: PrayerLocation | null;
   prayers: Record<Prayer, number> | null;
   pending: boolean;
@@ -555,7 +580,7 @@ function TimeEditor({
       {staffItem && (
         <div className={hl.muted} style={{ marginBottom: 8 }}>
           وقت {teacher}: {scheduleLabel(item.slots ?? [])}
-          {own.length > 0 && " · الوقت الحالي من اختيارك"}
+          {own.length > 0 && ` · الوقت الحالي من ${pickByGroup(g, { m: "اختيارك", f: "اختياركِ" })}`}
         </div>
       )}
       <ScheduleEditor
@@ -570,15 +595,15 @@ function TimeEditor({
       />
       {error && <div className={hl.err}>{error}</div>}
       <div className={hl.actionsRow} style={{ marginTop: 10 }}>
-        <button type="button" className={hl.primaryBtn} disabled={pending || !valid || rows === null} onClick={() => rows && onChoose(rows)}>
+        <button type="button" className={`${hl.primaryBtn} pressable`} disabled={pending || !valid || rows === null} onClick={() => rows && onChoose(rows)}>
           {pending ? "جارٍ الحفظ…" : "حفظ الوقت"}
         </button>
         {staffItem && own.length > 0 && (
-          <button type="button" className={hl.ghostBtn} disabled={pending} onClick={() => onChoose("STAFF")}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} disabled={pending} onClick={() => onChoose("STAFF")}>
             العودة إلى وقت {teacher}
           </button>
         )}
-        <button type="button" className={hl.ghostBtn} disabled={pending} onClick={onCancel}>
+        <button type="button" className={`${hl.ghostBtn} pressable`} disabled={pending} onClick={onCancel}>
           إلغاء
         </button>
       </div>
@@ -589,15 +614,15 @@ function TimeEditor({
               <span className={hl.muted} style={{ alignSelf: "center" }}>
                 {item.status === "APPROVED" ? "يتوقف احتسابه من اليوم، وتبقى درجات الأيام السابقة. حذف البند؟" : "حذف هذا البند؟"}
               </span>
-              <button type="button" className={work.dangerBtn} disabled={pending} onClick={onRemove}>
+              <button type="button" className={`${work.dangerBtn} pressable`} disabled={pending} onClick={onRemove}>
                 نعم، حذف
               </button>
-              <button type="button" className={hl.ghostBtn} onClick={() => setConfirmRemove(false)}>
+              <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setConfirmRemove(false)}>
                 تراجع
               </button>
             </>
           ) : (
-            <button type="button" className={work.dangerBtn} onClick={() => setConfirmRemove(true)}>
+            <button type="button" className={`${work.dangerBtn} pressable`} onClick={() => setConfirmRemove(true)}>
               حذف البند
             </button>
           )}

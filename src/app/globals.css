@@ -11,10 +11,29 @@
   --gold: #bd7a3e;
   --gold-deep: #a85c36;
   --line: #e6e0d2;
+  /* motion: strong ease-out for entering/responding, ease-in-out for on-screen movement */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Press feedback for any button: a slight squeeze while held. Elements that
+   also transition colours list transform in their own transition instead. */
+.pressable {
+  transition: transform 140ms var(--ease-out);
+}
+
+.pressable:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pressable:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 html,

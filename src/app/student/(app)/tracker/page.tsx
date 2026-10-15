@@ -16,5 +16,5 @@ export default async function StudentTrackerPage() {
     getStudentTracker(studentId, 9),
     prisma.student.findUniqueOrThrow({ where: { id: studentId }, select: { group: { select: { gender: true } } } }),
   ]);
-  return <StudentTracker sheet={sheet} groupGender={group.gender} agenda={trackerAgendaEnabled} summary={trackerSummaryEnabled} place={trackerAgendaEnabled ? await coursePlace(courseId) : null} />;
+  return <StudentTracker sheet={sheet} groupGender={group.gender} agenda={trackerAgendaEnabled} summary={trackerSummaryEnabled} place={trackerAgendaEnabled ? await coursePlace(courseId) : null} celebrateKey={`student:${studentId}`} />;
 }

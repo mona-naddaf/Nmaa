@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { SimilarAfter } from "@/components/quran/Similar";
 import { useRouter } from "next/navigation";
 import styles from "./home-log.module.css";
 import { useSurahText } from "./useSurahText";
@@ -121,6 +122,7 @@ export function NewSegment({
           ? ayahs.slice(from - 1, to).map((t, i) => (
               <span key={from + i}>
                 {t} <span className={styles.ayahNum}>﴿{from + i}﴾</span>
+                <SimilarAfter surah={surah} ayah={from + i} />
                 {afterAyah?.(from + i, surah)}{" "}
               </span>
             ))

@@ -21,6 +21,7 @@ import {
   setAgendaEnabledAction,
   setPlaceAction,
   setSummaryEnabledAction,
+  setMutashabihatEnabledAction,
   setReviewRemindersAction,
   signOutEverywhereAction,
   updateProfileAction,
@@ -36,11 +37,12 @@ type Props = {
   commitDays: number;
   agendaEnabled: boolean;
   summaryEnabled: boolean;
+  similarEnabled: boolean;
   // her place for prayer times (null: none)
   place: PrayerLocation | null;
 };
 
-export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled, summaryEnabled, place }: Props) {
+export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled, summaryEnabled, similarEnabled, place }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
 
   return (
@@ -64,6 +66,7 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
         />
       </div>
       <Summaries p={p} enabled={summaryEnabled} />
+      <Similar p={p} enabled={similarEnabled} />
       <Password p={p} />
       <Recovery p={p} gender={gender} createdAt={recoveryCodeCreatedAt} />
       <div className={hl.section}>
@@ -252,6 +255,32 @@ function Summaries({ p, enabled }: { p: P; enabled: boolean }) {
       <label className={styles.confirmRow}>
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
         تفعيل المحصّلات
+      </label>
+      <Feedback state={state} />
+      <button type="submit" className={hl.primaryBtn} disabled={pending}>
+        {pending ? "جارٍ الحفظ…" : "حفظ"}
+      </button>
+    </form>
+  );
+}
+
+function Similar({ p, enabled }: { p: P; enabled: boolean }) {
+  const [state, action, pending] = useActionState<SettingsState, FormData>(setMutashabihatEnabledAction, null);
+  const [on, setOn] = useState(enabled);
+  return (
+    <form className={hl.section} action={action}>
+      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+        المتشابهات
+      </div>
+      <p className={hl.muted} style={{ marginTop: 0 }}>
+        علامة صغيرة «≈» بعد الآية التي لها آيات متشابهة في مواضع أخرى من القرآن، في «صفحتي» و«حفظي في البيت» وصفحة الآية. عند الضغط
+        عليها {p("ترى", "ترين")} تلك الآيات مع تمييز الموضع المشترك، {p("وتنتقل", "وتنتقلين")} إلى أيٍّ منها بلمسة. المصدر: بيانات
+        المتشابهات من QUL (ترتيل).
+      </p>
+      <input type="hidden" name="on" value={on ? "1" : "0"} />
+      <label className={styles.confirmRow}>
+        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+        إظهار المتشابهات
       </label>
       <Feedback state={state} />
       <button type="submit" className={hl.primaryBtn} disabled={pending}>

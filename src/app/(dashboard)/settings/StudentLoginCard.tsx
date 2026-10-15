@@ -212,7 +212,7 @@ export function StudentLoginCard({
   );
 }
 
-function OnOffPills({ on, onChange }: { on: boolean; onChange: (value: boolean) => void }) {
+export function OnOffPills({ on, onChange }: { on: boolean; onChange: (value: boolean) => void }) {
   return (
     <div className={styles.optionPills}>
       <div className={`${styles.optionPill} ${on ? styles.sel : ""}`} onClick={() => !on && onChange(true)}>

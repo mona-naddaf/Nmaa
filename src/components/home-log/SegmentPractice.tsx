@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
+import { SimilarAfter } from "@/components/quran/Similar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./home-log.module.css";
@@ -192,6 +193,7 @@ export function SegmentPractice({
                 "…"
               )}{" "}
               <span className={styles.ayahNum}>﴿{a}﴾</span>
+              <SimilarAfter surah={s.surahNumber} ayah={a} />
               {afterAyah?.(a)}
             </div>
             <div className={styles.ayahCounters}>

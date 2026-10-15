@@ -213,6 +213,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         goal={goal?.view ?? null}
         reviewReminderDays={course.reviewReminderDays}
         onlineRecitationEnabled={course.onlineRecitationEnabled}
+        similarEnabled={course.mutashabihatTeachersEnabled}
         pointsActivities={course.pointsActivities.map((a) => ({
           id: a.id,
           name: a.name,

@@ -21,6 +21,7 @@ import { computeGoal } from "@/lib/goals/goal";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { WordFlagger } from "@/components/mistakes/WordFlagger";
 import { VerseNoteMarker } from "./notes/NotesProvider";
+import { SimilarScope } from "./SimilarScope";
 import {
   EntryStatus,
   PageCalc,
@@ -39,7 +40,8 @@ const DAY_LABEL = ["اليوم", "أمس", "قبل يومين"];
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-export function RafiqHome({ data, gender, commitment }: { data: MemorizationView; gender: PersonGender; commitment: CommitmentData }) {
+// similar: «المتشابهات» (her setting) — marks in the word picker
+export function RafiqHome({ data, gender, commitment, similar = false }: { data: MemorizationView; gender: PersonGender; commitment: CommitmentData; similar?: boolean }) {
   const router = useRouter();
   const today = useToday();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
@@ -219,16 +221,18 @@ export function RafiqHome({ data, gender, commitment }: { data: MemorizationView
         <EntryStatus entry={entry} positionOf="موضعك" confirmVerb={p("تأكّد", "تأكّدي")} />
 
         {!hasRangeError && (
-          <WordFlagger
-            surahNumber={surahNumber}
-            fromAyah={fromAyah}
-            toAyah={toAyah}
-            startCollapsed={pageResult.totalPages > 3}
-            flags={entry.wordFlags}
-            onChange={entry.setWordFlags}
-            subject={subject}
-            afterAyah={(a) => <VerseNoteMarker surah={surahNumber} ayah={a} />}
-          />
+          <SimilarScope on={similar}>
+            <WordFlagger
+              surahNumber={surahNumber}
+              fromAyah={fromAyah}
+              toAyah={toAyah}
+              startCollapsed={pageResult.totalPages > 3}
+              flags={entry.wordFlags}
+              onChange={entry.setWordFlags}
+              subject={subject}
+              afterAyah={(a) => <VerseNoteMarker surah={surahNumber} ayah={a} />}
+            />
+          </SimilarScope>
         )}
 
         <ReasonBox entry={entry} placeholder="مثال: تجاوزتُ هذه الآيات لأنني أحفظها مسبقًا..." />

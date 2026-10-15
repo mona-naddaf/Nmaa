@@ -8,6 +8,9 @@ import { quranFont } from "@/components/mistakes/quran-font";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "../../../notes/notes.module.css";
 import { VerseNotesPanel } from "../../../notes/VerseNotesPanel";
+import { prisma } from "@/lib/db";
+import { SimilarAfter } from "@/components/quran/Similar";
+import { SimilarScope } from "../../../SimilarScope";
 
 // One verse with the verses around it and her notes on it (where «ملاحظاتي»
 // links to).
@@ -18,6 +21,7 @@ export default async function RafiqVersePage({ params }: PageProps<"/rafiq/verse
   const ayah = Number(aRaw);
   const count = Number.isInteger(surah) ? AYAH_COUNT[surah] : undefined;
   const text = count && Number.isInteger(ayah) && ayah >= 1 && ayah <= count ? surahText(surah) : null;
+  const { mutashabihatEnabled } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { mutashabihatEnabled: true } });
   if (!count || !text) notFound();
   const verse = (a: number) => ayahOnly(surah, a, text[a - 1]);
   const basmala = hasBasmalaPrefix(surah, 1) && ayah <= 2 ? text[0].split(" ").slice(0, 4).join(" ") : null;
@@ -39,6 +43,10 @@ export default async function RafiqVersePage({ params }: PageProps<"/rafiq/verse
         )}
         <div className={styles.verseMain}>
           {verse(ayah)} <span style={{ color: "var(--gold)" }}>﴿{ayah}﴾</span>
+          {/* «المتشابهات» (her setting): the main verse only */}
+          <SimilarScope on={mutashabihatEnabled}>
+            <SimilarAfter surah={surah} ayah={ayah} />
+          </SimilarScope>
         </div>
         {ayah < count && (
           <div className={styles.verseNeighbour}>

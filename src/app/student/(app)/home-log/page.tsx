@@ -6,12 +6,13 @@ import { nextExpectedEntry } from "@/lib/recitation/logic";
 import { syncStudentAssignmentSegments } from "@/lib/assignments/segments";
 import { HomeLogHome } from "./HomeLogHome";
 import { SelfMarksList } from "./SelfMarksList";
+import { SimilarScope } from "./SimilarScope";
 import { homeMarkList } from "@/lib/home-log/self-marks";
 
 // «حفظي في البيت»: her segments and the "new segment" form. Refused (not
 // just hidden) when the course has the home log off.
 export default async function HomeLogPage() {
-  const { studentId, homeLogEnabled, homeMistakesEnabled } = await requireStudentAccess();
+  const { studentId, homeLogEnabled, homeMistakesEnabled, mutashabihatEnabled } = await requireStudentAccess();
   if (!homeLogEnabled) redirect("/student");
   // «واجب» segments of group assignments set before she joined (no-op when assignments are off)
   await syncStudentAssignmentSegments(studentId);
@@ -22,7 +23,9 @@ export default async function HomeLogPage() {
 
   return (
     <>
-      <HomeLogHome log={log} groupGender={groupGender} plan={plan} suggestion={suggestion} />
+      <SimilarScope on={mutashabihatEnabled}>
+        <HomeLogHome log={log} groupGender={groupGender} plan={plan} suggestion={suggestion} />
+      </SimilarScope>
       {homeMistakesEnabled && <SelfMarksList mistakes={await homeMarkList(studentId, plan)} g={groupGender} />}
     </>
   );

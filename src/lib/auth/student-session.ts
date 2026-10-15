@@ -48,6 +48,8 @@ export type StudentAccess = {
   trackerAgendaEnabled: boolean;
   // «المحصّلات» (only with the tracker)
   trackerSummaryEnabled: boolean;
+  // «المتشابهات» marks (in «حفظي في البيت», so only with the home log)
+  mutashabihatEnabled: boolean;
 };
 
 /** The signed-in student, or null. One lookup per request (cached). */
@@ -76,6 +78,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
           trackerEnabled: true,
           trackerAgendaEnabled: true,
           trackerSummaryEnabled: true,
+          mutashabihatStudentsEnabled: true,
         },
       },
     },
@@ -99,6 +102,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
     trackerEnabled: student.course.trackerEnabled,
     trackerAgendaEnabled: student.course.trackerEnabled && student.course.trackerAgendaEnabled,
     trackerSummaryEnabled: student.course.trackerEnabled && student.course.trackerSummaryEnabled,
+    mutashabihatEnabled: student.course.homeLogEnabled && student.course.mutashabihatStudentsEnabled,
   };
 });
 

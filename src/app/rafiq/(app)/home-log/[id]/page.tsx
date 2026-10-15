@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { requireRafiqUser } from "@/lib/rafiq/session";
 import { getRafiqHomeLog } from "@/lib/rafiq/home-log";
 import { RafiqPractice } from "./RafiqPractice";
+import { prisma } from "@/lib/db";
+import { SimilarScope } from "../../SimilarScope";
 import { rafiqMarkFlags } from "@/lib/rafiq/home-mistakes";
 import { deleteSegmentAction, finishSegmentAction, markWordAction, tapAction, undoTapAction } from "../actions";
 
@@ -13,14 +15,18 @@ export default async function RafiqSegmentPage({ params }: PageProps<"/rafiq/hom
   const log = await getRafiqHomeLog(user.id, { pastLimit: 0 });
   const segment = log.active.find((s) => s.id === id);
   if (!segment) redirect("/rafiq/home-log");
+  const { mutashabihatEnabled } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { mutashabihatEnabled: true } });
   return (
-    <RafiqPractice
-      segment={segment}
-      groupGender={user.gender === "FEMALE" ? "GIRLS" : "BOYS"}
-      actions={{ tap: tapAction, undoTap: undoTapAction, finish: finishSegmentAction, remove: deleteSegmentAction }}
-      listHref="/rafiq/home-log"
-      initialFlags={await rafiqMarkFlags(user.id, segment.surahNumber, segment.fromAyah, segment.toAyah)}
-      mark={markWordAction}
-    />
+    // «المتشابهات» marks (her setting)
+    <SimilarScope on={mutashabihatEnabled}>
+      <RafiqPractice
+        segment={segment}
+        groupGender={user.gender === "FEMALE" ? "GIRLS" : "BOYS"}
+        actions={{ tap: tapAction, undoTap: undoTapAction, finish: finishSegmentAction, remove: deleteSegmentAction }}
+        listHref="/rafiq/home-log"
+        initialFlags={await rafiqMarkFlags(user.id, segment.surahNumber, segment.fromAyah, segment.toAyah)}
+        mark={markWordAction}
+      />
+    </SimilarScope>
   );
 }

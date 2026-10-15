@@ -163,3 +163,13 @@ export async function setCommitDaysAction(input: { days: number; today: string }
   revalidatePath("/rafiq", "layout");
   return { ok: "تم حفظ أيام الالتزام ✓" };
 }
+
+/** «المتشابهات» marks on her verses: on or off (off by default). */
+export async function setMutashabihatEnabledAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const user = await getRafiqUser();
+  if (!user) return SIGNED_OUT;
+  const on = formData.get("on") === "1";
+  await prisma.rafiqUser.update({ where: { id: user.id }, data: { mutashabihatEnabled: on } });
+  revalidatePath("/rafiq", "layout");
+  return { ok: on ? "تم تفعيل المتشابهات ✓" : "تم إيقاف المتشابهات ✓" };
+}

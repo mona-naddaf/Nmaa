@@ -18,6 +18,15 @@ import { requestOrigin } from "@/lib/request-origin";
 import { ensureBuiltinFields, getCourseInfoFields } from "@/lib/students/extra-info";
 import { Collapsible } from "@/components/collapsible/Collapsible";
 import { onOffTag } from "@/components/collapsible/tags";
+import { SimilarCard } from "./SimilarCard";
+
+/** «المتشابهات» card header: who sees the marks. */
+function similarTag(teachers: boolean, students: boolean): { tag: string; tagTone: "on" | "off" } {
+  if (teachers && students) return { tag: "للمعلمين والطلاب", tagTone: "on" };
+  if (teachers) return { tag: "للمعلمين", tagTone: "on" };
+  if (students) return { tag: "للطلاب", tagTone: "on" };
+  return { tag: "غير مفعّل", tagTone: "off" };
+}
 import { ACTIVITIES, GROUPS, countLabel } from "@/lib/text/count";
 import { TimeZoneCard } from "./TimeZoneCard";
 import { safeTimeZone } from "@/lib/time/zone";
@@ -141,6 +150,15 @@ export default async function SettingsPage() {
           trackerEnabled={course.trackerEnabled}
           trackerAgendaEnabled={course.trackerAgendaEnabled}
           trackerSummaryEnabled={course.trackerSummaryEnabled}
+        />
+      </Collapsible>
+
+      <Collapsible title="المتشابهات" {...similarTag(course.mutashabihatTeachersEnabled, course.mutashabihatStudentsEnabled)}>
+        <SimilarCard
+          teachers={course.mutashabihatTeachersEnabled}
+          students={course.mutashabihatStudentsEnabled}
+          studentLoginEnabled={course.studentLoginEnabled}
+          homeLogEnabled={course.homeLogEnabled}
         />
       </Collapsible>
 

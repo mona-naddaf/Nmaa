@@ -49,3 +49,6 @@ next-env.d.ts
 
 # generated user guide (kept locally, never committed)
 /docs/
+
+# raw third-party data (kept locally; derived files are committed)
+/data/raw/

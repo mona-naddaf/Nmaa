@@ -498,3 +498,17 @@ export async function deleteCustomInfoFieldAction(fieldId: string, confirmed = f
   refreshStudentInfoEverywhere();
   return {};
 }
+
+// «المتشابهات»: marks on verses with similar verses elsewhere. «teachers»:
+// teachers and the supervisor, in the recitation form's word picker.
+// «students»: in «حفظي في البيت»; it can be switched on any time, and only
+// shows while student login and the home log are on too.
+const MUTASHABIHAT_FIELDS = { teachers: "mutashabihatTeachersEnabled", students: "mutashabihatStudentsEnabled" } as const;
+
+export async function setMutashabihatAction(audience: keyof typeof MUTASHABIHAT_FIELDS, enabled: boolean): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  if (!Object.hasOwn(MUTASHABIHAT_FIELDS, audience)) return { error: "إعداد غير معروف" };
+  await prisma.course.update({ where: { id: cid }, data: { [MUTASHABIHAT_FIELDS[audience]]: enabled === true } });
+  revalidatePath("/", "layout");
+  return {};
+}

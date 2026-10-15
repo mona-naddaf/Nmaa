@@ -33,6 +33,7 @@ import {
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { GoalLine } from "@/components/goal/GoalLine";
 import type { GoalView } from "@/lib/goals/goal";
+import { SimilarScope } from "./SimilarScope";
 import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
 import {
   presentWord,
@@ -112,6 +113,7 @@ export function DetailView({
   goal = null,
   reviewReminderDays,
   onlineRecitationEnabled,
+  similarEnabled = false,
   pointsActivities,
   pointsLogs: initialPointsLogs,
   history,
@@ -150,6 +152,8 @@ export function DetailView({
   goal?: GoalView | null;
   reviewReminderDays: number | null;
   onlineRecitationEnabled: boolean;
+  // «المتشابهات» for teachers (course setting): marks in the word picker
+  similarEnabled?: boolean;
   pointsActivities: PointsActivity[];
   pointsLogs: PointsLogEntry[];
   history: HistoryEntry[];
@@ -504,18 +508,20 @@ export function DetailView({
         />
 
         {!hasRangeError && (
-          <WordFlagger
-            surahNumber={surahNumber}
-            fromAyah={fromAyah}
-            toAyah={toAyah}
-            startCollapsed={pageResult.totalPages > 3}
-            flags={entry.wordFlags}
-            onChange={entry.setWordFlags}
-            subject={groupGender}
-            previous={entry.previousFlags}
-            mastered={entry.mastered}
-            onToggleMastered={entry.toggleMastered}
-          />
+          <SimilarScope on={similarEnabled}>
+            <WordFlagger
+              surahNumber={surahNumber}
+              fromAyah={fromAyah}
+              toAyah={toAyah}
+              startCollapsed={pageResult.totalPages > 3}
+              flags={entry.wordFlags}
+              onChange={entry.setWordFlags}
+              subject={groupGender}
+              previous={entry.previousFlags}
+              mastered={entry.mastered}
+              onToggleMastered={entry.toggleMastered}
+            />
+          </SimilarScope>
         )}
 
         <ReasonBox

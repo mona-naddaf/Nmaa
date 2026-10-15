@@ -1,5 +1,6 @@
 "use client";
 
+import { SimilarAfter } from "@/components/quran/Similar";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import styles from "./mistakes.module.css";
 import { quranFont } from "./quran-font";
@@ -142,7 +143,12 @@ export function WordFlagger({
                     menu={menu}
                     onFlag={setFlag}
                     subject={subject}
-                    after={afterAyah?.(ayah)}
+                    after={
+                      <>
+                        <SimilarAfter surah={surahNumber} ayah={ayah} />
+                        {afterAyah?.(ayah)}
+                      </>
+                    }
                     previous={previous}
                     mastered={mastered}
                     onToggleMastered={onToggleMastered}

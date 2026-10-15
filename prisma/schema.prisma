@@ -38,108 +38,114 @@ model Admin {
 // courseId (directly or via a parent that has courseId), and every query in
 // the app must be scoped by the current session's courseId.
 model Course {
-  id                      String                @id @default(cuid())
-  name                    String
-  code                    String                @unique
-  adminId                 String                @unique
-  admin                   Admin                 @relation(fields: [adminId], references: [id], onDelete: Cascade)
-  addStudentsPermission   AddStudentsPermission @default(ADMIN_ONLY)
+  id                          String                 @id @default(cuid())
+  name                        String
+  code                        String                 @unique
+  adminId                     String                 @unique
+  admin                       Admin                  @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  addStudentsPermission       AddStudentsPermission  @default(ADMIN_ONLY)
   // who may edit a student's name/age/grade/group, and who may archive one.
   // Restoring and permanently deleting are always supervisor-only.
-  editStudentsPermission    AddStudentsPermission @default(ADMIN_ONLY)
-  archiveStudentsPermission AddStudentsPermission @default(ADMIN_ONLY)
+  editStudentsPermission      AddStudentsPermission  @default(ADMIN_ONLY)
+  archiveStudentsPermission   AddStudentsPermission  @default(ADMIN_ONLY)
   // who may add prior memorization (حفظ سابق) to an existing student, and
   // delete a prior entry added by mistake (teachers: students they can see)
-  addPriorPermission        AddStudentsPermission @default(ADMIN_ONLY)
+  addPriorPermission          AddStudentsPermission  @default(ADMIN_ONLY)
   // who may download and upload «التسميع بدون إنترنت» (a day's attendance,
   // recitations and points from an Excel sheet; teachers: their groups only)
-  offlineSheetPermission    AddStudentsPermission @default(ADMIN_ONLY)
+  offlineSheetPermission      AddStudentsPermission  @default(ADMIN_ONLY)
   // who may change a student's memorization plan and correct the direction
   // of a juz in «ترتيب المصحف بالعكس» (teachers: students they can see)
-  editPlanPermission        AddStudentsPermission @default(ADMIN_ONLY)
+  editPlanPermission          AddStudentsPermission  @default(ADMIN_ONLY)
   // Student login (src/lib/auth/student-session.ts). Off by default; while
   // off, student codes are hidden and every student session is refused.
   // studentBoardEnabled separately allows the course board tab for students
   // (independent of the public board code).
-  studentLoginEnabled         Boolean               @default(false)
-  studentBoardEnabled         Boolean               @default(false)
+  studentLoginEnabled         Boolean                @default(false)
+  studentBoardEnabled         Boolean                @default(false)
   // who may issue/regenerate/revoke student codes (teachers: own groups only)
-  issueStudentCodesPermission AddStudentsPermission @default(ADMIN_ONLY)
+  issueStudentCodesPermission AddStudentsPermission  @default(ADMIN_ONLY)
   // «حفظي في البيت» (src/lib/home-log): only works while student login is
   // on. Default consolidation targets for new home segments (a student may
   // have her own, see Student.homeTarget*).
-  homeLogEnabled              Boolean               @default(false)
-  homeTargetListen            Int                   @default(5)
-  homeTargetRepeat            Int                   @default(10)
-  homeTargetRecite            Int                   @default(3)
+  homeLogEnabled              Boolean                @default(false)
+  homeTargetListen            Int                    @default(5)
+  homeTargetRepeat            Int                    @default(10)
+  homeTargetRecite            Int                    @default(3)
   // lets students mark their own mistakes word by word while practising a
   // home passage (HomeMistake). Off by default; only works while the home
   // log (and so student login) is on. Strictly private to the student.
-  homeMistakesEnabled         Boolean               @default(false)
+  homeMistakesEnabled         Boolean                @default(false)
   // «الواجبات» (src/lib/assignments) and «جدول المتابعة» (src/lib/tracker):
   // each only works while student login is on. While off, the tabs are
   // hidden and every page and action refuses.
-  assignmentsEnabled          Boolean               @default(false)
-  trackerEnabled              Boolean               @default(false)
+  assignmentsEnabled          Boolean                @default(false)
+  trackerEnabled              Boolean                @default(false)
   // «الجدول اليومي» (src/lib/tracker/agenda.ts): times and order for the
   // tracker's items, with today's timeline. Off by default; only works while
   // the tracker is on. While off, nothing changes on any page.
-  trackerAgendaEnabled        Boolean               @default(false)
+  trackerAgendaEnabled        Boolean                @default(false)
   // «المحصّلات» (src/lib/tracker/summary.ts): periodic summaries of the
   // tracker for the student, her teachers and the parent. Off by default;
   // only works while the tracker is on.
-  trackerSummaryEnabled       Boolean               @default(false)
+  trackerSummaryEnabled       Boolean                @default(false)
+  // «المتشابهات» (src/lib/mutashabihat): a mark at the end of verses that
+  // have similar verses elsewhere. Teachers and the supervisor: in the
+  // recitation form's word picker. Students: in «حفظي في البيت», only while
+  // student login and the home log are on. Parents never. Both off by default.
+  mutashabihatTeachersEnabled Boolean                @default(false)
+  mutashabihatStudentsEnabled Boolean                @default(false)
   // «مواقيت الصلاة» (src/lib/prayer): the course's place for prayer-anchored
   // items — a city of cities.ts (prayerCityKey) or a custom place (key
   // null) — with its calculation method and Asr school. All null = no place:
   // anchors are unavailable and clock times work as before.
-  prayerCityKey String?
-  prayerPlace   String?
-  prayerLat     Float?
-  prayerLng     Float?
-  prayerMethod  String?
-  prayerAsr     String?
-  visibilityMode          VisibilityMode        @default(ALL_TEACHERS)
-  onlineRecitationEnabled Boolean               @default(true)
+  prayerCityKey               String?
+  prayerPlace                 String?
+  prayerLat                   Float?
+  prayerLng                   Float?
+  prayerMethod                String?
+  prayerAsr                   String?
+  visibilityMode              VisibilityMode         @default(ALL_TEACHERS)
+  onlineRecitationEnabled     Boolean                @default(true)
   // optional progress bars on the student detail screen, each toggled
   // course-wide by the supervisor. Off by default.
-  showSurahProgress       Boolean               @default(false)
-  showJuzProgress         Boolean               @default(false)
-  showQuranProgress       Boolean               @default(false)
-  showPlanProgress        Boolean               @default(false)
+  showSurahProgress           Boolean                @default(false)
+  showJuzProgress             Boolean                @default(false)
+  showQuranProgress           Boolean                @default(false)
+  showPlanProgress            Boolean                @default(false)
   // Public read-only leaderboard access (see src/lib/auth/board-session.ts),
   // independent of the teacher course code above. null = no public board.
   // Regenerating/revoking bumps boardCodeVersion, which every board session
   // is checked against, so old sessions die immediately.
-  boardCode               String?               @unique
-  boardCodeVersion        Int                   @default(0)
-  boardCodeCreatedAt      DateTime?
+  boardCode                   String?                @unique
+  boardCodeVersion            Int                    @default(0)
+  boardCodeCreatedAt          DateTime?
   // Days a completed surah may go without a REVIEW/LINK session before the
   // student is flagged (src/lib/students/review.ts). null = reminders off.
-  reviewReminderDays      Int?
+  reviewReminderDays          Int?
   // What makes a week count toward a student's streak (see
   // src/lib/students/streak.ts). null = streaks off (the default).
-  streakMode              StreakMode?
+  streakMode                  StreakMode?
   // Islamic calendar (/calendar), staff-only. Off by default; the banner is
   // only shown while the calendar itself is enabled. The core occasions
   // (Ramadan, both Eids, Arafah) are always on; enabledOccasions lists only
   // the optional presets the course turned on (src/lib/calendar/occasions.ts).
-  calendarEnabled         Boolean                @default(false)
-  calendarBannerEnabled   Boolean                @default(false)
-  calendarEditPermission  CalendarEditPermission @default(ADMIN_ONLY)
-  enabledOccasions        Occasion[]             @default([])
+  calendarEnabled             Boolean                @default(false)
+  calendarBannerEnabled       Boolean                @default(false)
+  calendarEditPermission      CalendarEditPermission @default(ADMIN_ONLY)
+  enabledOccasions            Occasion[]             @default([])
   // «معلومات إضافية» about each student (src/lib/students/extra-info.ts).
   // Off by default; while off, nothing is shown or accepted anywhere and the
   // stored values are kept. parentStudentInfoEdit separately lets parents
   // fill/edit the fields visible to them from the parent portal.
-  studentInfoEnabled      Boolean                @default(false)
-  parentStudentInfoEdit   Boolean                @default(false)
+  studentInfoEnabled          Boolean                @default(false)
+  parentStudentInfoEdit       Boolean                @default(false)
   // «التوقيت»: the IANA zone the course's days are counted in — today,
   // yesterday, weeks, deadlines, the day a recitation happened
   // (src/lib/time/zone.ts). Supervisor only. Stored date-only values never
   // shift when it changes; only which day "now" falls on does.
-  timeZone                String                 @default("Asia/Riyadh")
-  createdAt               DateTime               @default(now())
+  timeZone                    String                 @default("Asia/Riyadh")
+  createdAt                   DateTime               @default(now())
 
   teachers            Teacher[]
   groups              Group[]
@@ -153,22 +159,22 @@ model Course {
 }
 
 model Teacher {
-  id             String   @id @default(cuid())
-  courseId       String
-  course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  name           String
+  id                String   @id @default(cuid())
+  courseId          String
+  course            Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name              String
   // normalized (trimmed + lowercased) name used for case-insensitive login matching
-  nameKey        String
+  nameKey           String
   // teacher's own gender, used to conjugate UI text addressed to them directly
   // (e.g. سجّلي/سجّل). Optional and asked only once — see genderPrompted.
-  gender         Gender?
-  genderPrompted Boolean  @default(false)
+  gender            Gender?
+  genderPrompted    Boolean  @default(false)
   // true only for the per-course stand-in row that the supervisor's own
   // entries are attributed to (src/lib/auth/teacher-identity.ts). Found by
   // this flag, never by name, and no login can ever reach it. At most one
   // per course (partial unique index in the migration).
-  isSupervisorProxy Boolean @default(false)
-  createdAt      DateTime @default(now())
+  isSupervisorProxy Boolean  @default(false)
+  createdAt         DateTime @default(now())
 
   groupAssignments TeacherGroupAssignment[]
   recitationLogs   RecitationSession[]
@@ -237,21 +243,21 @@ model PointsActivity {
 // ---------- Students ----------
 
 model Student {
-  id           String       @id @default(cuid())
-  courseId     String
-  course       Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  groupId      String
-  group        Group        @relation(fields: [groupId], references: [id])
-  name         String
-  age          Int
+  id            String       @id @default(cuid())
+  courseId      String
+  course        Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  groupId       String
+  group         Group        @relation(fields: [groupId], references: [id])
+  name          String
+  age           Int
   // school grade (الصف), free text as the supervisor writes it (e.g. الخامس).
   // Optional: students added before this field existed have none.
-  grade        String?
-  planTemplate PlanTemplate @default(CUSTOM)
+  grade         String?
+  planTemplate  PlanTemplate @default(CUSTOM)
   // when staff last changed her plan by hand (src/lib/students/plan.ts):
   // gaps approved before it stop counting, as in «رفيق الحفظ». null = never.
   planChangedAt DateTime?
-  createdAt    DateTime     @default(now())
+  createdAt     DateTime     @default(now())
 
   // Read-only parent access (see src/lib/auth/parent-session.ts). null =
   // no parent can log in. Regenerating/revoking bumps parentCodeVersion,
@@ -509,9 +515,9 @@ model RecitationMistake {
 }
 
 model PointsLog {
-  id          String         @id @default(cuid())
+  id          String          @id @default(cuid())
   studentId   String
-  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student     Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
   // null = a bonus point ("+ نقاط إضافية"): no activity, value 1, and a
   // required note (enforced by a CHECK constraint in the migration). Several
   // bonus rows per student per day are fine: Postgres treats NULLs as
@@ -522,13 +528,13 @@ model PointsLog {
   activity    PointsActivity? @relation(fields: [activityId], references: [id], onDelete: Restrict)
   note        String?
   teacherId   String
-  teacher     Teacher        @relation(fields: [teacherId], references: [id])
+  teacher     Teacher         @relation(fields: [teacherId], references: [id])
   // snapshot of the activity's value/type at the moment it was logged, so
   // editing an activity later doesn't retroactively change past totals
   valueAtTime Int
   typeAtTime  PointType
-  day         DateTime       @db.Date
-  createdAt   DateTime       @default(now())
+  day         DateTime        @db.Date
+  createdAt   DateTime        @default(now())
 
   @@unique([studentId, activityId, day])
   @@index([studentId, day])
@@ -611,28 +617,28 @@ model ResourceType {
 }
 
 model Resource {
-  id          String       @id @default(cuid())
+  id                 String       @id @default(cuid())
   // http(s) only, validated server-side (src/lib/resources/validate.ts)
-  url         String
-  title       String
-  description String?
-  ageFrom     Int
-  ageTo       Int
-  typeId      String
-  type        ResourceType @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  url                String
+  title              String
+  description        String?
+  ageFrom            Int
+  ageTo              Int
+  typeId             String
+  type               ResourceType @relation(fields: [typeId], references: [id], onDelete: Restrict)
   // normalized title + description for diacritic-insensitive search
-  searchKey   String
+  searchKey          String
   // exactly one creator while it has one; both null once the creator's
   // account is gone (then only the site owner can edit/delete it)
   createdByAdminId   String?
-  createdByAdmin     Admin?   @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdByAdmin     Admin?       @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
   createdByTeacherId String?
-  createdByTeacher   Teacher? @relation(fields: [createdByTeacherId], references: [id], onDelete: SetNull)
+  createdByTeacher   Teacher?     @relation(fields: [createdByTeacherId], references: [id], onDelete: SetNull)
   // set automatically at 3 open reports from different people, cleared when
   // the owner dismisses them; hidden resources show only to their creator
-  hiddenAt    DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  hiddenAt           DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   tags    ResourceTag[]
   reports ResourceReport[]
@@ -880,16 +886,16 @@ model TrackerItemStudent {
 // for an individual item, its students'). No row = «بلا وقت». A student may
 // set her own time for any item reaching her (TrackerStudentSlot).
 model TrackerSlot {
-  id          String      @id @default(cuid())
-  itemId      String
-  item        TrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  id              String      @id @default(cuid())
+  itemId          String
+  item            TrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   // which weekdays this time applies to (bitmask as TrackerItem.days): 127 =
   // every day, or a day-specific row (disjoint sets) that overrides it
-  weekdays    Int         @default(127)
+  weekdays        Int         @default(127)
   // minutes after midnight in the course's time zone (0–1439); null = «بلا وقت»
-  startMin    Int?
+  startMin        Int?
   // 5–720 minutes; null = a start only. An item may run past midnight.
-  durationMin Int?
+  durationMin     Int?
   // a prayer anchor instead of a clock time (src/lib/tracker/schedule.ts):
   // the prayer, and minutes after (+) or before (−) it; resolved each day
   // from the place's prayer times
@@ -902,18 +908,18 @@ model TrackerSlot {
 // Her own time for an item (a staff item's override, or her own item's
 // time). startMin null = she moved it to «بلا وقت». No row = staff's time.
 model TrackerStudentSlot {
-  id          String      @id @default(cuid())
-  itemId      String
-  item        TrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  studentId   String
-  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id              String      @id @default(cuid())
+  itemId          String
+  item            TrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   // which weekdays this time applies to (bitmask as TrackerItem.days; 127 =
   // every day — the only value until per-weekday schedules)
-  weekdays    Int         @default(127)
+  weekdays        Int         @default(127)
   // minutes after midnight in the course's time zone (0–1439); null = «بلا وقت»
-  startMin    Int?
+  startMin        Int?
   // 5–720 minutes; null = a start only. An item may run past midnight.
-  durationMin Int?
+  durationMin     Int?
   // a prayer anchor instead of a clock time (as TrackerSlot)
   anchor          Prayer?
   anchorOffsetMin Int?
@@ -978,37 +984,37 @@ model RafiqUser {
   // she hasn't set up a plan yet. Unlike a course, she may change it any
   // time; planChangedAt then marks when, so gap approvals recorded before
   // the latest change stop counting (memorized ayat always count).
-  planTemplate          PlanTemplate?
-  planChangedAt         DateTime?
+  planTemplate       PlanTemplate?
+  planChangedAt      DateTime?
   // days a completed surah may go without review before it's flagged;
   // null = review reminders off (the default)
-  reviewReminderDays    Int?
+  reviewReminderDays Int?
   // her own targets for the home memorization counters («حفظي في البيت»);
   // changing them also updates her active passages
-  homeTargetListen      Int       @default(5)
-  homeTargetRepeat      Int       @default(10)
-  homeTargetRecite      Int       @default(3)
+  homeTargetListen   Int           @default(5)
+  homeTargetRepeat   Int           @default(10)
+  homeTargetRecite   Int           @default(3)
   // when her default note tags («متشابهات / تدبّر / تفسير») were created —
   // once, the first time she opens notes, so deleted defaults never return
-  noteTagsSeededAt      DateTime?
+  noteTagsSeededAt   DateTime?
 
-  planItems     RafiqPlanItem[]
-  sessions      RafiqSession[]
-  mistakes      RafiqMistake[]
-  homeSegments  RafiqHomeSegment[]
-  homeTaps      RafiqHomeTap[]
-  homeMistakes  RafiqHomeMistake[]
-  notes         RafiqNote[]
-  noteTags      RafiqNoteTag[]
-  commitDays    RafiqCommitDays[]
-  trackerItems  RafiqTrackerItem[]
-  trackerChecks RafiqTrackerCheck[]
-  trackerSlots  RafiqTrackerSlot[]
-  calendarDays  RafiqCalendarDay[]
+  planItems           RafiqPlanItem[]
+  sessions            RafiqSession[]
+  mistakes            RafiqMistake[]
+  homeSegments        RafiqHomeSegment[]
+  homeTaps            RafiqHomeTap[]
+  homeMistakes        RafiqHomeMistake[]
+  notes               RafiqNote[]
+  noteTags            RafiqNoteTag[]
+  commitDays          RafiqCommitDays[]
+  trackerItems        RafiqTrackerItem[]
+  trackerChecks       RafiqTrackerCheck[]
+  trackerSlots        RafiqTrackerSlot[]
+  calendarDays        RafiqCalendarDay[]
   calendarAdjustments RafiqCalendarAdjustment[]
-  templates       TrackerTemplate[]
-  templateReports TrackerTemplateReport[]
-  goal            RafiqGoal?
+  templates           TrackerTemplate[]
+  templateReports     TrackerTemplateReport[]
+  goal                RafiqGoal?
 
   // her calendar: the optional occasions she turned on (the core ones are
   // always shown), as Course.enabledOccasions
@@ -1016,20 +1022,24 @@ model RafiqUser {
 
   // «الجدول اليومي» on her tracker page. Off by default: nothing changes
   // until she turns it on.
-  agendaEnabled    Boolean    @default(false)
+  agendaEnabled       Boolean @default(false)
   // «المحصّلات» of her tracker. Off by default: nothing changes until she
   // turns it on.
-  summaryEnabled   Boolean    @default(false)
+  summaryEnabled      Boolean @default(false)
+  // «المتشابهات» (src/lib/mutashabihat): marks on verses with similar verses
+  // elsewhere (her home page, «حفظي في البيت», the verse page). Off by
+  // default: nothing changes until she turns it on.
+  mutashabihatEnabled Boolean @default(false)
   // «مواقيت الصلاة» (src/lib/prayer): her's place for prayer-anchored
   // items — a city of cities.ts (prayerCityKey) or a custom place (key
   // null) — with its calculation method and Asr school. All null = no place:
   // anchors are unavailable and clock times work as before.
-  prayerCityKey String?
-  prayerPlace   String?
-  prayerLat     Float?
-  prayerLng     Float?
-  prayerMethod  String?
-  prayerAsr     String?
+  prayerCityKey       String?
+  prayerPlace         String?
+  prayerLat           Float?
+  prayerLng           Float?
+  prayerMethod        String?
+  prayerAsr           String?
 }
 
 // A personal day she added to her calendar (same meaning as CalendarEvent).
@@ -1106,7 +1116,7 @@ model RafiqTrackerItem {
   updatedAt  DateTime  @updatedAt
 
   // «الجدول اليومي»: her order (ties: creation order)
-  sortOrder  Int       @default(0)
+  sortOrder Int @default(0)
 
   checks RafiqTrackerCheck[]
   slots  RafiqTrackerSlot[]
@@ -1116,16 +1126,16 @@ model RafiqTrackerItem {
 
 // «الجدول اليومي»: the time of one of her items. No row = «بلا وقت».
 model RafiqTrackerSlot {
-  id          String           @id @default(cuid())
-  itemId      String
-  item        RafiqTrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  userId      String
-  user        RafiqUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  itemId          String
+  item            RafiqTrackerItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId          String
+  user            RafiqUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
   // weekdays bitmask (127 = every day); minutes after midnight on her own
   // day; duration 5–720 or null
-  weekdays    Int              @default(127)
-  startMin    Int?
-  durationMin Int?
+  weekdays        Int              @default(127)
+  startMin        Int?
+  durationMin     Int?
   // a prayer anchor instead of a clock time (src/lib/tracker/schedule.ts):
   // the prayer, and minutes after (+) or before (−) it; resolved each day
   // from the place's prayer times
@@ -1324,22 +1334,22 @@ model RafiqMistake {
 // own tracker, and later edits on either side don't affect the other.
 
 model TrackerTemplate {
-  id                String     @id @default(cuid())
-  title             String
-  description       String?
+  id               String     @id @default(cuid())
+  title            String
+  description      String?
   // normalized title + description for diacritic-insensitive search
-  searchKey         String
+  searchKey        String
   // added by the site owner, shown with «مقترح»
-  suggested         Boolean    @default(false)
+  suggested        Boolean    @default(false)
   // the Rafiq user who published it; null for the owner's own templates, or
   // once the publisher's account is deleted (the template stays, anonymous)
-  createdByRafiqId  String?
-  createdByRafiq    RafiqUser? @relation(fields: [createdByRafiqId], references: [id], onDelete: SetNull)
+  createdByRafiqId String?
+  createdByRafiq   RafiqUser? @relation(fields: [createdByRafiqId], references: [id], onDelete: SetNull)
   // set at 3 open reports, cleared when the owner dismisses them; a hidden
   // template shows only to its publisher (and the owner)
-  hiddenAt          DateTime?
-  useCount          Int        @default(0)
-  createdAt         DateTime   @default(now())
+  hiddenAt         DateTime?
+  useCount         Int        @default(0)
+  createdAt        DateTime   @default(now())
 
   items   TrackerTemplateItem[]
   reports TrackerTemplateReport[]
@@ -1349,17 +1359,17 @@ model TrackerTemplate {
 }
 
 model TrackerTemplateItem {
-  id         String          @id @default(cuid())
-  templateId String
-  template   TrackerTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  title      String
-  value      Int
-  days       Int
-  sortOrder  Int             @default(0)
+  id              String          @id @default(cuid())
+  templateId      String
+  template        TrackerTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  title           String
+  value           Int
+  days            Int
+  sortOrder       Int             @default(0)
   // «الجدول اليومي»: the item's time when it was published, if it had one
   // (a clock time, or a prayer anchor — applied with the user's own place)
-  startMin    Int?
-  durationMin Int?
+  startMin        Int?
+  durationMin     Int?
   // a prayer anchor instead of a clock time (src/lib/tracker/schedule.ts):
   // the prayer, and minutes after (+) or before (−) it; resolved each day
   // from the place's prayer times

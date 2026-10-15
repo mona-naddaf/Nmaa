@@ -1,11 +1,35 @@
-/* «جدول المتابعة»: the «⚙ البنود» menu and «إدارة البنود» compact rows. */
+/* «جدول المتابعة»: the header row, the «⚙ البنود» menu and «إدارة البنود» compact rows. */
 
-.menuBox {
-  position: relative;
-  display: inline-block;
+/* one row: the heading on the right, the pills on the left; the pills
+   wrap under the heading when they don't fit */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: 0 4px 12px;
 }
 
-.menuBtn {
+.heading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.pills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* «أمس», «المحصّلات» and «⚙ البنود» share this look */
+.pill {
+  display: inline-flex;
+  align-items: center;
   min-height: 36px;
   padding: 4px 12px;
   border-radius: 999px;
@@ -15,12 +39,25 @@
   font: inherit;
   font-size: 13px;
   font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
 }
 
-.menuBtn[aria-expanded="true"] {
+.pill[aria-expanded="true"] {
   border-color: var(--rose-deep);
+}
+
+.pill.sel {
+  background: var(--rose-deep);
+  border-color: var(--rose-deep);
+  color: #fff;
+}
+
+.menuBox {
+  position: relative;
+  display: inline-block;
 }
 
 .menu {
@@ -97,10 +134,12 @@
   border-bottom: none;
 }
 
+/* capped so the icons stay near the name on wide screens */
 .rowMain {
   display: flex;
   align-items: center;
   gap: 4px;
+  max-width: 440px;
 }
 
 .rowBody {

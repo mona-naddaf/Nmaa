@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "@/components/student-work/work.module.css";
 import { WeekdayPicker } from "@/components/student-work/TrackerControls";
@@ -13,7 +12,7 @@ import { EVERY_DAY, TRACKER_LIMITS, withLocalDays } from "@/lib/tracker/rules";
 import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { AgendaOrder, TrackerAgenda } from "@/components/student-work/TrackerAgenda";
-import { CompactRow, ItemsMenu, ViewBar, type MenuEntry } from "@/components/student-work/TrackerItems";
+import { CompactRow, TrackerHeader, ViewBar, type MenuEntry } from "@/components/student-work/TrackerItems";
 import itemStyles from "@/components/student-work/items.module.css";
 import { scheduleLabel } from "@/lib/tracker/schedule";
 import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
@@ -45,6 +44,7 @@ export function StudentTracker({
   const today = useToday();
   const tz = useTimeZone();
   const [view, setView] = useState<"day" | "items" | "order">("day");
+  const [yesterday, setYesterday] = useState(false);
   if (!today) return <div className={hl.empty}>…</div>;
 
   // items exist from the course's day they were created (not the UTC one)
@@ -69,17 +69,13 @@ export function StudentTracker({
 
   return (
     <div>
-      <div className={hl.sectionTitle}>
-        <span style={{ fontSize: 16, color: "var(--ink)" }}>✅ جدول المتابعة</span>
-        <span style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          {summary && (
-            <Link href="/student/tracker/summary" className={hl.linkBtn}>
-              📊 المحصّلات ←
-            </Link>
-          )}
-          <ItemsMenu entries={menu} />
-        </span>
-      </div>
+      <TrackerHeader
+        // «أمس» on the agenda; the tile sheet keeps its own today/yesterday tabs
+        yesterday={yesterday}
+        onYesterday={agenda && view === "day" ? () => setYesterday(!yesterday) : undefined}
+        summaryHref={summary ? "/student/tracker/summary" : undefined}
+        menu={menu}
+      />
 
       {view === "items" && <ManageItems items={current} g={g} agenda={agenda} place={place} onBack={() => show("day")} />}
 
@@ -104,6 +100,7 @@ export function StudentTracker({
               onSchedule={setMyItemScheduleAction}
               place={place}
               onRemoveOwn={deleteOwnTrackerItemAction}
+              showYesterday={yesterday}
             />
           ) : (
             <TrackerDaySheet sheet={sheet} groupGender={g} today={today} onTick={setTrackerCheckAction} />

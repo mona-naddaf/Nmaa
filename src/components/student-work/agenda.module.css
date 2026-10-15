@@ -39,15 +39,6 @@
   font-weight: 800;
 }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 0 4px 10px;
-}
-
 .timeline {
   position: relative;
   background: var(--paper);
@@ -337,26 +328,7 @@
   text-decoration: none;
 }
 
-/* the small «أمس» toggle and its panel */
-.dayToggle {
-  min-height: 36px;
-  padding: 4px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--paper);
-  color: var(--ink);
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.dayToggle.sel {
-  background: var(--rose-deep);
-  border-color: var(--rose-deep);
-  color: #fff;
-}
-
+/* yesterday's items (the header's «أمس» pill) */
 .yesterday {
   background: var(--cream);
   border: 1px solid var(--line);

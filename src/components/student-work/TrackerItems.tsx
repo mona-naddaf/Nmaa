@@ -37,7 +37,7 @@ export function ItemsMenu({ entries }: { entries: MenuEntry[] }) {
   if (entries.length === 0) return null;
   return (
     <div className={styles.menuBox} ref={box}>
-      <button type="button" className={styles.menuBtn} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button type="button" className={styles.pill} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
         ⚙ البنود
       </button>
       {open && (
@@ -64,6 +64,42 @@ export function ItemsMenu({ entries }: { entries: MenuEntry[] }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The page's one header row: «جدول اليوم», then small pills — «أمس» (only
+ * with «الجدول اليومي», when onYesterday is given), «المحصّلات» (when
+ * enabled) and the «⚙ البنود» menu. They wrap under the heading on narrow screens.
+ */
+export function TrackerHeader({
+  yesterday = false,
+  onYesterday,
+  summaryHref,
+  menu,
+}: {
+  yesterday?: boolean;
+  onYesterday?: () => void;
+  summaryHref?: string;
+  menu: MenuEntry[];
+}) {
+  return (
+    <div className={styles.header}>
+      <h2 className={styles.heading}>🗓️ جدول اليوم</h2>
+      <div className={styles.pills}>
+        {onYesterday && (
+          <button type="button" className={`${styles.pill} ${yesterday ? styles.sel : ""}`} aria-pressed={yesterday} onClick={onYesterday}>
+            أمس
+          </button>
+        )}
+        {summaryHref && (
+          <Link href={summaryHref} className={styles.pill}>
+            📊 المحصّلات
+          </Link>
+        )}
+        <ItemsMenu entries={menu} />
+      </div>
     </div>
   );
 }

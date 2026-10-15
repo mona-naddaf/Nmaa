@@ -14,7 +14,7 @@ import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { addItemAction, removeItemAction, reorderItemsAction, setCheckAction, setItemScheduleAction, updateItemAction } from "./actions";
 import { AgendaOrder, TrackerAgenda } from "@/components/student-work/TrackerAgenda";
-import { CompactRow, ItemsMenu, ViewBar, type MenuEntry } from "@/components/student-work/TrackerItems";
+import { CompactRow, TrackerHeader, ViewBar, type MenuEntry } from "@/components/student-work/TrackerItems";
 import itemStyles from "@/components/student-work/items.module.css";
 import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
 import { scheduleLabel, type SlotRow } from "@/lib/tracker/schedule";
@@ -50,6 +50,7 @@ export function RafiqTracker({
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const [view, setView] = useState<"day" | "items" | "order">("day");
+  const [yesterday, setYesterday] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -66,6 +67,7 @@ export function RafiqTracker({
 
   if (!today) return <div className={hl.empty}>…</div>;
   const full = data.active.length >= RAFIQ_TRACKER_MAX_ITEMS;
+  const empty = data.active.length === 0 && data.sheet.items.length === 0;
   const show = (v: typeof view) => {
     setView(v);
     setAdding(false);
@@ -82,17 +84,13 @@ export function RafiqTracker({
 
   return (
     <div>
-      <div className={hl.sectionTitle}>
-        <span style={{ fontSize: 16, color: "var(--ink)" }}>✅ جدول المتابعة</span>
-        <span style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          {summary && (
-            <Link href="/rafiq/tracker/summary" className={hl.linkBtn}>
-              📊 المحصّلات ←
-            </Link>
-          )}
-          <ItemsMenu entries={menu} />
-        </span>
-      </div>
+      <TrackerHeader
+        // «أمس» on the agenda; the tile sheet keeps its own today/yesterday tabs
+        yesterday={yesterday}
+        onYesterday={agenda && view === "day" && !empty ? () => setYesterday(!yesterday) : undefined}
+        summaryHref={summary ? "/rafiq/tracker/summary" : undefined}
+        menu={menu}
+      />
 
       {view === "items" && (
         <>
@@ -138,7 +136,7 @@ export function RafiqTracker({
       )}
 
       {view === "day" &&
-        (data.active.length === 0 && data.sheet.items.length === 0 ? (
+        (empty ? (
           <div className={hl.section}>
             <div className={hl.empty}>
               {p("أضف", "أضيفي")} بنودًا يومية {p("تتابعها", "تتابعينها")} بنفسك (مثل: ورد المراجعة، أذكار الصباح)، لكل بند درجته
@@ -152,7 +150,7 @@ export function RafiqTracker({
           </div>
         ) : agenda ? (
           // «الجدول اليومي»: the timeline is the only place to tick
-          <TrackerAgenda sheet={data.sheet} today={today} groupGender={g} course={false} onTick={setCheckAction} onSchedule={setItemScheduleAction} place={place} />
+          <TrackerAgenda sheet={data.sheet} today={today} groupGender={g} course={false} onTick={setCheckAction} onSchedule={setItemScheduleAction} place={place} showYesterday={yesterday} />
         ) : (
           <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={setCheckAction} />
         ))}

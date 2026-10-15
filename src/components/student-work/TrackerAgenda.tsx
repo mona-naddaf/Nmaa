@@ -91,10 +91,13 @@ export function TrackerAgenda({
   onSchedule,
   onRemoveOwn,
   place,
+  showYesterday = false,
 }: {
   sheet: TrackerSheet;
   today: string;
   groupGender: GroupGender;
+  // the header's «أمس» pill: yesterday's items, to tick what was missed
+  showYesterday?: boolean;
   // a course student (staff's items, «وقت المعلم/ة», her own items); false = «رفيق الحفظ»
   course: boolean;
   onTick: (input: TickInput) => Result;
@@ -111,7 +114,6 @@ export function TrackerAgenda({
   // optimistic ticks keyed "day|itemId", dropped once the server's sheet catches up
   const [override, setOverride] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<string | null>(null);
-  const [showYesterday, setShowYesterday] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -221,15 +223,6 @@ export function TrackerAgenda({
           )}
         </div>
       )}
-
-      <div className={styles.toolbar}>
-        <span className={hl.sectionTitle} style={{ margin: 0 }}>
-          <span style={{ fontSize: 16, color: "var(--ink)" }}>🗓️ جدول اليوم</span>
-        </span>
-        <button type="button" className={`${styles.dayToggle} ${showYesterday ? styles.sel : ""}`} aria-pressed={showYesterday} onClick={() => setShowYesterday(!showYesterday)}>
-          أمس
-        </button>
-      </div>
 
       {/* yesterday: its items as the same compact strip, to tick what was missed */}
       {showYesterday && (

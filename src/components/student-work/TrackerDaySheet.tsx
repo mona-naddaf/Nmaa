@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "./work.module.css";
 import { gregorianLabelWithWeekday } from "@/lib/calendar/hijri";
-import { addDays, dayScore, isComplete, lastSevenDays, shownOn, weekdayOf, WEEKDAY_SHORT, withLocalDays } from "@/lib/tracker/rules";
+import { addDays, dayScore, isComplete, lastSevenDays, shownOn, weekdayOf, WEEKDAY_SHORT, withLocalDays, type DayScore, type ScoredItem } from "@/lib/tracker/rules";
 import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
 import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
@@ -34,7 +34,6 @@ export function TrackerDaySheet({
   const [override, setOverride] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-  const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const tz = useTimeZone();
 
   // items exist from the day they were created (the course's day, or hers in «رفيق الحفظ»; not the UTC one)
@@ -54,8 +53,6 @@ export function TrackerDaySheet({
   const checked = checkedOn(day);
   const items = allItems.filter((i) => shownOn(i, day));
   const score = dayScore(allItems, checked, day);
-  const complete = isComplete(score);
-  const pct = score.possible ? Math.round((score.earned / score.possible) * 100) : 0;
 
   function toggle(item: TrackerItemView) {
     const key = `${day}|${item.id}`;
@@ -91,29 +88,7 @@ export function TrackerDaySheet({
           ))}
         </div>
 
-        {score.possible > 0 && (
-          <div className={`${styles.score} ${complete ? styles.complete : ""}`} role="status" aria-live="polite">
-            <div className={styles.scoreNum}>
-              {score.earned}
-              <small> / {score.possible}</small>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div className={styles.scoreTrack} aria-hidden>
-                <div className={styles.scoreFill} style={{ width: `${pct}%` }} />
-              </div>
-              <div className={hl.muted} style={{ marginTop: 4 }}>
-                {complete
-                  ? p(`أحسنتَ! أكملتَ بنود ${which === "today" ? "اليوم" : "الأمس"}`, `أحسنتِ! أكملتِ بنود ${which === "today" ? "اليوم" : "الأمس"}`)
-                  : `درجة ${which === "today" ? "اليوم" : "الأمس"}`}
-              </div>
-            </div>
-            {complete && (
-              <span key={day} className={styles.celebrateIcon} aria-hidden>
-                🎉
-              </span>
-            )}
-          </div>
-        )}
+        <DayScoreBar score={score} yesterday={which === "yesterday"} groupGender={g} />
 
         {error && (
           <div className={hl.err} role="alert" style={{ margin: "0 4px 10px" }}>
@@ -151,19 +126,58 @@ export function TrackerDaySheet({
           </div>
         )}
 
-        <div className={hl.sectionTitle}>آخر سبعة أيام</div>
-        <div className={styles.strip}>
-          {lastSevenDays(today).map((d) => {
-            const s = dayScore(allItems, checkedOn(d), d);
-            return (
-              <div key={d} className={`${styles.stripDay} ${isComplete(s) ? styles.full : ""} ${d === today ? styles.today : ""}`} title={gregorianLabelWithWeekday(d)}>
-                {WEEKDAY_SHORT[weekdayOf(d)]}
-                <b>{s.possible ? `${s.earned}/${s.possible}` : "—"}</b>
-                {isComplete(s) ? "🌟" : ""}
-              </div>
-            );
-          })}
+        <LastSevenDays items={allItems} checkedOn={checkedOn} today={today} />
+    </>
+  );
+}
+
+/** The day's score: earned / possible, a bar, and «أحسنت» once complete. Nothing when the day has no scored items. */
+export function DayScoreBar({ score, yesterday = false, groupGender: g }: { score: DayScore; yesterday?: boolean; groupGender: GroupGender }) {
+  if (score.possible === 0) return null;
+  const p = (m: string, f: string) => pickByGroup(g, { m, f });
+  const complete = isComplete(score);
+  const pct = Math.round((score.earned / score.possible) * 100);
+  const dayName = yesterday ? "الأمس" : "اليوم";
+  return (
+    <div className={`${styles.score} ${complete ? styles.complete : ""}`} role="status" aria-live="polite">
+      <div className={styles.scoreNum}>
+        {score.earned}
+        <small> / {score.possible}</small>
+      </div>
+      <div style={{ flex: 1 }}>
+        <div className={styles.scoreTrack} aria-hidden>
+          <div className={styles.scoreFill} style={{ width: `${pct}%` }} />
         </div>
+        <div className={hl.muted} style={{ marginTop: 4 }}>
+          {complete ? p(`أحسنتَ! أكملتَ بنود ${dayName}`, `أحسنتِ! أكملتِ بنود ${dayName}`) : `درجة ${dayName}`}
+        </div>
+      </div>
+      {complete && (
+        <span key={score.day} className={styles.celebrateIcon} aria-hidden>
+          🎉
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** «آخر سبعة أيام»: each day's earned/possible, a star when complete. */
+export function LastSevenDays({ items, checkedOn, today }: { items: ScoredItem[]; checkedOn: (day: string) => Set<string>; today: string }) {
+  return (
+    <>
+      <div className={hl.sectionTitle}>آخر سبعة أيام</div>
+      <div className={styles.strip}>
+        {lastSevenDays(today).map((d) => {
+          const s = dayScore(items, checkedOn(d), d);
+          return (
+            <div key={d} className={`${styles.stripDay} ${isComplete(s) ? styles.full : ""} ${d === today ? styles.today : ""}`} title={gregorianLabelWithWeekday(d)}>
+              {WEEKDAY_SHORT[weekdayOf(d)]}
+              <b>{s.possible ? `${s.earned}/${s.possible}` : "—"}</b>
+              {isComplete(s) ? "🌟" : ""}
+            </div>
+          );
+        })}
+      </div>
     </>
   );
 }

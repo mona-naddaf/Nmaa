@@ -9,10 +9,13 @@ import { TrackerDaySheet } from "@/components/student-work/TrackerDaySheet";
 import { useToday } from "@/lib/calendar/useToday";
 import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { daysBetween } from "@/lib/calendar/hijri";
-import { daysLabel, EVERY_DAY, TRACKER_LIMITS, withLocalDays } from "@/lib/tracker/rules";
+import { EVERY_DAY, TRACKER_LIMITS, withLocalDays } from "@/lib/tracker/rules";
 import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
-import { TrackerAgenda } from "@/components/student-work/TrackerAgenda";
+import { AgendaOrder, TrackerAgenda } from "@/components/student-work/TrackerAgenda";
+import { CompactRow, ItemsMenu, ViewBar, type MenuEntry } from "@/components/student-work/TrackerItems";
+import itemStyles from "@/components/student-work/items.module.css";
+import { scheduleLabel } from "@/lib/tracker/schedule";
 import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
 import type { PrayerLocation } from "@/lib/prayer/times";
 import {
@@ -41,53 +44,116 @@ export function StudentTracker({
 }) {
   const today = useToday();
   const tz = useTimeZone();
+  const [view, setView] = useState<"day" | "items" | "order">("day");
   if (!today) return <div className={hl.empty}>…</div>;
 
   // items exist from the course's day they were created (not the UTC one)
   const allItems = withLocalDays(sheet.items, tz);
 
   // D8: «لم يُعتمد» shows for a week after the decision, then disappears
-  const ownWaiting = allItems.filter(
-    (i) =>
-      i.own &&
-      i.archivedDay === null &&
-      (i.status === "PENDING" || (i.status === "REJECTED" && i.reviewedDay !== null && daysBetween(i.reviewedDay, today) <= TRACKER_LIMITS.rejectedShowDays)),
-  );
+  const recentlyRejected = (i: TrackerItemView) =>
+    i.status === "REJECTED" && i.reviewedDay !== null && daysBetween(i.reviewedDay, today) <= TRACKER_LIMITS.rejectedShowDays;
+  const current = allItems.filter((i) => i.archivedDay === null && (i.status !== "REJECTED" || (i.own && recentlyRejected(i))));
+  const waiting = current.filter((i) => i.own && i.status !== "APPROVED");
+  const orderable = current.filter((i) => i.status !== "REJECTED");
+
+  const show = (v: typeof view) => {
+    setView(v);
+    window.scrollTo({ top: 0 });
+  };
+  // ordering only matters with «الجدول اليومي»
+  const menu: MenuEntry[] = [
+    { label: "إدارة البنود", onSelect: () => show("items") },
+    ...(agenda && orderable.length > 1 ? [{ label: "ترتيب البنود", onSelect: () => show("order") }] : []),
+  ];
 
   return (
     <div>
       <div className={hl.sectionTitle}>
         <span style={{ fontSize: 16, color: "var(--ink)" }}>✅ جدول المتابعة</span>
-        {summary && (
-          <Link href="/student/tracker/summary" className={hl.linkBtn}>
-            📊 المحصّلات ←
-          </Link>
-        )}
+        <span style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          {summary && (
+            <Link href="/student/tracker/summary" className={hl.linkBtn}>
+              📊 المحصّلات ←
+            </Link>
+          )}
+          <ItemsMenu entries={menu} />
+        </span>
       </div>
 
-      {/* «الجدول اليومي» (course setting): today's agenda above the usual sheet */}
-      {agenda && (
-        <TrackerAgenda
-          sheet={sheet}
-          today={today}
-          groupGender={g}
-          course
-          onTick={setTrackerCheckAction}
-          onSchedule={setMyItemScheduleAction}
-          place={place}
-          onReorder={setMyOrderAction}
-          onRemoveOwn={deleteOwnTrackerItemAction}
-        />
+      {view === "items" && <ManageItems items={current} g={g} agenda={agenda} place={place} onBack={() => show("day")} />}
+
+      {view === "order" && (
+        <>
+          <ViewBar title="ترتيب البنود" onBack={() => show("day")} />
+          <AgendaOrder sheet={sheet} today={today} groupGender={g} course place={place} onReorder={setMyOrderAction} onDone={() => show("day")} />
+        </>
       )}
 
-      <TrackerDaySheet sheet={sheet} groupGender={g} today={today} onTick={setTrackerCheckAction} />
-
-      <OwnItems items={ownWaiting} g={g} agenda={agenda} place={place} />
+      {view === "day" && (
+        <>
+          {waiting.length > 0 && <WaitingNotice items={waiting} g={g} onOpen={() => show("items")} />}
+          {/* «الجدول اليومي» (course setting): the agenda is the only place to tick */}
+          {agenda ? (
+            <TrackerAgenda
+              sheet={sheet}
+              today={today}
+              groupGender={g}
+              course
+              onTick={setTrackerCheckAction}
+              onSchedule={setMyItemScheduleAction}
+              place={place}
+              onRemoveOwn={deleteOwnTrackerItemAction}
+            />
+          ) : (
+            <TrackerDaySheet sheet={sheet} groupGender={g} today={today} onTick={setTrackerCheckAction} />
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-function OwnItems({ items, g, agenda, place }: { items: TrackerItemView[]; g: GroupGender; agenda: boolean; place: PrayerLocation | null }) {
+// «بند خاص» / «بندان خاصّان» / «٣ بنود خاصة» / «١١ بندًا خاصًّا»
+const ownCount = (n: number) => (n === 1 ? "بند خاص" : n === 2 ? "بندان خاصّان" : n <= 10 ? `${n} بنود خاصة` : `${n} بندًا خاصًّا`);
+
+/** One line on the day view about her own items awaiting a decision (or not approved this week). */
+function WaitingNotice({ items, g, onOpen }: { items: TrackerItemView[]; g: GroupGender; onOpen: () => void }) {
+  const pending = items.filter((i) => i.status === "PENDING").length;
+  const rejected = items.length - pending;
+  const parts = [
+    pending > 0 && `${ownCount(pending)} بانتظار الاعتماد`,
+    rejected > 0 && (rejected === 1 ? "بند خاص لم يُعتمد" : rejected === 2 ? "بندان خاصّان لم يُعتمدا" : `${ownCount(rejected)} لم ${rejected <= 10 ? "تُعتمد" : "يُعتمد"}`),
+  ].filter(Boolean);
+  return (
+    <div className={itemStyles.notice}>
+      <span>
+        {pickByGroup(g, { m: "لديك", f: "لديكِ" })} {parts.join("، و")}.
+      </span>
+      <button type="button" className={hl.linkBtn} onClick={onOpen}>
+        عرض البنود ←
+      </button>
+    </div>
+  );
+}
+
+/**
+ * «إدارة البنود»: staff's items (read-only: points, days, time) and her own
+ * ones (rename while awaiting approval, delete; approved ones are archived).
+ */
+function ManageItems({
+  items,
+  g,
+  agenda,
+  place,
+  onBack,
+}: {
+  items: TrackerItemView[];
+  g: GroupGender;
+  agenda: boolean;
+  place: PrayerLocation | null;
+  onBack: () => void;
+}) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [days, setDays] = useState(EVERY_DAY);
@@ -105,16 +171,20 @@ function OwnItems({ items, g, agenda, place }: { items: TrackerItemView[]; g: Gr
     });
   }
 
+  const staffItems = items.filter((i) => !i.own);
+  const ownItems = items.filter((i) => i.own);
+  // her time for it if she set one, else staff's
+  const timeOf = (i: TrackerItemView) => (agenda ? scheduleLabel(i.ownSlots?.length ? i.ownSlots : (i.slots ?? [])) : undefined);
+
   return (
     <>
-      <div className={hl.sectionTitle}>
-        <span>بنودي الخاصة</span>
+      <ViewBar title="إدارة البنود" onBack={onBack}>
         {!adding && (
           <button type="button" className={hl.primaryBtn} onClick={() => setAdding(true)}>
             + بند خاص
           </button>
         )}
-      </div>
+      </ViewBar>
       {adding && (
         <form
           className={hl.section}
@@ -164,79 +234,85 @@ function OwnItems({ items, g, agenda, place }: { items: TrackerItemView[]; g: Gr
           </div>
         </form>
       )}
-      {items.length > 0 && (
-        <div className={hl.section}>
-          {items.map((i) => (
-            <OwnRow key={i.id} item={i} run={run} pending={pending} />
-          ))}
-          {error && !adding && <div className={hl.err}>{error}</div>}
+      {error && !adding && (
+        <div className={hl.err} role="alert" style={{ margin: "0 4px 10px" }}>
+          {error}
         </div>
       )}
+
+      <div className={hl.sectionTitle}>بنود {p("المعلم", "المعلمة")}</div>
+      <div className={hl.section}>
+        {staffItems.length === 0 ? (
+          <div className={hl.empty}>لا بنود بعد.</div>
+        ) : (
+          staffItems.map((i) => <CompactRow key={i.id} title={i.title} points={i.value} days={i.days} time={timeOf(i)} />)
+        )}
+      </div>
+
+      <div className={hl.sectionTitle}>بنودي الخاصة</div>
+      <div className={hl.section}>
+        {ownItems.length === 0 ? (
+          <div className={hl.empty}>{p("لم تُضف", "لم تُضيفي")} بنودًا خاصة بعد.</div>
+        ) : (
+          ownItems.map((i) => <OwnRow key={i.id} item={i} time={timeOf(i)} run={run} pending={pending} />)
+        )}
+      </div>
     </>
   );
 }
 
 function OwnRow({
   item,
+  time,
   run,
   pending,
 }: {
   item: TrackerItemView;
+  time?: string;
   run: (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
   pending: boolean;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
   const [title, setTitle] = useState(item.title);
+  const toggle = (m: typeof mode) => setMode(mode === m ? "view" : m);
   const waiting = item.status === "PENDING";
+  const approved = item.status === "APPROVED";
 
   return (
-    <div className={styles.itemRow} style={{ display: "block" }}>
-      {mode === "edit" ? (
-        <input className={styles.input} value={title} maxLength={TRACKER_LIMITS.titleMax} onChange={(e) => setTitle(e.target.value)} aria-label="اسم البند" />
-      ) : (
-        <div style={{ fontWeight: 800, fontSize: 15 }}>{item.title}</div>
+    <CompactRow
+      title={item.title}
+      status={approved ? undefined : waiting ? "بانتظار الاعتماد" : "لم يُعتمد"}
+      points={item.value}
+      days={item.days}
+      time={time}
+      muted={item.status === "REJECTED"}
+      // the name can change only while it awaits approval
+      onEdit={waiting ? () => toggle("edit") : undefined}
+      editLabel="تعديل الاسم"
+      onDelete={() => toggle("delete")}
+    >
+      {mode === "edit" && (
+        <div className={itemStyles.confirm}>
+          <input className={styles.input} style={{ flex: "1 1 200px" }} value={title} maxLength={TRACKER_LIMITS.titleMax} onChange={(e) => setTitle(e.target.value)} aria-label="اسم البند" autoFocus />
+          <button type="button" className={hl.primaryBtn} disabled={pending} onClick={() => run(() => renameOwnTrackerItemAction(item.id, title), () => setMode("view"))}>
+            حفظ
+          </button>
+          <button type="button" className={hl.ghostBtn} onClick={() => setMode("view")}>
+            إلغاء
+          </button>
+        </div>
       )}
-      <div className={styles.meta}>
-        <span className={`${styles.tag} ${waiting ? "" : styles.grey}`}>{waiting ? "بانتظار الاعتماد" : "لم يُعتمد"}</span>
-        <span>{daysLabel(item.days)}</span>
-      </div>
-      <div className={styles.cardActions}>
-        {mode === "view" && (
-          <>
-            {waiting && (
-              <button type="button" className={hl.ghostBtn} onClick={() => setMode("edit")}>
-                تعديل الاسم
-              </button>
-            )}
-            <button type="button" className={styles.dangerBtn} onClick={() => setMode("delete")}>
-              حذف
-            </button>
-          </>
-        )}
-        {mode === "edit" && (
-          <>
-            <button type="button" className={hl.primaryBtn} disabled={pending} onClick={() => run(() => renameOwnTrackerItemAction(item.id, title), () => setMode("view"))}>
-              حفظ
-            </button>
-            <button type="button" className={hl.ghostBtn} onClick={() => setMode("view")}>
-              إلغاء
-            </button>
-          </>
-        )}
-        {mode === "delete" && (
-          <>
-            <span className={hl.muted} style={{ alignSelf: "center" }}>
-              حذف هذا البند؟
-            </span>
-            <button type="button" className={styles.dangerBtn} disabled={pending} onClick={() => run(() => deleteOwnTrackerItemAction(item.id))}>
-              نعم، حذف
-            </button>
-            <button type="button" className={hl.ghostBtn} onClick={() => setMode("view")}>
-              تراجع
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+      {mode === "delete" && (
+        <div className={itemStyles.confirm}>
+          <span>{approved ? "يتوقف احتسابه من اليوم، وتبقى درجات الأيام السابقة. حذف البند؟" : "حذف هذا البند؟"}</span>
+          <button type="button" className={styles.dangerBtn} disabled={pending} onClick={() => run(() => deleteOwnTrackerItemAction(item.id))}>
+            نعم، حذف
+          </button>
+          <button type="button" className={hl.ghostBtn} onClick={() => setMode("view")}>
+            تراجع
+          </button>
+        </div>
+      )}
+    </CompactRow>
   );
 }

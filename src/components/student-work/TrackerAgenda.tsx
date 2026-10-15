@@ -5,10 +5,11 @@ import hl from "@/components/home-log/home-log.module.css";
 import styles from "./agenda.module.css";
 import work from "./work.module.css";
 import { OrderList } from "./OrderList";
-import type { TickInput } from "./TrackerDaySheet";
+import { DayScoreBar, LastSevenDays, type TickInput } from "./TrackerDaySheet";
 import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { ScheduleEditor, type ScheduleInput } from "./ScheduleEditor";
-import { addDays, shownOn, weekdayOf, withLocalDays } from "@/lib/tracker/rules";
+import { gregorianLabelWithWeekday } from "@/lib/calendar/hijri";
+import { addDays, dayScore, shownOn, weekdayOf, withLocalDays } from "@/lib/tracker/rules";
 import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
 import {
   DAY_MINUTES,
@@ -27,13 +28,15 @@ import { effectiveTiming, resolveTiming, scheduleLabel, timingLabelOn, type Slot
 import { PRAYERS, PRAYER_NAME, prayerMinutes, type Prayer, type PrayerLocation } from "@/lib/prayer/times";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 
-// «الجدول اليومي»: the «الآن» card, today's timeline (a moving «now» line;
-// overlapping items side by side; past midnight in a lighter shade; the
-// day's prayer times as thin markers), the items «بلا وقت», editing an
-// item's schedule (clock times or prayer anchors, per weekday), and
-// reordering. Shared by the course student (course time zone,
-// TimeZoneProvider) and «رفيق الحفظ» (her browser's day). Ticking is the
-// same as the day sheet: onTick, today only.
+// «الجدول اليومي»: the «الآن» card, the items «بلا وقت» as a compact strip,
+// today's timeline (a moving «now» line; overlapping items side by side;
+// past midnight in a lighter shade; the day's prayer times as thin markers),
+// the day's score and the last seven days, yesterday's items on demand, and
+// editing an item's schedule (clock times or prayer anchors, per weekday).
+// With it on, this is the only place to tick (the day sheet's tiles are not
+// shown); points are never shown here. Shared by the course student (course
+// time zone, TimeZoneProvider) and «رفيق الحفظ» (her browser's day).
+// AgendaOrder is the «ترتيب البنود» view.
 
 /** A schedule to save, or "STAFF" = back to staff's (course students only). */
 export type ScheduleChoice = ScheduleInput | "STAFF";
@@ -72,6 +75,13 @@ function useNow(tz: string | null): { day: string; min: number } | null {
 
 const endOf = (t: AgendaTime) => t.startMin + (t.durationMin ?? POINT_MINUTES);
 
+/** An item on a day: its timing that weekday (her own rows first) and, resolved with that day's prayer times, its time. */
+function placeOn(i: TrackerItemView, day: string, prayers: Record<Prayer, number> | null): Placed {
+  const e = effectiveTiming(i.ownSlots ?? [], i.slots ?? [], weekdayOf(day));
+  const time = resolveTiming(e.timing, prayers);
+  return { ...i, timing: e.timing, time, label: timingLabelOn(e.timing, time), ownTiming: e.own };
+}
+
 export function TrackerAgenda({
   sheet,
   today,
@@ -79,7 +89,6 @@ export function TrackerAgenda({
   course,
   onTick,
   onSchedule,
-  onReorder,
   onRemoveOwn,
   place,
 }: {
@@ -90,7 +99,6 @@ export function TrackerAgenda({
   course: boolean;
   onTick: (input: TickInput) => Result;
   onSchedule: (itemId: string, choice: ScheduleChoice) => Result;
-  onReorder: (ids: string[]) => Result;
   // a course student removing one of her own items (approved ones are archived)
   onRemoveOwn?: (itemId: string) => Result;
   // the place for prayer times (course's, or hers); null: anchors unavailable
@@ -100,9 +108,10 @@ export function TrackerAgenda({
   const now = useNow(tz);
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const teacher = p("المعلم", "المعلمة");
+  // optimistic ticks keyed "day|itemId", dropped once the server's sheet catches up
   const [override, setOverride] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<string | null>(null);
-  const [ordering, setOrdering] = useState(false);
+  const [showYesterday, setShowYesterday] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -113,11 +122,6 @@ export function TrackerAgenda({
   const yesterday = addDays(today, -1);
   const prayersToday = place ? prayerMinutes(place, today, tz) : null;
   const prayersYesterday = place ? prayerMinutes(place, yesterday, tz) : null;
-  const placeOn = (i: TrackerItemView, day: string, prayers: Record<Prayer, number> | null): Placed => {
-    const e = effectiveTiming(i.ownSlots ?? [], i.slots ?? [], weekdayOf(day));
-    const time = resolveTiming(e.timing, prayers);
-    return { ...i, timing: e.timing, time, label: timingLabelOn(e.timing, time), ownTiming: e.own };
-  };
   const items = all.filter((i) => shownOn(i, today)).map((i) => placeOn(i, today, prayersToday));
   const timed = items.filter((i): i is Placed & { time: AgendaTime } => !!i.time);
   const untimed = items.filter((i) => !i.time);
@@ -130,11 +134,18 @@ export function TrackerAgenda({
   const nowMin = now.day === today ? now.min : null;
   const status = nowMin === null ? null : nowAndNext([...timed, ...carried], nowMin);
 
-  const checkedSet = new Set(sheet.checks[today] ?? []);
-  for (const [id, on] of Object.entries(override)) {
-    if (on) checkedSet.add(id);
-    else checkedSet.delete(id);
-  }
+  const checkedOn = (d: string) => {
+    const set = new Set(sheet.checks[d] ?? []);
+    for (const [key, on] of Object.entries(override)) {
+      const [kd, id] = key.split("|");
+      if (kd !== d) continue;
+      if (on) set.add(id);
+      else set.delete(id);
+    }
+    return set;
+  };
+  const checkedSet = checkedOn(today);
+  const checkedYesterday = checkedOn(yesterday);
 
   function run(fn: () => Result, after?: () => void) {
     setError(null);
@@ -145,18 +156,20 @@ export function TrackerAgenda({
     });
   }
 
-  function tick(item: TrackerItemView) {
-    const on = !checkedSet.has(item.id);
-    setOverride((prev) => ({ ...prev, [item.id]: on }));
-    run(
-      () => onTick({ itemId: item.id, day: today, today, on }),
-      () =>
-        setOverride((prev) => {
-          const next = { ...prev };
-          delete next[item.id];
-          return next;
-        }),
-    );
+  function tick(item: TrackerItemView, day = today) {
+    const key = `${day}|${item.id}`;
+    const on = !checkedOn(day).has(item.id);
+    setError(null);
+    setOverride((prev) => ({ ...prev, [key]: on }));
+    startTransition(async () => {
+      const r = await onTick({ itemId: item.id, day, today, on });
+      if (r.error) setError(r.error);
+      setOverride((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    });
   }
 
   const tickButton = (item: TrackerItemView) => {
@@ -181,7 +194,7 @@ export function TrackerAgenda({
   );
 
   const editingItem = editing ? (items.find((i) => i.id === editing) ?? null) : null;
-  const orderable = all.filter((i) => i.archivedDay === null && i.status !== "REJECTED").map((i) => placeOn(i, today, prayersToday));
+  const yesterdayItems = all.filter((i) => shownOn(i, yesterday));
 
   return (
     <div>
@@ -213,23 +226,26 @@ export function TrackerAgenda({
         <span className={hl.sectionTitle} style={{ margin: 0 }}>
           <span style={{ fontSize: 16, color: "var(--ink)" }}>🗓️ جدول اليوم</span>
         </span>
-        {!ordering && orderable.length > 1 && (
-          <button type="button" className={hl.ghostBtn} onClick={() => setOrdering(true)}>
-            ترتيب البنود
-          </button>
-        )}
+        <button type="button" className={`${styles.dayToggle} ${showYesterday ? styles.sel : ""}`} aria-pressed={showYesterday} onClick={() => setShowYesterday(!showYesterday)}>
+          أمس
+        </button>
       </div>
 
-      {ordering && (
-        <OrderList
-          hint={`${p("اسحب", "اسحبي")} البند من المقبض ⠿ أو ${p("استخدم", "استخدمي")} السهمين ▲ ▼، ثم ${p("احفظ", "احفظي")} الترتيب.${course ? ` الترتيب لك وحدك، ولا يغيّر جدول ${teacher}.` : ""}`}
-          entries={orderable.map((i) => ({ id: i.id, title: i.title, note: i.label }))}
-          pending={pending}
-          error={error}
-          onCancel={() => setOrdering(false)}
-          onSave={(ids) => run(() => onReorder(ids), () => setOrdering(false))}
-        />
+      {/* yesterday: its items as the same compact strip, to tick what was missed */}
+      {showYesterday && (
+        <div className={styles.yesterday}>
+          <div className={styles.yesterdayTitle}>أمس — {gregorianLabelWithWeekday(yesterday)}</div>
+          {yesterdayItems.length === 0 ? (
+            <div className={hl.muted}>لا بنود في هذا اليوم.</div>
+          ) : (
+            <ChipStrip items={yesterdayItems} checked={checkedYesterday} onTick={(i) => tick(i, yesterday)} />
+          )}
+          <DayScoreBar score={dayScore(all, checkedYesterday, yesterday)} yesterday groupGender={g} />
+        </div>
       )}
+
+      {/* the items with no time today: a compact strip above the timeline */}
+      {untimed.length > 0 && <ChipStrip label="بلا وقت" items={untimed} checked={checkedSet} onTick={(i) => tick(i)} editButton={editButton} />}
 
       {editingItem && (
         <TimeEditor
@@ -251,35 +267,109 @@ export function TrackerAgenda({
         <Timeline items={timed} nowMin={nowMin} prayers={prayersToday} checked={checkedSet} tickButton={tickButton} editButton={editButton} />
       )}
 
-      {untimed.length > 0 && (
-        <>
-          <div className={hl.sectionTitle} style={{ margin: "0 4px 8px" }}>
-            بلا وقت
-          </div>
-          <div className={styles.untimed}>
-            {untimed.map((item) => (
-              <div key={item.id} className={styles.row}>
-                {tickButton(item)}
-                <span className={styles.rowTitle}>
-                  {item.title}
-                  {item.own && item.status === "PENDING" && <small>بانتظار الاعتماد</small>}
-                  {/* an anchor that can't be placed: no city yet */}
-                  {item.timing?.kind === "PRAYER" && <small>{item.label} — يتاح بعد تحديد المدينة</small>}
-                </span>
-                {editButton(item)}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
       {items.length === 0 && <div className={hl.empty}>لا بنود لليوم.</div>}
-      {error && !editing && !ordering && (
+      {error && !editing && (
         <div className={hl.err} role="alert" style={{ margin: "0 4px 10px" }}>
           {error}
         </div>
       )}
+
+      <DayScoreBar score={dayScore(all, checkedSet, today)} groupGender={g} />
+      <LastSevenDays items={all} checkedOn={checkedOn} today={today} />
     </div>
+  );
+}
+
+/** Items as small wrapping chips: the circle and the name are one tap target that ticks it. */
+function ChipStrip({
+  label,
+  items,
+  checked,
+  onTick,
+  editButton,
+}: {
+  label?: string;
+  items: (TrackerItemView & { timing?: Timing; label?: string })[];
+  checked: Set<string>;
+  onTick: (item: TrackerItemView) => void;
+  editButton?: (item: TrackerItemView) => React.ReactNode;
+}) {
+  return (
+    <div className={styles.chips}>
+      {label && <span className={styles.chipsLabel}>{label}</span>}
+      {items.map((item) => {
+        const on = checked.has(item.id);
+        return (
+          <span key={item.id} className={`${styles.chip} ${on ? styles.on : ""}`}>
+            <button
+              type="button"
+              className={styles.chipTick}
+              aria-pressed={on}
+              aria-label={on ? `إلغاء تعليم «${item.title}»` : `تعليم «${item.title}»`}
+              onClick={() => onTick(item)}
+            >
+              <span className={styles.chipDot} aria-hidden>
+                {on ? "✓" : ""}
+              </span>
+              <span className={styles.chipText}>
+                {item.title}
+                {item.own && item.status === "PENDING" && <small>بانتظار الاعتماد</small>}
+                {/* an anchor that can't be placed: no city yet */}
+                {item.timing?.kind === "PRAYER" && <small>{item.label} — يتاح بعد تحديد المدينة</small>}
+              </span>
+            </button>
+            {editButton?.(item)}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** «ترتيب البنود» (with «الجدول اليومي»): her order of the items, each with today's time as a note. */
+export function AgendaOrder({
+  sheet,
+  today,
+  groupGender: g,
+  course,
+  place,
+  onReorder,
+  onDone,
+}: {
+  sheet: TrackerSheet;
+  today: string;
+  groupGender: GroupGender;
+  course: boolean;
+  place: PrayerLocation | null;
+  onReorder: (ids: string[]) => Result;
+  onDone: () => void;
+}) {
+  const tz = useTimeZone();
+  const p = (m: string, f: string) => pickByGroup(g, { m, f });
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const prayers = place ? prayerMinutes(place, today, tz) : null;
+  const orderable = withLocalDays(sheet.items, tz)
+    .filter((i) => i.archivedDay === null && i.status !== "REJECTED")
+    .map((i) => placeOn(i, today, prayers));
+
+  if (orderable.length < 2) return <div className={hl.empty}>لا يوجد ما يُرتَّب؛ يلزم بندان على الأقل.</div>;
+  return (
+    <OrderList
+      hint={`${p("اسحب", "اسحبي")} البند من المقبض ⠿ أو ${p("استخدم", "استخدمي")} السهمين ▲ ▼، ثم ${p("احفظ", "احفظي")} الترتيب.${course ? ` الترتيب لك وحدك، ولا يغيّر جدول ${p("المعلم", "المعلمة")}.` : ""}`}
+      entries={orderable.map((i) => ({ id: i.id, title: i.title, note: i.label }))}
+      pending={pending}
+      error={error}
+      onCancel={onDone}
+      onSave={(ids) =>
+        startTransition(async () => {
+          setError(null);
+          const r = await onReorder(ids);
+          if (r.error) setError(r.error);
+          else onDone();
+        })
+      }
+    />
   );
 }
 

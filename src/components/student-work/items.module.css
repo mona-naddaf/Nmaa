@@ -1,0 +1,200 @@
+/* «جدول المتابعة»: the «⚙ البنود» menu and «إدارة البنود» compact rows. */
+
+.menuBox {
+  position: relative;
+  display: inline-block;
+}
+
+.menuBtn {
+  min-height: 36px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.menuBtn[aria-expanded="true"] {
+  border-color: var(--rose-deep);
+}
+
+.menu {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 180px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(49, 46, 39, 0.14);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: var(--cream);
+}
+
+.viewBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0 4px 12px;
+}
+
+.backBtn {
+  min-height: 36px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--rose-deep);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.viewTitle {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+/* compact rows */
+.row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rowBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowTitle {
+  font-weight: 800;
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+
+.rowTitle.muted {
+  color: var(--ink-soft);
+}
+
+.rowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.points,
+.status {
+  font-size: 11.5px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.points {
+  background: rgba(189, 122, 62, 0.16);
+  color: var(--gold-deep);
+}
+
+.status {
+  background: var(--cream);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+}
+
+.iconBtn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 16px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.iconBtn:hover {
+  background: var(--cream);
+}
+
+.iconBtn.danger {
+  color: var(--sage-deep);
+}
+
+/* the inline form or delete confirmation under a row */
+.rowPanel {
+  margin: 8px 0 6px;
+}
+
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* the short line about her own items awaiting a decision */
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin: 0 0 12px;
+  font-size: 13.5px;
+}

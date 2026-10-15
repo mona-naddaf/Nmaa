@@ -13,9 +13,10 @@ import type { RafiqTrackerData } from "@/lib/rafiq/tracker";
 import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { addItemAction, removeItemAction, reorderItemsAction, setCheckAction, setItemScheduleAction, updateItemAction } from "./actions";
-import { TrackerAgenda } from "@/components/student-work/TrackerAgenda";
+import { AgendaOrder, TrackerAgenda } from "@/components/student-work/TrackerAgenda";
+import { CompactRow, ItemsMenu, ViewBar, type MenuEntry } from "@/components/student-work/TrackerItems";
+import itemStyles from "@/components/student-work/items.module.css";
 import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
-import agendaStyles from "@/components/student-work/agenda.module.css";
 import { scheduleLabel, type SlotRow } from "@/lib/tracker/schedule";
 import type { ScheduleInput } from "@/components/student-work/ScheduleEditor";
 import type { PrayerLocation } from "@/lib/prayer/times";
@@ -25,11 +26,11 @@ import { TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 type Item = RafiqTrackerData["active"][number];
 type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
 
-const marksLabel = (n: number) => (n === 1 ? "درجة" : n === 2 ? "درجتان" : n <= 10 ? `${n} درجات` : `${n} درجة`);
-
-// Her «جدول المتابعة»: the shared today/yesterday sheet, then her own items,
-// which she creates and edits herself (no approval). With «الجدول اليومي»
-// on (her settings): today's agenda first, and a time in the item forms.
+// Her «جدول المتابعة»: the shared today/yesterday sheet, or with «الجدول
+// اليومي» on (her settings) today's agenda instead, the only place to tick
+// then. Her own items (she creates and edits them herself, no approval) are
+// managed from the «⚙ البنود» menu: «إدارة البنود» (with publishing to the
+// bank), «ترتيب البنود» (agenda only) and the link to «بنك الجداول».
 export function RafiqTracker({
   data,
   g,
@@ -48,6 +49,7 @@ export function RafiqTracker({
   const today = useToday();
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
+  const [view, setView] = useState<"day" | "items" | "order">("day");
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -64,85 +66,96 @@ export function RafiqTracker({
 
   if (!today) return <div className={hl.empty}>…</div>;
   const full = data.active.length >= RAFIQ_TRACKER_MAX_ITEMS;
+  const show = (v: typeof view) => {
+    setView(v);
+    setAdding(false);
+    setError(null);
+    window.scrollTo({ top: 0 });
+  };
+
+  // the bank is open to every «رفيق الحفظ» user; ordering only matters with «الجدول اليومي»
+  const menu: MenuEntry[] = [
+    { label: "إدارة البنود", onSelect: () => show("items") },
+    ...(agenda && data.active.length > 1 ? [{ label: "ترتيب البنود", onSelect: () => show("order") }] : []),
+    { label: "بنك الجداول", href: "/rafiq/templates" },
+  ];
 
   return (
     <div>
       <div className={hl.sectionTitle}>
         <span style={{ fontSize: 16, color: "var(--ink)" }}>✅ جدول المتابعة</span>
-        {summary ? (
-          <span style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <span style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          {summary && (
             <Link href="/rafiq/tracker/summary" className={hl.linkBtn}>
               📊 المحصّلات ←
             </Link>
-            <Link href="/rafiq/templates" className={hl.linkBtn}>
-              📚 بنك الجداول ←
-            </Link>
-          </span>
-        ) : (
-          <Link href="/rafiq/templates" className={hl.linkBtn}>
-            📚 بنك الجداول ←
-          </Link>
-        )}
+          )}
+          <ItemsMenu entries={menu} />
+        </span>
       </div>
 
-      {data.active.length === 0 && data.sheet.items.length === 0 ? (
-        <div className={hl.section}>
-          <div className={hl.empty}>
-            {p("أضف", "أضيفي")} بنودًا يومية {p("تتابعها", "تتابعينها")} بنفسك (مثل: ورد المراجعة، أذكار الصباح)، لكل بند درجته
-            وأيامه.
-          </div>
-        </div>
-      ) : (
+      {view === "items" && (
         <>
-          {agenda && (
-            <TrackerAgenda
-              sheet={data.sheet}
-              today={today}
-              groupGender={g}
-              course={false}
-              onTick={setCheckAction}
-              onSchedule={setItemScheduleAction}
+          <ViewBar title="إدارة البنود" onBack={() => show("day")}>
+            {!adding && (
+              <button type="button" className={hl.primaryBtn} onClick={() => setAdding(true)} disabled={full}>
+                + بند جديد
+              </button>
+            )}
+          </ViewBar>
+          {full && <div className={hl.err} style={{ margin: "0 4px 10px" }}>يضم الجدول {RAFIQ_TRACKER_MAX_ITEMS} بندًا، وهو الحدّ الأقصى.</div>}
+          {adding && (
+            <ItemForm
+              submitLabel="إضافة البند"
+              agenda={agenda}
               place={place}
-              onReorder={reorderItemsAction}
+              pending={pending}
+              onCancel={() => setAdding(false)}
+              onSubmit={(fields) => run(() => addItemAction(fields), () => setAdding(false))}
             />
           )}
-          <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={setCheckAction} />
+          {error && (
+            <div className={hl.err} role="alert" style={{ margin: "0 4px 10px" }}>
+              {error}
+            </div>
+          )}
+          <div className={hl.section}>
+            {data.active.length === 0 ? (
+              <div className={hl.empty}>لا بنود بعد.</div>
+            ) : (
+              data.active.map((item) => <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} />)
+            )}
+          </div>
+          {data.active.length > 0 && <Publish items={data.active} p={p} agenda={agenda} />}
         </>
       )}
 
-      <div className={hl.sectionTitle}>
-        <span>بنودي</span>
-        {!adding && (
-          <button type="button" className={hl.primaryBtn} onClick={() => setAdding(true)} disabled={full}>
-            + بند جديد
-          </button>
-        )}
-      </div>
-      {full && <div className={hl.err} style={{ margin: "0 4px 10px" }}>يضم الجدول {RAFIQ_TRACKER_MAX_ITEMS} بندًا، وهو الحدّ الأقصى.</div>}
-      {adding && (
-        <ItemForm
-          submitLabel="إضافة البند"
-          agenda={agenda}
-          place={place}
-          pending={pending}
-          onCancel={() => setAdding(false)}
-          onSubmit={(fields) => run(() => addItemAction(fields), () => setAdding(false))}
-        />
-      )}
-      {error && (
-        <div className={hl.err} role="alert" style={{ margin: "0 4px 10px" }}>
-          {error}
-        </div>
-      )}
-      {data.active.length > 0 && (
-        <div className={hl.section}>
-          {data.active.map((item) => (
-            <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} />
-          ))}
-        </div>
+      {view === "order" && (
+        <>
+          <ViewBar title="ترتيب البنود" onBack={() => show("day")} />
+          <AgendaOrder sheet={data.sheet} today={today} groupGender={g} course={false} place={place} onReorder={reorderItemsAction} onDone={() => show("day")} />
+        </>
       )}
 
-      {data.active.length > 0 && <Publish items={data.active} p={p} agenda={agenda} />}
+      {view === "day" &&
+        (data.active.length === 0 && data.sheet.items.length === 0 ? (
+          <div className={hl.section}>
+            <div className={hl.empty}>
+              {p("أضف", "أضيفي")} بنودًا يومية {p("تتابعها", "تتابعينها")} بنفسك (مثل: ورد المراجعة، أذكار الصباح)، لكل بند درجته
+              وأيامه.
+            </div>
+            <div className={hl.actionsRow} style={{ justifyContent: "center" }}>
+              <button type="button" className={hl.ghostBtn} onClick={() => show("items")}>
+                إدارة البنود
+              </button>
+            </div>
+          </div>
+        ) : agenda ? (
+          // «الجدول اليومي»: the timeline is the only place to tick
+          <TrackerAgenda sheet={data.sheet} today={today} groupGender={g} course={false} onTick={setCheckAction} onSchedule={setItemScheduleAction} place={place} />
+        ) : (
+          <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={setCheckAction} />
+        ))}
     </div>
   );
 }
@@ -305,51 +318,40 @@ function ItemForm({
 
 function ItemRow({ item, run, pending, agenda, place }: { item: Item; run: Run; pending: boolean; agenda: boolean; place: PrayerLocation | null }) {
   const [mode, setMode] = useState<"view" | "edit" | "remove">("view");
-  if (mode === "edit") {
-    return (
-      <ItemForm
-        initial={item}
-        agenda={agenda}
-        place={place}
-        submitLabel="حفظ"
-        pending={pending}
-        onCancel={() => setMode("view")}
-        onSubmit={(fields) => run(() => updateItemAction(item.id, fields), () => setMode("view"))}
-      />
-    );
-  }
+  const toggle = (m: typeof mode) => setMode(mode === m ? "view" : m);
   return (
-    <div className={styles.itemRow} style={{ display: "block" }}>
-      <div style={{ fontWeight: 800, fontSize: 15 }}>{item.title}</div>
-      <div className={styles.meta}>
-        <span className={styles.tag}>{marksLabel(item.value)}</span>
-        <span>{daysLabel(item.days)}</span>
-        {agenda && <span className={agendaStyles.timeChip}>{scheduleLabel(item.slots)}</span>}
-      </div>
-      <div className={styles.cardActions}>
-        {mode === "view" ? (
-          <>
-            <button type="button" className={hl.ghostBtn} onClick={() => setMode("edit")}>
-              تعديل
-            </button>
-            <button type="button" className={styles.dangerBtn} onClick={() => setMode("remove")}>
-              حذف
-            </button>
-          </>
-        ) : (
-          <>
-            <span className={hl.muted} style={{ alignSelf: "center" }}>
-              حذف هذا البند؟ تبقى درجاته في الأيام السابقة.
-            </span>
-            <button type="button" className={styles.dangerBtn} disabled={pending} onClick={() => run(() => removeItemAction(item.id))}>
-              نعم، حذف
-            </button>
-            <button type="button" className={hl.ghostBtn} onClick={() => setMode("view")}>
-              تراجع
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+    <CompactRow
+      title={item.title}
+      points={item.value}
+      days={item.days}
+      time={agenda ? scheduleLabel(item.slots) : undefined}
+      onEdit={() => toggle("edit")}
+      onDelete={() => toggle("remove")}
+    >
+      {mode === "edit" && (
+        <div className={itemStyles.rowPanel}>
+          <ItemForm
+            initial={item}
+            agenda={agenda}
+            place={place}
+            submitLabel="حفظ"
+            pending={pending}
+            onCancel={() => setMode("view")}
+            onSubmit={(fields) => run(() => updateItemAction(item.id, fields), () => setMode("view"))}
+          />
+        </div>
+      )}
+      {mode === "remove" && (
+        <div className={itemStyles.confirm}>
+          <span>حذف هذا البند؟ تبقى درجاته في الأيام السابقة.</span>
+          <button type="button" className={styles.dangerBtn} disabled={pending} onClick={() => run(() => removeItemAction(item.id))}>
+            نعم، حذف
+          </button>
+          <button type="button" className={hl.ghostBtn} onClick={() => setMode("view")}>
+            تراجع
+          </button>
+        </div>
+      )}
+    </CompactRow>
   );
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getRafiqUser } from "@/lib/rafiq/session";
+import { addedBy, resolveSubject } from "@/lib/rafiq/subject";
 import { getPlan, getReach } from "@/lib/rafiq/memorization";
 import { finishCoveredSegments } from "@/lib/rafiq/home-log";
 import { acceptSessionDay, occurredAtFor } from "@/lib/rafiq/days";
@@ -18,11 +18,11 @@ import { AYAH_COUNT } from "@/lib/quran-data";
 import { parseGoalInput, sameTarget } from "@/lib/goals/input";
 
 // «رفيق الحفظ»: her plan, her sessions and her mistakes. Every action
-// re-checks her session and only ever touches rows with her user id.
+// resolves whose data it is (src/lib/rafiq/subject.ts: her own, or a child of
+// her family) and only ever touches rows with that user id.
 
 export type RafiqResult = { error?: string };
 
-const SIGNED_OUT = { error: "انتهت الجلسة، يُرجى تسجيل الدخول مرة أخرى" };
 const NO_PLAN = { error: "يُرجى إعداد خطة الحفظ أولًا" };
 
 const LIMITS = {
@@ -53,11 +53,13 @@ export type SaveSessionInput = {
   mistakes: unknown;
   // detailed tajweed mistakes (lib/tajweed): only while her setting is on
   details?: unknown;
+  // «العائلة»: a child's id when an adult records on the child's page
+  subjectId?: string;
 };
 
 export async function saveSessionAction(input: SaveSessionInput): Promise<RafiqResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(input?.subjectId, "record");
+  if ("error" in user) return user;
   const { planTemplate, planChangedAt, plan } = await getPlan(user.id);
   if (!planTemplate) return NO_PLAN;
 
@@ -106,9 +108,12 @@ export async function saveSessionAction(input: SaveSessionInput): Promise<RafiqR
 
   const today = acceptLocalDay(String(input.today))!;
   const occurredAt = occurredAtFor(day, today);
+  const by = addedBy(user);
   await prisma.rafiqSession.create({
     data: {
       userId: user.id,
+      recordedByAdult: by.byAdult,
+      recordedById: by.adultId,
       type,
       surahNumber,
       fromAyah,
@@ -160,9 +165,9 @@ export async function saveSessionAction(input: SaveSessionInput): Promise<RafiqR
 }
 
 /** Deletes one of her sessions (its flagged words go with it). */
-export async function deleteSessionAction(sessionId: string): Promise<RafiqResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+export async function deleteSessionAction(sessionId: string, subjectId?: string): Promise<RafiqResult> {
+  const user = await resolveSubject(subjectId, "record");
+  if ("error" in user) return user;
   const { count } = await prisma.rafiqSession.deleteMany({ where: { id: String(sessionId ?? ""), userId: user.id } });
   if (count === 0) return { error: "هذه الجلسة غير موجودة" };
   refresh();
@@ -183,9 +188,10 @@ export async function resolveMistakeAction(
   ayah: number,
   wordPosition: number,
   detail?: ResolveDetail,
+  subjectId?: string,
 ): Promise<{ error: string } | { ok: true }> {
-  const user = await getRafiqUser();
-  if (!user) return { error: SIGNED_OUT.error };
+  const user = await resolveSubject(subjectId, "record");
+  if ("error" in user) return user;
   if (
     detail &&
     (!isValidSpot(detail) || (detail.letter === 0 && !detail.gapAfter) || !TAJWEED_KINDS.includes(detail.kind) || typeof detail.code !== "string")
@@ -239,9 +245,9 @@ function cleanPrior(raw: unknown): { completed: number[]; partial: PriorPartial 
  * Later changes are allowed any time; they stamp planChangedAt (see
  * forPosition in src/lib/rafiq/memorization.ts).
  */
-export async function savePlanAction(input: { template: TemplateKey; plan: number[]; prior?: unknown; today: string }): Promise<RafiqResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+export async function savePlanAction(input: { template: TemplateKey; plan: number[]; prior?: unknown; today: string; subjectId?: string }): Promise<RafiqResult> {
+  const user = await resolveSubject(input?.subjectId, "manage");
+  if ("error" in user) return user;
   const planTemplate = TEMPLATE_KEY_PLAN[input?.template];
   if (!planTemplate) return { error: "قالب الخطة غير صحيح" };
   const plan = Array.isArray(input.plan) ? input.plan.map(Number) : [];
@@ -272,9 +278,9 @@ export async function savePlanAction(input: { template: TemplateKey; plan: numbe
 }
 
 /** Adds memorization from before to an existing plan (whole surahs and/or one part). */
-export async function addPriorAction(input: { prior: unknown; today: string }): Promise<RafiqResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+export async function addPriorAction(input: { prior: unknown; today: string; subjectId?: string }): Promise<RafiqResult> {
+  const user = await resolveSubject(input?.subjectId, "manage");
+  if ("error" in user) return user;
   const { planTemplate, planChangedAt, plan } = await getPlan(user.id);
   if (!planTemplate) return NO_PLAN;
   const prior = cleanPrior(input?.prior);
@@ -297,9 +303,9 @@ export async function addPriorAction(input: { prior: unknown; today: string }): 
  * (checked against the server's). Changing only the deadline keeps its
  * start day; a new target starts over from today.
  */
-export async function saveGoalAction(input: { goal: unknown; today: string }): Promise<RafiqResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+export async function saveGoalAction(input: { goal: unknown; today: string; subjectId?: string }): Promise<RafiqResult> {
+  const user = await resolveSubject(input?.subjectId, "manage");
+  if ("error" in user) return user;
   const { planTemplate, plan } = await getPlan(user.id);
   if (!planTemplate) return NO_PLAN;
   const today = acceptLocalDay(String(input?.today ?? ""));
@@ -323,9 +329,9 @@ export async function saveGoalAction(input: { goal: unknown; today: string }): P
   return {};
 }
 
-export async function removeGoalAction(): Promise<RafiqResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+export async function removeGoalAction(subjectId?: string): Promise<RafiqResult> {
+  const user = await resolveSubject(subjectId, "manage");
+  if ("error" in user) return user;
   await prisma.rafiqGoal.deleteMany({ where: { userId: user.id } });
   refresh();
   return {};

@@ -2,17 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getRafiqUser } from "@/lib/rafiq/session";
+import { resolveSubject } from "@/lib/rafiq/subject";
 import { addDays, isValidIso, toHijri } from "@/lib/calendar/hijri";
 import { adjustableYears, isOccasion, isOptionalOccasion, MAX_ADJUSTMENT_DAYS, OPTIONAL_OCCASIONS } from "@/lib/calendar/occasions";
 
 // Her calendar: the same rules as a course calendar (src/app/(dashboard)/
 // calendar/actions.ts), on her own rows only. She manages everything in it,
-// including moon-sighting adjustments.
+// including moon-sighting adjustments. Her own account only («العائلة» has a
+// separate shared family calendar).
 
 export type CalendarResult = { error?: string };
 
-const SIGNED_OUT = { error: "انتهت الجلسة، يُرجى تسجيل الدخول مرة أخرى" };
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
 const DAYS_MAX = 300;
@@ -35,8 +35,8 @@ function clean(input: DayInput): { error: string } | { title: string; date: Date
 }
 
 export async function createDayAction(input: DayInput): Promise<CalendarResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   const fields = clean(input);
   if ("error" in fields) return fields;
   const count = await prisma.rafiqCalendarDay.count({ where: { userId: user.id } });
@@ -47,8 +47,8 @@ export async function createDayAction(input: DayInput): Promise<CalendarResult> 
 }
 
 export async function updateDayAction(id: string, input: DayInput): Promise<CalendarResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   const fields = clean(input);
   if ("error" in fields) return fields;
   const { count } = await prisma.rafiqCalendarDay.updateMany({ where: { id: String(id ?? ""), userId: user.id }, data: fields });
@@ -58,8 +58,8 @@ export async function updateDayAction(id: string, input: DayInput): Promise<Cale
 }
 
 export async function deleteDayAction(id: string): Promise<CalendarResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   const { count } = await prisma.rafiqCalendarDay.deleteMany({ where: { id: String(id ?? ""), userId: user.id } });
   if (count === 0) return { error: "هذا اليوم غير موجود" };
   refresh();
@@ -67,8 +67,8 @@ export async function deleteDayAction(id: string): Promise<CalendarResult> {
 }
 
 export async function setOptionalOccasionAction(occasion: string, enabled: boolean): Promise<CalendarResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   if (!isOptionalOccasion(occasion)) return { error: "مناسبة غير معروفة" };
   const { enabledOccasions } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { enabledOccasions: true } });
   const next = new Set(enabledOccasions);
@@ -82,8 +82,8 @@ export async function setOptionalOccasionAction(occasion: string, enabled: boole
 
 /** Shifts one year's occurrence of an occasion by ±1/±2 days for her, or 0 to remove the shift. */
 export async function setAdjustmentAction(occasion: string, hijriYear: number, offsetDays: number): Promise<CalendarResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   if (!isOccasion(occasion)) return { error: "مناسبة غير معروفة" };
   if (!Number.isInteger(offsetDays) || Math.abs(offsetDays) > MAX_ADJUSTMENT_DAYS) {
     return { error: "يمكن تعديل الموعد بيوم أو يومين فقط" };

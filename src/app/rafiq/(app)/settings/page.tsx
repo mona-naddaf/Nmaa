@@ -15,7 +15,8 @@ export default async function RafiqSettingsPage() {
       email={user.email}
       name={user.name}
       gender={user.gender}
-      recoveryCodeCreatedAt={recoveryCodeCreatedAt.toISOString()}
+      // always set for an adult (RafiqUser_kind_shape_check); only a child has none
+      recoveryCodeCreatedAt={(recoveryCodeCreatedAt ?? new Date(0)).toISOString()}
       reviewReminderDays={reviewReminderDays}
       agendaEnabled={agendaEnabled}
       summaryEnabled={summaryEnabled}

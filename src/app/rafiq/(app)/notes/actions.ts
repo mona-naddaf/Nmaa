@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getRafiqUser } from "@/lib/rafiq/session";
+import { resolveSubject } from "@/lib/rafiq/subject";
 import { AYAH_COUNT } from "@/lib/quran-data";
 import { ensureNoteTags, getVerseNotes } from "@/lib/rafiq/notes";
 import {
@@ -22,8 +22,11 @@ type Result = { error?: string };
 
 const SIGNED_OUT = { error: "انتهت الجلسة، يُرجى تسجيل الدخول مرة أخرى" };
 
+// her own notes only: never reached through a child («العائلة»: verse notes
+// aren't available to children)
 async function userId() {
-  return (await getRafiqUser())?.id ?? null;
+  const s = await resolveSubject(null, "self");
+  return "error" in s ? null : s.id;
 }
 
 function refresh() {

@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { createRafiqSession, destroyRafiqSession, getRafiqUser } from "@/lib/rafiq/session";
+import { createRafiqSession, destroyRafiqSession } from "@/lib/rafiq/session";
+import { resolveSubject } from "@/lib/rafiq/subject";
 import { newRecoveryCode } from "@/lib/rafiq/recovery";
 import { limited, record, TOO_MANY } from "@/lib/rafiq/limits";
 import { cleanName, DELETE_CONFIRM_WORD, parseGender, passwordProblem } from "@/lib/rafiq/rules";
@@ -13,19 +14,21 @@ import { acceptLocalDay } from "@/lib/home-log/rules";
 import { validateLocation } from "@/lib/prayer/times";
 import { placeColumns } from "@/lib/prayer/location";
 
-// Her own account settings. Every action re-checks her session; anything
-// that changes the password, the recovery رمز or deletes the account first
-// asks for her current password (counted against the per-account limit).
+// Her own account settings. Every action resolves whose settings they are
+// (src/lib/rafiq/subject.ts): the account itself (profile, password, recovery
+// رمز, sign-out, deletion, prayer place) is hers only; the feature settings
+// may also be a child's («العائلة», subjectId), set by an adult with edit
+// rights. Anything that changes the password, the recovery رمز or deletes the
+// account first asks for her current password (counted against the
+// per-account limit).
 
 export type SettingsState = { error?: string; ok?: string; recoveryCode?: string } | null;
-
-const SIGNED_OUT: SettingsState = { error: "انتهت الجلسة، يُرجى تسجيل الدخول مرة أخرى" };
 
 /** Her current password is right (and she hasn't run out of attempts). */
 async function checkPassword(user: { id: string; email: string }, password: string): Promise<string | null> {
   if (await limited("account", user.email)) return TOO_MANY;
   const row = await prisma.rafiqUser.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
-  if (!row || !(await verifyPassword(password, row.passwordHash))) {
+  if (!row?.passwordHash || !(await verifyPassword(password, row.passwordHash))) {
     await record("account", user.email);
     return "كلمة المرور الحالية غير صحيحة";
   }
@@ -33,8 +36,8 @@ async function checkPassword(user: { id: string; email: string }, password: stri
 }
 
 export async function updateProfileAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   const named = cleanName(formData.get("name"));
   const gender = parseGender(formData.get("gender"));
   if ("error" in named) return { error: named.error };
@@ -46,15 +49,15 @@ export async function updateProfileAction(_prev: SettingsState, formData: FormDa
 
 /** New password; every other device is signed out, this one stays in. */
 export async function changePasswordAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   const current = String(formData.get("current") ?? "");
   const next = String(formData.get("password") ?? "");
   const confirm = String(formData.get("confirm") ?? "");
   const weak = passwordProblem(next);
   if (weak) return { error: weak };
   if (next !== confirm) return { error: "كلمتا المرور غير متطابقتين" };
-  const wrong = await checkPassword(user, current);
+  const wrong = await checkPassword(user.account, current);
   if (wrong) return { error: wrong };
 
   const updated = await prisma.rafiqUser.update({
@@ -68,9 +71,9 @@ export async function changePasswordAction(_prev: SettingsState, formData: FormD
 
 /** Replaces the recovery رمز; the new one is shown once. */
 export async function regenerateRecoveryCodeAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
-  const wrong = await checkPassword(user, String(formData.get("current") ?? ""));
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
+  const wrong = await checkPassword(user.account, String(formData.get("current") ?? ""));
   if (wrong) return { error: wrong };
   const recovery = await newRecoveryCode();
   await prisma.rafiqUser.update({ where: { id: user.id }, data: recovery.data });
@@ -79,20 +82,25 @@ export async function regenerateRecoveryCodeAction(_prev: SettingsState, formDat
 
 /** Ends every session, this one included. */
 export async function signOutEverywhereAction() {
-  const user = await getRafiqUser();
-  if (user) await prisma.rafiqUser.update({ where: { id: user.id }, data: { sessionVersion: { increment: 1 } } });
+  const user = await resolveSubject(null, "self");
+  if (!("error" in user)) await prisma.rafiqUser.update({ where: { id: user.id }, data: { sessionVersion: { increment: 1 } } });
   await destroyRafiqSession();
   redirect("/rafiq/login");
 }
 
 /** Deletes the account and everything in it, permanently. */
 export async function deleteAccountAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   if (String(formData.get("confirmWord") ?? "").trim() !== DELETE_CONFIRM_WORD) {
     return { error: `يُرجى كتابة كلمة «${DELETE_CONFIRM_WORD}» للتأكيد` };
   }
-  const wrong = await checkPassword(user, String(formData.get("current") ?? ""));
+  // «العائلة»: a founder hands the role over or deletes the family first
+  // (Family.founderId is Restrict, so the delete below would fail anyway)
+  if ((await prisma.family.count({ where: { founderId: user.id } })) > 0) {
+    return { error: "يُرجى نقل دور المؤسِّس في عائلتك إلى بالغ آخر أو حذف العائلة قبل حذف الحساب" };
+  }
+  const wrong = await checkPassword(user.account, String(formData.get("current") ?? ""));
   if (wrong) return { error: wrong };
   // every Rafiq table hangs off RafiqUser with onDelete: Cascade
   await prisma.rafiqUser.delete({ where: { id: user.id } });
@@ -102,8 +110,8 @@ export async function deleteAccountAction(_prev: SettingsState, formData: FormDa
 
 /** Review reminders: off (null) or the number of days (1–90) a completed surah may go unreviewed. */
 export async function setReviewRemindersAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(formData.get("subjectId"), "manage");
+  if ("error" in user) return user;
   const on = formData.get("on") === "1";
   const days = Number(formData.get("days"));
   if (on && (!Number.isInteger(days) || days < 1 || days > 90)) return { error: "يُرجى إدخال عدد أيام بين 1 و90" };
@@ -114,8 +122,9 @@ export async function setReviewRemindersAction(_prev: SettingsState, formData: F
 
 /** «مواقيت الصلاة»: her place (a city or a custom place), or null to remove it. */
 export async function setPlaceAction(input: unknown): Promise<{ error?: string }> {
-  const user = await getRafiqUser();
-  if (!user) return { error: "انتهت الجلسة، يُرجى تسجيل الدخول مرة أخرى" };
+  // her own place only: a child uses the family's («العائلة»)
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   const loc = input === null ? null : validateLocation(input);
   if (input !== null && !loc) return { error: "يُرجى اختيار مدينة صحيحة أو إدخال إحداثيات صحيحة" };
   await prisma.rafiqUser.update({ where: { id: user.id }, data: placeColumns(loc) });
@@ -125,8 +134,8 @@ export async function setPlaceAction(input: unknown): Promise<{ error?: string }
 
 /** «المحصّلات» of her tracker: on or off (off by default). */
 export async function setSummaryEnabledAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(formData.get("subjectId"), "manage");
+  if ("error" in user) return user;
   const on = formData.get("on") === "1";
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { summaryEnabled: on } });
   revalidatePath("/rafiq", "layout");
@@ -135,8 +144,8 @@ export async function setSummaryEnabledAction(_prev: SettingsState, formData: Fo
 
 /** «الجدول اليومي» on her tracker page: on or off (off by default). */
 export async function setAgendaEnabledAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(formData.get("subjectId"), "manage");
+  if ("error" in user) return user;
   const on = formData.get("on") === "1";
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { agendaEnabled: on } });
   revalidatePath("/rafiq", "layout");
@@ -147,9 +156,9 @@ export async function setAgendaEnabledAction(_prev: SettingsState, formData: For
  * The weekdays she intends to commit to, from her today onward (earlier
  * days keep the schedule they had). today: her browser's local date.
  */
-export async function setCommitDaysAction(input: { days: number; today: string }): Promise<SettingsState> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+export async function setCommitDaysAction(input: { days: number; today: string; subjectId?: string }): Promise<SettingsState> {
+  const user = await resolveSubject(input?.subjectId, "manage");
+  if ("error" in user) return user;
   const days = validateDays(input?.days);
   if (days === null) return { error: "يُرجى اختيار يوم واحد على الأقل" };
   const today = acceptLocalDay(String(input?.today ?? ""));
@@ -166,8 +175,8 @@ export async function setCommitDaysAction(input: { days: number; today: string }
 
 /** «المتشابهات» marks on her verses: on or off (off by default). */
 export async function setMutashabihatEnabledAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(formData.get("subjectId"), "manage");
+  if ("error" in user) return user;
   const on = formData.get("on") === "1";
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { mutashabihatEnabled: on } });
   revalidatePath("/rafiq", "layout");
@@ -176,8 +185,8 @@ export async function setMutashabihatEnabledAction(_prev: SettingsState, formDat
 
 /** «أخطاء التجويد المفصّلة» in her sessions and home practice: on or off (off by default). */
 export async function setTajweedDetailEnabledAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(formData.get("subjectId"), "manage");
+  if ("error" in user) return user;
   const on = formData.get("on") === "1";
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { tajweedDetailEnabled: on } });
   revalidatePath("/rafiq", "layout");

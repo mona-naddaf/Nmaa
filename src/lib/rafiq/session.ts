@@ -56,10 +56,12 @@ export const getRafiqUser = cache(async (): Promise<RafiqUserSession | null> => 
 
   const user = await prisma.rafiqUser.findUnique({
     where: { id: payload.uid },
-    select: { id: true, email: true, name: true, gender: true, sessionVersion: true },
+    select: { id: true, kind: true, email: true, name: true, gender: true, sessionVersion: true },
   });
-  if (!user || user.sessionVersion !== payload.v) return null;
-  return user;
+  // only an adult account opens this area («العائلة»: a child profile has no
+  // email and never gets this cookie; checked anyway)
+  if (!user || user.kind !== "ADULT" || user.email === null || user.sessionVersion !== payload.v) return null;
+  return { id: user.id, email: user.email, name: user.name, gender: user.gender, sessionVersion: user.sessionVersion };
 });
 
 export async function requireRafiqUser(): Promise<RafiqUserSession> {

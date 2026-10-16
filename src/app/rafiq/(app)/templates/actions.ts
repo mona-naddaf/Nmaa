@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getRafiqUser } from "@/lib/rafiq/session";
+import { addedBy, resolveSubject } from "@/lib/rafiq/subject";
 import { templateSearchKey } from "@/lib/rafiq/templates";
 import { checkTemplateText, itemsObject, TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
@@ -11,12 +11,14 @@ import { placeOf } from "@/lib/tracker/agenda";
 
 // The tracker template bank, for «رفيق الحفظ» users. Publishing takes a
 // snapshot of her chosen tracker items; using a template copies its items
-// into her own tracker. Every action re-checks her session; the publisher of
-// a template is never revealed.
+// into her own tracker (or, «العائلة», a child's: an adult with edit rights
+// applies it, and the items count as added by her). Publishing, reporting and
+// unpublishing are her own account's only. Every action resolves whose data
+// it is (src/lib/rafiq/subject.ts); the publisher of a template is never
+// revealed.
 
 export type BankResult = { error?: string; added?: number };
 
-const SIGNED_OUT = { error: "انتهت الجلسة، يُرجى تسجيل الدخول مرة أخرى" };
 const NOT_FOUND = { error: "لم يُعثر على هذا الجدول" };
 
 function refresh() {
@@ -26,8 +28,8 @@ function refresh() {
 
 /** Publishes a snapshot of some of her current tracker items as a template. */
 export async function publishTemplateAction(input: { title: string; description: string; itemIds: string[] }): Promise<BankResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   const text = checkTemplateText(input?.title, input?.description);
   if ("error" in text) return { error: text.error };
   const ids = Array.isArray(input.itemIds) ? input.itemIds.map(String) : [];
@@ -83,11 +85,12 @@ export async function publishTemplateAction(input: { title: string; description:
 }
 
 /** Adds a template's items to the end of her tracker, as her own independent copies. */
-export async function applyTemplateAction(templateId: string): Promise<BankResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+export async function applyTemplateAction(templateId: string, subjectId?: string): Promise<BankResult> {
+  const user = await resolveSubject(subjectId, "manage");
+  if ("error" in user) return user;
   const template = await prisma.trackerTemplate.findFirst({
-    where: { id: String(templateId ?? ""), OR: [{ hiddenAt: null }, { createdByRafiqId: user.id }] },
+    // her own hidden templates stay usable to her (the adult, on a child's page too)
+    where: { id: String(templateId ?? ""), OR: [{ hiddenAt: null }, { createdByRafiqId: user.actorId }] },
     select: { id: true, items: { orderBy: { sortOrder: "asc" }, select: { title: true, value: true, days: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true } } },
   });
   if (!template) return NOT_FOUND;
@@ -100,6 +103,7 @@ export async function applyTemplateAction(templateId: string): Promise<BankResul
   }
   // after her own items, in the template's order, each with its time if it had one
   const first = await nextRafiqSortOrder(user.id);
+  const by = addedBy(user);
   await prisma.$transaction([
     // a prayer anchor is kept as is: it's placed with her own city (or waits for one)
     ...template.items.map(({ startMin, durationMin, anchor, anchorOffsetMin, ...it }, i) =>
@@ -107,6 +111,8 @@ export async function applyTemplateAction(templateId: string): Promise<BankResul
         data: {
           userId: user.id,
           ...it,
+          adultAdded: by.byAdult,
+          createdById: by.adultId,
           // her own order continues (or, never reordered, creation order: 0)
           sortOrder: first > 0 ? first + i : 0,
           ...(startMin !== null || anchor !== null
@@ -122,8 +128,8 @@ export async function applyTemplateAction(templateId: string): Promise<BankResul
 }
 
 export async function reportTemplateAction(templateId: string, reason: string): Promise<BankResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   const template = await prisma.trackerTemplate.findUnique({
     where: { id: String(templateId ?? "") },
     select: { id: true, hiddenAt: true, createdByRafiqId: true },
@@ -159,8 +165,8 @@ export async function reportTemplateAction(templateId: string, reason: string): 
 
 /** Her own templates only; copies already taken by others are unaffected. */
 export async function unpublishTemplateAction(templateId: string): Promise<BankResult> {
-  const user = await getRafiqUser();
-  if (!user) return SIGNED_OUT;
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
   const { count } = await prisma.trackerTemplate.deleteMany({ where: { id: String(templateId ?? ""), createdByRafiqId: user.id } });
   if (count === 0) return NOT_FOUND;
   refresh();

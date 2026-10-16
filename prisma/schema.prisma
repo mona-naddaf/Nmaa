@@ -994,24 +994,64 @@ model TrackerCheck {
 // Rafiq query is scoped by the signed-in user's id (src/lib/rafiq/session.ts).
 
 model RafiqUser {
-  id                    String    @id @default(cuid())
+  id                    String        @id @default(cuid())
+  // ADULT = an email + password account (every account before «العائلة»).
+  // CHILD = a child profile of one family («العائلة», src/lib/family): no
+  // email, password or recovery رمز — the child logs in with name + childCode,
+  // and every Rafiq table holds the child's data exactly as an adult's. A
+  // check constraint in the migration keeps the two shapes apart.
+  kind                  RafiqUserKind @default(ADULT)
   // trimmed + lowercased; independent of Admin.email (the same address may
-  // hold both kinds of account)
-  email                 String    @unique
-  passwordHash          String
-  // optional; only used to greet her
+  // hold both kinds of account). null only for a CHILD.
+  email                 String?       @unique
+  // null only for a CHILD
+  passwordHash          String?
+  // optional for an adult (only used to greet her); required for a CHILD
   name                  String?
   // for gender-aware wording; asked once at sign-up, editable in settings
   gender                Gender
   // every session token carries this; bumping it (password change or reset,
   // «تسجيل الخروج من جميع الأجهزة») ends every open session
-  sessionVersion        Int       @default(0)
+  sessionVersion        Int           @default(0)
   // bcrypt hash of her recovery رمز (src/lib/rafiq/recovery.ts), shown once
-  // at sign-up and on each regeneration; used to set a new password
-  recoveryCodeHash      String
-  recoveryCodeCreatedAt DateTime
-  createdAt             DateTime  @default(now())
+  // at sign-up and on each regeneration; used to set a new password. null
+  // only for a CHILD.
+  recoveryCodeHash      String?
+  recoveryCodeCreatedAt DateTime?
+  createdAt             DateTime      @default(now())
   lastLoginAt           DateTime?
+
+  // ---- CHILD only («العائلة»); always null / unused for an adult ----
+  // the one family the child belongs to; deleting the family deletes the
+  // child and everything of theirs
+  familyId            String?
+  family              Family?     @relation("FamilyChildren", fields: [familyId], references: [id], onDelete: Cascade)
+  // the adult who created the profile (kept for the record only)
+  createdById         String?
+  createdBy           RafiqUser?  @relation("ChildCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdChildren     RafiqUser[] @relation("ChildCreatedBy")
+  // the child's login رمز, same format and lifecycle as Student.studentCode:
+  // issuing a new one bumps the version and ends every open child session
+  childCode           String?     @unique
+  childCodeVersion    Int         @default(0)
+  childCodeCreatedAt  DateTime?
+  // per-child features, set by the family's adults with edit rights; all
+  // off by default. Ignored for an adult, who always has all of them.
+  // (agendaEnabled, summaryEnabled, mutashabihatEnabled,
+  // tajweedDetailEnabled and reviewReminderDays above are reused as is.)
+  homeLogEnabled      Boolean     @default(false)
+  homeMistakesEnabled Boolean     @default(false)
+  goalEnabled         Boolean     @default(false)
+  streakEnabled       Boolean     @default(false)
+
+  // ---- ADULT only («العائلة») ----
+  foundedFamilies   Family[]           @relation("FamilyFounder")
+  familyMemberships FamilyMember[]
+  familyInvites     FamilyInvite[]
+  familyEvents      FamilyEvent[]
+  // who recorded a session or added a tracker item on someone else's page
+  recordedSessions  RafiqSession[]     @relation("SessionRecordedBy")
+  addedTrackerItems RafiqTrackerItem[] @relation("TrackerItemCreatedBy")
 
   // her memorization plan (src/lib/rafiq/memorization.ts). null template =
   // she hasn't set up a plan yet. Unlike a course, she may change it any
@@ -1032,7 +1072,7 @@ model RafiqUser {
   noteTagsSeededAt   DateTime?
 
   planItems           RafiqPlanItem[]
-  sessions            RafiqSession[]
+  sessions            RafiqSession[]            @relation("SessionOwner")
   mistakes            RafiqMistake[]
   homeSegments        RafiqHomeSegment[]
   homeTaps            RafiqHomeTap[]
@@ -1040,7 +1080,7 @@ model RafiqUser {
   notes               RafiqNote[]
   noteTags            RafiqNoteTag[]
   commitDays          RafiqCommitDays[]
-  trackerItems        RafiqTrackerItem[]
+  trackerItems        RafiqTrackerItem[]        @relation("TrackerItemOwner")
   trackerChecks       RafiqTrackerCheck[]
   trackerSlots        RafiqTrackerSlot[]
   calendarDays        RafiqCalendarDay[]
@@ -1077,6 +1117,8 @@ model RafiqUser {
   prayerLng            Float?
   prayerMethod         String?
   prayerAsr            String?
+
+  @@index([familyId])
 }
 
 // A personal day she added to her calendar (same meaning as CalendarEvent).
@@ -1142,15 +1184,22 @@ model RafiqGoal {
 // (1–10) and weekdays; same meaning as TrackerItem, without approval.
 // Archived instead of deleted: it stops counting from that day on.
 model RafiqTrackerItem {
-  id         String    @id @default(cuid())
-  userId     String
-  user       RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title      String
-  value      Int
-  days       Int       @default(127)
-  archivedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id          String     @id @default(cuid())
+  userId      String
+  user        RafiqUser  @relation("TrackerItemOwner", fields: [userId], references: [id], onDelete: Cascade)
+  // «العائلة»: true when an adult added it to a child's tracker (directly or
+  // from a bank template) — the child may tick it but not edit or remove it.
+  // createdById names that adult for display; it goes null if the adult's
+  // account is deleted, while adultAdded stays true.
+  adultAdded  Boolean    @default(false)
+  createdById String?
+  createdBy   RafiqUser? @relation("TrackerItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  title       String
+  value       Int
+  days        Int        @default(127)
+  archivedAt  DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   // «الجدول اليومي»: her order (ties: creation order)
   sortOrder Int @default(0)
@@ -1323,7 +1372,13 @@ model RafiqPlanItem {
 model RafiqSession {
   id              String               @id @default(cuid())
   userId          String
-  user            RafiqUser            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            RafiqUser            @relation("SessionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  // «العائلة»: true when an adult recorded it on a child's page (otherwise
+  // the owner recorded it). recordedById names that adult for display; it
+  // goes null if the adult's account is deleted («أحد البالغين»).
+  recordedByAdult Boolean              @default(false)
+  recordedById    String?
+  recordedBy      RafiqUser?           @relation("SessionRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
   source          RecitationSource     @default(LOGGED)
   type            SessionType          @default(NEW)
   surahNumber     Int
@@ -1373,6 +1428,117 @@ model RafiqMistake {
 
   @@unique([sessionId, surahNumber, ayah, wordPosition, letter, gapAfter, tajweedKind, tajweedCode])
   @@index([userId, resolvedAt])
+}
+
+// ---------- «العائلة» (families of Rafiq users, src/lib/family) ----------
+//
+// A layer on top of «رفيق الحفظ»: adults are ordinary Rafiq accounts (kind
+// ADULT), children are Rafiq users of kind CHILD, so every Rafiq table holds
+// a child's data exactly as an adult's. Who may see or change whose data is
+// decided in one place (src/lib/rafiq/subject.ts). Nothing here references a
+// course; linking a child to a course comes later and will add its own table.
+
+model Family {
+  id               String     @id @default(cuid())
+  name             String
+  // the adult who created it (or was handed the role). Restrict: a founder's
+  // account can't be deleted while she founds a family — she hands the role
+  // over or deletes the family first.
+  founderId        String
+  founder          RafiqUser  @relation("FamilyFounder", fields: [founderId], references: [id], onDelete: Restrict)
+  // «يرى الأطفال تقدّم إخوتهم»: position, recorded today and today's tracker
+  // completion only. Off by default; the founder decides.
+  siblingsVisible  Boolean    @default(false)
+  // the shared calendar's optional occasions (as Course.enabledOccasions)
+  enabledOccasions Occasion[] @default([])
+  // «مواقيت الصلاة» for the family's children, set once per family (same
+  // fields and meaning as on RafiqUser). Adults keep their own place.
+  prayerCityKey    String?
+  prayerPlace      String?
+  prayerLat        Float?
+  prayerLng        Float?
+  prayerMethod     String?
+  prayerAsr        String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  members     FamilyMember[]
+  children    RafiqUser[]                @relation("FamilyChildren")
+  invites     FamilyInvite[]
+  events      FamilyEvent[]
+  adjustments FamilyCalendarAdjustment[]
+
+  @@index([founderId])
+}
+
+// One adult in one family (the founder has a row too). An adult may belong to
+// several families; children are never members — they hang off
+// RafiqUser.familyId.
+model FamilyMember {
+  id              String    @id @default(cuid())
+  familyId        String
+  family          Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  userId          String
+  user            RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // edit the children's data (the founder always may, whatever this says);
+  // every member may view them. Off by default; the founder decides.
+  canEditChildren Boolean   @default(false)
+  // what of her own Rafiq data this family sees (adults and children);
+  // both off by default, her own choice, per family
+  shareTracker    Boolean   @default(false)
+  shareProgress   Boolean   @default(false)
+  joinedAt        DateTime  @default(now())
+
+  @@unique([familyId, userId])
+  @@index([userId])
+}
+
+// An adult invite رمز, issued by the founder: reusable by any number of
+// adults until it expires (7 days) or is revoked.
+model FamilyInvite {
+  id          String     @id @default(cuid())
+  familyId    String
+  family      Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  code        String     @unique
+  createdById String?
+  createdBy   RafiqUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+
+  @@index([familyId])
+}
+
+// An event on the shared family calendar (same meaning as CalendarEvent).
+// Anyone in the family may add one; she edits her own, and adults with edit
+// rights edit all. createdById goes null if her account is deleted.
+model FamilyEvent {
+  id          String     @id @default(cuid())
+  familyId    String
+  family      Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   RafiqUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  title       String
+  description String?
+  date        DateTime   @db.Date
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([familyId, date])
+}
+
+// The family's moon-sighting correction for one occurrence of an occasion
+// (same meaning as CalendarAdjustment); adults with edit rights set it.
+model FamilyCalendarAdjustment {
+  id         String   @id @default(cuid())
+  familyId   String
+  family     Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  occasion   Occasion
+  hijriYear  Int
+  offsetDays Int
+  createdAt  DateTime @default(now())
+
+  @@unique([familyId, occasion, hijriYear])
 }
 
 // ---------- Tracker template bank («بنك جداول المتابعة») ----------
@@ -1568,6 +1734,15 @@ enum LoginScope {
   RAFIQ_ACCOUNT
   RAFIQ_SIGNUP
   RAFIQ_RECOVER
+  // «العائلة»: failed child logins (name + رمز) and failed invite رموز, per IP
+  FAMILY_CHILD_LOGIN
+  FAMILY_JOIN
+}
+
+// «العائلة»: see RafiqUser.kind
+enum RafiqUserKind {
+  ADULT
+  CHILD
 }
 
 enum AddStudentsPermission {

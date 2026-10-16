@@ -4,15 +4,23 @@ import { getHomeLog } from "@/lib/home-log/data";
 import { prisma } from "@/lib/db";
 import { SegmentPractice } from "@/components/home-log/SegmentPractice";
 import { PracticeWithMarks } from "@/components/home-log/PracticeWithMarks";
-import { homeMarkFlags } from "@/lib/home-log/self-marks";
+import { homeMarkDetails, homeMarkFlags } from "@/lib/home-log/self-marks";
 import { SimilarScope } from "../SimilarScope";
-import { deleteSegmentAction, finishSegmentAction, markHomeWordAction, tapAction, undoTapAction } from "../actions";
+import {
+  deleteSegmentAction,
+  finishSegmentAction,
+  markHomeSpotAction,
+  markHomeWordAction,
+  resolveHomeDetailAction,
+  tapAction,
+  undoTapAction,
+} from "../actions";
 
 // One active segment of hers: big counters + the ayat. Anything else (not
 // hers, finished, home log off) goes back to the list.
 export default async function SegmentPage({ params }: PageProps<"/student/home-log/[id]">) {
   const { id } = await params;
-  const { studentId, homeLogEnabled, homeMistakesEnabled, mutashabihatEnabled } = await requireStudentAccess();
+  const { studentId, homeLogEnabled, homeMistakesEnabled, mutashabihatEnabled, tajweedDetail } = await requireStudentAccess();
   if (!homeLogEnabled) redirect("/student");
 
   const log = await getHomeLog(studentId, { pastLimit: 0 });
@@ -33,6 +41,16 @@ export default async function SegmentPage({ params }: PageProps<"/student/home-l
           listHref="/student/home-log"
           initialFlags={await homeMarkFlags(studentId, segment.surahNumber, segment.fromAyah, segment.toAyah)}
           mark={markHomeWordAction}
+          // detailed tajweed marks: only when home marking, the course switch and her toggle are all on
+          detail={
+            tajweedDetail
+              ? {
+                  initial: await homeMarkDetails(studentId, segment.surahNumber, segment.fromAyah, segment.toAyah),
+                  save: markHomeSpotAction,
+                  master: resolveHomeDetailAction,
+                }
+              : undefined
+          }
         />
       </SimilarScope>
     );

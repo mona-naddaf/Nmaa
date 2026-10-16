@@ -12,6 +12,8 @@ import type { ParentViewData } from "@/lib/parent/data";
 import { GoalLine } from "@/components/goal/GoalLine";
 import { parentLogoutAction } from "./actions";
 import { MistakesList } from "@/components/mistakes/MistakesList";
+import { TajweedSummaryBlock } from "@/components/mistakes/TajweedSummaryBlock";
+import { mistakeWordCount } from "@/lib/students/mistake-types";
 import { HomeLogSummary } from "@/components/home-log/HomeLogSummary";
 import { AssignmentList } from "@/components/student-work/AssignmentList";
 import { TrackerWeek } from "@/components/student-work/TrackerWeek";
@@ -121,10 +123,21 @@ export function ParentView({ data }: { data: ParentViewData }) {
         {data.mistakes.length > 0 && (
           <>
             <div className={styles.secTitle}>
-              <span className={styles.dot} /> 🔖 كلمات للتدرّب عليها في البيت ({data.mistakes.length})
+              <span className={styles.dot} /> 🔖 كلمات للتدرّب عليها في البيت ({mistakeWordCount(data.mistakes)})
             </div>
             <div className={styles.card}>
               <MistakesList mistakes={data.mistakes} subject={g} />
+            </div>
+          </>
+        )}
+
+        {data.tajweedSummary && (
+          <>
+            <div className={styles.secTitle}>
+              <span className={styles.dot} /> 🎯 ملخّص أخطاء التجويد
+            </div>
+            <div className={styles.card}>
+              <TajweedSummaryBlock summary={data.tajweedSummary} bare />
             </div>
           </>
         )}

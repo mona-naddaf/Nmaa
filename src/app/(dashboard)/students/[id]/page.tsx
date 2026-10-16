@@ -45,6 +45,8 @@ import { SEGMENTS, countLabel } from "@/lib/text/count";
 import { getStudentGoal } from "@/lib/goals/data";
 import { onOffTag } from "@/components/collapsible/tags";
 import { TajweedDetailToggle } from "./TajweedDetailToggle";
+import { getTajweedSummary } from "@/lib/tajweed/summary-data";
+import { TajweedSummaryBlock } from "@/components/mistakes/TajweedSummaryBlock";
 
 async function loginUrl(path: "/parent/login" | "/student/login") {
   const origin = await requestOrigin();
@@ -316,6 +318,8 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const homeLog = course.homeLogEnabled && course.studentLoginEnabled ? await getHomeLog(student.id) : null;
   const assignments = course.assignmentsEnabled && course.studentLoginEnabled ? await getStudentAssignments(student.id) : null;
   const tracker = course.trackerEnabled && course.studentLoginEnabled ? await getStudentTracker(student.id) : null;
+  // «ملخّص أخطاء التجويد»: only while the course has detailed tajweed on and she is held to it
+  const tajweedSummary = course.tajweedDetailEnabled && student.tajweedDetailed ? await getTajweedSummary(student.id) : null;
   // «المحصّلات» (course setting, with the tracker)
   const summary = tracker && course.trackerSummaryEnabled ? await courseSummary(student.id, "month", 0) : null;
 
@@ -344,6 +348,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       {course.tajweedDetailEnabled && (
         <Collapsible title="🎯 التجويد المفصّل" persistKey="student.tajweedDetail" {...onOffTag(student.tajweedDetailed)}>
           <TajweedDetailToggle studentId={student.id} groupGender={g} initial={student.tajweedDetailed} />
+          {tajweedSummary && <TajweedSummaryBlock summary={tajweedSummary} />}
         </Collapsible>
       )}
       {homeLog && (

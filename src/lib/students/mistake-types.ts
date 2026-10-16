@@ -63,6 +63,10 @@ export interface ActiveMistake {
   nextWordText?: string;
 }
 
+/** How many words a list is about (a word with several detailed mistakes counts once). */
+export const mistakeWordCount = (list: Pick<ActiveMistake, "surahNumber" | "ayah" | "wordPosition">[]) =>
+  new Set(list.map((m) => `${m.surahNumber}:${m.ayah}:${m.wordPosition}`)).size;
+
 /**
  * The key of one list entry: the word for a plain mistake ("s:a:w", as
  * always), or its spot plus kind and code for a detailed one.

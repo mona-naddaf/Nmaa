@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { deriveCurrentPosition, deriveReach, type PlanPosition, type Reach } from "@/lib/recitation/logic";
 import { buildCoverage, computeProgressBars, coverageToRanges, coveredQuranPages, type ProgressBar } from "@/lib/students/progress";
 import { reviewAges, type ReviewAge } from "@/lib/students/review";
-import { mergeActiveMistakes } from "@/lib/students/mistakes";
+import { MISTAKE_SELECT, mergeActiveMistakes, withNextWords } from "@/lib/students/mistakes";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { goalSpecOf } from "@/lib/goals/data";
 import type { GoalSpec } from "@/lib/goals/goal";
@@ -112,13 +112,13 @@ export async function getMemorization(userId: string): Promise<MemorizationView 
     }),
     prisma.rafiqMistake.findMany({
       where: { userId, resolvedAt: null },
-      select: { surahNumber: true, ayah: true, wordPosition: true, wordText: true, type: true, flaggedAt: true },
+      select: { ...MISTAKE_SELECT, flaggedAt: true },
       orderBy: [{ flaggedAt: "asc" }, { createdAt: "asc" }],
     }),
     // her self-marked words from home practice join the same list, labelled
     prisma.rafiqHomeMistake.findMany({
       where: { userId, resolvedAt: null },
-      select: { surahNumber: true, ayah: true, wordPosition: true, wordText: true, type: true, flaggedAt: true },
+      select: { ...MISTAKE_SELECT, flaggedAt: true },
     }),
     getGoal(userId),
   ]);
@@ -142,7 +142,7 @@ export async function getMemorization(userId: string): Promise<MemorizationView 
     loggedSessions: sessions.filter((s) => s.source === "LOGGED").length,
     progressBars: computeProgressBars({ settings: ALL_BARS, plan, position, coverage }),
     // first-flag times go out whole: her browser shows them as her own day
-    mistakes: mergeActiveMistakes(allMarks, plan, (d) => d.toISOString()),
+    mistakes: withNextWords(mergeActiveMistakes(allMarks, plan, (d) => d.toISOString())),
     reviewReminderDays,
     reviewAges: reviewReminderDays ? reviewAges(sessions, (s) => day(s.day)) : [],
     history: sessions.map((s) => ({

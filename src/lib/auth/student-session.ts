@@ -50,6 +50,9 @@ export type StudentAccess = {
   trackerSummaryEnabled: boolean;
   // «المتشابهات» marks (in «حفظي في البيت», so only with the home log)
   mutashabihatEnabled: boolean;
+  // detailed tajweed in her own home marks (lib/tajweed): only with home
+  // marking on, the course switch on, and her «محاسبة على التجويد المفصّل»
+  tajweedDetail: boolean;
 };
 
 /** The signed-in student, or null. One lookup per request (cached). */
@@ -68,6 +71,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
       archivedAt: true,
       courseId: true,
       groupId: true,
+      tajweedDetailed: true,
       course: {
         select: {
           studentLoginEnabled: true,
@@ -79,6 +83,7 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
           trackerAgendaEnabled: true,
           trackerSummaryEnabled: true,
           mutashabihatStudentsEnabled: true,
+          tajweedDetailEnabled: true,
         },
       },
     },
@@ -103,6 +108,8 @@ export const getStudentAccess = cache(async (): Promise<StudentAccess | null> =>
     trackerAgendaEnabled: student.course.trackerEnabled && student.course.trackerAgendaEnabled,
     trackerSummaryEnabled: student.course.trackerEnabled && student.course.trackerSummaryEnabled,
     mutashabihatEnabled: student.course.homeLogEnabled && student.course.mutashabihatStudentsEnabled,
+    tajweedDetail:
+      student.course.homeLogEnabled && student.course.homeMistakesEnabled && student.course.tajweedDetailEnabled && student.tajweedDetailed,
   };
 });
 

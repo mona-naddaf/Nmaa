@@ -4,8 +4,8 @@ import { getRafiqHomeLog } from "@/lib/rafiq/home-log";
 import { RafiqPractice } from "./RafiqPractice";
 import { prisma } from "@/lib/db";
 import { SimilarScope } from "../../SimilarScope";
-import { rafiqMarkFlags } from "@/lib/rafiq/home-mistakes";
-import { deleteSegmentAction, finishSegmentAction, markWordAction, tapAction, undoTapAction } from "../actions";
+import { rafiqMarkDetails, rafiqMarkFlags } from "@/lib/rafiq/home-mistakes";
+import { deleteSegmentAction, finishSegmentAction, markSpotAction, markWordAction, resolveSpotAction, tapAction, undoTapAction } from "../actions";
 
 // One active passage of hers: big counters and the ayat. Anything else (not
 // hers, finished) goes back to the list.
@@ -15,7 +15,10 @@ export default async function RafiqSegmentPage({ params }: PageProps<"/rafiq/hom
   const log = await getRafiqHomeLog(user.id, { pastLimit: 0 });
   const segment = log.active.find((s) => s.id === id);
   if (!segment) redirect("/rafiq/home-log");
-  const { mutashabihatEnabled } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { mutashabihatEnabled: true } });
+  const { mutashabihatEnabled, tajweedDetailEnabled } = await prisma.rafiqUser.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { mutashabihatEnabled: true, tajweedDetailEnabled: true },
+  });
   return (
     // «المتشابهات» marks (her setting)
     <SimilarScope on={mutashabihatEnabled}>
@@ -26,6 +29,16 @@ export default async function RafiqSegmentPage({ params }: PageProps<"/rafiq/hom
         listHref="/rafiq/home-log"
         initialFlags={await rafiqMarkFlags(user.id, segment.surahNumber, segment.fromAyah, segment.toAyah)}
         mark={markWordAction}
+        // «أخطاء التجويد المفصّلة» (her setting): letters and gaps too
+        detail={
+          tajweedDetailEnabled
+            ? {
+                initial: await rafiqMarkDetails(user.id, segment.surahNumber, segment.fromAyah, segment.toAyah),
+                save: markSpotAction,
+                master: resolveSpotAction,
+              }
+            : undefined
+        }
       />
     </SimilarScope>
   );

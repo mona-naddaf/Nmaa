@@ -20,6 +20,9 @@ import { GoalLine } from "@/components/goal/GoalLine";
 import { computeGoal } from "@/lib/goals/goal";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { WordFlagger } from "@/components/mistakes/WordFlagger";
+import { TajweedSummaryBlock } from "@/components/mistakes/TajweedSummaryBlock";
+import { mistakeWordCount } from "@/lib/students/mistake-types";
+import type { TajweedSummary } from "@/lib/tajweed/summary";
 import { VerseNoteMarker } from "./notes/NotesProvider";
 import { SimilarScope } from "./SimilarScope";
 import {
@@ -41,7 +44,23 @@ const DAY_LABEL = ["اليوم", "أمس", "قبل يومين"];
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 // similar: «المتشابهات» (her setting) — marks in the word picker
-export function RafiqHome({ data, gender, commitment, similar = false }: { data: MemorizationView; gender: PersonGender; commitment: CommitmentData; similar?: boolean }) {
+// tajweed: «أخطاء التجويد المفصّلة» (her setting) — letters and gaps in the
+// word picker; tajweedSummary: its summary block (null: off or nothing yet)
+export function RafiqHome({
+  data,
+  gender,
+  commitment,
+  similar = false,
+  tajweed = false,
+  tajweedSummary = null,
+}: {
+  data: MemorizationView;
+  gender: PersonGender;
+  commitment: CommitmentData;
+  similar?: boolean;
+  tajweed?: boolean;
+  tajweedSummary?: TajweedSummary | null;
+}) {
   const router = useRouter();
   const today = useToday();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
@@ -231,6 +250,7 @@ export function RafiqHome({ data, gender, commitment, similar = false }: { data:
               onChange={entry.setWordFlags}
               subject={subject}
               afterAyah={(a) => <VerseNoteMarker surah={surahNumber} ayah={a} />}
+              detail={tajweed ? { enabled: true, flags: entry.detailFlags, onChange: entry.setDetailFlags } : undefined}
             />
           </SimilarScope>
         )}
@@ -249,16 +269,27 @@ export function RafiqHome({ data, gender, commitment, similar = false }: { data:
       </div>
 
       {data.mistakes.length > 0 && (
-        <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(data.mistakes.length, WORDS)} persistKey="rafiq.mistakes">
+        <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakeWordCount(data.mistakes), WORDS)} persistKey="rafiq.mistakes">
           <MistakesList
             mistakes={data.mistakes}
             subject={subject}
             onResolve={async (m) => {
-              const r = await resolveMistakeAction(m.surahNumber, m.ayah, m.wordPosition);
+              const r = await resolveMistakeAction(
+                m.surahNumber,
+                m.ayah,
+                m.wordPosition,
+                m.tajweed ? { letter: m.letter ?? 0, gapAfter: m.gapAfter ?? false, kind: m.tajweed.kind, code: m.tajweed.code } : undefined,
+              );
               if (!("error" in r)) router.refresh();
               return r;
             }}
           />
+        </Collapsible>
+      )}
+
+      {tajweedSummary && (
+        <Collapsible title="🎯 ملخّص أخطاء التجويد" persistKey="rafiq.tajweedSummary">
+          <TajweedSummaryBlock summary={tajweedSummary} bare />
         </Collapsible>
       )}
 

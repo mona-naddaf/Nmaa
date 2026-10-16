@@ -5,6 +5,8 @@ import styles from "@/app/(dashboard)/students/[id]/detail.module.css";
 import { DateRangeFilter } from "@/components/date-range/DateRangeFilter";
 import { useDateRange } from "@/components/date-range/useDateRange";
 import { MistakesList } from "@/components/mistakes/MistakesList";
+import { TajweedSummaryBlock } from "@/components/mistakes/TajweedSummaryBlock";
+import { mistakeWordCount } from "@/lib/students/mistake-types";
 import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import { pickByGroup } from "@/lib/text/gender";
 import type { StudentHomeData } from "@/lib/student-portal/data";
@@ -88,10 +90,21 @@ export function StudentHome({ data }: { data: StudentHomeData }) {
       {data.mistakes.length > 0 && (
         <>
           <div className={styles.secTitle}>
-            <span className={styles.dot} /> 🔖 كلمات {p("تتدرّب", "تتدرّبين")} عليها ({data.mistakes.length})
+            <span className={styles.dot} /> 🔖 كلمات {p("تتدرّب", "تتدرّبين")} عليها ({mistakeWordCount(data.mistakes)})
           </div>
           <div className={styles.card}>
             <MistakesList mistakes={data.mistakes} subject={g} />
+          </div>
+        </>
+      )}
+
+      {data.tajweedSummary && (
+        <>
+          <div className={styles.secTitle}>
+            <span className={styles.dot} /> 🎯 ملخّص أخطاء التجويد
+          </div>
+          <div className={styles.card}>
+            <TajweedSummaryBlock summary={data.tajweedSummary} bare />
           </div>
         </>
       )}

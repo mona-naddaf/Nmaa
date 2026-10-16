@@ -30,7 +30,7 @@ import {
   type DirectionalPlan,
   type SecondTrackForm,
 } from "@/components/recitation/RecitationEntry";
-import type { ActiveMistake } from "@/lib/students/mistake-types";
+import { mistakeWordCount, type ActiveMistake } from "@/lib/students/mistake-types";
 import { GoalLine } from "@/components/goal/GoalLine";
 import type { GoalView } from "@/lib/goals/goal";
 import { SimilarScope } from "./SimilarScope";
@@ -89,9 +89,6 @@ const QUALITY_LABEL: Record<Quality, string> = {
   NEEDS_REPEAT: "يحتاج إعادة",
 };
 const QUALITY_BADGE: Record<Quality, string> = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" };
-
-/** How many words the list is about (a word with several detailed mistakes counts once). */
-const mistakeWords = (list: ActiveMistake[]) => new Set(list.map((m) => `${m.surahNumber}:${m.ayah}:${m.wordPosition}`)).size;
 
 export function DetailView({
   student,
@@ -623,7 +620,7 @@ export function DetailView({
       </Collapsible>
 
       {mistakes.length > 0 && (
-        <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakeWords(mistakes), WORDS)} {...section("mistakes")}>
+        <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakeWordCount(mistakes), WORDS)} {...section("mistakes")}>
           <MistakesList
             mistakes={mistakes}
             subject={groupGender}

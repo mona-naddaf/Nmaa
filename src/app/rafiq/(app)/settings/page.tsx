@@ -6,9 +6,9 @@ import { currentCommitDays } from "@/lib/rafiq/commitment";
 
 export default async function RafiqSettingsPage() {
   const user = await requireRafiqUser();
-  const { recoveryCodeCreatedAt, reviewReminderDays, agendaEnabled, summaryEnabled, mutashabihatEnabled, ...placeRow } = await prisma.rafiqUser.findUniqueOrThrow({
+  const { recoveryCodeCreatedAt, reviewReminderDays, agendaEnabled, summaryEnabled, mutashabihatEnabled, tajweedDetailEnabled, ...placeRow } = await prisma.rafiqUser.findUniqueOrThrow({
     where: { id: user.id },
-    select: { recoveryCodeCreatedAt: true, reviewReminderDays: true, agendaEnabled: true, summaryEnabled: true, mutashabihatEnabled: true, ...PLACE_SELECT },
+    select: { recoveryCodeCreatedAt: true, reviewReminderDays: true, agendaEnabled: true, summaryEnabled: true, mutashabihatEnabled: true, tajweedDetailEnabled: true, ...PLACE_SELECT },
   });
   return (
     <SettingsView
@@ -20,6 +20,7 @@ export default async function RafiqSettingsPage() {
       agendaEnabled={agendaEnabled}
       summaryEnabled={summaryEnabled}
       similarEnabled={mutashabihatEnabled}
+      tajweedEnabled={tajweedDetailEnabled}
       place={locationOf(placeRow)}
       commitDays={await currentCommitDays(user.id)}
     />

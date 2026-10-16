@@ -173,3 +173,13 @@ export async function setMutashabihatEnabledAction(_prev: SettingsState, formDat
   revalidatePath("/rafiq", "layout");
   return { ok: on ? "تم تفعيل المتشابهات ✓" : "تم إيقاف المتشابهات ✓" };
 }
+
+/** «أخطاء التجويد المفصّلة» in her sessions and home practice: on or off (off by default). */
+export async function setTajweedDetailEnabledAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const user = await getRafiqUser();
+  if (!user) return SIGNED_OUT;
+  const on = formData.get("on") === "1";
+  await prisma.rafiqUser.update({ where: { id: user.id }, data: { tajweedDetailEnabled: on } });
+  revalidatePath("/rafiq", "layout");
+  return { ok: on ? "تم تفعيل أخطاء التجويد المفصّلة ✓" : "تم إيقاف أخطاء التجويد المفصّلة ✓" };
+}

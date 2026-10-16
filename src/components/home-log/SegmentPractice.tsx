@@ -9,6 +9,10 @@ import { TargetProgress, segmentTitle } from "./TargetProgress";
 import { useSurahText } from "./useSurahText";
 import { quranFont } from "@/components/mistakes/quran-font";
 import { FlaggableAyah, useWordMenu, type WordFlags } from "@/components/mistakes/FlaggableAyah";
+import mistakeStyles from "@/components/mistakes/mistakes.module.css";
+import { TajweedSheet, type SheetTarget } from "@/components/mistakes/TajweedSheet";
+import { splitAyah } from "@/lib/quran-data/words";
+import type { DetailError, DetailFlags } from "@/lib/tajweed/spots";
 import type { MistakeType } from "@/lib/students/mistake-types";
 import type { RecitationSubject } from "@/lib/recitation/logic";
 import { ShownDay } from "@/components/shown-day/ShownDay";
@@ -56,7 +60,19 @@ export function SegmentPractice({
   listHref: string;
   // self-marked mistakes: the ayat's words become tappable, and a pick is
   // handed to onFlag (which saves it). Absent = plain text, as before.
-  marking?: { flags: WordFlags; onFlag: (key: string, type: MistakeType | null) => void; subject: RecitationSubject; hint?: string };
+  marking?: {
+    flags: WordFlags;
+    onFlag: (key: string, type: MistakeType | null) => void;
+    subject: RecitationSubject;
+    hint?: string;
+    // detailed tajweed marks (lib/tajweed): on a letter or between words,
+    // each change saved by the caller; absent = word marks only, as before
+    detail?: {
+      flags: DetailFlags;
+      onChange: (key: string, errors: DetailError[]) => void;
+      onMasterSpot: (key: string) => void;
+    };
+  };
   // anything to show right after each ayah number (e.g. a note marker)
   afterAyah?: (ayah: number) => ReactNode;
 }) {
@@ -64,6 +80,15 @@ export function SegmentPractice({
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const ayahs = useSurahText(s.surahNumber);
   const menu = useWordMenu();
+  // the letter / gap sheet (detailed tajweed marks), one at a time
+  const [sheet, setSheet] = useState<SheetTarget | null>(null);
+  const detail = marking?.detail;
+  /** An ayah's last word, for the gap after it. */
+  const lastWordOf = (a: number) => {
+    const words = ayahs ? splitAyah(s.surahNumber, a, ayahs[a - 1] ?? "").words : [];
+    const w = words[words.length - 1];
+    return w ? { position: w.position, text: w.text, marks: w.marks } : null;
+  };
 
   // counts shown on screen: updated instantly on tap, reverted if refused
   const [counts, setCounts] = useState<Record<Key, HomeCounts>>(() => {
@@ -175,7 +200,7 @@ export function SegmentPractice({
       <div className={`${styles.section}`}>
         {Array.from({ length: s.toAyah - s.fromAyah + 1 }, (_, i) => s.fromAyah + i).map((a) => (
           <div key={a} className={styles.ayah}>
-            <div className={`${styles.ayahText} ${quranFont.className}`} lang="ar">
+            <div className={`${styles.ayahText} ${quranFont.className} ${detail ? mistakeStyles.detailMode : ""}`} lang="ar">
               {marking && ayahs ? (
                 <FlaggableAyah
                   surahNumber={s.surahNumber}
@@ -186,6 +211,16 @@ export function SegmentPractice({
                   onFlag={marking.onFlag}
                   subject={marking.subject}
                   showNumber={false}
+                  detail={
+                    detail && {
+                      enabled: true,
+                      flags: detail.flags,
+                      lastGap: a < s.toAyah,
+                      nextAyahWord: a < s.toAyah ? (splitAyah(s.surahNumber, a + 1, ayahs[a] ?? "").words[0]?.text ?? null) : null,
+                      prevAyahLast: a > s.fromAyah ? lastWordOf(a - 1) : null,
+                      open: setSheet,
+                    }
+                  }
                 />
               ) : ayahs ? (
                 ayahs[a - 1]
@@ -225,6 +260,20 @@ export function SegmentPractice({
           </div>
         ))}
       </div>
+
+      {sheet && detail && (
+        <TajweedSheet
+          key={`${sheet.ayah}:${sheet.wordPosition}:${sheet.mode.target}`}
+          target={sheet}
+          enabled
+          flags={detail.flags}
+          onChange={detail.onChange}
+          onClose={() => setSheet(null)}
+          onSwitch={setSheet}
+          currentLabel="علاماتي هنا"
+          onMasterSpot={(key) => detail.onMasterSpot(key)}
+        />
+      )}
 
       <div className={styles.section}>
         {confirm ? (

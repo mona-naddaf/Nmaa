@@ -18,6 +18,8 @@ import { getStudentAssignments, type StudentAssignment } from "@/lib/assignments
 import { getStudentTracker, type TrackerSheet } from "@/lib/tracker/data";
 import { courseSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
 import { getStudentInfoValues, parentInfoAccess, plainValues, visibleInfoFields } from "@/lib/students/extra-info";
+import { tajweedSummaryFor } from "@/lib/tajweed/summary-data";
+import type { TajweedSummary } from "@/lib/tajweed/summary";
 import type { InfoField } from "@/lib/students/extra-info-rules";
 
 // The ONLY data source for the parent view. Every query here is keyed on the
@@ -53,6 +55,9 @@ export interface ParentViewData {
   quranPercent: number;
   // unresolved flagged words to practise at home (word, place, type, date — no teacher details)
   mistakes: ActiveMistake[];
+  // «ملخّص أخطاء التجويد» (lib/tajweed): teacher-recorded mistakes only,
+  // never her private home marks; null when off for her or nothing to count
+  tajweedSummary: TajweedSummary | null;
   history: ParentHistoryEntry[];
   attendance: { date: string; status: "IN" | "OUT" }[];
   points: { date: string; activityName: string; value: number }[];
@@ -146,6 +151,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     secondTrack: second ? { title: second.title, positionText: second.positionText } : null,
     goal: (await getStudentGoal(studentId, plan, sessions, timeZone))?.view ?? null,
     mistakes: await getActiveMistakes(studentId, plan),
+    tajweedSummary: await tajweedSummaryFor(studentId),
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
     history: groupCombos(sessions).map((s) => ({
       id: s.id,

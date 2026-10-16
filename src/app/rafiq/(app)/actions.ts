@@ -8,6 +8,10 @@ import { finishCoveredSegments } from "@/lib/rafiq/home-log";
 import { acceptSessionDay, occurredAtFor } from "@/lib/rafiq/days";
 import { advancesPosition, calculatePageRange, classifyRecitation, type RecitationSituation, type SessionType } from "@/lib/recitation/logic";
 import { validateFlaggedWords } from "@/lib/recitation/flagged-words";
+import { validateDetails } from "@/lib/tajweed/validate";
+import { isValidSpot } from "@/lib/tajweed/spots";
+import { TAJWEED_KINDS, type TajweedKind } from "@/lib/tajweed/taxonomy";
+import { rafiqTajweedOn } from "@/lib/rafiq/tajweed";
 import { planProblem, priorOverlapProblem, priorProblem, TEMPLATE_KEY_PLAN, type PriorPartial, type TemplateKey } from "@/lib/students/new-student";
 import { acceptLocalDay } from "@/lib/home-log/rules";
 import { AYAH_COUNT } from "@/lib/quran-data";
@@ -47,6 +51,8 @@ export type SaveSessionInput = {
   day: string;
   today: string;
   mistakes: unknown;
+  // detailed tajweed mistakes (lib/tajweed): only while her setting is on
+  details?: unknown;
 };
 
 export async function saveSessionAction(input: SaveSessionInput): Promise<RafiqResult> {
@@ -87,6 +93,11 @@ export async function saveSessionAction(input: SaveSessionInput): Promise<RafiqR
 
   const checked = validateFlaggedWords(input.mistakes, surahNumber, fromAyah, toAyah);
   if ("error" in checked) return { error: checked.error };
+  const checkedDetails = validateDetails(input.details, surahNumber, fromAyah, toAyah);
+  if ("error" in checkedDetails) return { error: checkedDetails.error };
+  if (checkedDetails.details.length > 0 && !(await rafiqTajweedOn(user.id))) {
+    return { error: "أخطاء التجويد المفصّلة غير مفعّلة في إعداداتك" };
+  }
 
   const recent = await prisma.rafiqSession.count({
     where: { userId: user.id, createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
@@ -120,7 +131,24 @@ export async function saveSessionAction(input: SaveSessionInput): Promise<RafiqR
             wordText: w.wordText,
             type: w.type,
             flaggedAt: occurredAt,
-          })),
+          }))
+          .concat(
+            checkedDetails.details.map((d) => ({
+              userId: user.id,
+              surahNumber,
+              ayah: d.ayah,
+              wordPosition: d.wordPosition,
+              wordText: d.wordText,
+              type: "TAJWEED" as const,
+              letter: d.letter,
+              gapAfter: d.gapAfter,
+              tajweedKind: d.kind,
+              tajweedCode: d.code,
+              confusedWith: d.confusedWith,
+              letterText: d.letterText,
+              flaggedAt: occurredAt,
+            })),
+          ),
         },
       },
     },
@@ -141,11 +169,33 @@ export async function deleteSessionAction(sessionId: string): Promise<RafiqResul
   return {};
 }
 
-/** Resolves every open flag on one word of hers — from her sessions and her home practice alike. */
-export async function resolveMistakeAction(surahNumber: number, ayah: number, wordPosition: number): Promise<{ error: string } | { ok: true }> {
+/** One detailed mistake from her list (absent: a plain word). */
+export type ResolveDetail = { letter: number; gapAfter: boolean; kind: TajweedKind; code: string };
+
+/**
+ * Resolves every open flag on one word of hers — from her sessions and her
+ * home practice alike — or, with `detail`, that one detailed mistake on its
+ * letter or gap. A plain word never takes its letters' detailed mistakes
+ * with it.
+ */
+export async function resolveMistakeAction(
+  surahNumber: number,
+  ayah: number,
+  wordPosition: number,
+  detail?: ResolveDetail,
+): Promise<{ error: string } | { ok: true }> {
   const user = await getRafiqUser();
   if (!user) return { error: SIGNED_OUT.error };
-  const where = { userId: user.id, surahNumber: Number(surahNumber), ayah: Number(ayah), wordPosition: Number(wordPosition), resolvedAt: null };
+  if (
+    detail &&
+    (!isValidSpot(detail) || (detail.letter === 0 && !detail.gapAfter) || !TAJWEED_KINDS.includes(detail.kind) || typeof detail.code !== "string")
+  ) {
+    return { error: "بيانات غير صحيحة" };
+  }
+  const spot = detail
+    ? { letter: detail.letter, gapAfter: detail.gapAfter, tajweedKind: detail.kind, tajweedCode: detail.code }
+    : { letter: 0, gapAfter: false, tajweedKind: "NONE" as const };
+  const where = { userId: user.id, surahNumber: Number(surahNumber), ayah: Number(ayah), wordPosition: Number(wordPosition), resolvedAt: null, ...spot };
   const now = new Date();
   const [fromSessions, fromHome] = await prisma.$transaction([
     prisma.rafiqMistake.updateMany({ where, data: { resolvedAt: now } }),

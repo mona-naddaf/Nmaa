@@ -7,7 +7,10 @@ import { effectiveTargets } from "@/lib/home-log/data";
 import { HOME_LIMITS, HOME_TAP_KINDS, validateRange, type HomeTapKind } from "@/lib/home-log/rules";
 import { studentTimeZone } from "@/lib/time/course-zone";
 import { dateOnly, zoneToday } from "@/lib/time/zone";
-import { checkMark, resolveHomeMark, setHomeMark, type MarkInput } from "@/lib/home-log/self-marks";
+import { checkMark, resolveHomeDetail, resolveHomeMark, setHomeMark, setHomeSpot, type MarkInput } from "@/lib/home-log/self-marks";
+import { checkDetail, validateDetails } from "@/lib/tajweed/validate";
+import { isValidSpot } from "@/lib/tajweed/spots";
+import { TAJWEED_KINDS, type TajweedKind } from "@/lib/tajweed/taxonomy";
 
 // The student's own home log. Every action re-checks her session, that the
 // course has the home log on, and that the segment is hers. Nothing here
@@ -158,6 +161,76 @@ export async function resolveHomeWordAction(surahNumber: number, ayah: number, w
   if (!studentId) return { error: MARKS_OFF.error };
   const done = await resolveHomeMark(studentId, Number(surahNumber), Number(ayah), Number(wordPosition));
   if (!done) return { error: "هذه الكلمة غير موجودة في قائمتك" };
+  refresh();
+  return { ok: true };
+}
+
+// ---------- her detailed tajweed marks (lib/tajweed), private to her ----------
+
+const DETAIL_OFF = { error: "أخطاء التجويد المفصّلة غير متاحة حاليًا" };
+
+export type HomeSpotInput = {
+  segmentId: string;
+  ayah: number;
+  wordPosition: number;
+  letter: number;
+  gapAfter: boolean;
+  /** everything on that letter or gap now (empty: none left) */
+  errors: { kind: TajweedKind; code: string; confusedWith: string | null }[];
+};
+
+/**
+ * Her marks on one letter or gap of an active passage of hers become
+ * exactly `errors`. Only while home marking, the course switch and her own
+ * «محاسبة على التجويد المفصّل» are all on (StudentAccess.tajweedDetail).
+ */
+export async function markHomeSpotAction(input: HomeSpotInput): Promise<HomeResult> {
+  const access = await getStudentAccess();
+  if (!access?.tajweedDetail) return DETAIL_OFF;
+  const segment = await prisma.homeSegment.findFirst({
+    where: { id: String(input?.segmentId ?? ""), studentId: access.studentId, finishedAt: null },
+    select: { surahNumber: true, fromAyah: true, toAyah: true },
+  });
+  if (!segment) return { error: "هذا المقطع غير متاح" };
+  const spot = { ayah: input?.ayah, wordPosition: input?.wordPosition, letter: input?.letter ?? 0, gapAfter: input?.gapAfter === true };
+  // the spot itself (also when nothing is left on it)
+  const base = checkDetail({ ...spot, kind: "HUKM", code: "", confusedWith: null }, segment.surahNumber, segment.fromAyah, segment.toAyah);
+  if (!base) return { error: "حرف أو موضع خارج المقطع" };
+  const errors = Array.isArray(input?.errors) ? input.errors : [];
+  const checked = validateDetails(
+    errors.map((e) => ({ ...spot, kind: e?.kind, code: e?.code, confusedWith: e?.confusedWith ?? null })),
+    segment.surahNumber,
+    segment.fromAyah,
+    segment.toAyah,
+  );
+  if ("error" in checked) return { error: checked.error };
+  const r = await setHomeSpot(access.studentId, segment.surahNumber, base, checked.details);
+  if (!r.error) refresh();
+  return r;
+}
+
+/**
+ * «تم الإتقان» on her detailed marks: one of them (kind + code), or every
+ * one on that letter or gap. Allowed whenever home marking is on, so marks
+ * made earlier can still be mastered after detailed tajweed is turned off.
+ */
+export async function resolveHomeDetailAction(input: {
+  surahNumber: number;
+  ayah: number;
+  wordPosition: number;
+  letter: number;
+  gapAfter: boolean;
+  kind?: TajweedKind;
+  code?: string;
+}): Promise<{ error: string } | { ok: true }> {
+  const studentId = await markingStudent();
+  if (!studentId) return { error: MARKS_OFF.error };
+  const spot = { letter: Number(input?.letter ?? 0), gapAfter: input?.gapAfter === true };
+  if (!isValidSpot(spot) || (spot.letter === 0 && !spot.gapAfter)) return { error: "بيانات غير صحيحة" };
+  const only = input?.kind !== undefined ? { kind: input.kind, code: String(input.code ?? "") } : undefined;
+  if (only && !TAJWEED_KINDS.includes(only.kind)) return { error: "بيانات غير صحيحة" };
+  const done = await resolveHomeDetail(studentId, Number(input?.surahNumber), Number(input?.ayah), Number(input?.wordPosition), spot, only);
+  if (!done) return { error: "هذا الخطأ غير موجود في قائمتك" };
   refresh();
   return { ok: true };
 }

@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getRafiqUser } from "@/lib/rafiq/session";
 import { getRafiqTargets } from "@/lib/rafiq/home-log";
-import { setRafiqMark } from "@/lib/rafiq/home-mistakes";
+import { resolveRafiqHomeSpot, setRafiqHomeSpot, setRafiqMark } from "@/lib/rafiq/home-mistakes";
+import { rafiqTajweedOn } from "@/lib/rafiq/tajweed";
+import { checkDetail, validateDetails } from "@/lib/tajweed/validate";
+import { isValidSpot } from "@/lib/tajweed/spots";
+import type { TajweedKind } from "@/lib/tajweed/taxonomy";
 import { checkMark, type MarkInput } from "@/lib/home-log/self-marks";
 import { acceptLocalDay, HOME_LIMITS, HOME_TAP_KINDS, validateRange, validateTargets, type HomeTapKind, type HomeTargets } from "@/lib/home-log/rules";
 
@@ -154,4 +158,61 @@ export async function markWordAction(input: MarkInput): Promise<HomeResult> {
   const mark = checkMark(segment, input);
   if ("error" in mark) return { error: mark.error };
   return setRafiqMark(uid, segment.surahNumber, mark);
+}
+
+// ---------- her detailed tajweed marks (lib/tajweed) ----------
+
+/**
+ * Her marks on one letter or gap of an active passage of hers become
+ * exactly `errors`. Only while her «أخطاء التجويد المفصّلة» setting is on.
+ */
+export async function markSpotAction(input: {
+  segmentId: string;
+  ayah: number;
+  wordPosition: number;
+  letter: number;
+  gapAfter: boolean;
+  errors: { kind: TajweedKind; code: string; confusedWith: string | null }[];
+}): Promise<HomeResult> {
+  const uid = await userId();
+  if (!uid) return SIGNED_OUT;
+  if (!(await rafiqTajweedOn(uid))) return { error: "أخطاء التجويد المفصّلة غير مفعّلة في إعداداتك" };
+  const segment = await prisma.rafiqHomeSegment.findFirst({
+    where: { id: String(input?.segmentId ?? ""), userId: uid, finishedAt: null },
+    select: { surahNumber: true, fromAyah: true, toAyah: true },
+  });
+  if (!segment) return { error: "هذا المقطع غير متاح" };
+  const spot = { ayah: input?.ayah, wordPosition: input?.wordPosition, letter: input?.letter ?? 0, gapAfter: input?.gapAfter === true };
+  // the spot itself (also when nothing is left on it)
+  const base = checkDetail({ ...spot, kind: "HUKM", code: "", confusedWith: null }, segment.surahNumber, segment.fromAyah, segment.toAyah);
+  if (!base) return { error: "حرف أو موضع خارج المقطع" };
+  const errors = Array.isArray(input?.errors) ? input.errors : [];
+  const checked = validateDetails(
+    errors.map((e) => ({ ...spot, kind: e?.kind, code: e?.code, confusedWith: e?.confusedWith ?? null })),
+    segment.surahNumber,
+    segment.fromAyah,
+    segment.toAyah,
+  );
+  if ("error" in checked) return { error: checked.error };
+  const r = await setRafiqHomeSpot(uid, segment.surahNumber, base, checked.details);
+  if (!r.error) refresh();
+  return r;
+}
+
+/** «تم الإتقان» from her practice screen: every open detailed mark on one letter or gap. */
+export async function resolveSpotAction(input: {
+  surahNumber: number;
+  ayah: number;
+  wordPosition: number;
+  letter: number;
+  gapAfter: boolean;
+}): Promise<{ error: string } | { ok: true }> {
+  const uid = await userId();
+  if (!uid) return { error: SIGNED_OUT.error };
+  const spot = { letter: Number(input?.letter ?? 0), gapAfter: input?.gapAfter === true };
+  if (!isValidSpot(spot) || (spot.letter === 0 && !spot.gapAfter)) return { error: "بيانات غير صحيحة" };
+  const done = await resolveRafiqHomeSpot(uid, Number(input?.surahNumber), Number(input?.ayah), Number(input?.wordPosition), spot);
+  if (!done) return { error: "هذا الخطأ غير موجود في قائمتك" };
+  refresh();
+  return { ok: true };
 }

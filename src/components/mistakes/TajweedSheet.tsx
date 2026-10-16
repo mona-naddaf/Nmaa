@@ -47,6 +47,8 @@ export function TajweedSheet({
   onToggleMastered,
   onClose,
   onSwitch,
+  currentLabel = "في هذا التسميع",
+  onMasterSpot,
 }: {
   target: SheetTarget;
   /** new detailed mistakes may be added (off: earlier ones are only shown and mastered) */
@@ -59,6 +61,10 @@ export function TajweedSheet({
   onClose: () => void;
   /** open another spot in the sheet (a gap beside the word) */
   onSwitch: (target: SheetTarget) => void;
+  /** the heading over the spot's own mistakes (a session form: this recitation) */
+  currentLabel?: string;
+  /** saved marks (home practice): «تم الإتقان» for everything on the spot */
+  onMasterSpot?: (key: string) => void;
 }) {
   const units = useMemo(() => splitLetters(target.wordText), [target.wordText]);
   const shown = useMemo(() => displayUnits(units), [units]);
@@ -255,7 +261,7 @@ export function TajweedSheet({
 
         {key && errors.length > 0 && (
           <div className={styles.sheetSection}>
-            <div className={styles.sheetLabel}>في هذا التسميع</div>
+            <div className={styles.sheetLabel}>{currentLabel}</div>
             {errors.map((e) => (
               <div key={`${e.kind}:${e.code}`} className={styles.currentRow}>
                 <span>{detailText(e)}</span>
@@ -264,6 +270,11 @@ export function TajweedSheet({
                 </button>
               </div>
             ))}
+            {onMasterSpot && (
+              <button type="button" className={`pressable ${styles.menuMastered}`} onClick={() => onMasterSpot(key)}>
+                تم الإتقان ✓
+              </button>
+            )}
           </div>
         )}
 

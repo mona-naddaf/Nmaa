@@ -11,6 +11,8 @@ import type { GroupGender } from "@/lib/text/gender";
 import { getStudentGoal } from "@/lib/goals/data";
 import { studentTimeZone } from "@/lib/time/course-zone";
 import type { GoalView } from "@/lib/goals/goal";
+import { tajweedSummaryFor } from "@/lib/tajweed/summary-data";
+import type { TajweedSummary } from "@/lib/tajweed/summary";
 
 // The ONLY data source for the student's own page. Every query is keyed on
 // the single studentId from the student session, with explicit selects:
@@ -32,6 +34,9 @@ export interface StudentHomeData {
   // the bars the course has turned on (may be empty)
   progressBars: ProgressBar[];
   mistakes: ActiveMistake[];
+  // «ملخّص أخطاء التجويد» (lib/tajweed): her teachers' records only, never
+  // her own home marks; null when off for her or nothing to count
+  tajweedSummary: TajweedSummary | null;
   points: { date: string; activityName: string; value: number }[];
 }
 
@@ -116,6 +121,7 @@ export async function getStudentHomeData(studentId: string): Promise<StudentHome
     goal: (await getStudentGoal(studentId, plan, sessions, await studentTimeZone(studentId)))?.view ?? null,
     progressBars,
     mistakes: await getActiveMistakes(studentId, plan),
+    tajweedSummary: await tajweedSummaryFor(studentId),
     points: pointsLogs.map((p) => ({
       date: p.day.toISOString().slice(0, 10),
       // bonus notes are teacher-written and deliberately not selected

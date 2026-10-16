@@ -5,7 +5,7 @@ import styles from "@/components/home-log/home-log.module.css";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import type { ActiveMistake } from "@/lib/students/mistake-types";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
-import { resolveHomeWordAction } from "./actions";
+import { resolveHomeDetailAction, resolveHomeWordAction } from "./actions";
 
 // «كلماتي للمراجعة»: the words she marked herself while practising at home.
 // Private to her: separate from the official list her teachers keep.
@@ -28,7 +28,18 @@ export function SelfMarksList({ mistakes, g }: { mistakes: ActiveMistake[]; g: G
             mistakes={mistakes}
             subject={{ self: g === "GIRLS" ? "FEMALE" : "MALE" }}
             onResolve={async (m) => {
-              const r = await resolveHomeWordAction(m.surahNumber, m.ayah, m.wordPosition);
+              // a detailed mark: just that one (its letter or gap may hold others)
+              const r = m.tajweed
+                ? await resolveHomeDetailAction({
+                    surahNumber: m.surahNumber,
+                    ayah: m.ayah,
+                    wordPosition: m.wordPosition,
+                    letter: m.letter ?? 0,
+                    gapAfter: m.gapAfter ?? false,
+                    kind: m.tajweed.kind,
+                    code: m.tajweed.code,
+                  })
+                : await resolveHomeWordAction(m.surahNumber, m.ayah, m.wordPosition);
               if (!("error" in r)) router.refresh();
               return r;
             }}

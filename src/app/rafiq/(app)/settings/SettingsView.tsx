@@ -22,6 +22,7 @@ import {
   setPlaceAction,
   setSummaryEnabledAction,
   setMutashabihatEnabledAction,
+  setTajweedDetailEnabledAction,
   setReviewRemindersAction,
   signOutEverywhereAction,
   updateProfileAction,
@@ -38,11 +39,13 @@ type Props = {
   agendaEnabled: boolean;
   summaryEnabled: boolean;
   similarEnabled: boolean;
+  // «أخطاء التجويد المفصّلة» (off by default)
+  tajweedEnabled: boolean;
   // her place for prayer times (null: none)
   place: PrayerLocation | null;
 };
 
-export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled, summaryEnabled, similarEnabled, place }: Props) {
+export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled, summaryEnabled, similarEnabled, tajweedEnabled, place }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
 
   return (
@@ -67,6 +70,7 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
       </div>
       <Summaries p={p} enabled={summaryEnabled} />
       <Similar p={p} enabled={similarEnabled} />
+      <TajweedDetail p={p} enabled={tajweedEnabled} />
       <Password p={p} />
       <Recovery p={p} gender={gender} createdAt={recoveryCodeCreatedAt} />
       <div className={hl.section}>
@@ -281,6 +285,32 @@ function Similar({ p, enabled }: { p: P; enabled: boolean }) {
       <label className={styles.confirmRow}>
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
         إظهار المتشابهات
+      </label>
+      <Feedback state={state} />
+      <button type="submit" className={hl.primaryBtn} disabled={pending}>
+        {pending ? "جارٍ الحفظ…" : "حفظ"}
+      </button>
+    </form>
+  );
+}
+
+function TajweedDetail({ p, enabled }: { p: P; enabled: boolean }) {
+  const [state, action, pending] = useActionState<SettingsState, FormData>(setTajweedDetailEnabledAction, null);
+  const [on, setOn] = useState(enabled);
+  return (
+    <form className={hl.section} action={action}>
+      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+        أخطاء التجويد المفصّلة
+      </div>
+      <p className={hl.muted} style={{ marginTop: 0 }}>
+        عند تحديد خطأ تجويد في جلساتك أو في «حفظي في البيت» {p("تختار", "تختارين")} مخرجًا أو صفة أو حكمًا، فتنقسم الكلمة إلى حروفها
+        {p(" وتحدّد", " وتحدّدين")} الحرف نفسه، أو الخطأ بين كلمتين (كأحكام النون والميم والوقف والابتداء). ويظهر في «صفحتي» ملخّص أخطائك
+        المفصّلة. رواية حفص عن عاصم من طريق الشاطبية. عند الإيقاف تبقى الأخطاء المفصّلة المحفوظة ظاهرة بتفاصيلها.
+      </p>
+      <input type="hidden" name="on" value={on ? "1" : "0"} />
+      <label className={styles.confirmRow}>
+        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+        تفعيل أخطاء التجويد المفصّلة
       </label>
       <Feedback state={state} />
       <button type="submit" className={hl.primaryBtn} disabled={pending}>

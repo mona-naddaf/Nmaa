@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { startTransition, useActionState, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { WeekdayPicker } from "@/components/student-work/TrackerControls";
 import { localToday } from "@/lib/home-log/rules";
@@ -93,6 +93,21 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
 }
 
 type P = (m: string, f: string) => string;
+
+/**
+ * Submits a settings form to its action without React 19's automatic form
+ * reset: a form given `action={…}` is reset once the action finishes, which
+ * puts a controlled checkbox (and a field's defaultValue) back to what it was
+ * when the page loaded, so the saved value only showed after a reload.
+ * Pending state and feedback still come from useActionState.
+ */
+function submitWithoutReset(action: (formData: FormData) => void) {
+  return (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(() => action(formData));
+  };
+}
 
 function Feedback({ state }: { state: SettingsState }) {
   if (state?.error) return <div className={hl.err} style={{ marginBottom: 10 }}>{state.error}</div>;
@@ -190,7 +205,7 @@ function ReviewReminders({ p, days }: { p: P; days: number | null }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(setReviewRemindersAction, null);
   const [on, setOn] = useState(days !== null);
   return (
-    <form className={hl.section} action={action}>
+    <form className={hl.section} onSubmit={submitWithoutReset(action)}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         تذكير المراجعة
       </div>
@@ -222,7 +237,7 @@ function Agenda({ p, enabled }: { p: P; enabled: boolean }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(setAgendaEnabledAction, null);
   const [on, setOn] = useState(enabled);
   return (
-    <form className={hl.section} action={action}>
+    <form className={hl.section} onSubmit={submitWithoutReset(action)}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         الجدول اليومي
       </div>
@@ -247,7 +262,7 @@ function Summaries({ p, enabled }: { p: P; enabled: boolean }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(setSummaryEnabledAction, null);
   const [on, setOn] = useState(enabled);
   return (
-    <form className={hl.section} action={action}>
+    <form className={hl.section} onSubmit={submitWithoutReset(action)}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         المحصّلات
       </div>
@@ -272,7 +287,7 @@ function Similar({ p, enabled }: { p: P; enabled: boolean }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(setMutashabihatEnabledAction, null);
   const [on, setOn] = useState(enabled);
   return (
-    <form className={hl.section} action={action}>
+    <form className={hl.section} onSubmit={submitWithoutReset(action)}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         المتشابهات
       </div>
@@ -298,7 +313,7 @@ function TajweedDetail({ p, enabled }: { p: P; enabled: boolean }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(setTajweedDetailEnabledAction, null);
   const [on, setOn] = useState(enabled);
   return (
-    <form className={hl.section} action={action}>
+    <form className={hl.section} onSubmit={submitWithoutReset(action)}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         أخطاء التجويد المفصّلة
       </div>

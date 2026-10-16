@@ -10,6 +10,7 @@
 }
 
 .genderSwitch label {
+  position: relative;
   flex: 1;
   text-align: center;
   padding: 10px;
@@ -21,8 +22,14 @@
   margin: 0;
 }
 
+/* hidden inside its own label: without a size of its own it took the
+   form fields' width: 100% of the page and stuck out past the left edge */
 .genderSwitch input {
   position: absolute;
+  inset: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -68,12 +75,19 @@
 }
 
 /* never shown to people; only form-filling bots fill it */
+/* the sign-up form's spam trap: hidden in place, never moved off-screen
+   (left: -10000px widened the right-to-left page to ~10,000px, and phones
+   zoomed out to fit it) */
 .trap {
   position: absolute;
-  left: -10000px;
   width: 1px;
   height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
   overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .codeNote {

@@ -4,13 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import shell from "@/app/(dashboard)/shell.module.css";
 
-export function RafiqTabs() {
+// family: «عائلتي» (only while «العائلة» is on, src/lib/family/enabled.ts)
+export function RafiqTabs({ family = false }: { family?: boolean }) {
   const pathname = usePathname();
   const tabs = [
     { href: "/rafiq", label: "صفحتي", active: pathname === "/rafiq" },
     { href: "/rafiq/home-log", label: "حفظي في البيت", active: pathname.startsWith("/rafiq/home-log") },
     { href: "/rafiq/tracker", label: "جدول المتابعة", active: pathname.startsWith("/rafiq/tracker") },
     { href: "/rafiq/calendar", label: "التقويم", active: pathname.startsWith("/rafiq/calendar") },
+    ...(family ? [{ href: "/rafiq/family", label: "عائلتي", active: pathname.startsWith("/rafiq/family") }] : []),
     {
       href: "/rafiq/notes",
       label: "ملاحظاتي",

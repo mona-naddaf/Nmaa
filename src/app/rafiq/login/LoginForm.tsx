@@ -6,7 +6,7 @@ import { BrandLogo } from "@/components/brand/BrandLogo";
 import login from "@/app/login/login.module.css";
 import { rafiqLoginAction, type AuthState } from "../actions";
 
-export function RafiqLoginForm() {
+export function RafiqLoginForm({ next = null }: { next?: string | null }) {
   const [state, formAction, pending] = useActionState<AuthState, FormData>(rafiqLoginAction, null);
 
   return (
@@ -19,6 +19,7 @@ export function RafiqLoginForm() {
 
         <div className={login.card}>
           <form action={formAction}>
+            {next && <input type="hidden" name="next" value={next} />}
             <div className={login.field}>
               <label htmlFor="email">البريد الإلكتروني</label>
               <input id="email" name="email" type="email" placeholder="name@example.com" autoComplete="email" required />
@@ -33,7 +34,7 @@ export function RafiqLoginForm() {
             </button>
           </form>
           <div className={login.linkRow}>
-            ليس لديك حساب؟ <Link href="/rafiq/signup">إنشاء حساب</Link>
+            ليس لديك حساب؟ <Link href={next ? `/rafiq/signup?next=${encodeURIComponent(next)}` : "/rafiq/signup"}>إنشاء حساب</Link>
           </div>
           <div className={login.linkRow} style={{ marginTop: 6 }}>
             <Link href="/rafiq/recover">نسيتُ كلمة المرور</Link>

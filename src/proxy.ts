@@ -5,6 +5,8 @@ import { BOARD_COOKIE_NAME, verifyBoardToken } from "@/lib/auth/board-token";
 import { STUDENT_COOKIE_NAME, verifyStudentToken } from "@/lib/auth/student-token";
 import { RAFIQ_COOKIE_NAME, verifyRafiqToken } from "@/lib/rafiq/token";
 import { rafiqEnabled } from "@/lib/rafiq/enabled";
+import { familyEnabled } from "@/lib/family/enabled";
+import { safeNext } from "@/lib/family/rules";
 
 // Settings, parent codes and the student archive are supervisor-only.
 // (Every page and action re-checks as well.)
@@ -39,11 +41,19 @@ export async function proxy(request: NextRequest) {
   for (const area of CODE_AREAS) {
     if (pathname === area.base || pathname.startsWith(`${area.base}/`)) {
       if (area.enabled && !area.enabled()) return NextResponse.redirect(new URL("/", request.url));
+      // «العائلة» (src/lib/family) lives inside «رفيق الحفظ» and has its own switch
+      if ((pathname === "/rafiq/family" || pathname.startsWith("/rafiq/family/")) && !familyEnabled()) {
+        return NextResponse.redirect(new URL("/rafiq", request.url));
+      }
       const publicPages = ["login", ...(area.publicPages ?? [])].map((p) => `${area.base}/${p}`);
       if (publicPages.includes(pathname)) return NextResponse.next();
       const raw = request.cookies.get(area.cookie)?.value;
       if (!raw || !(await area.verify(raw))) {
-        return NextResponse.redirect(new URL(`${area.base}/login`, request.url));
+        const login = new URL(`${area.base}/login`, request.url);
+        // an invite link opened while signed out comes back to it after login or sign-up
+        const next = familyEnabled() ? safeNext(pathname + request.nextUrl.search) : null;
+        if (next) login.searchParams.set("next", next);
+        return NextResponse.redirect(login);
       }
       return NextResponse.next();
     }

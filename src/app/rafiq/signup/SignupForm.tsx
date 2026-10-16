@@ -11,7 +11,7 @@ import { PrivacyNote } from "../PrivacyNote";
 import { SignedInNote } from "../SignedInNote";
 import { ACCOUNT_LIMITS } from "@/lib/rafiq/rules";
 
-export function SignupForm({ signedIn }: { signedIn: boolean }) {
+export function SignupForm({ signedIn, next = null }: { signedIn: boolean; next?: string | null }) {
   const [state, formAction, pending] = useActionState<AuthState, FormData>(rafiqSignupAction, null);
 
   return (
@@ -24,7 +24,7 @@ export function SignupForm({ signedIn }: { signedIn: boolean }) {
 
         <div className={login.card}>
           {state?.recoveryCode ? (
-            <RecoveryCodeCard code={state.recoveryCode} gender={state.gender ?? null} continueHref="/rafiq" continueLabel="ابدأ" />
+            <RecoveryCodeCard code={state.recoveryCode} gender={state.gender ?? null} continueHref={next ?? "/rafiq"} continueLabel={next ? "متابعة الانضمام إلى العائلة" : "ابدأ"} />
           ) : signedIn ? (
             <SignedInNote />
           ) : (
@@ -77,7 +77,7 @@ export function SignupForm({ signedIn }: { signedIn: boolean }) {
                 </button>
               </form>
               <div className={login.linkRow}>
-                لديك حساب؟ <Link href="/rafiq/login">تسجيل الدخول</Link>
+                لديك حساب؟ <Link href={next ? `/rafiq/login?next=${encodeURIComponent(next)}` : "/rafiq/login"}>تسجيل الدخول</Link>
               </div>
               <div className={login.adminToggle}>
                 <Link href="/">→ رجوع للصفحة الرئيسية</Link>

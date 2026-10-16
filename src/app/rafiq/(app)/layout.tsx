@@ -5,6 +5,7 @@ import { rafiqLogoutAction } from "../actions";
 import { RafiqTabs } from "./RafiqTabs";
 import { getNoteSummary } from "@/lib/rafiq/notes";
 import { NotesProvider } from "./notes/NotesProvider";
+import { familyEnabled } from "@/lib/family/enabled";
 
 // Shell for every signed-in «رفيق الحفظ» page. Later phases add their tabs
 // in RafiqTabs and their pages next to page.tsx.
@@ -19,7 +20,7 @@ export default async function RafiqAreaLayout({ children }: { children: React.Re
         <div className={shell.brand}>
           <BrandLogo variant="header" priority />
         </div>
-        <RafiqTabs />
+        <RafiqTabs family={familyEnabled()} />
         <div className={shell.who}>
           <span>
             {user.name && (

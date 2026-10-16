@@ -1,0 +1,139 @@
+/* «العائلة» (step 2): only what the Rafiq and home-log styles don't cover */
+
+.cards {
+  display: grid;
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.card:hover {
+  border-color: var(--sage-deep);
+}
+
+.cardTitle {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.cardMeta {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 4px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.back {
+  font-size: 13px;
+  color: var(--sage-deep);
+}
+
+.list {
+  display: grid;
+  gap: 0;
+}
+
+.row {
+  display: grid;
+  gap: 6px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.rowHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.name {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--cream);
+  color: var(--ink-soft);
+}
+
+.tagStrong {
+  composes: tag;
+  background: var(--sage-deep);
+  color: #fff;
+}
+
+.email {
+  font-size: 12px;
+  color: var(--ink-soft);
+  direction: ltr;
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  font-size: 13px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 16px;
+  letter-spacing: 1px;
+  direction: ltr;
+  color: var(--ink);
+}
+
+.codeEnded {
+  composes: code;
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+
+.confirm {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--cream);
+  font-size: 13px;
+}

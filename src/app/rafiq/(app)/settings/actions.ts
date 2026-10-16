@@ -3,11 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { hashPassword } from "@/lib/auth/password";
 import { createRafiqSession, destroyRafiqSession } from "@/lib/rafiq/session";
 import { resolveSubject } from "@/lib/rafiq/subject";
 import { newRecoveryCode } from "@/lib/rafiq/recovery";
-import { limited, record, TOO_MANY } from "@/lib/rafiq/limits";
+import { checkPassword } from "@/lib/rafiq/password-check";
 import { cleanName, DELETE_CONFIRM_WORD, parseGender, passwordProblem } from "@/lib/rafiq/rules";
 import { validateDays } from "@/lib/tracker/rules";
 import { acceptLocalDay } from "@/lib/home-log/rules";
@@ -23,17 +23,6 @@ import { placeColumns } from "@/lib/prayer/location";
 // per-account limit).
 
 export type SettingsState = { error?: string; ok?: string; recoveryCode?: string } | null;
-
-/** Her current password is right (and she hasn't run out of attempts). */
-async function checkPassword(user: { id: string; email: string }, password: string): Promise<string | null> {
-  if (await limited("account", user.email)) return TOO_MANY;
-  const row = await prisma.rafiqUser.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
-  if (!row?.passwordHash || !(await verifyPassword(password, row.passwordHash))) {
-    await record("account", user.email);
-    return "كلمة المرور الحالية غير صحيحة";
-  }
-  return null;
-}
 
 export async function updateProfileAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
   const user = await resolveSubject(null, "self");
@@ -95,13 +84,14 @@ export async function deleteAccountAction(_prev: SettingsState, formData: FormDa
   if (String(formData.get("confirmWord") ?? "").trim() !== DELETE_CONFIRM_WORD) {
     return { error: `يُرجى كتابة كلمة «${DELETE_CONFIRM_WORD}» للتأكيد` };
   }
+  const wrong = await checkPassword(user.account, String(formData.get("current") ?? ""));
+  if (wrong) return { error: wrong };
   // «العائلة»: a founder hands the role over or deletes the family first
-  // (Family.founderId is Restrict, so the delete below would fail anyway)
+  // (Family.founderId is Restrict, so the delete below would fail anyway).
+  // Only after the password, so nothing about her families shows before it.
   if ((await prisma.family.count({ where: { founderId: user.id } })) > 0) {
     return { error: "يُرجى نقل دور المؤسِّس في عائلتك إلى بالغ آخر أو حذف العائلة قبل حذف الحساب" };
   }
-  const wrong = await checkPassword(user.account, String(formData.get("current") ?? ""));
-  if (wrong) return { error: wrong };
   // every Rafiq table hangs off RafiqUser with onDelete: Cascade
   await prisma.rafiqUser.delete({ where: { id: user.id } });
   await destroyRafiqSession();

@@ -5,6 +5,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { rafiqEnabled } from "@/lib/rafiq/enabled";
+import { familyEnabled } from "@/lib/family/enabled";
+import { safeNext } from "@/lib/family/rules";
 import { createRafiqSession, destroyRafiqSession } from "@/lib/rafiq/session";
 import { newRecoveryCode, normalizeRecoveryCode } from "@/lib/rafiq/recovery";
 import { limited, record, TOO_MANY, TOO_MANY_SIGNUPS } from "@/lib/rafiq/limits";
@@ -88,7 +90,8 @@ export async function rafiqLoginAction(_prev: AuthState, formData: FormData): Pr
 
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await createRafiqSession({ uid: user.id, v: user.sessionVersion });
-  redirect("/rafiq");
+  // «العائلة»: back to the invite link she opened (the join page only)
+  redirect((familyEnabled() && safeNext(formData.get("next"))) || "/rafiq");
 }
 
 /** Sets a new password with the recovery رمز, ends every other session, and issues a new رمز. */

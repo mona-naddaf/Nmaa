@@ -512,3 +512,14 @@ export async function setMutashabihatAction(audience: keyof typeof MUTASHABIHAT_
   revalidatePath("/", "layout");
   return {};
 }
+
+// «أخطاء التجويد المفصّلة» (src/lib/tajweed): staff may flag a tajweed
+// mistake on one letter or on the gap between two words, for the students
+// they turn «محاسبة على التجويد المفصّل» on for. Off: no new detailed
+// mistakes and no summary; saved ones keep showing with their details.
+export async function setTajweedDetailEnabledAction(enabled: boolean): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  await prisma.course.update({ where: { id: cid }, data: { tajweedDetailEnabled: enabled === true } });
+  revalidatePath("/", "layout");
+  return {};
+}

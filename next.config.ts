@@ -5,6 +5,10 @@ import type { NextConfig } from "next";
 const MAIN_ORIGIN = "https://alamukth.vercel.app";
 
 const nextConfig: NextConfig = {
+  // `next dev` only: lets a phone on the same Wi-Fi open the dev server by
+  // the laptop's LAN address (dev resources are blocked for other hosts by
+  // default). Ignored by production builds.
+  allowedDevOrigins: ["192.168.8.84"],
   async redirects() {
     return [
       {

@@ -7,6 +7,9 @@ import { quranFont } from "./quran-font";
 import { MISTAKE_TYPES, mistakeTypeLabel, type MistakeType } from "@/lib/students/mistake-types";
 import type { RecitationSubject } from "@/lib/recitation/logic";
 import { FlaggableAyah, TYPE_CLASS, useWordMenu, type WordFlags } from "./FlaggableAyah";
+import { TajweedSheet, type SheetTarget } from "./TajweedSheet";
+import { splitAyah } from "@/lib/quran-data/words";
+import type { DetailError, DetailFlags } from "@/lib/tajweed/spots";
 
 export { flagKey, TYPE_CLASS, type WordFlags } from "./FlaggableAyah";
 
@@ -29,6 +32,13 @@ function flaggedWordsText(n: number): string {
   if (n === 1) return "كلمة واحدة محدّدة";
   if (n === 2) return "كلمتان محدّدتان";
   return `${n} ${n <= 10 ? "كلمات محدّدة" : "كلمة محدّدة"}`;
+}
+
+// «خطأ تجويد مفصّل واحد»، «خطآن»، «3 أخطاء»، «11 خطأً»
+function detailCountText(n: number): string {
+  if (n === 1) return "خطأ تجويد مفصّل واحد";
+  if (n === 2) return "خطآن مفصّلان";
+  return `${n} ${n <= 10 ? "أخطاء تجويد مفصّلة" : "خطأً مفصّلًا"}`;
 }
 
 // «3 كلمات من أخطاء سابقة»
@@ -56,6 +66,7 @@ export function WordFlagger({
   previous,
   mastered,
   onToggleMastered,
+  detail,
 }: {
   surahNumber: number;
   fromAyah: number;
@@ -73,17 +84,32 @@ export function WordFlagger({
   previous?: WordFlags;
   mastered?: Record<string, true>;
   onToggleMastered?: (key: string) => void;
+  // detailed tajweed (lib/tajweed), the course form only: enabled = she is
+  // held to it (new ones may be added); her earlier detailed mistakes show
+  // either way, on their letter or gap
+  detail?: {
+    enabled: boolean;
+    flags: DetailFlags;
+    onChange: (flags: DetailFlags) => void;
+    previous?: DetailFlags;
+  };
 }) {
   const [ayahs, setAyahs] = useState<{ surah: number; text: string[] } | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [expanded, setExpanded] = useState<boolean | null>(null); // null = automatic
   const menu = useWordMenu();
+  // the letter / gap sheet, one at a time
+  const [sheet, setSheet] = useState<SheetTarget | null>(null);
 
   const inRange = (k: string) => {
     const [s, a] = k.split(":").map(Number);
     return s === surahNumber && a >= fromAyah && a <= toAyah;
   };
-  const previousHere = Object.keys(previous ?? {}).filter(inRange).length;
+  // words with an earlier mistake: on the word itself or on its letters / the gap after it
+  const previousWords = new Set(
+    [...Object.keys(previous ?? {}), ...Object.keys(detail?.previous ?? {})].filter(inRange).map((k) => k.split(":").slice(0, 3).join(":")),
+  );
+  const previousHere = previousWords.size;
   const open = expanded ?? (!startCollapsed || previousHere > 0);
   const loaded = ayahs?.surah === surahNumber ? ayahs.text : null;
 
@@ -106,6 +132,25 @@ export function WordFlagger({
   }, [open, loaded, surahNumber]);
 
   const flaggedHere = Object.keys(flags).filter(inRange).length;
+  const detailHere = Object.entries(detail?.flags ?? {})
+    .filter(([k]) => inRange(k))
+    .reduce((n, [, list]) => n + list.length, 0);
+  const showDetail = !!detail && (detail.enabled || Object.keys(detail.previous ?? {}).some(inRange));
+
+  /** An ayah's last word, for the gap after it. */
+  function lastWordOf(a: number) {
+    const words = splitAyah(surahNumber, a, loaded?.[a - 1] ?? "").words;
+    const w = words[words.length - 1];
+    return w ? { position: w.position, text: w.text, marks: w.marks } : null;
+  }
+
+  function setDetail(key: string, errors: DetailError[]) {
+    if (!detail) return;
+    const next = { ...detail.flags };
+    if (errors.length > 0) next[key] = errors;
+    else delete next[key];
+    detail.onChange(next);
+  }
 
   function setFlag(key: string, type: MistakeType | null) {
     const next = { ...flags };
@@ -121,6 +166,8 @@ export function WordFlagger({
         <span className={styles.flaggerCount}>
           {previousHere > 0 && <span className={styles.flaggerPrevious}>{previousWordsText(previousHere)}</span>}
           {flaggedHere > 0 ? flaggedWordsText(flaggedHere) : ""}
+          {flaggedHere > 0 && detailHere > 0 ? " · " : ""}
+          {detailHere > 0 ? detailCountText(detailHere) : ""}
           <span className={styles.chevron}>{open ? "▴" : "▾"}</span>
         </span>
       </button>
@@ -132,7 +179,7 @@ export function WordFlagger({
           ) : !loaded ? (
             <div className={styles.flaggerNote}>جارٍ تحميل النص...</div>
           ) : (
-            <div className={`${quranFont.className} ${styles.quranText}`} dir="rtl" lang="ar">
+            <div className={`${quranFont.className} ${styles.quranText} ${showDetail ? styles.detailMode : ""}`} dir="rtl" lang="ar">
               {Array.from({ length: toAyah - fromAyah + 1 }, (_, i) => fromAyah + i).map((ayah) => (
                 <Fragment key={ayah}>
                   <FlaggableAyah
@@ -152,6 +199,20 @@ export function WordFlagger({
                     previous={previous}
                     mastered={mastered}
                     onToggleMastered={onToggleMastered}
+                    detail={
+                      showDetail
+                        ? {
+                            enabled: detail!.enabled,
+                            flags: detail!.flags,
+                            previous: detail!.previous,
+                            mastered,
+                            lastGap: ayah < toAyah,
+                            nextAyahWord: ayah < toAyah ? (splitAyah(surahNumber, ayah + 1, loaded[ayah] ?? "").words[0]?.text ?? null) : null,
+                            prevAyahLast: ayah > fromAyah ? lastWordOf(ayah - 1) : null,
+                            open: setSheet,
+                          }
+                        : undefined
+                    }
                   />
                 </Fragment>
               ))}
@@ -163,8 +224,23 @@ export function WordFlagger({
                 {mistakeTypeLabel(t, subject)}
               </span>
             ))}
+            {showDetail && <span className={`${styles.legendItem} ${styles.tDetail}`}>تجويد مفصّل (على حرف أو بين كلمتين)</span>}
           </div>
         </>
+      )}
+      {sheet && detail && sheet.surah === surahNumber && (
+        <TajweedSheet
+          key={`${sheet.ayah}:${sheet.wordPosition}:${sheet.mode.target}`}
+          target={sheet}
+          enabled={detail.enabled}
+          flags={detail.flags}
+          previous={detail.previous}
+          mastered={mastered}
+          onChange={setDetail}
+          onToggleMastered={onToggleMastered}
+          onClose={() => setSheet(null)}
+          onSwitch={setSheet}
+        />
       )}
     </div>
   );

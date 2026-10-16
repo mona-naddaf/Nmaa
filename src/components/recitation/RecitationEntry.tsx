@@ -23,6 +23,8 @@ import { AYAH_COUNT, SURAHS, SURAH_NAME } from "@/lib/quran-data";
 import { rangeIsMemorized } from "@/lib/students/progress";
 import { classifyWithDirections, reverseOrder, type DirectionalClassification, type JuzDirections } from "@/lib/recitation/juz-direction";
 import { flagKey, type WordFlags } from "@/components/mistakes/FlaggableAyah";
+import { parseSpotKey, spotKey, type DetailFlags } from "@/lib/tajweed/spots";
+import type { TajweedKind } from "@/lib/tajweed/taxonomy";
 import type { MistakeType } from "@/lib/students/mistake-types";
 import { partsLabel, planCombinedEntry, rangeAllMemorized, withSaved, type EntryContext } from "@/lib/recitation/combined";
 import { TRACK_LABEL, detectTrack, planEntryInTrack, type TrackKey, type TrackKind } from "@/lib/recitation/tracks";
@@ -87,7 +89,16 @@ export function useRecitationEntry({
   // With `second`, she has a second track: a «حفظ جديد» entry goes to the
   // track detection picks (lib/recitation/tracks.ts), or the teacher chooses.
   course?: {
-    previousMistakes: { surahNumber: number; ayah: number; wordPosition: number; type: MistakeType }[];
+    previousMistakes: {
+      surahNumber: number;
+      ayah: number;
+      wordPosition: number;
+      type: MistakeType;
+      // detailed tajweed (lib/tajweed): its letter or gap, kind and code
+      letter?: number;
+      gapAfter?: boolean;
+      tajweed?: { kind: TajweedKind; code: string; confusedWith: string | null };
+    }[];
     second?: SecondTrackForm | null;
   } | null;
 }) {
@@ -100,7 +111,12 @@ export function useRecitationEntry({
   // words flagged as mistakes, keyed "surah:ayah:word"; only those inside
   // the current surah and range are submitted
   const [wordFlags, setWordFlags] = useState<WordFlags>({});
-  // earlier mistakes marked «تم الإتقان» in this form (removed on save)
+  // detailed tajweed mistakes (lib/tajweed), keyed by spot ("s:a:w:L3",
+  // "s:a:w:G"); only those inside the current surah and range are submitted
+  const [detailFlags, setDetailFlags] = useState<DetailFlags>({});
+  // earlier mistakes marked «تم الإتقان» in this form (removed on save),
+  // keyed by spot: a word key masters the whole word, a letter or gap key
+  // every earlier detailed mistake on it
   const [mastered, setMastered] = useState<Record<string, true>>({});
   // the toggle «المسار الثاني» / «المسار الأول» (a second track only): whose
   // suggested entry is filled in. While the range is still that suggestion,
@@ -183,16 +199,26 @@ export function useRecitationEntry({
 
   // her earlier unresolved mistakes on the memorized ayat she recites now:
   // the whole range of a review/link, the «ربط» parts of a combined entry
-  const previousFlags = useMemo<WordFlags>(() => {
-    if (!course || hasRangeError) return {};
+  const shownPrevious = useMemo(() => {
+    if (!course || hasRangeError) return [];
     const shownAyah = (a: number) =>
       isNew ? !!combo?.parts.some((p) => p.type === "LINK" && a >= p.fromAyah && a <= p.toAyah) : a >= fromAyah && a <= toAyah;
-    return Object.fromEntries(
-      course.previousMistakes
-        .filter((m) => m.surahNumber === surahNumber && shownAyah(m.ayah))
-        .map((m) => [flagKey(m.surahNumber, m.ayah, m.wordPosition), m.type]),
-    );
+    return course.previousMistakes.filter((m) => m.surahNumber === surahNumber && shownAyah(m.ayah));
   }, [course, hasRangeError, isNew, combo, surahNumber, fromAyah, toAyah]);
+  // plain ones on their word; detailed ones on their letter or gap
+  const previousFlags = useMemo<WordFlags>(
+    () => Object.fromEntries(shownPrevious.filter((m) => !m.tajweed).map((m) => [flagKey(m.surahNumber, m.ayah, m.wordPosition), m.type])),
+    [shownPrevious],
+  );
+  const previousDetails = useMemo<DetailFlags>(() => {
+    const out: DetailFlags = {};
+    for (const m of shownPrevious) {
+      if (!m.tajweed) continue;
+      const key = spotKey(m.surahNumber, m.ayah, m.wordPosition, { letter: m.letter ?? 0, gapAfter: m.gapAfter ?? false });
+      (out[key] ??= []).push({ kind: m.tajweed.kind, code: m.tajweed.code, confusedWith: m.tajweed.confusedWith });
+    }
+    return out;
+  }, [shownPrevious]);
 
   function toggleMastered(key: string) {
     setMastered((m) => {
@@ -218,6 +244,16 @@ export function useRecitationEntry({
     setToAyah(AYAH_COUNT[surah]);
   }
 
+  /** The detailed mistakes inside the current surah and range, as the server takes them. */
+  function detailsInput() {
+    const details = Object.entries(detailFlags).flatMap(([key, errors]) => {
+      const p = parseSpotKey(key);
+      if (!p || p.surah !== surahNumber || p.ayah < fromAyah || p.ayah > toAyah) return [];
+      return errors.map((e) => ({ ayah: p.ayah, wordPosition: p.wordPosition, ...p.spot, kind: e.kind, code: e.code, confusedWith: e.confusedWith }));
+    });
+    return details.length > 0 ? { details } : {};
+  }
+
   /** What to send to the server for this entry. */
   function entryInput() {
     return {
@@ -232,13 +268,18 @@ export function useRecitationEntry({
       }),
       // the teacher's choice only; a detected track the server detects too
       ...(second && isNew && track && track !== detectedTrack ? { track } : {}),
-      // only words whose earlier mistake is shown right now
+      // only spots whose earlier mistake is shown right now; a word key
+      // goes as before (the whole word), a letter or gap with its spot
       mastered: Object.keys(mastered)
-        .filter((key) => previousFlags[key])
-        .map((key) => {
-          const [, ayah, wordPosition] = key.split(":").map(Number);
-          return { ayah, wordPosition };
+        .filter((key) => previousFlags[key] || previousDetails[key])
+        .flatMap((key) => {
+          const p = parseSpotKey(key);
+          if (!p) return [];
+          const { ayah, wordPosition, spot } = p;
+          return [spot.letter > 0 || spot.gapAfter ? { ayah, wordPosition, ...spot } : { ayah, wordPosition }];
         }),
+      // detailed tajweed (lib/tajweed): only sent when there are any
+      ...detailsInput(),
     };
   }
 
@@ -249,6 +290,7 @@ export function useRecitationEntry({
    */
   function afterSave() {
     setWordFlags({});
+    setDetailFlags({});
     setReason("");
     setMastered({});
     setChosenTrack(null);
@@ -321,6 +363,9 @@ export function useRecitationEntry({
     combo,
     allMemorized,
     previousFlags,
+    previousDetails,
+    detailFlags,
+    setDetailFlags,
     mastered,
     toggleMastered,
     secondTrack: second,

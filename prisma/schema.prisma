@@ -76,6 +76,12 @@ model Course {
   // home passage (HomeMistake). Off by default; only works while the home
   // log (and so student login) is on. Strictly private to the student.
   homeMistakesEnabled         Boolean                @default(false)
+  // «أخطاء التجويد المفصّلة» (src/lib/tajweed): staff may flag a tajweed
+  // mistake on one letter or on the gap between two words, with its rule,
+  // for students whose Student.tajweedDetailed is on. Supervisor only; off by
+  // default. While off, no new detailed mistakes and no summary; the ones
+  // already saved keep showing with their details.
+  tajweedDetailEnabled        Boolean                @default(false)
   // «الواجبات» (src/lib/assignments) and «جدول المتابعة» (src/lib/tracker):
   // each only works while student login is on. While off, the tabs are
   // hidden and every page and action refuses.
@@ -286,6 +292,11 @@ model Student {
   // still counts in reports (and she's listed there, marked as archived).
   archivedAt    DateTime?
   keepInReports Boolean   @default(true)
+
+  // «محاسبة على التجويد المفصّل»: detailed tajweed mistakes for her
+  // (Course.tajweedDetailEnabled). Staff who may log her recitation may
+  // change it. Off by default.
+  tajweedDetailed Boolean @default(false)
 
   planItems          PlanItem[]
   juzDirections      StudentJuzDirection[]
@@ -501,6 +512,21 @@ model RecitationMistake {
   // the word as shown when it was flagged
   wordText     String
   type         MistakeType
+  // «أخطاء التجويد المفصّلة» (src/lib/tajweed): where on the word and which
+  // rule. letter 0 + gapAfter false = the whole word (every plain mistake,
+  // as before); letter n = its nth letter unit (tajweed/letters.ts);
+  // gapAfter = the gap after the word (the next word may be in the next
+  // ayah). A detailed mistake is always type TAJWEED with a kind; its code is
+  // a stable code of tajweed/taxonomy.ts, or "" when the detail was skipped.
+  // CHECK constraints in the migration keep these consistent.
+  letter       Int               @default(0)
+  gapAfter     Boolean           @default(false)
+  tajweedKind  TajweedKind       @default(NONE)
+  tajweedCode  String            @default("")
+  // «نُطق قريبًا من حرف»: makhraj mistakes only, one of the 28 letters
+  confusedWith String?
+  // the letter unit as shown when it was flagged (letter > 0 only)
+  letterText   String?
   teacherId    String
   teacher      Teacher           @relation("MistakeFlaggedBy", fields: [teacherId], references: [id])
   // the session's date, so a backdated session dates its mistakes correctly
@@ -510,7 +536,7 @@ model RecitationMistake {
   resolvedBy   Teacher?          @relation("MistakeResolvedBy", fields: [resolvedById], references: [id])
   createdAt    DateTime          @default(now())
 
-  @@unique([sessionId, surahNumber, ayah, wordPosition])
+  @@unique([sessionId, surahNumber, ayah, wordPosition, letter, gapAfter, tajweedKind, tajweedCode])
   @@index([studentId, resolvedAt])
 }
 
@@ -742,6 +768,13 @@ model HomeMistake {
   // the word as shown when it was marked
   wordText     String
   type         MistakeType
+  // where on the word and which tajweed rule, as RecitationMistake
+  letter       Int         @default(0)
+  gapAfter     Boolean     @default(false)
+  tajweedKind  TajweedKind @default(NONE)
+  tajweedCode  String      @default("")
+  confusedWith String?
+  letterText   String?
   flaggedAt    DateTime    @default(now())
   resolvedAt   DateTime?
 
@@ -1022,24 +1055,28 @@ model RafiqUser {
 
   // «الجدول اليومي» on her tracker page. Off by default: nothing changes
   // until she turns it on.
-  agendaEnabled       Boolean @default(false)
+  agendaEnabled        Boolean @default(false)
   // «المحصّلات» of her tracker. Off by default: nothing changes until she
   // turns it on.
-  summaryEnabled      Boolean @default(false)
+  summaryEnabled       Boolean @default(false)
   // «المتشابهات» (src/lib/mutashabihat): marks on verses with similar verses
   // elsewhere (her home page, «حفظي في البيت», the verse page). Off by
   // default: nothing changes until she turns it on.
-  mutashabihatEnabled Boolean @default(false)
+  mutashabihatEnabled  Boolean @default(false)
+  // «أخطاء التجويد المفصّلة» on her own sessions and home practice, with
+  // the summary on her page. Off by default: nothing changes until she
+  // turns it on.
+  tajweedDetailEnabled Boolean @default(false)
   // «مواقيت الصلاة» (src/lib/prayer): her's place for prayer-anchored
   // items — a city of cities.ts (prayerCityKey) or a custom place (key
   // null) — with its calculation method and Asr school. All null = no place:
   // anchors are unavailable and clock times work as before.
-  prayerCityKey       String?
-  prayerPlace         String?
-  prayerLat           Float?
-  prayerLng           Float?
-  prayerMethod        String?
-  prayerAsr           String?
+  prayerCityKey        String?
+  prayerPlace          String?
+  prayerLat            Float?
+  prayerLng            Float?
+  prayerMethod         String?
+  prayerAsr            String?
 }
 
 // A personal day she added to her calendar (same meaning as CalendarEvent).
@@ -1196,6 +1233,13 @@ model RafiqHomeMistake {
   wordPosition Int
   wordText     String
   type         MistakeType
+  // where on the word and which tajweed rule, as RecitationMistake
+  letter       Int         @default(0)
+  gapAfter     Boolean     @default(false)
+  tajweedKind  TajweedKind @default(NONE)
+  tajweedCode  String      @default("")
+  confusedWith String?
+  letterText   String?
   flaggedAt    DateTime    @default(now())
   resolvedAt   DateTime?
 
@@ -1316,11 +1360,18 @@ model RafiqMistake {
   wordPosition Int
   wordText     String
   type         MistakeType
+  // where on the word and which tajweed rule, as RecitationMistake
+  letter       Int          @default(0)
+  gapAfter     Boolean      @default(false)
+  tajweedKind  TajweedKind  @default(NONE)
+  tajweedCode  String       @default("")
+  confusedWith String?
+  letterText   String?
   flaggedAt    DateTime
   resolvedAt   DateTime?
   createdAt    DateTime     @default(now())
 
-  @@unique([sessionId, surahNumber, ayah, wordPosition])
+  @@unique([sessionId, surahNumber, ayah, wordPosition, letter, gapAfter, tajweedKind, tajweedCode])
   @@index([userId, resolvedAt])
 }
 
@@ -1620,6 +1671,15 @@ enum SessionType {
 
 // Labels live in src/lib/students/mistake-types.ts (gendered by group).
 // Values are never renamed: stored rows keep the type they were saved with.
+// The kind of a detailed tajweed mistake (src/lib/tajweed/taxonomy.ts);
+// NONE = a plain whole-word mistake, as every mistake before detailed ones.
+enum TajweedKind {
+  NONE
+  MAKHRAJ
+  SIFA
+  HUKM
+}
+
 enum MistakeType {
   // خطأ تشكيل
   PRONUNCIATION

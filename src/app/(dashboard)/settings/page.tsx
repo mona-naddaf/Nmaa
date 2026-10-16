@@ -19,6 +19,7 @@ import { ensureBuiltinFields, getCourseInfoFields } from "@/lib/students/extra-i
 import { Collapsible } from "@/components/collapsible/Collapsible";
 import { onOffTag } from "@/components/collapsible/tags";
 import { SimilarCard } from "./SimilarCard";
+import { TajweedDetailCard } from "./TajweedDetailCard";
 
 /** «المتشابهات» card header: who sees the marks. */
 function similarTag(teachers: boolean, students: boolean): { tag: string; tagTone: "on" | "off" } {
@@ -160,6 +161,10 @@ export default async function SettingsPage() {
           studentLoginEnabled={course.studentLoginEnabled}
           homeLogEnabled={course.homeLogEnabled}
         />
+      </Collapsible>
+
+      <Collapsible title="أخطاء التجويد المفصّلة" {...onOffTag(course.tajweedDetailEnabled)}>
+        <TajweedDetailCard enabled={course.tajweedDetailEnabled} />
       </Collapsible>
 
       <Collapsible title="معلومات إضافية" {...onOffTag(course.studentInfoEnabled)}>

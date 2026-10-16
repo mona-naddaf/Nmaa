@@ -1,5 +1,6 @@
 import { pickByGroup } from "@/lib/text/gender";
 import type { RecitationSubject } from "@/lib/recitation/logic";
+import type { TajweedKind } from "@/lib/tajweed/taxonomy";
 
 // Client-safe labels for word-level recitation mistakes (RecitationMistake).
 
@@ -48,6 +49,28 @@ export interface ActiveMistake {
    * sessions and/or her home practice). Course lists never set it.
    */
   sources?: MistakeSource[];
+  /**
+   * Detailed tajweed only (src/lib/tajweed): on one letter of the word
+   * (1..n, `letterText` as shown) or on the gap after it (`nextWordText`:
+   * the word after the gap, maybe in the next ayah), with its kind, code and
+   * «قريبًا من حرف». Absent on every plain mistake. Each detailed mistake
+   * is its own entry (repeated flags of the same one still merge).
+   */
+  letter?: number;
+  gapAfter?: boolean;
+  tajweed?: { kind: TajweedKind; code: string; confusedWith: string | null };
+  letterText?: string;
+  nextWordText?: string;
+}
+
+/**
+ * The key of one list entry: the word for a plain mistake ("s:a:w", as
+ * always), or its spot plus kind and code for a detailed one.
+ */
+export function mistakeKey(m: Pick<ActiveMistake, "surahNumber" | "ayah" | "wordPosition" | "letter" | "gapAfter" | "tajweed">): string {
+  const word = `${m.surahNumber}:${m.ayah}:${m.wordPosition}`;
+  if (!m.tajweed) return word;
+  return `${word}:${m.gapAfter ? "G" : `L${m.letter}`}#${m.tajweed.kind}:${m.tajweed.code}`;
 }
 
 export type MistakeSource = "SESSION" | "HOME";

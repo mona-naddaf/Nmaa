@@ -43,6 +43,8 @@ import { MissingInfoBadge, StudentInfoList } from "@/components/student-info/Stu
 import { Collapsible } from "@/components/collapsible/Collapsible";
 import { SEGMENTS, countLabel } from "@/lib/text/count";
 import { getStudentGoal } from "@/lib/goals/data";
+import { onOffTag } from "@/components/collapsible/tags";
+import { TajweedDetailToggle } from "./TajweedDetailToggle";
 
 async function loginUrl(path: "/parent/login" | "/student/login") {
   const origin = await requestOrigin();
@@ -214,6 +216,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
         reviewReminderDays={course.reviewReminderDays}
         onlineRecitationEnabled={course.onlineRecitationEnabled}
         similarEnabled={course.mutashabihatTeachersEnabled}
+        tajweedDetail={course.tajweedDetailEnabled && student.tajweedDetailed}
         pointsActivities={course.pointsActivities.map((a) => ({
           id: a.id,
           name: a.name,
@@ -337,6 +340,12 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           today={today}
         />
       </Collapsible>
+      {/* «أخطاء التجويد المفصّلة» on in the course: who is held to it (lib/tajweed) */}
+      {course.tajweedDetailEnabled && (
+        <Collapsible title="🎯 التجويد المفصّل" persistKey="student.tajweedDetail" {...onOffTag(student.tajweedDetailed)}>
+          <TajweedDetailToggle studentId={student.id} groupGender={g} initial={student.tajweedDetailed} />
+        </Collapsible>
+      )}
       {homeLog && (
         <Collapsible
           title="🏠 حفظ البيت"

@@ -90,6 +90,9 @@ const QUALITY_LABEL: Record<Quality, string> = {
 };
 const QUALITY_BADGE: Record<Quality, string> = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" };
 
+/** How many words the list is about (a word with several detailed mistakes counts once). */
+const mistakeWords = (list: ActiveMistake[]) => new Set(list.map((m) => `${m.surahNumber}:${m.ayah}:${m.wordPosition}`)).size;
+
 export function DetailView({
   student,
   groupGender,
@@ -114,6 +117,7 @@ export function DetailView({
   reviewReminderDays,
   onlineRecitationEnabled,
   similarEnabled = false,
+  tajweedDetail = false,
   pointsActivities,
   pointsLogs: initialPointsLogs,
   history,
@@ -154,6 +158,8 @@ export function DetailView({
   onlineRecitationEnabled: boolean;
   // «المتشابهات» for teachers (course setting): marks in the word picker
   similarEnabled?: boolean;
+  // «أخطاء التجويد المفصّلة» on in the course and for her (lib/tajweed)
+  tajweedDetail?: boolean;
   pointsActivities: PointsActivity[];
   pointsLogs: PointsLogEntry[];
   history: HistoryEntry[];
@@ -520,6 +526,12 @@ export function DetailView({
               previous={entry.previousFlags}
               mastered={entry.mastered}
               onToggleMastered={entry.toggleMastered}
+              detail={{
+                enabled: tajweedDetail,
+                flags: entry.detailFlags,
+                onChange: entry.setDetailFlags,
+                previous: entry.previousDetails,
+              }}
             />
           </SimilarScope>
         )}
@@ -611,12 +623,18 @@ export function DetailView({
       </Collapsible>
 
       {mistakes.length > 0 && (
-        <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakes.length, WORDS)} {...section("mistakes")}>
+        <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakeWords(mistakes), WORDS)} {...section("mistakes")}>
           <MistakesList
             mistakes={mistakes}
             subject={groupGender}
             onResolve={async (m) => {
-              const result = await resolveMistakeAction(student.id, m.surahNumber, m.ayah, m.wordPosition);
+              const result = await resolveMistakeAction(
+                student.id,
+                m.surahNumber,
+                m.ayah,
+                m.wordPosition,
+                m.tajweed ? { letter: m.letter ?? 0, gapAfter: m.gapAfter ?? false, kind: m.tajweed.kind, code: m.tajweed.code } : undefined,
+              );
               if (!("error" in result)) router.refresh();
               return result;
             }}

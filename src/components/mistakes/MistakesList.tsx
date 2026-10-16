@@ -5,14 +5,46 @@ import styles from "./mistakes.module.css";
 import { quranFont } from "./quran-font";
 import { TYPE_CLASS } from "./WordFlagger";
 import { SURAH_NAME } from "@/lib/quran-data";
-import { mistakeSourceLabel, mistakeTypeLabel, type ActiveMistake } from "@/lib/students/mistake-types";
+import { mistakeKey, mistakeSourceLabel, mistakeTypeLabel, type ActiveMistake } from "@/lib/students/mistake-types";
+import { displayUnits, splitLetters } from "@/lib/tajweed/letters";
+import { detailText } from "@/lib/tajweed/taxonomy";
 import type { RecitationSubject } from "@/lib/recitation/logic";
 import { ShownDay } from "@/components/shown-day/ShownDay";
 
 // Arabic number agreement: مرتين، 3–10 مرات، 11+ مرة
 const timesText = (n: number) => (n === 2 ? "تكرّر مرتين" : `تكرّر ${n} ${n <= 10 ? "مرات" : "مرة"}`);
 
-const keyOf = (m: ActiveMistake) => `${m.surahNumber}:${m.ayah}:${m.wordPosition}`;
+const keyOf = mistakeKey;
+
+/**
+ * The word of a list row: as it is for a plain mistake; for a detailed one,
+ * its letter marked inside the word, or «كلمة ⁀ كلمة» for the gap after it.
+ */
+function RowWord({ m }: { m: ActiveMistake }) {
+  if (m.gapAfter) {
+    return (
+      <>
+        {m.wordText}
+        <span className={styles.rowGap} aria-label="بين كلمتين">
+          ⁀
+        </span>
+        {m.nextWordText ?? ""}
+      </>
+    );
+  }
+  if (!m.letter) return <>{m.wordText}</>;
+  const units = splitLetters(m.wordText);
+  const shown = displayUnits(units);
+  return (
+    <>
+      {units.map((u, i) => (
+        <span key={u.index} className={u.index === m.letter ? styles.rowLetter : undefined}>
+          {shown[i]}
+        </span>
+      ))}
+    </>
+  );
+}
 
 /**
  * A student's unresolved flagged words, grouped by surah (already sorted by
@@ -70,13 +102,17 @@ export function MistakesList({
           {g.items.map((m) => (
             <div key={keyOf(m)} className={styles.row}>
               <span className={`${quranFont.className} ${styles.rowWord}`} lang="ar">
-                {m.wordText}
+                <RowWord m={m} />
               </span>
               <span className={styles.rowMeta}>
                 <span className={styles.rowLoc}>
                   آية {m.ayah}
                 </span>
-                <span className={`${styles.typeBadge} ${TYPE_CLASS[m.type]}`}>{mistakeTypeLabel(m.type, subject)}</span>
+                {m.tajweed ? (
+                  <span className={`${styles.typeBadge} ${styles.tDetail}`}>{detailText(m.tajweed)}</span>
+                ) : (
+                  <span className={`${styles.typeBadge} ${TYPE_CLASS[m.type]}`}>{mistakeTypeLabel(m.type, subject)}</span>
+                )}
                 {m.sources && <span className={styles.sourceTag}>{mistakeSourceLabel(m.sources)}</span>}
                 <span className={styles.rowDate}>
                   منذ <bdi dir="ltr"><ShownDay value={m.firstFlagged} /></bdi>

@@ -13,7 +13,10 @@ import { backdatedAt, zoneDateOnly } from "@/lib/time/zone";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 import { imperative, thisDemonstrative, pickByGroup, type GroupGender } from "@/lib/text/gender";
 import type { Session } from "@/lib/auth/session";
-import { validateFlaggedWords, validateMasteredWords, type FlaggedWordInput } from "@/lib/recitation/flagged-words";
+import { validateFlaggedWords, validateMasteredWords, type FlaggedWordInput, type MasteredSpot } from "@/lib/recitation/flagged-words";
+import { validateDetails, type DetailInput } from "@/lib/tajweed/validate";
+import { isValidSpot } from "@/lib/tajweed/spots";
+import { TAJWEED_KINDS, type TajweedKind } from "@/lib/tajweed/taxonomy";
 import { BONUS_NOTE_MAX_LENGTH } from "@/lib/points/bonus";
 import { afterRecitationSaved, combinedRecords, recitationCreateData } from "@/lib/recitation/record";
 import type { CombinedEntry } from "@/lib/recitation/combined";
@@ -71,8 +74,12 @@ export type SaveRecitationInput = {
   sessionDate: string; // "YYYY-MM-DD", defaults to today but can be backdated
   // words flagged as mistakes, within this surah and ayah range
   mistakes: FlaggedWordInput[];
-  // words in the range whose earlier mistakes are marked «تم الإتقان»
-  mastered?: { ayah: number; wordPosition: number }[];
+  // detailed tajweed mistakes (lib/tajweed): on a letter or the gap after a
+  // word; only for a student held to detailed tajweed in a course that has it on
+  details?: DetailInput[];
+  // spots in the range whose earlier mistakes are marked «تم الإتقان»: the
+  // whole word (no letter/gap), one of its letters, or the gap after it
+  mastered?: Partial<MasteredSpot>[];
   // «حفظ جديد» for a student with a second track: the teacher's choice —
   // the track whose suggested entry she recites, or her pick where
   // detection leaves it open; without it, detection (lib/recitation/tracks.ts)
@@ -156,6 +163,13 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
   // earlier mistakes marked «تم الإتقان» in this form: removed with this save
   const checkedMastered = validateMasteredWords(input.mastered, input.surahNumber, input.fromAyah, input.toAyah);
   if ("error" in checkedMastered) return { error: checkedMastered.error };
+  // detailed tajweed mistakes: only while the course has them on and she is held to them
+  const checkedDetails = validateDetails(input.details, input.surahNumber, input.fromAyah, input.toAyah);
+  if ("error" in checkedDetails) return { error: checkedDetails.error };
+  const details = checkedDetails.details;
+  if (details.length > 0 && !(await tajweedDetailOn(session.courseId, student))) {
+    return { error: detailOffError(student.group.gender) };
+  }
 
   // days are the course's (lib/time/zone.ts): today there is accepted
   // right after midnight too
@@ -211,7 +225,28 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
                   type: m.type,
                   teacherId,
                   flaggedAt: occurredAt,
-                })),
+                }))
+                .concat(
+                  // a detailed mistake goes with the part that holds its word (a gap: the word before it)
+                  details
+                    .filter((d) => d.ayah >= row.fromAyah && d.ayah <= row.toAyah)
+                    .map((d) => ({
+                      studentId: student.id,
+                      surahNumber: input.surahNumber,
+                      ayah: d.ayah,
+                      wordPosition: d.wordPosition,
+                      wordText: d.wordText,
+                      type: "TAJWEED" as const,
+                      letter: d.letter,
+                      gapAfter: d.gapAfter,
+                      tajweedKind: d.kind,
+                      tajweedCode: d.code,
+                      confusedWith: d.confusedWith,
+                      letterText: d.letterText,
+                      teacherId,
+                      flaggedAt: occurredAt,
+                    })),
+                ),
             },
           },
         },
@@ -223,7 +258,7 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
   await prisma.$transaction([
     ...creates,
     ...(adopt ? [adoptJuzDirection(prisma, student.id, adopt)] : []),
-    ...checkedMastered.words.map((w) => masteredDelete(student.id, input.surahNumber, w.ayah, w.wordPosition)),
+    ...checkedMastered.words.map((w) => masteredDelete(student.id, input.surahNumber, w.ayah, w.wordPosition, w)),
   ]);
 
   await afterRecitationSaved(record);
@@ -233,18 +268,42 @@ export async function saveRecitationAction(input: SaveRecitationInput): Promise<
 }
 
 /**
- * «تم الإتقان»: every unresolved flag on one word is removed for good — it
- * no longer appears anywhere (lists, counts, the recording form) and no
- * history is kept. Flags resolved before this rule (resolvedAt set) are
- * left as they are; nothing shows them. Only the course's flags: the
- * student's own home-log marks are never touched.
+ * «تم الإتقان»: every unresolved flag on one spot is removed for good — the
+ * whole word (every plain mistake on it), one of its letters, or the gap
+ * after it (lib/tajweed/spots.ts) — and, with `only`, just that one
+ * detailed mistake. It no longer appears anywhere (lists, counts, the
+ * recording form) and no history is kept. Flags resolved before this rule
+ * (resolvedAt set) are left as they are; nothing shows them. Only the
+ * course's flags: the student's own home-log marks are never touched.
  */
-function masteredDelete(studentId: string, surahNumber: number, ayah: number, wordPosition: number) {
-  return prisma.recitationMistake.deleteMany({ where: { studentId, surahNumber, ayah, wordPosition, resolvedAt: null } });
+function masteredDelete(
+  studentId: string,
+  surahNumber: number,
+  ayah: number,
+  wordPosition: number,
+  spot: { letter: number; gapAfter: boolean } = { letter: 0, gapAfter: false },
+  only?: { kind: TajweedKind; code: string },
+) {
+  return prisma.recitationMistake.deleteMany({
+    where: {
+      studentId,
+      surahNumber,
+      ayah,
+      wordPosition,
+      letter: spot.letter,
+      gapAfter: spot.gapAfter,
+      resolvedAt: null,
+      ...(only ? { tajweedKind: only.kind, tajweedCode: only.code } : {}),
+    },
+  });
 }
 
+/** One detailed mistake from «كلمات تحتاج مراجعة» (absent: a plain word). */
+export type ResolveDetail = { letter: number; gapAfter: boolean; kind: TajweedKind; code: string };
+
 /**
- * «تم الإتقان» from «كلمات تحتاج مراجعة», applied right away (masteredDelete).
+ * «تم الإتقان» from «كلمات تحتاج مراجعة», applied right away (masteredDelete):
+ * a plain word, or one detailed mistake.
  * Same permission as logging recitation for this student.
  */
 export async function resolveMistakeAction(
@@ -252,16 +311,60 @@ export async function resolveMistakeAction(
   surahNumber: number,
   ayah: number,
   wordPosition: number,
+  detail?: ResolveDetail,
 ): Promise<SaveRecitationResult> {
   const session = await requireSession();
   const student = await loadStudentForCourse(studentId, session.courseId);
   const denied = await studentAccessError(session, student);
   if (denied) return { error: denied };
+  if (
+    detail &&
+    (!isValidSpot(detail) ||
+      (detail.letter === 0 && !detail.gapAfter) ||
+      !TAJWEED_KINDS.includes(detail.kind) ||
+      typeof detail.code !== "string")
+  ) {
+    return { error: "بيانات غير صحيحة" };
+  }
 
-  await masteredDelete(student.id, surahNumber, ayah, wordPosition);
+  await masteredDelete(
+    student.id,
+    surahNumber,
+    ayah,
+    wordPosition,
+    detail ?? undefined,
+    detail ? { kind: detail.kind, code: detail.code } : undefined,
+  );
 
   revalidatePath(`/students/${student.id}`);
   return { ok: true };
+}
+
+/** Detailed tajweed for this student: the course has it on and she is held to it. */
+async function tajweedDetailOn(courseId: string, student: { tajweedDetailed: boolean }): Promise<boolean> {
+  if (!student.tajweedDetailed) return false;
+  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { tajweedDetailEnabled: true } });
+  return course?.tajweedDetailEnabled === true;
+}
+
+const detailOffError = (g: GroupGender) =>
+  `أخطاء التجويد المفصّلة غير مفعّلة ${pickByGroup(g, { m: "لهذا الطالب", f: "لهذه الطالبة" })}`;
+
+/**
+ * «محاسبة على التجويد المفصّل» for one student. Anyone who may log her
+ * recitation may change it (studentAccessError), only while the course has
+ * detailed tajweed on. Her saved mistakes are never touched either way.
+ */
+export async function setStudentTajweedDetailedAction(studentId: string, on: boolean): Promise<{ error?: string }> {
+  const session = await requireSession();
+  const student = await loadStudentForCourse(studentId, session.courseId);
+  const denied = await studentAccessError(session, student);
+  if (denied) return { error: denied };
+  const course = await prisma.course.findUnique({ where: { id: session.courseId }, select: { tajweedDetailEnabled: true } });
+  if (!course?.tajweedDetailEnabled) return { error: "أخطاء التجويد المفصّلة غير مفعّلة في هذه الدورة" };
+  await prisma.student.update({ where: { id: student.id }, data: { tajweedDetailed: on === true } });
+  revalidatePath(`/students/${student.id}`);
+  return {};
 }
 
 export async function setAttendanceAction(studentId: string, status: "IN" | "OUT"): Promise<{ error?: string }> {

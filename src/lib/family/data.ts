@@ -103,6 +103,9 @@ export type FamilyView = {
   children: ChildView[];
   // «مواقيت الصلاة» for the children (null: none set)
   place: PrayerLocation | null;
+  // step 5: what she shares with this family, and the founder's siblings switch
+  myShare: { progress: boolean; tracker: boolean };
+  siblingsVisible: boolean;
   // the founder's list only (empty for everyone else)
   invites: InviteView[];
 };
@@ -114,7 +117,7 @@ export async function familyView(access: FamilyAccess): Promise<FamilyView> {
     prisma.familyMember.findMany({
       where: { familyId: family.id },
       orderBy: { joinedAt: "asc" },
-      select: { userId: true, canEditChildren: true, user: { select: { name: true, gender: true, email: true } } },
+      select: { userId: true, canEditChildren: true, shareProgress: true, shareTracker: true, user: { select: { name: true, gender: true, email: true } } },
     }),
     prisma.rafiqUser.findMany({
       where: { familyId: family.id, kind: "CHILD" },
@@ -124,7 +127,7 @@ export async function familyView(access: FamilyAccess): Promise<FamilyView> {
     isFounder
       ? prisma.familyInvite.findMany({ where: { familyId: family.id }, orderBy: { createdAt: "desc" }, select: { id: true, code: true, createdAt: true, expiresAt: true, revokedAt: true } })
       : Promise.resolve([]),
-    prisma.family.findUnique({ where: { id: family.id }, select: PLACE_SELECT }),
+    prisma.family.findUnique({ where: { id: family.id }, select: { ...PLACE_SELECT, siblingsVisible: true } }),
   ]);
   const view: MemberView[] = members.map((m) => ({
     userId: m.userId,
@@ -145,6 +148,11 @@ export async function familyView(access: FamilyAccess): Promise<FamilyView> {
     canEditChildren: access.canEditChildren,
     members: view,
     place: locationOf(placeRow),
+    myShare: (() => {
+      const mine = members.find((m) => m.userId === user.id);
+      return { progress: mine?.shareProgress ?? false, tracker: mine?.shareTracker ?? false };
+    })(),
+    siblingsVisible: placeRow?.siblingsVisible ?? false,
     childrenCount: children.length,
     children: children.map((c) => ({
       id: c.id,

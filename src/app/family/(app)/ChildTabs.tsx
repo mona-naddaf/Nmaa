@@ -12,6 +12,7 @@ export function ChildTabs({ homeLog = false }: { homeLog?: boolean }) {
     ...(homeLog ? [{ href: "/family/home-log", label: "حفظي في البيت", active: pathname.startsWith("/family/home-log") }] : []),
     { href: "/family/tracker", label: "جدول المتابعة", active: pathname.startsWith("/family/tracker") },
     { href: "/family/plan", label: "خطتي", active: pathname.startsWith("/family/plan") },
+    { href: "/family/family", label: "عائلتي", active: pathname.startsWith("/family/family") },
   ];
   return (
     <nav className={shell.nav}>

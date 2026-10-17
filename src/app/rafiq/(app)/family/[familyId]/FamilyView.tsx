@@ -13,6 +13,8 @@ import type { ChildView, FamilyView as View, InviteView, MemberView } from "@/li
 import { ACCOUNT_LIMITS } from "@/lib/rafiq/rules";
 import { CityPicker } from "@/components/prayer/CityPicker";
 import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
+import { FamilyDashboard } from "@/components/family/FamilyDashboard";
+import type { DashboardData } from "@/lib/family/dashboard-build";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
 import {
   createChildAction,
@@ -21,6 +23,8 @@ import {
   deleteFamilyAction,
   newChildCodeAction,
   setFamilyPlaceAction,
+  setMySharingAction,
+  setSiblingsVisibleAction,
   stopChildLoginAction,
   leaveFamilyAction,
   removeMemberAction,
@@ -53,7 +57,7 @@ function useFamilyAction() {
   return { pending, error, run };
 }
 
-export function FamilyView({ view, gender }: { view: View; gender: PersonGender }) {
+export function FamilyView({ view, gender, dashboard }: { view: View; gender: PersonGender; dashboard: DashboardData | null }) {
   const p: P = (m, fem) => pickByPerson(gender, { m, f: fem });
   const me = view.members.find((m) => m.isMe);
   return (
@@ -71,6 +75,10 @@ export function FamilyView({ view, gender }: { view: View; gender: PersonGender 
             ? `${p("تستطيع", "تستطيعين")} مشاهدة بيانات الأطفال وتعديلها.`
             : `${p("تستطيع", "تستطيعين")} مشاهدة بيانات الأطفال، ويمنح المؤسِّس صلاحية التعديل.`}
       </p>
+
+      {dashboard && <FamilyDashboard data={dashboard} viewer="adult" />}
+
+      <Sharing view={view} p={p} />
 
       <Adults view={view} p={p} />
 
@@ -94,6 +102,53 @@ export function FamilyView({ view, gender }: { view: View; gender: PersonGender 
       {!view.isFounder && me && <Leave view={view} p={p} />}
       {view.isFounder && <DeleteFamily view={view} p={p} />}
       <LeaveGuard />
+    </div>
+  );
+}
+
+// ---------- sharing (step 5) ----------
+
+/** «مشاركتي مع العائلة»: what of her own Rafiq page this family sees; and, for the founder, the siblings switch. */
+function Sharing({ view, p }: { view: View; p: P }) {
+  const progress = useOptimisticToggle(view.myShare.progress, "تعذّر حفظ المشاركة، يُرجى المحاولة مرة أخرى");
+  const tracker = useOptimisticToggle(view.myShare.tracker, "تعذّر حفظ المشاركة، يُرجى المحاولة مرة أخرى");
+  const siblings = useOptimisticToggle(view.siblingsVisible, "تعذّر حفظ الإعداد، يُرجى المحاولة مرة أخرى");
+  return (
+    <div className={hl.section}>
+      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+        مشاركتي مع العائلة
+      </div>
+      <p className={hl.muted} style={{ marginTop: 0 }}>
+        ما {p("تشاركه", "تشاركينه")} هنا يراه كل أفراد «{view.name}»، الكبار والأطفال. لا تُشارَك ملاحظاتك ولا أخطاؤك ولا حفظك في البيت ولا إعداداتك أبدًا.
+      </p>
+      <div className={f.list}>
+        <div className={f.row}>
+          <label className={f.check} style={{ fontWeight: 700 }}>
+            <input type="checkbox" checked={progress.on} onChange={(e) => progress.set(e.target.checked, (on) => setMySharingAction(view.id, "progress", on))} />
+            مشاركة تقدّمي
+          </label>
+          <div className={hl.muted}>موضعك، وصفحاتك المحفوظة، وهل {p("سجّلتَ", "سجّلتِ")} اليوم وآخر جلسة، وهدفك وأيام التزامك.</div>
+          {progress.error && <div className={hl.err}>{progress.error}</div>}
+        </div>
+        <div className={f.row}>
+          <label className={f.check} style={{ fontWeight: 700 }}>
+            <input type="checkbox" checked={tracker.on} onChange={(e) => tracker.set(e.target.checked, (on) => setMySharingAction(view.id, "tracker", on))} />
+            مشاركة جدولي
+          </label>
+          <div className={hl.muted}>نسبة إنجاز جدول المتابعة اليوم وآخر سبعة أيام فقط، دون أسماء البنود.</div>
+          {tracker.error && <div className={hl.err}>{tracker.error}</div>}
+        </div>
+        {view.isFounder && (
+          <div className={f.row}>
+            <label className={f.check} style={{ fontWeight: 700 }}>
+              <input type="checkbox" checked={siblings.on} onChange={(e) => siblings.set(e.target.checked, (on) => setSiblingsVisibleAction(view.id, on))} />
+              يرى الأطفال تقدّم إخوتهم
+            </label>
+            <div className={hl.muted}>يرى كل طفل موضع إخوته، وهل سجّلوا اليوم، ونسبة جدولهم اليوم فقط.</div>
+            {siblings.error && <div className={hl.err}>{siblings.error}</div>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

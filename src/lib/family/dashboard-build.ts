@@ -1,0 +1,204 @@
+// «عائلتي» (step 5): what one person sees of her family — pure (no DB), so
+// the rules and the shape of what leaves the server are unit-tested
+// (dashboard-build.test.ts). The loader (dashboard.ts) queries only what
+// dashboardSections allows, then builds the cards here.
+//
+// - An adult of the family sees every child (position, recorded today,
+//   today's tracker), and each adult only for what she shares.
+// - A child sees her siblings only while the founder has «يرى الأطفال تقدّم
+//   إخوتهم» on (the same three facts), and the adults who share.
+// - What an adult shares: «مشاركة تقدّمي» — position, memorized pages, recorded
+//   today, last session, her goal (if she has one) and her streak;
+//   «مشاركة جدولي» — completion only (today's and the last days'), never an
+//   item's title or which item was ticked: items leave the server as
+//   anonymous scored rows.
+
+import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
+import { buildCoverage, coveredQuranPages } from "@/lib/students/progress";
+import { forPosition } from "@/lib/rafiq/position";
+import type { ScoredItem } from "@/lib/tracker/rules";
+import type { GoalSession, GoalSpec } from "@/lib/goals/goal";
+import type { CommitmentData } from "@/lib/rafiq/commitment";
+
+export type DashViewer = { kind: "ADULT" | "CHILD"; id: string };
+
+export type PersonRow = {
+  id: string;
+  name: string | null;
+  gender: "MALE" | "FEMALE";
+  createdAt: Date;
+  planChangedAt: Date | null;
+};
+export type AdultRow = PersonRow & { shareProgress: boolean; shareTracker: boolean };
+
+export type DashFacts = { familyId: string; siblingsVisible: boolean; children: PersonRow[]; adults: AdultRow[] };
+
+/** Whose data may be queried at all for this viewer. */
+export function dashboardSections(viewer: DashViewer, facts: DashFacts) {
+  const childIds =
+    viewer.kind === "ADULT" ? facts.children.map((c) => c.id) : facts.siblingsVisible ? facts.children.filter((c) => c.id !== viewer.id).map((c) => c.id) : [];
+  const progressAdultIds = facts.adults.filter((a) => a.shareProgress).map((a) => a.id);
+  const trackerAdultIds = facts.adults.filter((a) => a.shareTracker).map((a) => a.id);
+  return {
+    childIds,
+    progressAdultIds,
+    trackerAdultIds,
+    // sessions and plans: the children shown and the adults sharing progress
+    sessionSubjects: [...childIds, ...progressAdultIds],
+    trackerSubjects: [...childIds, ...trackerAdultIds],
+  };
+}
+
+export type DashRows = {
+  planItems: { userId: string; surahNumber: number; position: number }[];
+  sessions: {
+    userId: string;
+    source: "LOGGED" | "PRIOR";
+    type: "NEW" | "REVIEW" | "LINK";
+    surahNumber: number;
+    fromAyah: number;
+    toAyah: number;
+    situation: "CONTINUE" | "NEXT" | "SURAH_GAP" | "AYAH_GAP" | "EDIT" | null;
+    reason: string | null;
+    createdAt: Date;
+    day: Date;
+  }[];
+  goals: { userId: string; target: "PLAN" | "JUZ" | "POINT"; juz: number | null; surah: number | null; ayah: number | null; startDay: Date; deadline: Date }[];
+  commitDays: { userId: string; days: number; effectiveFrom: Date }[];
+  trackerItems: { id: string; userId: string; value: number; days: number; createdAt: Date; archivedAt: Date | null }[];
+  checks: { userId: string; itemId: string; day: Date }[];
+};
+
+// a scored row without its title (it never leaves the server)
+export type DashItem = ScoredItem & { createdAt: string; archivedAt: string | null };
+
+export type DashProgress = {
+  // null: hasn't started; firstSurah: the first surah of her plan
+  position: { surahNumber: number; ayah: number } | null;
+  firstSurah: number | null;
+  // the days she recorded a session (newest last); the viewer picks "today"
+  loggedDays: string[];
+  // adults sharing progress only
+  memorizedPages?: number;
+  goal?: { plan: number[]; spec: GoalSpec; sessions: GoalSession[] } | null;
+  streak?: CommitmentData;
+};
+
+export type DashCard = {
+  // opaque, for React lists
+  key: string;
+  kind: "CHILD" | "ADULT";
+  name: string;
+  gender: "MALE" | "FEMALE";
+  isMe: boolean;
+  // an adult viewer's link to a child's page
+  href?: string;
+  progress?: DashProgress;
+  // todayOnly: a sibling's card — today's completion, nothing of the days before
+  tracker?: { items: DashItem[]; checks: Record<string, string[]>; todayOnly?: boolean };
+};
+
+export type DashboardData = { children: DashCard[]; adults: DashCard[] };
+
+const day = (d: Date) => d.toISOString().slice(0, 10);
+// a child's card needs only the latest days (recorded today, last session)
+const CHILD_DAYS = 10;
+
+function planOf(rows: DashRows, userId: string): number[] {
+  return rows.planItems
+    .filter((p) => p.userId === userId)
+    .sort((a, b) => a.position - b.position)
+    .map((p) => p.surahNumber);
+}
+
+function progressOf(rows: DashRows, person: PersonRow, full: boolean): DashProgress {
+  const sessions = rows.sessions.filter((s) => s.userId === person.id);
+  const plan = planOf(rows, person.id);
+  const reach = deriveReach(plan, forPosition(sessions, person.planChangedAt));
+  const position = deriveCurrentPosition(plan, reach);
+  const logged = [...new Set(sessions.filter((s) => s.source === "LOGGED").map((s) => day(s.day)))].sort();
+  const base: DashProgress = {
+    position: position ? { surahNumber: position.surahNumber, ayah: position.ayah } : null,
+    firstSurah: plan[0] ?? null,
+    loggedDays: full ? logged : logged.slice(-CHILD_DAYS),
+  };
+  if (!full) return base;
+  const g = rows.goals.find((x) => x.userId === person.id);
+  return {
+    ...base,
+    memorizedPages: coveredQuranPages(buildCoverage(sessions)),
+    goal: g
+      ? {
+          plan,
+          spec: { target: g.target, juz: g.juz, surah: g.surah, ayah: g.ayah, startDay: day(g.startDay), deadline: day(g.deadline) },
+          // only what the goal needs: memorized ranges and their days
+          sessions: sessions.filter((s) => s.type === "NEW").map((s) => ({ surahNumber: s.surahNumber, fromAyah: s.fromAyah, toAyah: s.toAyah, type: s.type, day: day(s.day), prior: s.source === "PRIOR" })),
+        }
+      : null,
+    streak: {
+      schedule: rows.commitDays
+        .filter((c) => c.userId === person.id)
+        .sort((a, b) => a.effectiveFrom.getTime() - b.effectiveFrom.getTime())
+        .map((c) => ({ from: day(c.effectiveFrom), days: c.days })),
+      loggedDays: logged,
+      createdAt: person.createdAt.toISOString(),
+    },
+  };
+}
+
+// a sibling's ticks: today only — the server doesn't know the viewer's day, so
+// the last 2 days go (today, and a day of time-zone slack)
+const SIBLING_DAYS = 2;
+const shiftDay = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+
+/** Today's and the last days' completion only: anonymous items (t0, t1, …) and which of them were ticked on each day. */
+function trackerOf(rows: DashRows, userId: string, todayOnly = false, now: Date = new Date()): NonNullable<DashCard["tracker"]> {
+  const own = rows.trackerItems.filter((i) => i.userId === userId);
+  const alias = new Map(own.map((i, n) => [i.id, `t${n}`]));
+  const items: DashItem[] = own.map((i) => ({
+    id: alias.get(i.id)!,
+    value: i.value,
+    status: "APPROVED",
+    days: i.days,
+    createdDay: day(i.createdAt),
+    archivedDay: i.archivedAt ? day(i.archivedAt) : null,
+    createdAt: i.createdAt.toISOString(),
+    archivedAt: i.archivedAt ? i.archivedAt.toISOString() : null,
+  }));
+  const checks: Record<string, string[]> = {};
+  const since = shiftDay(day(now), -SIBLING_DAYS);
+  for (const c of rows.checks) {
+    const id = c.userId === userId ? alias.get(c.itemId) : undefined;
+    if (id && (!todayOnly || day(c.day) >= since)) (checks[day(c.day)] ??= []).push(id);
+  }
+  return todayOnly ? { items, checks, todayOnly } : { items, checks };
+}
+
+export function buildDashboard(viewer: DashViewer, facts: DashFacts, rows: DashRows, now: Date = new Date()): DashboardData {
+  const s = dashboardSections(viewer, facts);
+  const children: DashCard[] = facts.children
+    .filter((c) => s.childIds.includes(c.id))
+    .map((c, n) => ({
+      key: viewer.kind === "ADULT" ? c.id : `s${n}`,
+      kind: "CHILD",
+      name: c.name ?? "",
+      gender: c.gender,
+      isMe: false,
+      href: viewer.kind === "ADULT" ? `/rafiq/family/${facts.familyId}/child/${c.id}` : undefined,
+      progress: progressOf(rows, c, false),
+      // a sibling sees today's completion only; an adult the last days too
+      tracker: trackerOf(rows, c.id, viewer.kind === "CHILD", now),
+    }));
+  const adults: DashCard[] = facts.adults
+    .filter((a) => a.shareProgress || a.shareTracker)
+    .map((a, n) => ({
+      key: `a${n}`,
+      kind: "ADULT",
+      name: a.name ?? "",
+      gender: a.gender,
+      isMe: viewer.kind === "ADULT" && viewer.id === a.id,
+      ...(a.shareProgress ? { progress: progressOf(rows, a, true) } : {}),
+      ...(a.shareTracker ? { tracker: trackerOf(rows, a.id) } : {}),
+    }));
+  return { children, adults };
+}

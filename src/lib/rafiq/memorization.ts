@@ -16,26 +16,9 @@ import type { GoalSpec } from "@/lib/goals/goal";
 // her progress bars are always all on (a course toggles each one)
 const ALL_BARS = { showSurahProgress: true, showJuzProgress: true, showQuranProgress: true, showPlanProgress: true };
 
-type SessionRow = {
-  surahNumber: number;
-  fromAyah: number;
-  toAyah: number;
-  type: "NEW" | "REVIEW" | "LINK";
-  situation: "CONTINUE" | "NEXT" | "SURAH_GAP" | "AYAH_GAP" | "EDIT" | null;
-  reason: string | null;
-  createdAt: Date;
-};
-
-/**
- * Sessions as position logic should see them. Her plan can change any time
- * (unlike a course); a gap she approved under an earlier plan would point
- * somewhere else in the new order, so approvals recorded before the latest
- * change stop counting. The ayat themselves always stay memorized.
- */
-export function forPosition<T extends SessionRow>(sessions: T[], planChangedAt: Date | null): T[] {
-  if (!planChangedAt) return sessions;
-  return sessions.map((s) => (s.createdAt < planChangedAt ? { ...s, situation: null } : s));
-}
+// the position rules are pure (shared with the family dashboard)
+export { forPosition } from "./position";
+import { forPosition } from "./position";
 
 export async function getPlan(userId: string) {
   const user = await prisma.rafiqUser.findUniqueOrThrow({

@@ -331,3 +331,34 @@ export async function setFamilyPlaceAction(familyId: string, input: unknown): Pr
   refresh(access.family.id);
   return {};
 }
+
+// ---------- sharing and the siblings switch (step 5) ----------
+
+/**
+ * «مشاركة تقدّمي» / «مشاركة جدولي»: what of her own Rafiq data this family
+ * sees (adults and children). Her own row only, per family; both off by
+ * default.
+ */
+export async function setMySharingAction(familyId: string, what: "progress" | "tracker", on: boolean): Promise<FamilyState> {
+  const access = await familyAccess(familyId);
+  if ("error" in access) return access;
+  if (what !== "progress" && what !== "tracker") return { error: "إعداد غير معروف" };
+  await prisma.familyMember.update({
+    where: { familyId_userId: { familyId: access.family.id, userId: access.user.id } },
+    data: what === "progress" ? { shareProgress: on === true } : { shareTracker: on === true },
+  });
+  refresh(access.family.id);
+  revalidatePath("/family", "layout");
+  return {};
+}
+
+/** «يرى الأطفال تقدّم إخوتهم» (founder only, off by default). */
+export async function setSiblingsVisibleAction(familyId: string, on: boolean): Promise<FamilyState> {
+  const access = await founderAccess(familyId);
+  if ("error" in access) return access;
+  await prisma.family.update({ where: { id: access.family.id }, data: { siblingsVisible: on === true } });
+  refresh(access.family.id);
+  revalidatePath("/family", "layout");
+  return {};
+}
+

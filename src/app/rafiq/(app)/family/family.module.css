@@ -129,6 +129,49 @@
   text-decoration: line-through;
 }
 
+/* the dashboard's tracker bar: grows from the start side (transform only) */
+.bar {
+  height: 100%;
+  background: var(--sage-deep);
+  transform-origin: right;
+  transition: transform 0.25s var(--ease-out);
+}
+
+/* «ابدأ من هنا»: a new family's first steps */
+.steps {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.steps li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.stepMark {
+  flex: none;
+  width: 1.2em;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.stepDone {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    transition: none;
+  }
+}
+
 .confirm {
   display: grid;
   gap: 8px;

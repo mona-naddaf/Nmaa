@@ -152,6 +152,20 @@ function daysNoun(n: number): string {
   return "يومًا";
 }
 
+/**
+ * A past day, from today: "أمس" / "قبل يومين" / "قبل 5 أيام" (up to ten
+ * days), then the date — "12 أكتوبر", with the year only when it isn't this
+ * year's.
+ */
+export function pastDayLabel(iso: string, today: string): string {
+  const days = daysBetween(iso, today);
+  if (days === 1) return "أمس";
+  if (days === 2) return "قبل يومين";
+  if (days >= 3 && days <= 10) return `قبل ${days} ${daysNoun(days)}`;
+  const [y, m, d] = iso.split("-").map(Number);
+  return y === Number(today.slice(0, 4)) ? `${d} ${GREGORIAN_MONTHS[m - 1]}` : gregorianLabel(iso);
+}
+
 /** "اليوم" / "غدًا" / "بعد يومين" / "بعد 5 أيام" / "بعد 12 يومًا" */
 export function countdownLabel(days: number): string {
   if (days === 0) return "اليوم";

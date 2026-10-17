@@ -5,6 +5,7 @@ import hl from "@/components/home-log/home-log.module.css";
 import f from "@/app/rafiq/(app)/family/family.module.css";
 import { AYAH_COUNT, SURAH_NAME, TOTAL_PAGES } from "@/lib/quran-data";
 import { dayOfInstant, useToday } from "@/lib/calendar/useToday";
+import { pastDayLabel } from "@/lib/calendar/hijri";
 import { dayScore, lastSevenDays, WEEKDAY_SHORT, weekdayOf, withLocalDays } from "@/lib/tracker/rules";
 import { commitStart, computeStreak, streakDaysText } from "@/lib/rafiq/streak";
 import { computeGoal } from "@/lib/goals/goal";
@@ -40,9 +41,16 @@ export function FamilyDashboard({
   const next = today && upcoming ? nextFamilyItem(today, upcoming.enabledOccasions, upcoming.adjustments, upcoming.events) : null;
   return (
     <>
-      {next && calendarHref && (
+      {/* the family calendar: its nearest item when one comes within 30 days, else just the link */}
+      {calendarHref && (
         <Link href={calendarHref} className={hl.section} style={{ display: "block", textDecoration: "none", color: "var(--ink)", fontSize: 14 }}>
-          📅 القادم: <b>{next.title}</b> — {next.when} <span className={hl.muted}>· تقويم العائلة ←</span>
+          {next ? (
+            <>
+              📅 القادم: <b>{next.title}</b> — {next.when} <span className={hl.muted}>· تقويم العائلة ←</span>
+            </>
+          ) : (
+            "📅 تقويم العائلة ←"
+          )}
         </Link>
       )}
       {data.children.length > 0 && (
@@ -94,7 +102,8 @@ function Card({ card: c, today }: { card: DashCard; today: string | null }) {
         )}
       </div>
       {!today ? (
-        <div className={f.cardMeta}>…</div>
+        // until her browser knows her day: the card's usual height, no flash of «…»
+        <div aria-hidden style={{ minHeight: c.tracker ? (c.progress ? 96 : 44) : 44 }} />
       ) : (
         <>
           {c.progress && <Progress card={c} today={today} />}
@@ -124,7 +133,7 @@ function Progress({ card: c, today }: { card: DashCard; today: string }) {
       </div>
       <div>
         {recordedToday ? `✓ ${by(g, "سجّل", "سجّلت")} اليوم` : `${by(g, "لم يسجّل", "لم تسجّل")} اليوم بعد`}
-        {last && last !== today && <span className={f.cardMeta}> · آخر جلسة: {last}</span>}
+        {last && last < today && <span className={f.cardMeta}> · آخر جلسة: {pastDayLabel(last, today)}</span>}
       </div>
       {p.memorizedPages !== undefined && (
         <div className={f.cardMeta}>
@@ -154,7 +163,7 @@ function Tracker({ card: c, today }: { card: DashCard; today: string }) {
       </div>
       {now.possible > 0 && (
         <div style={{ height: 6, borderRadius: 999, background: "var(--cream)", overflow: "hidden" }} aria-hidden>
-          <div style={{ width: `${pct}%`, height: "100%", background: "var(--sage-deep)" }} />
+          <div className={f.bar} style={{ transform: `scaleX(${pct / 100})` }} />
         </div>
       )}
       {!c.tracker!.todayOnly && (

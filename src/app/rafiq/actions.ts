@@ -90,7 +90,7 @@ export async function rafiqLoginAction(_prev: AuthState, formData: FormData): Pr
 
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await createRafiqSession({ uid: user.id, v: user.sessionVersion });
-  // «العائلة»: back to the invite link she opened (the join page only)
+  // «العائلة»: back to the invite link she opened, or «عائلاتي» (safeNext)
   redirect((familyEnabled() && safeNext(formData.get("next"))) || "/rafiq");
 }
 

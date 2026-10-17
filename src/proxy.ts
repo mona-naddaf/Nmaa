@@ -31,7 +31,8 @@ const CODE_AREAS: Area[] = [
   // «رفيق الحفظ»: its own email + password accounts (src/lib/rafiq)
   { base: "/rafiq", cookie: RAFIQ_COOKIE_NAME, verify: verifyRafiqToken, publicPages: ["signup", "recover"], enabled: rafiqEnabled },
   // «العائلة»: a child's own pages (name + رمز); not "/rafiq/family", the adults' side
-  { base: "/family", cookie: CHILD_COOKIE_NAME, verify: verifyChildToken, enabled: familyEnabled },
+  // (/family/start: the home page's «العائلة» card, for an adult or a child)
+  { base: "/family", cookie: CHILD_COOKIE_NAME, verify: verifyChildToken, publicPages: ["start"], enabled: familyEnabled },
 ];
 
 export async function proxy(request: NextRequest) {

@@ -24,7 +24,7 @@ export function SignupForm({ signedIn, next = null }: { signedIn: boolean; next?
 
         <div className={login.card}>
           {state?.recoveryCode ? (
-            <RecoveryCodeCard code={state.recoveryCode} gender={state.gender ?? null} continueHref={next ?? "/rafiq"} continueLabel={next ? "متابعة الانضمام إلى العائلة" : "ابدأ"} />
+            <RecoveryCodeCard code={state.recoveryCode} gender={state.gender ?? null} continueHref={next ?? "/rafiq"} continueLabel={next === "/rafiq/family" ? "متابعة إلى «العائلة»" : next ? "متابعة الانضمام إلى العائلة" : "ابدأ"} />
           ) : signedIn ? (
             <SignedInNote />
           ) : (

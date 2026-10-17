@@ -3,6 +3,9 @@ import { childFlags, childHomeData, familyAdults } from "@/lib/family/child-page
 import { pickByPerson } from "@/lib/text/gender";
 import { RafiqHome } from "@/app/rafiq/(app)/RafiqHome";
 import hl from "@/components/home-log/home-log.module.css";
+import { ChildWelcome } from "@/components/family/ChildWelcome";
+import { WELCOME_SEEN_COOKIE } from "@/lib/family/rules";
+import { cookies } from "next/headers";
 
 // «صفحتي» of a child («العائلة»): the Rafiq page, as herself — her position
 // (and goal, with its switch), recording her own sessions (no word marks:
@@ -19,6 +22,9 @@ export default async function ChildHomePage() {
       <div className={hl.sectionTitle} style={{ margin: "0 4px 12px" }}>
         <span style={{ fontSize: 17, color: "var(--ink)" }}>أهلًا يا {child.name} 🌱</span>
       </div>
+      {data && data.loggedSessions === 0 && (await cookies()).get(WELCOME_SEEN_COOKIE)?.value !== child.id && (
+        <ChildWelcome childId={child.id} gender={child.gender} />
+      )}
       {data ? (
         <RafiqHome
           data={data}

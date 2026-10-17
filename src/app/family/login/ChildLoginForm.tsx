@@ -31,7 +31,7 @@ export function ChildLoginForm() {
             <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>رمز الدخول تجده عند أهلك.</p>
             {state?.error && <div className={styles.err}>{state.error}</div>}
             <button className={styles.primaryBtn} type="submit" disabled={pending}>
-              {pending ? "جارٍ الدخول..." : "دخول"}
+              {pending ? "جارٍ الدخول…" : "دخول"}
             </button>
           </form>
           <div className={styles.adminToggle}>

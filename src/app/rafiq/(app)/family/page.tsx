@@ -28,9 +28,25 @@ export default async function FamiliesPage({ searchParams }: PageProps<"/rafiq/f
       </div>
       {families.length === 0 ? (
         <div className={hl.section}>
-          <p className={hl.muted} style={{ margin: 0 }}>
-            في العائلة {p("تتابع", "تتابعين")} حفظ أطفالك وجداول متابعتهم، مع بقاء صفحتك في رفيق الحفظ كما هي. {p("أنشئ", "أنشئي")} عائلة جديدة،
-            أو {p("انضمّ", "انضمّي")} إلى عائلة برمز دعوة من مؤسِّسها.
+          <p className={hl.muted} style={{ marginTop: 0 }}>
+            في العائلة {p("تتابع", "تتابعين")} حفظ أطفالك وجداول متابعتهم، مع بقاء صفحتك في رفيق الحفظ كما هي.
+          </p>
+          <ol className={f.steps}>
+            <li>
+              <span className={f.stepMark}>1</span>
+              <span>{p("أنشئ", "أنشئي")} عائلة.</span>
+            </li>
+            <li>
+              <span className={f.stepMark}>2</span>
+              <span>{p("أضف", "أضيفي")} طفلك، فيحصل على رمز دخول خاص به.</span>
+            </li>
+            <li>
+              <span className={f.stepMark}>3</span>
+              <span>يدخل طفلك من بطاقة «العائلة» في الصفحة الرئيسية باسمه ورمزه.</span>
+            </li>
+          </ol>
+          <p className={hl.muted} style={{ marginBottom: 0 }}>
+            أو {p("انضمّ", "انضمّي")} إلى عائلة قائمة برمز دعوة من مؤسِّسها.
           </p>
         </div>
       ) : (

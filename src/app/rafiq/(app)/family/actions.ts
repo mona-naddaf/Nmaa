@@ -24,7 +24,8 @@ import { joinLimited, JOIN_TOO_MANY, recordJoinFailure } from "@/lib/family/limi
 // family, and — for everything but leaving — that she founds it
 // (src/lib/family/data.ts).
 
-export type FamilyState = { error?: string; ok?: string } | null;
+// child: the one just added, for the next steps under the form (step 7)
+export type FamilyState = { error?: string; ok?: string; child?: { id: string; gender: "MALE" | "FEMALE" } } | null;
 
 const BAD_CODE = "رمز الدعوة غير صحيح أو انتهت صلاحيته";
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -254,7 +255,8 @@ export async function createChildAction(_prev: FamilyState, formData: FormData):
     await tx.$queryRaw`SELECT id FROM "Family" WHERE id = ${access.family.id} FOR UPDATE`;
     const count = await tx.rafiqUser.count({ where: { familyId: access.family.id, kind: "CHILD" } });
     if (count >= FAMILY_LIMITS.childrenPerFamily) return { error: `يمكن أن تضم العائلة ${FAMILY_LIMITS.childrenPerFamily} طفلًا على الأكثر` };
-    await tx.rafiqUser.create({
+    const child = await tx.rafiqUser.create({
+      select: { id: true },
       data: {
         kind: "CHILD",
         name: named.name,
@@ -267,11 +269,11 @@ export async function createChildAction(_prev: FamilyState, formData: FormData):
         planItems: { create: plan.map((surahNumber, position) => ({ surahNumber, position })) },
       },
     });
-    return {};
+    return { id: child.id };
   });
   if ("error" in outcome) return outcome;
   refresh(access.family.id);
-  return { ok: `تمت إضافة ${named.name} ✓` };
+  return { ok: `تمت إضافة ${named.name} ✓`, child: { id: outcome.id, gender } };
 }
 
 /** A new login رمز for a child; whoever is signed in with the old one is signed out. */

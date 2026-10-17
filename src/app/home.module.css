@@ -135,6 +135,36 @@
   }
 }
 
+/* Seven cards (with «العائلة»): two columns on phones and three on tablets,
+   the seventh spanning the last row; 4 + 3 on wide screens, the bottom row
+   as wide as the top. */
+@media (min-width: 640px) {
+  .cards.cardsSeven {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .cards.cardsSeven > *,
+  .cards.cardsSeven > :nth-child(n + 4) {
+    grid-column: auto;
+  }
+  .cards.cardsSeven > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1000px) {
+  .cards.cardsSeven {
+    grid-template-columns: repeat(12, 1fr);
+  }
+  .cards.cardsSeven > *,
+  .cards.cardsSeven > :nth-child(n + 4) {
+    grid-column: span 3;
+  }
+  .cards.cardsSeven > :nth-child(n + 5),
+  .cards.cardsSeven > :last-child {
+    grid-column: span 4;
+  }
+}
+
 .card {
   position: relative;
   background: var(--paper);
@@ -193,6 +223,9 @@
 .rafiq {
   --accent-bar: var(--lavender);
 }
+.family {
+  --accent-bar: var(--sage);
+}
 
 .cardIcon {
   width: 44px;
@@ -220,6 +253,9 @@
 }
 .rafiq .cardIcon {
   background: rgba(124, 74, 66, 0.08);
+}
+.family .cardIcon {
+  background: rgba(143, 90, 80, 0.12);
 }
 .board .cardIcon {
   background: rgba(189, 122, 62, 0.16);

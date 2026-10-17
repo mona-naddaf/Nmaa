@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import hl from "@/components/home-log/home-log.module.css";
@@ -77,13 +77,17 @@ export function FamilyView({ view, gender, dashboard, upcoming }: { view: View; 
             : `${p("تستطيع", "تستطيعين")} مشاهدة بيانات الأطفال، ويمنح المؤسِّس صلاحية التعديل.`}
       </p>
 
-      <div style={{ margin: "0 0 12px" }}>
-        <Link href={`/rafiq/family/${view.id}/calendar`} className={hl.linkBtn}>
-          📅 تقويم العائلة ←
-        </Link>
-      </div>
+      {view.canEditChildren && view.children.length === 0 && <FirstSteps view={view} p={p} />}
 
-      {dashboard && <FamilyDashboard data={dashboard} viewer="adult" upcoming={upcoming} calendarHref={`/rafiq/family/${view.id}/calendar`} />}
+      {dashboard ? (
+        <FamilyDashboard data={dashboard} viewer="adult" upcoming={upcoming} calendarHref={`/rafiq/family/${view.id}/calendar`} />
+      ) : (
+        <div style={{ margin: "0 0 12px" }}>
+          <Link href={`/rafiq/family/${view.id}/calendar`} className={hl.linkBtn}>
+            📅 تقويم العائلة ←
+          </Link>
+        </div>
+      )}
 
       <Sharing view={view} p={p} />
 
@@ -109,6 +113,41 @@ export function FamilyView({ view, gender, dashboard, upcoming }: { view: View; 
       {!view.isFounder && me && <Leave view={view} p={p} />}
       {view.isFounder && <DeleteFamily view={view} p={p} />}
       <LeaveGuard />
+    </div>
+  );
+}
+
+// ---------- first steps (step 7) ----------
+
+/** «ابدأ من هنا»: for whoever may add children, until the family has one. */
+function FirstSteps({ view, p }: { view: View; p: P }) {
+  const steps: [boolean, ReactNode][] = [
+    [true, "إنشاء العائلة"],
+    [
+      false,
+      <>
+        إضافة طفل من قسم <a href="#children">«الأطفال»</a> أدناه
+      </>,
+    ],
+    [false, "إعطاؤه رمز الدخول: يدخل به من بطاقة «العائلة» في الصفحة الرئيسية باسمه ورمزه"],
+    [false, "مراجعة خطته (تبدأ بجزء عمّ) وجدول متابعته من صفحته"],
+    ...(view.isFounder ? [[false, `دعوة بالغ آخر من «رموز الدعوة» إن ${p("شئت", "شئتِ")}`] as [boolean, ReactNode]] : []),
+  ];
+  return (
+    <div className={hl.section}>
+      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+        ابدأ من هنا
+      </div>
+      <ol className={f.steps}>
+        {steps.map(([done, text], i) => (
+          <li key={i}>
+            <span className={f.stepMark} aria-hidden>
+              {done ? "✓" : i + 1}
+            </span>
+            <span className={done ? f.stepDone : undefined}>{text}</span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -288,18 +327,18 @@ function useOptimisticToggle(saved: boolean, failMessage: string) {
 function Children({ view, p }: { view: View; p: P }) {
   const full = view.children.length >= FAMILY_LIMITS.childrenPerFamily;
   return (
-    <div className={hl.section}>
+    <div className={hl.section} id="children">
       <div className={hl.sectionTitle} style={{ margin: "0 0 10px" }}>
         الأطفال ({view.children.length} من {FAMILY_LIMITS.childrenPerFamily})
       </div>
       {view.children.length === 0 ? (
         <p className={hl.muted} style={{ marginTop: 0 }}>
-          لا يوجد أطفال في العائلة بعد.
+          {view.canEditChildren ? "لا يوجد أطفال في العائلة بعد." : "لم يُضَف أطفال إلى العائلة بعد، ويضيفهم المؤسِّس أو من لديه صلاحية التعديل."}
         </p>
       ) : (
         <div className={f.list} style={{ marginBottom: 12 }}>
           {view.children.map((c) => (
-            <ChildRow key={c.id} familyId={view.id} c={c} canEdit={view.canEditChildren} />
+            <ChildRow key={c.id} familyId={view.id} c={c} canEdit={view.canEditChildren} p={p} />
           ))}
         </div>
       )}
@@ -323,9 +362,20 @@ function AddChild({ familyId, p }: { familyId: string; p: P }) {
     if (state?.ok) setOpen(false);
   }
   if (!open) {
+    const c = state?.child;
     return (
       <>
         {state?.ok && <div className={styles.okMsg}>{state.ok}</div>}
+        {c && (
+          <p className={hl.muted} style={{ marginTop: 0 }}>
+            الخطوة التالية: {p("أعطِ", "أعطي")}
+            {by(c.gender, "ه", "ها")} رمز {by(c.gender, "دخوله", "دخولها")} من القائمة أعلاه {by(c.gender, "ليدخل", "لتدخل")} به من بطاقة «العائلة» في الصفحة
+            الرئيسية، ثم{" "}
+            <Link href={`/rafiq/family/${familyId}/child/${c.id}/plan`} className={hl.linkBtn}>
+              {p("راجع", "راجعي")} {by(c.gender, "خطته", "خطتها")} ←
+            </Link>
+          </p>
+        )}
         <button type="button" className={hl.primaryBtn} onClick={() => setOpen(true)}>
           + إضافة طفل
         </button>
@@ -365,7 +415,7 @@ function AddChild({ familyId, p }: { familyId: string; p: P }) {
   );
 }
 
-function ChildRow({ familyId, c, canEdit }: { familyId: string; c: ChildView; canEdit: boolean }) {
+function ChildRow({ familyId, c, canEdit, p }: { familyId: string; c: ChildView; canEdit: boolean; p: P }) {
   const { pending, error, run } = useFamilyAction();
   const [confirm, setConfirm] = useState<"code" | "stop" | "delete" | null>(null);
   const [word, setWord] = useState("");
@@ -462,7 +512,7 @@ function ChildRow({ familyId, c, canEdit }: { familyId: string; c: ChildView; ca
             تُحذف صفحة {c.name} وجميع {by(g, "حفظه ومتابعته", "حفظها ومتابعتها")} نهائيًا، ولا يمكن التراجع عن ذلك.
           </span>
           <label className={styles.fieldLabel} htmlFor={`del-child-${c.id}`} style={{ margin: 0 }}>
-            اكتب «{DELETE_CONFIRM_WORD}» للتأكيد
+            {p("اكتب", "اكتبي")} «{DELETE_CONFIRM_WORD}» للتأكيد
           </label>
           <input id={`del-child-${c.id}`} className={styles.input} value={word} onChange={(e) => setWord(e.target.value)} autoComplete="off" />
           <div className={hl.actionsRow}>

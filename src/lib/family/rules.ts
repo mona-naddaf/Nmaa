@@ -41,17 +41,24 @@ export function cleanFamilyName(raw: unknown): { name: string } | { error: strin
   return { name };
 }
 
-// After signing in or up, only the family join page is a valid place to go
-// back to (an open redirect otherwise): "/rafiq/family/join", optionally with
-// ?code= in the رمز's alphabet. Anything else is null.
+// After signing in or up, only «عائلاتي» (from the home page's «العائلة»
+// card) and the family join page are valid places to go back to (an open
+// redirect otherwise): "/rafiq/family", or "/rafiq/family/join", optionally
+// with ?code= in the رمز's alphabet. Anything else is null.
+const FAMILIES_PATH = "/rafiq/family";
 const JOIN_PATH = "/rafiq/family/join";
 
 export function safeNext(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
-  if (raw === JOIN_PATH) return raw;
+  if (raw === FAMILIES_PATH || raw === JOIN_PATH) return raw;
   const m = raw.match(/^\/rafiq\/family\/join\?code=([A-Za-z0-9-]{1,12})$/);
   return m ? `${JOIN_PATH}?code=${m[1].toUpperCase()}` : null;
 }
+
+// A child's welcome card on «صفحتي» (step 7), once «فهمت» was pressed on this
+// device: a plain cookie on /family holding her id (not a session; it only
+// hides the card).
+export const WELCOME_SEEN_COOKIE = "namaa_family_welcome_seen";
 
 // A child's switches (step 4), all off by default, and the RafiqUser column
 // each one sets. The tajweed, mutashabihat, agenda and summary columns are

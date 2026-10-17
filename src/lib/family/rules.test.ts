@@ -29,10 +29,11 @@ test("family name: trimmed, required, limited", () => {
   assert.deepEqual(cleanFamilyName("ع".repeat(FAMILY_LIMITS.nameMax)), { name: "ع".repeat(FAMILY_LIMITS.nameMax) });
 });
 
-test("safeNext: only the join page, with an optional رمز", () => {
+test("safeNext: only «عائلاتي» and the join page, with an optional رمز", () => {
+  assert.equal(safeNext("/rafiq/family"), "/rafiq/family");
   assert.equal(safeNext("/rafiq/family/join"), "/rafiq/family/join");
   assert.equal(safeNext("/rafiq/family/join?code=abcd-2345"), "/rafiq/family/join?code=ABCD-2345");
-  for (const bad of ["/rafiq", "//evil.example", "https://evil.example/rafiq/family/join", "/rafiq/family/join?code=x&next=/", "/rafiq/family/join/../../settings", "/rafiq/family/joinx", null, 7]) {
+  for (const bad of ["/rafiq", "//evil.example", "https://evil.example/rafiq/family/join", "/rafiq/family/join?code=x&next=/", "/rafiq/family/join/../../settings", "/rafiq/family/joinx", "/rafiq/family/", "/rafiq/family?list=1", "/rafiq/family/abc", "/rafiq/familyx", null, 7]) {
     assert.equal(safeNext(bad), null, String(bad));
   }
 });

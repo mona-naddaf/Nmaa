@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "../../rafiq.module.css";
+import fam from "./family.module.css";
 import { ACCOUNT_LIMITS } from "@/lib/rafiq/rules";
 import { FAMILY_LIMITS } from "@/lib/family/rules";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
@@ -27,8 +28,11 @@ function NameField({ p }: { p: P }) {
 function Shell({ title, intro, children }: { title: string; intro: string; children: React.ReactNode }) {
   return (
     <div className={styles.settingsGrid}>
-      <div className={hl.sectionTitle} style={{ margin: "0 4px" }}>
-        <span style={{ fontSize: 16, color: "var(--ink)" }}>{title}</span>
+      <div className={fam.head}>
+        <span className={fam.title}>{title}</span>
+        <Link href="/rafiq/family?list=1" className={fam.back}>
+          عائلاتي ←
+        </Link>
       </div>
       <div className={hl.section}>
         <p className={hl.muted} style={{ marginTop: 0 }}>
@@ -36,9 +40,6 @@ function Shell({ title, intro, children }: { title: string; intro: string; child
         </p>
         {children}
       </div>
-      <Link href="/rafiq/family?list=1" className={hl.linkBtn} style={{ margin: "0 4px" }}>
-        → عائلاتي
-      </Link>
     </div>
   );
 }

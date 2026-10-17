@@ -5,6 +5,7 @@ import styles from "./home.module.css";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { quranFont } from "@/components/mistakes/quran-font";
 import { rafiqEnabled } from "@/lib/rafiq/enabled";
+import { familyEnabled } from "@/lib/family/enabled";
 
 // The name comes from al-Isra 17:106 — Uthmani text as in the bundled Tanzil
 // copy, so it matches the Mushaf.
@@ -22,6 +23,8 @@ export default async function Home() {
   }
 
   const rafiq = rafiqEnabled();
+  // «العائلة» (on top of «رفيق الحفظ»): a seventh card, last
+  const family = familyEnabled();
 
   return (
     <div className={styles.page}>
@@ -44,7 +47,7 @@ export default async function Home() {
       </div>
 
       <div className={styles.sectionLabel}>اختر طريقة الدخول</div>
-      <div className={`${styles.cards} ${rafiq ? styles.cardsSix : ""}`}>
+      <div className={`${styles.cards} ${family ? styles.cardsSeven : rafiq ? styles.cardsSix : ""}`}>
         <Link href="/login" className={`${styles.card} ${styles.staff}`}>
           <div className={styles.cardIcon} aria-hidden="true">📖</div>
           <div className={styles.cardTitle}>معلم / معلمة</div>
@@ -80,6 +83,14 @@ export default async function Home() {
             <div className={styles.cardIcon} aria-hidden="true">🌱</div>
             <div className={styles.cardTitle}>رفيق الحفظ</div>
             <div className={styles.cardDesc}>لمن يتابع حفظه بنفسه دون دورة</div>
+            <div className={styles.cardArrow}>دخول ←</div>
+          </Link>
+        )}
+        {family && (
+          <Link href="/family/start" className={`${styles.card} ${styles.family}`}>
+            <div className={styles.cardIcon} aria-hidden="true">👪</div>
+            <div className={styles.cardTitle}>العائلة</div>
+            <div className={styles.cardDesc}>تجتمع فيها العائلة على القرآن، لكلٍّ هدفه وجدوله</div>
             <div className={styles.cardArrow}>دخول ←</div>
           </Link>
         )}

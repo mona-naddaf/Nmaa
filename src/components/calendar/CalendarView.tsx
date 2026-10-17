@@ -39,6 +39,9 @@ import { EventForm, type EventInput } from "./EventForm";
 
 type ActionResult = Promise<{ error?: string }>;
 
+// a failed request (signed out, offline): nothing changed, say so instead of crashing
+const NOT_SAVED = "تعذّر الحفظ، يُرجى المحاولة مرة أخرى";
+
 /** What the calendar can do: the course's actions, or «رفيق الحفظ»'s own. */
 export type CalendarActions = {
   createEvent: (input: EventInput) => ActionResult;
@@ -94,6 +97,7 @@ export function CalendarView({
   adjustments,
   events,
   canManage,
+  canAddEvents = canManage,
   canAdjust,
   viewerGender,
   actions,
@@ -103,6 +107,9 @@ export function CalendarView({
   adjustments: Adjustment[];
   events: CustomEvent[];
   canManage: boolean;
+  // may add events (default: canManage); «تقويم العائلة» lets everyone add
+  // while only editors manage the occasions
+  canAddEvents?: boolean;
   // may shift an occasion's date for moon sighting
   canAdjust: boolean;
   viewerGender: PersonGender;
@@ -138,7 +145,7 @@ export function CalendarView({
   function run(action: () => Promise<{ error?: string }>, after?: () => void) {
     setError(null);
     startTransition(async () => {
-      const result = await action();
+      const result = await action().catch(() => ({ error: NOT_SAVED }));
       if (result.error) setError(result.error);
       else after?.();
     });
@@ -156,8 +163,7 @@ export function CalendarView({
   }
 
   async function submitForm(input: EventInput) {
-    const result =
-      form?.kind === "edit" ? await actions.updateEvent(form.event.id, input) : await actions.createEvent(input);
+    const result = await (form?.kind === "edit" ? actions.updateEvent(form.event.id, input) : actions.createEvent(input)).catch(() => ({ error: NOT_SAVED }));
     if (!result.error) {
       setForm(null);
       jumpTo(input.date);
@@ -189,6 +195,7 @@ export function CalendarView({
           )}
           <div className={styles.rowDates}>{itemDates(item)}</div>
           {event?.description && <div className={styles.rowDesc}>{event.description}</div>}
+          {event?.byline && <div className={styles.rowDates}>{event.byline}</div>}
 
           {(adjustableItem || event?.editable) && (
             <div className={styles.rowActions}>
@@ -383,7 +390,7 @@ export function CalendarView({
                       ))}
                     </div>
                   )}
-                  {canManage && !form && (
+                  {canAddEvents && !form && (
                     <button
                       type="button"
                       className={styles.linkBtn}
@@ -477,7 +484,7 @@ export function CalendarView({
                 <span className={styles.dot} />
                 القادم
               </span>
-              {canManage && !form && (
+              {canAddEvents && !form && (
                 <button type="button" className={styles.addBtn} onClick={() => setForm({ kind: "new", date: today })}>
                   {w.addEvent}
                 </button>

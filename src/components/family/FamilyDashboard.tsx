@@ -10,6 +10,8 @@ import { commitStart, computeStreak, streakDaysText } from "@/lib/rafiq/streak";
 import { computeGoal } from "@/lib/goals/goal";
 import { GoalLine } from "@/components/goal/GoalLine";
 import type { DashboardData, DashCard } from "@/lib/family/dashboard-build";
+import { nextFamilyItem } from "@/lib/family/calendar-rules";
+import type { FamilyCalendarData } from "@/lib/family/calendar";
 
 // «عائلتي» (step 5): one card per child, then one per adult who shares —
 // each showing only what it carries (src/lib/family/dashboard-build.ts).
@@ -21,11 +23,28 @@ type G = "MALE" | "FEMALE";
 const by = (g: G, m: string, fem: string) => (g === "FEMALE" ? fem : m);
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-export function FamilyDashboard({ data, viewer }: { data: DashboardData; viewer: "adult" | "child" }) {
+export function FamilyDashboard({
+  data,
+  viewer,
+  upcoming,
+  calendarHref,
+}: {
+  data: DashboardData;
+  viewer: "adult" | "child";
+  // step 6: the family calendar, for the «القادم» line
+  upcoming?: FamilyCalendarData;
+  calendarHref?: string;
+}) {
   const today = useToday();
   const childTitle = viewer === "adult" ? "الأطفال" : "إخوتك";
+  const next = today && upcoming ? nextFamilyItem(today, upcoming.enabledOccasions, upcoming.adjustments, upcoming.events) : null;
   return (
     <>
+      {next && calendarHref && (
+        <Link href={calendarHref} className={hl.section} style={{ display: "block", textDecoration: "none", color: "var(--ink)", fontSize: 14 }}>
+          📅 القادم: <b>{next.title}</b> — {next.when} <span className={hl.muted}>· تقويم العائلة ←</span>
+        </Link>
+      )}
       {data.children.length > 0 && (
         <div className={hl.section}>
           <div className={hl.sectionTitle} style={{ margin: "0 0 10px" }}>

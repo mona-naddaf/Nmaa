@@ -99,6 +99,8 @@ export type CustomEvent = {
   date: string;
   // computed server-side from the viewer's role and ownership (D8)
   editable: boolean;
+  // who added it, when the calendar is shared by several people («تقويم العائلة»)
+  byline?: string;
 };
 
 export type CalendarItem =

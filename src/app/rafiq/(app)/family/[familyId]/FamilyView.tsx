@@ -15,6 +15,7 @@ import { CityPicker } from "@/components/prayer/CityPicker";
 import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
 import { FamilyDashboard } from "@/components/family/FamilyDashboard";
 import type { DashboardData } from "@/lib/family/dashboard-build";
+import type { FamilyCalendarData } from "@/lib/family/calendar";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
 import {
   createChildAction,
@@ -57,7 +58,7 @@ function useFamilyAction() {
   return { pending, error, run };
 }
 
-export function FamilyView({ view, gender, dashboard }: { view: View; gender: PersonGender; dashboard: DashboardData | null }) {
+export function FamilyView({ view, gender, dashboard, upcoming }: { view: View; gender: PersonGender; dashboard: DashboardData | null; upcoming: FamilyCalendarData }) {
   const p: P = (m, fem) => pickByPerson(gender, { m, f: fem });
   const me = view.members.find((m) => m.isMe);
   return (
@@ -76,7 +77,13 @@ export function FamilyView({ view, gender, dashboard }: { view: View; gender: Pe
             : `${p("تستطيع", "تستطيعين")} مشاهدة بيانات الأطفال، ويمنح المؤسِّس صلاحية التعديل.`}
       </p>
 
-      {dashboard && <FamilyDashboard data={dashboard} viewer="adult" />}
+      <div style={{ margin: "0 0 12px" }}>
+        <Link href={`/rafiq/family/${view.id}/calendar`} className={hl.linkBtn}>
+          📅 تقويم العائلة ←
+        </Link>
+      </div>
+
+      {dashboard && <FamilyDashboard data={dashboard} viewer="adult" upcoming={upcoming} calendarHref={`/rafiq/family/${view.id}/calendar`} />}
 
       <Sharing view={view} p={p} />
 

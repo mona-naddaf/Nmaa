@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { resolveSubject } from "@/lib/rafiq/subject";
+import { childActing, resolveSubject } from "@/lib/rafiq/subject";
 import { getRafiqTargets } from "@/lib/rafiq/home-log";
 import { resolveRafiqHomeSpot, setRafiqHomeSpot, setRafiqMark } from "@/lib/rafiq/home-mistakes";
 import { rafiqTajweedOn } from "@/lib/rafiq/tajweed";
@@ -19,6 +19,11 @@ import { acceptLocalDay, HOME_LIMITS, HOME_TAP_KINDS, validateRange, validateTar
 
 export type HomeResult = { error?: string; id?: string };
 
+// «العائلة»: a child's «حفظي في البيت» and her own marks there follow the
+// switches the adults set (always on for an adult's own data)
+const HOME_OFF = { error: "«حفظي في البيت» غير مفعّل" };
+const MARKS_OFF = { error: "تحديد الأخطاء في البيت غير مفعّل" };
+
 function ownActiveSegment(uid: string, segmentId: string) {
   return prisma.rafiqHomeSegment.findFirst({
     where: { id: String(segmentId ?? ""), userId: uid, finishedAt: null },
@@ -33,6 +38,7 @@ function refresh() {
 export async function createSegmentAction(input: { surahNumber: number; fromAyah: number; toAyah: number; subjectId?: string }): Promise<HomeResult> {
   const s = await resolveSubject(input?.subjectId, "record");
   if ("error" in s) return s;
+  if (!s.features.homeLog) return HOME_OFF;
   const uid = s.id;
   const surahNumber = Number(input?.surahNumber);
   const fromAyah = Number(input?.fromAyah);
@@ -65,6 +71,7 @@ type TapInput = { segmentId: string; ayah: number | null; kind: HomeTapKind; day
 export async function tapAction(input: TapInput): Promise<HomeResult> {
   const s = await resolveSubject(input?.subjectId, "record");
   if ("error" in s) return s;
+  if (!s.features.homeLog) return HOME_OFF;
   const uid = s.id;
   if (!HOME_TAP_KINDS.includes(input?.kind)) return { error: "نوع غير صحيح" };
   const day = acceptLocalDay(input?.day);
@@ -85,6 +92,7 @@ export async function tapAction(input: TapInput): Promise<HomeResult> {
 export async function undoTapAction(input: TapInput): Promise<HomeResult> {
   const s = await resolveSubject(input?.subjectId, "record");
   if ("error" in s) return s;
+  if (!s.features.homeLog) return HOME_OFF;
   const uid = s.id;
   if (!HOME_TAP_KINDS.includes(input?.kind)) return { error: "نوع غير صحيح" };
   const day = acceptLocalDay(input?.day);
@@ -104,6 +112,7 @@ export async function undoTapAction(input: TapInput): Promise<HomeResult> {
 export async function finishSegmentAction(segmentId: string, subjectId?: string): Promise<HomeResult> {
   const s = await resolveSubject(subjectId, "record");
   if ("error" in s) return s;
+  if (!s.features.homeLog) return HOME_OFF;
   const uid = s.id;
   const { count } = await prisma.rafiqHomeSegment.updateMany({
     where: { id: String(segmentId ?? ""), userId: uid, finishedAt: null },
@@ -118,6 +127,7 @@ export async function finishSegmentAction(segmentId: string, subjectId?: string)
 export async function deleteSegmentAction(segmentId: string, subjectId?: string): Promise<HomeResult> {
   const s = await resolveSubject(subjectId, "record");
   if ("error" in s) return s;
+  if (!s.features.homeLog) return HOME_OFF;
   const uid = s.id;
   const segment = await prisma.rafiqHomeSegment.findFirst({
     where: { id: String(segmentId ?? ""), userId: uid },
@@ -134,6 +144,7 @@ export async function deleteSegmentAction(segmentId: string, subjectId?: string)
 export async function setTargetsAction(input: HomeTargets, subjectId?: string): Promise<HomeResult> {
   const s = await resolveSubject(subjectId, "manage");
   if ("error" in s) return s;
+  if (!s.features.homeLog) return HOME_OFF;
   const uid = s.id;
   const t = validateTargets(input);
   if (!t) return { error: `يُرجى إدخال أهداف بين ${HOME_LIMITS.targetMin} و${HOME_LIMITS.targetMax}` };
@@ -152,6 +163,8 @@ export async function setTargetsAction(input: HomeTargets, subjectId?: string): 
 export async function markWordAction(input: MarkInput, subjectId?: string): Promise<HomeResult> {
   const s = await resolveSubject(subjectId, "record");
   if ("error" in s) return s;
+  if (!s.features.homeLog) return HOME_OFF;
+  if (childActing(s) && !s.features.homeMistakes) return MARKS_OFF;
   const uid = s.id;
   const segment = await prisma.rafiqHomeSegment.findFirst({
     where: { id: String(input?.segmentId ?? ""), userId: uid, finishedAt: null },
@@ -180,6 +193,8 @@ export async function markSpotAction(input: {
 }): Promise<HomeResult> {
   const s = await resolveSubject(input?.subjectId, "record");
   if ("error" in s) return s;
+  if (!s.features.homeLog) return HOME_OFF;
+  if (childActing(s) && !s.features.homeMistakes) return MARKS_OFF;
   const uid = s.id;
   if (!(await rafiqTajweedOn(uid))) return { error: "أخطاء التجويد المفصّلة غير مفعّلة في إعداداتك" };
   const segment = await prisma.rafiqHomeSegment.findFirst({
@@ -215,6 +230,8 @@ export async function resolveSpotAction(input: {
 }): Promise<{ error: string } | { ok: true }> {
   const s = await resolveSubject(input?.subjectId, "record");
   if ("error" in s) return s;
+  if (!s.features.homeLog) return HOME_OFF;
+  if (childActing(s) && !s.features.homeMistakes) return MARKS_OFF;
   const uid = s.id;
   const spot = { letter: Number(input?.letter ?? 0), gapAfter: input?.gapAfter === true };
   if (!isValidSpot(spot) || (spot.letter === 0 && !spot.gapAfter)) return { error: "بيانات غير صحيحة" };

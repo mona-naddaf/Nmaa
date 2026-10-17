@@ -35,10 +35,12 @@ import {
   recitationStyles as rs,
   useRecitationEntry,
 } from "@/components/recitation/RecitationEntry";
-import { deleteSessionAction, resolveMistakeAction, saveSessionAction } from "./actions";
+import { deleteSessionAction, resolveMistakeAction, saveSessionAction, setSessionQualityAction } from "./actions";
+import { canDeleteSession, recordedByLine, scopeCan, selfAssessed, SELF_SCOPE, type RafiqScope } from "@/lib/rafiq/scope";
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
 const QUALITY_LABEL: Record<Quality, string> = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" };
+const QUALITY_SHORT: Record<Quality, string> = { EXCELLENT: "متقن", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" };
 const DAY_LABEL = ["اليوم", "أمس", "قبل يومين"];
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -46,6 +48,8 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
 // similar: «المتشابهات» (her setting) — marks in the word picker
 // tajweed: «أخطاء التجويد المفصّلة» (her setting) — letters and gaps in the
 // word picker; tajweedSummary: its summary block (null: off or nothing yet)
+// scope: «العائلة» — a child's page, for the child or an adult of her family
+// (src/lib/rafiq/scope.ts); her own Rafiq page by default
 export function RafiqHome({
   data,
   gender,
@@ -53,6 +57,7 @@ export function RafiqHome({
   similar = false,
   tajweed = false,
   tajweedSummary = null,
+  scope = SELF_SCOPE,
 }: {
   data: MemorizationView;
   gender: PersonGender;
@@ -60,13 +65,19 @@ export function RafiqHome({
   similar?: boolean;
   tajweed?: boolean;
   tajweedSummary?: TajweedSummary | null;
+  scope?: RafiqScope;
 }) {
   const router = useRouter();
   const today = useToday();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
   // surahs overdue for review, on her own today
   const overdue = today ? overdueFrom(data.reviewAges, data.reviewReminderDays, today) : [];
-  const subject: RecitationSubject = useMemo(() => ({ self: gender }), [gender]);
+  const can = scopeCan(scope);
+  // an adult on a child's page: the wording is about the child
+  const child = can.aboutChild ? (scope.child ?? null) : null;
+  const ofChild = (m: string, f: string) => (child?.gender === "FEMALE" ? f : m);
+  const childGroup = child ? (child.gender === "FEMALE" ? "GIRLS" : "BOYS") : null;
+  const subject: RecitationSubject = useMemo(() => childGroup ?? { self: gender }, [childGroup, gender]);
 
   const entry = useRecitationEntry({
     plan: data.plan,
@@ -96,7 +107,7 @@ export function RafiqHome({
     setSaveError(null);
     const day = loggableDays(today)[dayIndex];
     startTransition(async () => {
-      const r = await saveSessionAction({ ...entry.entryInput(), quality: quality || null, notes, day, today });
+      const r = await saveSessionAction({ ...entry.entryInput(), quality: quality || null, notes, day, today, subjectId: scope.subjectId });
       if (r.error) return setSaveError(r.error);
       setNotes("");
       setQuality("");
@@ -104,7 +115,10 @@ export function RafiqHome({
       router.refresh();
       entry.afterSave();
       flash(
-        !isNew
+        // «العائلة»: a warm word for a child on her own page
+        scope.viewer === "child"
+          ? `${p("أحسنتَ", "أحسنتِ")}! سُجّلت الجلسة ✓`
+          : !isNew
           ? `تم حفظ جلسة ال${SESSION_TYPE_LABEL[sessionType]} ✓`
           : classification.situation === "SURAH_GAP" || classification.situation === "AYAH_GAP"
             ? "تم الحفظ مع تسجيل سبب التجاوز ✓"
@@ -141,11 +155,13 @@ export function RafiqHome({
       <div className={styles.position}>
         <div className={styles.icon}>📖</div>
         <div>
-          <div className={styles.label}>موضعك الحالي (حسب خطتك)</div>
+          <div className={styles.label}>{child ? `موضع ${child.name} الحالي (حسب ${ofChild("خطته", "خطتها")})` : "موضعك الحالي (حسب خطتك)"}</div>
           <div className={styles.value}>
             {data.position
               ? `${SURAH_NAME[data.position.surahNumber]} — الآية ${data.position.ayah} من ${AYAH_COUNT[data.position.surahNumber]}`
-              : `لم ${p("تبدأ", "تبدئي")} بعد — أول سورة في خطتك: ${SURAH_NAME[data.plan[0]]}`}
+              : child
+                ? `لم ${ofChild("يبدأ", "تبدأ")} بعد — أول سورة في ${ofChild("خطته", "خطتها")}: ${SURAH_NAME[data.plan[0]]}`
+                : `لم ${p("تبدأ", "تبدئي")} بعد — أول سورة في خطتك: ${SURAH_NAME[data.plan[0]]}`}
           </div>
           <GoalLine goal={goal} feminine={gender === "FEMALE"} invalidHint="الهدف لم يعد ضمن خطتك الحالية — يمكن تعديله من «خطتي»." />
         </div>
@@ -191,11 +207,13 @@ export function RafiqHome({
         </div>
       </div>
 
-      <CommitCard commitment={commitment} today={today} />
+      {can.ownExtras && <CommitCard commitment={commitment} today={today} />}
 
       {/* recording a session */}
+      {can.record && (
+      <>
       <div className={styles.secTitle} id="record">
-        تسجيل جلسة
+        {child ? `التسميع مع ${child.name}` : "تسجيل جلسة"}
       </div>
       <div className={styles.recordCard}>
         <SessionTypePills entry={entry} />
@@ -237,9 +255,10 @@ export function RafiqHome({
           </div>
         </div>
 
-        <EntryStatus entry={entry} positionOf="موضعك" confirmVerb={p("تأكّد", "تأكّدي")} />
+        <EntryStatus entry={entry} positionOf={child ? `موضع ${child.name}` : "موضعك"} confirmVerb={p("تأكّد", "تأكّدي")} />
 
-        {!hasRangeError && (
+        {/* word-by-word mistakes: her own page, or an adult reciting with the child */}
+        {!hasRangeError && can.markWords && (
           <SimilarScope on={similar}>
             <WordFlagger
               surahNumber={surahNumber}
@@ -249,7 +268,7 @@ export function RafiqHome({
               flags={entry.wordFlags}
               onChange={entry.setWordFlags}
               subject={subject}
-              afterAyah={(a) => <VerseNoteMarker surah={surahNumber} ayah={a} />}
+              afterAyah={can.ownExtras ? (a) => <VerseNoteMarker surah={surahNumber} ayah={a} /> : undefined}
               detail={tajweed ? { enabled: true, flags: entry.detailFlags, onChange: entry.setDetailFlags } : undefined}
             />
           </SimilarScope>
@@ -267,22 +286,30 @@ export function RafiqHome({
         </button>
         <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6 }}>{ayahCount ? `تحتوي السورة على ${ayahCount} آية` : ""}</div>
       </div>
+      </>
+      )}
 
       {data.mistakes.length > 0 && (
         <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakeWordCount(data.mistakes), WORDS)} persistKey="rafiq.mistakes">
           <MistakesList
             mistakes={data.mistakes}
             subject={subject}
-            onResolve={async (m) => {
-              const r = await resolveMistakeAction(
-                m.surahNumber,
-                m.ayah,
-                m.wordPosition,
-                m.tajweed ? { letter: m.letter ?? 0, gapAfter: m.gapAfter ?? false, kind: m.tajweed.kind, code: m.tajweed.code } : undefined,
-              );
-              if (!("error" in r)) router.refresh();
-              return r;
-            }}
+            // «العائلة»: read-only for a child and for a view-only adult
+            onResolve={
+              can.resolve
+                ? async (m) => {
+                    const r = await resolveMistakeAction(
+                      m.surahNumber,
+                      m.ayah,
+                      m.wordPosition,
+                      m.tajweed ? { letter: m.letter ?? 0, gapAfter: m.gapAfter ?? false, kind: m.tajweed.kind, code: m.tajweed.code } : undefined,
+                      scope.subjectId,
+                    );
+                    if (!("error" in r)) router.refresh();
+                    return r;
+                  }
+                : undefined
+            }
           />
         </Collapsible>
       )}
@@ -310,7 +337,7 @@ export function RafiqHome({
         </Collapsible>
       )}
 
-      <History data={data} p={p} />
+      <History data={data} p={p} scope={scope} gender={gender} />
 
       {toast && (
         <div className={styles.toast} role="status">
@@ -355,7 +382,8 @@ function CommitCard({ commitment, today }: { commitment: CommitmentData; today: 
   );
 }
 
-function History({ data, p }: { data: MemorizationView; p: (m: string, f: string) => string }) {
+function History({ data, p, scope, gender }: { data: MemorizationView; p: (m: string, f: string) => string; scope: RafiqScope; gender: PersonGender }) {
+  const can = scopeCan(scope);
   const router = useRouter();
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -365,7 +393,7 @@ function History({ data, p }: { data: MemorizationView; p: (m: string, f: string
   function remove(id: string) {
     setError(null);
     startTransition(async () => {
-      const r = await deleteSessionAction(id);
+      const r = await deleteSessionAction(id, scope.subjectId);
       if (r.error) return setError(r.error);
       setConfirmId(null);
       router.refresh();
@@ -380,7 +408,7 @@ function History({ data, p }: { data: MemorizationView; p: (m: string, f: string
     >
       {data.history.length === 0 ? (
         <div style={{ textAlign: "center", fontSize: 13, color: "var(--ink-soft)", padding: "12px 0" }}>
-          لا توجد جلسات بعد — {p("سجّل", "سجّلي")} أول جلسة من الأعلى
+          {can.record ? <>لا توجد جلسات بعد — {p("سجّل", "سجّلي")} أول جلسة من الأعلى</> : "لا توجد جلسات بعد"}
         </div>
       ) : (
         data.history.map((h) => (
@@ -400,7 +428,9 @@ function History({ data, p }: { data: MemorizationView; p: (m: string, f: string
                     <span className={`${styles.badge} ${h.type !== "NEW" ? styles.gold : ""}`}>
                       {h.type === "NEW" ? "حفظ جديد" : `↺ ${SESSION_TYPE_LABEL[h.type]}`}
                     </span>
-                    {h.quality && <span className={styles.badge}>{QUALITY_LABEL[h.quality]}</span>}
+                    {h.quality && (
+                      <span className={styles.badge}>{selfAssessed(scope, h) ? `تقييم ذاتي: ${QUALITY_SHORT[h.quality]}` : QUALITY_LABEL[h.quality]}</span>
+                    )}
                     {h.mistakes > 0 && <span className={styles.badge}>🔖 {countLabel(h.mistakes, WORDS)}</span>}
                   </>
                 )}
@@ -408,7 +438,9 @@ function History({ data, p }: { data: MemorizationView; p: (m: string, f: string
               </div>
               {h.reason && <div className={styles.historyReason}>سبب: {h.reason}</div>}
               {h.notes && <div className={styles.historyNote}>&quot;{h.notes}&quot;</div>}
-              {confirmId === h.id ? (
+              {recordedByLine(scope, h, gender) && <div className={styles.historyNote}>{recordedByLine(scope, h, gender)}</div>}
+              {can.assess && h.source === "LOGGED" && <AssessSession id={h.id} quality={h.quality} subjectId={scope.subjectId} />}
+              {!canDeleteSession(scope, h) ? null : confirmId === h.id ? (
                 <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 4 }}>
                   <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>حذف هذه الجلسة وكلماتها المحدّدة؟</span>
                   <button type="button" className={styles.linkDanger} disabled={pending} onClick={() => remove(h.id)}>
@@ -429,5 +461,57 @@ function History({ data, p }: { data: MemorizationView; p: (m: string, f: string
         ))
       )}
     </Collapsible>
+  );
+}
+
+/**
+ * «العائلة»: an adult with edit rights sets or changes the assessment of a
+ * child's session. Shown at once; put back, with a short message, if saving fails.
+ */
+function AssessSession({ id, quality, subjectId }: { id: string; quality: Quality | null; subjectId?: string }) {
+  const router = useRouter();
+  const [shown, setShown] = useState<Quality | "">(quality ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  const [seen, setSeen] = useState(quality);
+  // a refreshed page brings the saved value
+  if (seen !== quality) {
+    setSeen(quality);
+    setShown(quality ?? "");
+  }
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4, fontSize: 12 }}>
+      <label htmlFor={`assess-${id}`} style={{ color: "var(--ink-soft)" }}>
+        التقييم
+      </label>
+      <select
+        id={`assess-${id}`}
+        value={shown}
+        onChange={(e) => {
+          const before = shown;
+          const next = e.target.value as Quality | "";
+          setShown(next);
+          setError(null);
+          startTransition(async () => {
+            // an error answer, or no answer at all (a dropped connection, an ended session)
+            const r = await setSessionQualityAction(id, next || null, subjectId).catch(() => ({ error: "" }));
+            if (r.error) {
+              setShown(before);
+              setError("تعذّر حفظ التقييم، يُرجى المحاولة مرة أخرى");
+              return;
+            }
+            router.refresh();
+          });
+        }}
+      >
+        <option value="">— بدون تقييم —</option>
+        {(Object.keys(QUALITY_LABEL) as Quality[]).map((q) => (
+          <option key={q} value={q}>
+            {QUALITY_SHORT[q]}
+          </option>
+        ))}
+      </select>
+      {error && <span className={styles.err} style={{ margin: 0 }}>{error}</span>}
+    </div>
   );
 }

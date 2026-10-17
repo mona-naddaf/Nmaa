@@ -4,11 +4,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { randomAccessCode, normalizeAccessCode } from "@/lib/auth/access-code";
-import { cleanName, DELETE_CONFIRM_WORD } from "@/lib/rafiq/rules";
+import { cleanName, DELETE_CONFIRM_WORD, parseGender } from "@/lib/rafiq/rules";
 import { checkPassword } from "@/lib/rafiq/password-check";
 import { pickByPerson } from "@/lib/text/gender";
 import type { RafiqUserSession } from "@/lib/rafiq/session";
-import { familyAccess, familyUser, founderAccess, NOT_AVAILABLE } from "@/lib/family/data";
+import { editorAccess, familyAccess, familyUser, founderAccess, NOT_AVAILABLE } from "@/lib/family/data";
+import { issueChildCode, stopChildLogin, uniqueChildCode } from "@/lib/family/child-code";
+import { templatePlan } from "@/lib/students/new-student";
 import { cleanFamilyName, FAMILY_LIMITS, inviteExpiry, inviteState } from "@/lib/family/rules";
 import { joinLimited, JOIN_TOO_MANY, recordJoinFailure } from "@/lib/family/limits";
 
@@ -220,4 +222,80 @@ export async function deleteFamilyAction(_prev: FamilyState, formData: FormData)
   if (count === 0) return { error: NOT_AVAILABLE };
   refresh();
   redirect("/rafiq/family");
+}
+
+// ---------- children (step 3) ----------
+//
+// The founder and adults with edit rights add children, give them their
+// login رمز, and delete them. A child is a Rafiq user of kind CHILD in this
+// family (src/lib/family): every Rafiq table holds her data as an adult's.
+
+// until the adults choose her plan (step 4), every child starts on «جزء عمّ
+// بالعكس» — from الناس back — with no previous memorization
+const CHILD_PLAN = "JUZ_AMMA_REVERSE" as const;
+
+export async function createChildAction(_prev: FamilyState, formData: FormData): Promise<FamilyState> {
+  const access = await editorAccess(formData.get("familyId"));
+  if ("error" in access) return access;
+  const named = cleanName(formData.get("name"));
+  if ("error" in named) return named;
+  if (!named.name) return { error: "يُرجى إدخال اسم الطفل" };
+  const gender = parseGender(formData.get("gender"));
+  if (!gender) return { error: "يُرجى اختيار: ولد أو بنت" };
+  const code = await uniqueChildCode();
+  const plan = templatePlan(CHILD_PLAN);
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    // one at a time per family, so the children limit holds
+    await tx.$queryRaw`SELECT id FROM "Family" WHERE id = ${access.family.id} FOR UPDATE`;
+    const count = await tx.rafiqUser.count({ where: { familyId: access.family.id, kind: "CHILD" } });
+    if (count >= FAMILY_LIMITS.childrenPerFamily) return { error: `يمكن أن تضم العائلة ${FAMILY_LIMITS.childrenPerFamily} طفلًا على الأكثر` };
+    await tx.rafiqUser.create({
+      data: {
+        kind: "CHILD",
+        name: named.name,
+        gender,
+        familyId: access.family.id,
+        createdById: access.user.id,
+        childCode: code,
+        childCodeCreatedAt: new Date(),
+        planTemplate: CHILD_PLAN,
+        planItems: { create: plan.map((surahNumber, position) => ({ surahNumber, position })) },
+      },
+    });
+    return {};
+  });
+  if ("error" in outcome) return outcome;
+  refresh(access.family.id);
+  return { ok: `تمت إضافة ${named.name} ✓` };
+}
+
+/** A new login رمز for a child; whoever is signed in with the old one is signed out. */
+export async function newChildCodeAction(familyId: string, childId: string): Promise<FamilyState> {
+  const access = await editorAccess(familyId);
+  if ("error" in access) return access;
+  if (!(await issueChildCode(access.family.id, String(childId ?? "")))) return { error: "هذا الطفل غير موجود في العائلة" };
+  refresh(access.family.id);
+  return {};
+}
+
+/** «إيقاف الدخول»: the child can't log in until a new رمز is issued. */
+export async function stopChildLoginAction(familyId: string, childId: string): Promise<FamilyState> {
+  const access = await editorAccess(familyId);
+  if ("error" in access) return access;
+  if (!(await stopChildLogin(access.family.id, String(childId ?? "")))) return { error: "هذا الطفل غير موجود في العائلة" };
+  refresh(access.family.id);
+  return {};
+}
+
+/** Deletes a child with all her data, after «حذف». */
+export async function deleteChildAction(familyId: string, childId: string, confirmWord: string): Promise<FamilyState> {
+  const access = await editorAccess(familyId);
+  if ("error" in access) return access;
+  if (String(confirmWord ?? "").trim() !== DELETE_CONFIRM_WORD) return { error: `يُرجى كتابة كلمة «${DELETE_CONFIRM_WORD}» للتأكيد` };
+  // every Rafiq row of hers cascades with her
+  const { count } = await prisma.rafiqUser.deleteMany({ where: { id: String(childId ?? ""), familyId: access.family.id, kind: "CHILD" } });
+  if (count === 0) return { error: "هذا الطفل غير موجود في العائلة" };
+  refresh(access.family.id);
+  return {};
 }

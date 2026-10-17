@@ -7,6 +7,7 @@ import { RAFIQ_COOKIE_NAME, verifyRafiqToken } from "@/lib/rafiq/token";
 import { rafiqEnabled } from "@/lib/rafiq/enabled";
 import { familyEnabled } from "@/lib/family/enabled";
 import { safeNext } from "@/lib/family/rules";
+import { CHILD_COOKIE_NAME, verifyChildToken } from "@/lib/family/child-token";
 
 // Settings, parent codes and the student archive are supervisor-only.
 // (Every page and action re-checks as well.)
@@ -29,6 +30,8 @@ const CODE_AREAS: Area[] = [
   { base: "/student", cookie: STUDENT_COOKIE_NAME, verify: verifyStudentToken },
   // «رفيق الحفظ»: its own email + password accounts (src/lib/rafiq)
   { base: "/rafiq", cookie: RAFIQ_COOKIE_NAME, verify: verifyRafiqToken, publicPages: ["signup", "recover"], enabled: rafiqEnabled },
+  // «العائلة»: a child's own pages (name + رمز); not "/rafiq/family", the adults' side
+  { base: "/family", cookie: CHILD_COOKIE_NAME, verify: verifyChildToken, enabled: familyEnabled },
 ];
 
 export async function proxy(request: NextRequest) {

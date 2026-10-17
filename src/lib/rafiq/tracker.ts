@@ -15,7 +15,8 @@ export interface RafiqTrackerData {
   sheet: TrackerSheet;
   // her items still in use, for managing them
   // slots: its timing rows (schedule.ts)
-  active: { id: string; title: string; value: number; days: number; slots: SlotRow[] }[];
+  // adultAdded: «العائلة», an adult added it to a child's tracker (addedBy: her id)
+  active: { id: string; title: string; value: number; days: number; slots: SlotRow[]; adultAdded: boolean; addedBy: string | null }[];
 }
 
 /** The last `days` days (plus a day of time-zone slack). */
@@ -35,6 +36,8 @@ export async function getRafiqTracker(userId: string, days = 9): Promise<RafiqTr
         createdAt: true,
         archivedAt: true,
         sortOrder: true,
+        adultAdded: true,
+        createdById: true,
         slots: { select: { weekdays: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true }, orderBy: { weekdays: "desc" } },
       },
     }),
@@ -61,6 +64,8 @@ export async function getRafiqTracker(userId: string, days = 9): Promise<RafiqTr
   }));
   return {
     sheet: { items: views, checks: byDay },
-    active: items.filter((r) => !r.archivedAt).map(({ id, title, value, days, slots }) => ({ id, title, value, days, slots })),
+    active: items
+      .filter((r) => !r.archivedAt)
+      .map(({ id, title, value, days, slots, adultAdded, createdById }) => ({ id, title, value, days, slots, adultAdded, addedBy: createdById })),
   };
 }

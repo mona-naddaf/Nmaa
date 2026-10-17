@@ -67,6 +67,11 @@ export interface HistoryEntry {
   reason: string | null;
   notes: string | null;
   mistakes: number;
+  // «العائلة»: an adult recorded it on a child's page (recordedById: who;
+  // null once her account is gone), and whether an adult set its assessment
+  recordedByAdult: boolean;
+  recordedById: string | null;
+  qualityByAdult: boolean;
 }
 
 export interface MemorizationView {
@@ -158,6 +163,9 @@ export async function getMemorization(userId: string): Promise<MemorizationView 
       reason: s.reason,
       notes: s.notes,
       mistakes: s._count.mistakes,
+      recordedByAdult: s.recordedByAdult,
+      recordedById: s.recordedById,
+      qualityByAdult: s.qualityByAdult,
     })),
     goal,
   };

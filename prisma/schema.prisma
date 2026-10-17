@@ -1379,6 +1379,10 @@ model RafiqSession {
   recordedByAdult Boolean              @default(false)
   recordedById    String?
   recordedBy      RafiqUser?           @relation("SessionRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+  // «العائلة»: true once an adult (with edit rights) set or changed the
+  // assessment of a child's session. A child's own assessment (quality set
+  // when she recorded it herself, this false) is shown as «تقييم ذاتي».
+  qualityByAdult  Boolean              @default(false)
   source          RecitationSource     @default(LOGGED)
   type            SessionType          @default(NEW)
   surahNumber     Int

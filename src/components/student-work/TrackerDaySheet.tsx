@@ -41,6 +41,7 @@ export function TrackerDaySheet({
   today,
   onTick,
   celebrateKey,
+  readOnly = false,
 }: {
   sheet: TrackerSheet;
   groupGender: GroupGender;
@@ -48,6 +49,8 @@ export function TrackerDaySheet({
   onTick: (input: TickInput) => Promise<{ error?: string }>;
   // who is ticking, for the once-a-day celebration (none: never celebrates)
   celebrateKey?: string;
+  // shown without ticking («العائلة»: a view-only adult on a child's tracker)
+  readOnly?: boolean;
 }) {
   const [which, setWhich] = useState<"today" | "yesterday">("today");
   // optimistic ticks keyed "day|itemId", dropped once the server's sheet catches up
@@ -82,6 +85,7 @@ export function TrackerDaySheet({
   const score = dayScore(allItems, checked, day);
 
   function toggle(item: TrackerItemView) {
+    if (readOnly) return;
     const key = `${day}|${item.id}`;
     const on = !checked.has(item.id);
     // her tick that first makes today complete: the celebration
@@ -144,6 +148,7 @@ export function TrackerDaySheet({
                   type="button"
                   className={`${styles.tile} ${on ? styles.on : ""} ${pending ? styles.pending : ""}`}
                   onClick={() => toggle(item)}
+                  disabled={readOnly}
                   aria-pressed={on}
                 >
                   <span className={styles.tileTitle}>{item.title}</span>

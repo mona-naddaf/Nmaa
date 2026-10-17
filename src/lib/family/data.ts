@@ -13,6 +13,7 @@ export const SIGNED_OUT = "انتهت الجلسة، يُرجى تسجيل ال�
 export const FAMILY_OFF = "العائلة غير متاحة حاليًا";
 export const NOT_AVAILABLE = "هذه العائلة غير متاحة";
 export const FOUNDER_ONLY = "هذا الإجراء متاح لمؤسِّس العائلة فقط";
+export const EDITORS_ONLY = "هذا الإجراء متاح لمن يستطيع تعديل بيانات الأطفال";
 
 export type FamilyAccess = {
   user: RafiqUserSession;
@@ -49,6 +50,13 @@ export async function founderAccess(familyId: unknown): Promise<FamilyAccess | {
   return access.isFounder ? access : { error: FOUNDER_ONLY };
 }
 
+/** An adult who may change the children (the founder, or given edit rights), or an error. */
+export async function editorAccess(familyId: unknown): Promise<FamilyAccess | { error: string }> {
+  const access = await familyAccess(familyId);
+  if ("error" in access) return access;
+  return access.canEditChildren ? access : { error: EDITORS_ONLY };
+}
+
 export type FamilyCard = { id: string; name: string; isFounder: boolean; adults: number; children: number };
 
 /** «عائلاتي»: every family she belongs to, oldest membership first. */
@@ -72,6 +80,15 @@ export type MemberView = {
   email: string | null;
 };
 
+export type ChildView = {
+  id: string;
+  name: string;
+  gender: "MALE" | "FEMALE";
+  // her login رمز: only for adults who may change the children (null: none, or not shown)
+  code: string | null;
+  codeCreatedAt: string | null;
+};
+
 export type InviteView = { id: string; code: string; createdAt: string; expiresAt: string; state: InviteState };
 
 export type FamilyView = {
@@ -81,6 +98,7 @@ export type FamilyView = {
   canEditChildren: boolean;
   members: MemberView[];
   childrenCount: number;
+  children: ChildView[];
   // the founder's list only (empty for everyone else)
   invites: InviteView[];
 };
@@ -88,13 +106,17 @@ export type FamilyView = {
 export async function familyView(access: FamilyAccess): Promise<FamilyView> {
   const { family, user, isFounder } = access;
   const now = new Date();
-  const [members, childrenCount, invites] = await Promise.all([
+  const [members, children, invites] = await Promise.all([
     prisma.familyMember.findMany({
       where: { familyId: family.id },
       orderBy: { joinedAt: "asc" },
       select: { userId: true, canEditChildren: true, user: { select: { name: true, gender: true, email: true } } },
     }),
-    prisma.rafiqUser.count({ where: { familyId: family.id, kind: "CHILD" } }),
+    prisma.rafiqUser.findMany({
+      where: { familyId: family.id, kind: "CHILD" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true, gender: true, childCode: true, childCodeCreatedAt: true },
+    }),
     isFounder
       ? prisma.familyInvite.findMany({ where: { familyId: family.id }, orderBy: { createdAt: "desc" }, select: { id: true, code: true, createdAt: true, expiresAt: true, revokedAt: true } })
       : Promise.resolve([]),
@@ -117,7 +139,14 @@ export async function familyView(access: FamilyAccess): Promise<FamilyView> {
     isFounder,
     canEditChildren: access.canEditChildren,
     members: view,
-    childrenCount,
+    childrenCount: children.length,
+    children: children.map((c) => ({
+      id: c.id,
+      name: c.name ?? "",
+      gender: c.gender,
+      code: access.canEditChildren ? c.childCode : null,
+      codeCreatedAt: access.canEditChildren && c.childCodeCreatedAt ? c.childCodeCreatedAt.toISOString() : null,
+    })),
     invites: invites
       .filter((i) => inviteListed(i, now))
       .map((i) => ({ id: i.id, code: i.code, createdAt: i.createdAt.toISOString(), expiresAt: i.expiresAt.toISOString(), state: inviteState(i, now) })),

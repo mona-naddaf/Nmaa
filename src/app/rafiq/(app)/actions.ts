@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { addedBy, resolveSubject } from "@/lib/rafiq/subject";
+import { addedBy, childActing, resolveSubject } from "@/lib/rafiq/subject";
 import { getPlan, getReach } from "@/lib/rafiq/memorization";
 import { finishCoveredSegments } from "@/lib/rafiq/home-log";
 import { acceptSessionDay, occurredAtFor } from "@/lib/rafiq/days";
@@ -35,9 +35,13 @@ const SESSION_TYPES: SessionType[] = ["NEW", "REVIEW", "LINK"];
 const QUALITIES = ["EXCELLENT", "GOOD", "NEEDS_REPEAT"] as const;
 type Quality = (typeof QUALITIES)[number];
 
+// «العائلة»: the child's own pages (/family) show the same rows
 function refresh() {
   revalidatePath("/rafiq", "layout");
+  revalidatePath("/family", "layout");
 }
+
+const CHILD_NO_MARKS = { error: "تحديد الكلمات يكون مع أحد أهلك عند التسميع" };
 
 export type SaveSessionInput = {
   type: SessionType;
@@ -93,6 +97,11 @@ export async function saveSessionAction(input: SaveSessionInput): Promise<RafiqR
     if (requiresReason && !reasonText) return { error: "يُرجى كتابة سبب هذا التسجيل قبل الحفظ" };
   }
 
+  // «العائلة»: a child records her own sessions without word marks; an adult
+  // with edit rights marks them when reciting with her
+  if (childActing(user) && ((Array.isArray(input.mistakes) && input.mistakes.length > 0) || (Array.isArray(input.details) && input.details.length > 0))) {
+    return CHILD_NO_MARKS;
+  }
   const checked = validateFlaggedWords(input.mistakes, surahNumber, fromAyah, toAyah);
   if ("error" in checked) return { error: checked.error };
   const checkedDetails = validateDetails(input.details, surahNumber, fromAyah, toAyah);
@@ -168,7 +177,29 @@ export async function saveSessionAction(input: SaveSessionInput): Promise<RafiqR
 export async function deleteSessionAction(sessionId: string, subjectId?: string): Promise<RafiqResult> {
   const user = await resolveSubject(subjectId, "record");
   if ("error" in user) return user;
-  const { count } = await prisma.rafiqSession.deleteMany({ where: { id: String(sessionId ?? ""), userId: user.id } });
+  // «العائلة»: a child deletes only sessions she recorded herself
+  const { count } = await prisma.rafiqSession.deleteMany({
+    where: { id: String(sessionId ?? ""), userId: user.id, ...(childActing(user) ? { recordedByAdult: false } : {}) },
+  });
+  if (count === 0) return { error: "هذه الجلسة غير موجودة" };
+  refresh();
+  return {};
+}
+
+/**
+ * «العائلة»: an adult with edit rights sets or changes the assessment of a
+ * child's session (null clears it). From then on it's shown as the adults'
+ * assessment, no longer as the child's «تقييم ذاتي».
+ */
+export async function setSessionQualityAction(sessionId: string, quality: Quality | null, subjectId?: string): Promise<RafiqResult> {
+  const user = await resolveSubject(subjectId, "record");
+  if ("error" in user) return user;
+  if (childActing(user) || user.self) return { error: "تعديل التقييم متاح لأهل الطفل فقط" };
+  if (quality !== null && !QUALITIES.includes(quality)) return { error: "مستوى التسميع غير صحيح" };
+  const { count } = await prisma.rafiqSession.updateMany({
+    where: { id: String(sessionId ?? ""), userId: user.id, source: "LOGGED" },
+    data: { quality, qualityByAdult: true },
+  });
   if (count === 0) return { error: "هذه الجلسة غير موجودة" };
   refresh();
   return {};
@@ -192,6 +223,8 @@ export async function resolveMistakeAction(
 ): Promise<{ error: string } | { ok: true }> {
   const user = await resolveSubject(subjectId, "record");
   if ("error" in user) return user;
+  // «العائلة»: her words-to-review list is read-only for a child; an adult with edit rights resolves them
+  if (childActing(user)) return { error: "يؤشّر أهلك على الكلمات بعد إتقانها" };
   if (
     detail &&
     (!isValidSpot(detail) || (detail.letter === 0 && !detail.gapAfter) || !TAJWEED_KINDS.includes(detail.kind) || typeof detail.code !== "string")

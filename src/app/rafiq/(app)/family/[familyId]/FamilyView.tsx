@@ -9,11 +9,16 @@ import f from "../family.module.css";
 import { dayOfInstant, useToday } from "@/lib/calendar/useToday";
 import { DELETE_CONFIRM_WORD } from "@/lib/rafiq/rules";
 import { FAMILY_LIMITS, INVITE_DAYS } from "@/lib/family/rules";
-import type { FamilyView as View, InviteView, MemberView } from "@/lib/family/data";
+import type { ChildView, FamilyView as View, InviteView, MemberView } from "@/lib/family/data";
+import { ACCOUNT_LIMITS } from "@/lib/rafiq/rules";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
 import {
+  createChildAction,
   createInviteAction,
+  deleteChildAction,
   deleteFamilyAction,
+  newChildCodeAction,
+  stopChildLoginAction,
   leaveFamilyAction,
   removeMemberAction,
   renameFamilyAction,
@@ -66,14 +71,7 @@ export function FamilyView({ view, gender }: { view: View; gender: PersonGender 
 
       <Adults view={view} p={p} />
 
-      <div className={hl.section}>
-        <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
-          الأطفال
-        </div>
-        <p className={hl.muted} style={{ margin: 0 }}>
-          {view.childrenCount === 0 ? "لا يوجد أطفال في العائلة بعد." : `عدد الأطفال: ${view.childrenCount}.`} إضافة الأطفال قريبًا.
-        </p>
-      </div>
+      <Children view={view} p={p} />
 
       {view.isFounder && <Invites view={view} p={p} />}
       {view.isFounder && <Rename view={view} />}
@@ -104,6 +102,8 @@ function MemberRow({ familyId, m, founderView, p }: { familyId: string; m: Membe
   const { pending, error, run } = useFamilyAction();
   const [confirm, setConfirm] = useState<"remove" | "transfer" | null>(null);
   const g = m.gender;
+  // edit rights switch at once (label and box), and go back if saving fails
+  const rights = useOptimisticToggle(m.canEditChildren, "تعذّر حفظ الصلاحية، يُرجى المحاولة مرة أخرى");
   return (
     <div className={f.row}>
       <div className={f.rowHead}>
@@ -112,7 +112,7 @@ function MemberRow({ familyId, m, founderView, p }: { familyId: string; m: Membe
           {m.isMe && " (أنا)"}
         </span>
         <span className={m.isFounder ? f.tagStrong : f.tag}>{m.isFounder ? by(g, "المؤسِّس", "المؤسِّسة") : by(g, "بالغ", "بالغة")}</span>
-        {!m.isFounder && <span className={f.tag}>{m.canEditChildren ? by(g, "يستطيع تعديل بيانات الأطفال", "تستطيع تعديل بيانات الأطفال") : "مشاهدة فقط"}</span>}
+        {!m.isFounder && <span className={f.tag}>{rights.on ? by(g, "يستطيع تعديل بيانات الأطفال", "تستطيع تعديل بيانات الأطفال") : "مشاهدة فقط"}</span>}
         {m.email && <span className={f.email}>{m.email}</span>}
       </div>
 
@@ -121,12 +121,9 @@ function MemberRow({ familyId, m, founderView, p }: { familyId: string; m: Membe
           <label className={f.check}>
             <input
               type="checkbox"
-              checked={m.canEditChildren}
+              checked={rights.on}
               disabled={pending}
-              onChange={(e) => {
-                const on = e.target.checked;
-                run(() => setEditRightsAction(familyId, m.userId, on));
-              }}
+              onChange={(e) => rights.set(e.target.checked, (on) => setEditRightsAction(familyId, m.userId, on))}
             />
             صلاحية تعديل بيانات الأطفال
           </label>
@@ -165,6 +162,240 @@ function MemberRow({ familyId, m, founderView, p }: { familyId: string; m: Membe
               {pending ? "جارٍ الإزالة…" : "نعم، إزالة"}
             </button>
             <button type="button" className={hl.ghostBtn} onClick={() => setConfirm(null)}>
+              تراجع
+            </button>
+          </div>
+        </div>
+      )}
+      {(error || rights.error) && <div className={hl.err}>{error ?? rights.error}</div>}
+    </div>
+  );
+}
+
+/**
+ * A switch shown at once, saved in the background, and put back with a short
+ * message if saving fails. A refreshed page brings the saved value.
+ */
+function useOptimisticToggle(saved: boolean, failMessage: string) {
+  const router = useRouter();
+  const [on, setOn] = useState(saved);
+  const [seen, setSeen] = useState(saved);
+  const [error, setError] = useState<string | null>(null);
+  const [, start] = useTransition();
+  if (seen !== saved) {
+    setSeen(saved);
+    setOn(saved);
+  }
+  const set = (next: boolean, save: (on: boolean) => Promise<FamilyState>) => {
+    const before = on;
+    setOn(next);
+    setError(null);
+    start(async () => {
+      // an error answer, or no answer at all (a dropped connection, an ended session)
+      const r = await save(next).catch(() => ({ error: failMessage }));
+      if (r?.error) {
+        setOn(before);
+        setError(failMessage);
+        return;
+      }
+      router.refresh();
+    });
+  };
+  return { on, set, error };
+}
+
+// ---------- children ----------
+
+function Children({ view, p }: { view: View; p: P }) {
+  const full = view.children.length >= FAMILY_LIMITS.childrenPerFamily;
+  return (
+    <div className={hl.section}>
+      <div className={hl.sectionTitle} style={{ margin: "0 0 10px" }}>
+        الأطفال ({view.children.length} من {FAMILY_LIMITS.childrenPerFamily})
+      </div>
+      {view.children.length === 0 ? (
+        <p className={hl.muted} style={{ marginTop: 0 }}>
+          لا يوجد أطفال في العائلة بعد.
+        </p>
+      ) : (
+        <div className={f.list} style={{ marginBottom: 12 }}>
+          {view.children.map((c) => (
+            <ChildRow key={c.id} familyId={view.id} c={c} canEdit={view.canEditChildren} />
+          ))}
+        </div>
+      )}
+      {view.canEditChildren &&
+        (full ? (
+          <p className={hl.muted}>تضم العائلة {FAMILY_LIMITS.childrenPerFamily} طفلًا، وهو الحدّ الأقصى.</p>
+        ) : (
+          <AddChild familyId={view.id} p={p} />
+        ))}
+    </div>
+  );
+}
+
+function AddChild({ familyId, p }: { familyId: string; p: P }) {
+  const [state, action, pending] = useActionState<FamilyState, FormData>(createChildAction, null);
+  const [open, setOpen] = useState(false);
+  // the form closes once the child is added (it stays open, with the message, on an error)
+  const [seen, setSeen] = useState(state);
+  if (seen !== state) {
+    setSeen(state);
+    if (state?.ok) setOpen(false);
+  }
+  if (!open) {
+    return (
+      <>
+        {state?.ok && <div className={styles.okMsg}>{state.ok}</div>}
+        <button type="button" className={hl.primaryBtn} onClick={() => setOpen(true)}>
+          + إضافة طفل
+        </button>
+      </>
+    );
+  }
+  return (
+    <form action={action} className={f.confirm}>
+      <input type="hidden" name="familyId" value={familyId} />
+      <div className={styles.formField} style={{ margin: 0 }}>
+        <label className={styles.fieldLabel} htmlFor="child-name">
+          اسم الطفل
+        </label>
+        <input id="child-name" name="name" className={styles.input} maxLength={ACCOUNT_LIMITS.nameMax} required />
+        <div className={styles.hint}>يدخل به الطفل مع رمز الدخول، {p("فاختر", "فاختاري")} اسمًا يعرفه</div>
+      </div>
+      <div className={styles.genderSwitch} role="radiogroup" aria-label="ولد أو بنت">
+        <label>
+          <input type="radio" name="gender" value="MALE" required />
+          ولد
+        </label>
+        <label>
+          <input type="radio" name="gender" value="FEMALE" />
+          بنت
+        </label>
+      </div>
+      {state?.error && <div className={hl.err}>{state.error}</div>}
+      <div className={hl.actionsRow}>
+        <button type="submit" className={hl.primaryBtn} disabled={pending}>
+          {pending ? "جارٍ الإضافة…" : "إضافة"}
+        </button>
+        <button type="button" className={hl.ghostBtn} onClick={() => setOpen(false)}>
+          إلغاء
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ChildRow({ familyId, c, canEdit }: { familyId: string; c: ChildView; canEdit: boolean }) {
+  const { pending, error, run } = useFamilyAction();
+  const [confirm, setConfirm] = useState<"code" | "stop" | "delete" | null>(null);
+  const [word, setWord] = useState("");
+  const [copied, setCopied] = useState(false);
+  const g = c.gender;
+  const close = () => {
+    setConfirm(null);
+    setWord("");
+  };
+  return (
+    <div className={f.row}>
+      <div className={f.rowHead}>
+        <span className={f.name}>{c.name}</span>
+        <span className={f.tag}>{by(g, "ولد", "بنت")}</span>
+        <Link href={`/rafiq/family/${familyId}/child/${c.id}`} className={hl.linkBtn}>
+          {by(g, "فتح صفحته", "فتح صفحتها")} ←
+        </Link>
+      </div>
+
+      {canEdit && (
+        <div className={f.rowActions}>
+          {c.code ? (
+            <>
+              <span>رمز الدخول:</span>
+              <span className={f.code}>{c.code}</span>
+              <button
+                type="button"
+                className={hl.linkBtn}
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(c.code ?? "");
+                    setCopied(true);
+                  } catch {
+                    setCopied(false);
+                  }
+                }}
+              >
+                {copied ? "تم النسخ ✓" : "نسخ الرمز"}
+              </button>
+              <button type="button" className={hl.linkBtn} disabled={pending} onClick={() => setConfirm("code")}>
+                رمز جديد
+              </button>
+              <button type="button" className={styles.linkDanger} disabled={pending} onClick={() => setConfirm("stop")}>
+                إيقاف الدخول
+              </button>
+            </>
+          ) : (
+            <>
+              <span className={hl.muted}>الدخول موقوف</span>
+              <button type="button" className={hl.linkBtn} disabled={pending} onClick={() => run(() => newChildCodeAction(familyId, c.id))}>
+                {pending ? "جارٍ الإصدار…" : "إصدار رمز دخول"}
+              </button>
+            </>
+          )}
+          <button type="button" className={styles.linkDanger} disabled={pending} onClick={() => setConfirm("delete")}>
+            {by(g, "حذف الطفل", "حذف الطفلة")}
+          </button>
+        </div>
+      )}
+
+      {confirm === "code" && (
+        <div className={f.confirm}>
+          <span>
+            رمز جديد لـ{c.name}؟ يتوقّف الرمز الحالي، {by(g, "ويخرج", "وتخرج")} من {by(g, "حسابه", "حسابها")} على كل الأجهزة حتى {by(g, "يدخل", "تدخل")} بالرمز الجديد.
+          </span>
+          <div className={hl.actionsRow}>
+            <button type="button" className={hl.primaryBtn} disabled={pending} onClick={() => run(() => newChildCodeAction(familyId, c.id), close)}>
+              {pending ? "جارٍ الإصدار…" : "نعم، رمز جديد"}
+            </button>
+            <button type="button" className={hl.ghostBtn} onClick={close}>
+              تراجع
+            </button>
+          </div>
+        </div>
+      )}
+      {confirm === "stop" && (
+        <div className={f.confirm}>
+          <span>
+            إيقاف دخول {c.name}؟ {by(g, "يخرج", "تخرج")} من {by(g, "حسابه", "حسابها")} على كل الأجهزة، ولا {by(g, "يستطيع", "تستطيع")} الدخول حتى يُصدَر رمز جديد. تبقى {by(g, "بياناته", "بياناتها")} كما هي.
+          </span>
+          <div className={hl.actionsRow}>
+            <button type="button" className={styles.dangerBtn} disabled={pending} onClick={() => run(() => stopChildLoginAction(familyId, c.id), close)}>
+              {pending ? "جارٍ الإيقاف…" : "نعم، إيقاف الدخول"}
+            </button>
+            <button type="button" className={hl.ghostBtn} onClick={close}>
+              تراجع
+            </button>
+          </div>
+        </div>
+      )}
+      {confirm === "delete" && (
+        <div className={f.confirm}>
+          <span>
+            تُحذف صفحة {c.name} وجميع {by(g, "حفظه ومتابعته", "حفظها ومتابعتها")} نهائيًا، ولا يمكن التراجع عن ذلك.
+          </span>
+          <label className={styles.fieldLabel} htmlFor={`del-child-${c.id}`} style={{ margin: 0 }}>
+            اكتب «{DELETE_CONFIRM_WORD}» للتأكيد
+          </label>
+          <input id={`del-child-${c.id}`} className={styles.input} value={word} onChange={(e) => setWord(e.target.value)} autoComplete="off" />
+          <div className={hl.actionsRow}>
+            <button
+              type="button"
+              className={styles.dangerBtn}
+              disabled={pending || word.trim() !== DELETE_CONFIRM_WORD}
+              onClick={() => run(() => deleteChildAction(familyId, c.id, word), close)}
+            >
+              {pending ? "جارٍ الحذف…" : "حذف نهائيًا"}
+            </button>
+            <button type="button" className={hl.ghostBtn} onClick={close}>
               تراجع
             </button>
           </div>

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { addedBy, resolveSubject } from "@/lib/rafiq/subject";
+import { addedBy, childActing, resolveSubject, type Subject } from "@/lib/rafiq/subject";
 import { acceptTickDay, addDays, shownOn, validateDays, validateTitle, validateValue } from "@/lib/tracker/rules";
 import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
 import { nextRafiqSortOrder, setRafiqItemSchedule, setRafiqOrder, type ScheduleChoice } from "@/lib/tracker/agenda-data";
@@ -21,7 +21,15 @@ const day = (d: Date) => d.toISOString().slice(0, 10);
 
 function refresh() {
   revalidatePath("/rafiq/tracker");
+  // «العائلة»: a child's tracker, on her own page and on the adults'
+  revalidatePath("/family", "layout");
+  revalidatePath("/rafiq/family", "layout");
 }
+
+// «العائلة»: items an adult added to a child's tracker are ticked by the
+// child, but only adults change or remove them
+const LOCKED = { error: "لا يمكنك تعديل هذا البند، فقد أضافه أحد أهلك" };
+const editableBy = (user: Subject) => (childActing(user) ? { adultAdded: false } : {});
 
 // schedule: «الجدول اليومي» only (ignored while she has it off): [{ weekdays, timing }]
 // subjectId: «العائلة», a child's id when an adult works on the child's tracker
@@ -76,8 +84,8 @@ export async function updateItemAction(id: string, input: ItemInput): Promise<Tr
   if ("error" in fields) return { error: fields.error };
   const timed = await readSchedule(user.id, input);
   if ("error" in timed) return { error: timed.error };
-  const { count } = await prisma.rafiqTrackerItem.updateMany({ where: { id: String(id ?? ""), userId: user.id, archivedAt: null }, data: fields });
-  if (count === 0) return { error: "هذا البند غير موجود" };
+  const { count } = await prisma.rafiqTrackerItem.updateMany({ where: { id: String(id ?? ""), userId: user.id, archivedAt: null, ...editableBy(user) }, data: fields });
+  if (count === 0) return childActing(user) ? LOCKED : { error: "هذا البند غير موجود" };
   if (timed.schedule) await setRafiqItemSchedule(user.id, id, timed.schedule, timed.anchors);
   refresh();
   return {};
@@ -98,6 +106,7 @@ export async function setItemScheduleAction(id: string, schedule: ScheduleChoice
   const user = await resolveSubject(subjectId, "record");
   if ("error" in user) return user;
   if (!(await agendaOn(user.id))) return AGENDA_OFF;
+  if (childActing(user) && (await prisma.rafiqTrackerItem.count({ where: { id: String(id ?? ""), userId: user.id, adultAdded: true } })) > 0) return LOCKED;
   const r = await setRafiqItemSchedule(user.id, id, schedule === "STAFF" ? [] : schedule, (await rafiqPlace(user.id)) !== null);
   if (!r.error) refresh();
   return r;
@@ -118,10 +127,10 @@ export async function removeItemAction(id: string, subjectId?: string): Promise<
   const user = await resolveSubject(subjectId, "record");
   if ("error" in user) return user;
   const { count } = await prisma.rafiqTrackerItem.updateMany({
-    where: { id: String(id ?? ""), userId: user.id, archivedAt: null },
+    where: { id: String(id ?? ""), userId: user.id, archivedAt: null, ...editableBy(user) },
     data: { archivedAt: new Date() },
   });
-  if (count === 0) return { error: "هذا البند غير موجود" };
+  if (count === 0) return childActing(user) ? LOCKED : { error: "هذا البند غير موجود" };
   refresh();
   return {};
 }

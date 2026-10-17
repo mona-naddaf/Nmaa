@@ -22,6 +22,7 @@ import type { ScheduleInput } from "@/components/student-work/ScheduleEditor";
 import type { PrayerLocation } from "@/lib/prayer/times";
 import { publishTemplateAction } from "../templates/actions";
 import { TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
+import { scopeCan, SELF_SCOPE, type RafiqScope } from "@/lib/rafiq/scope";
 
 type Item = RafiqTrackerData["active"][number];
 type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
@@ -31,6 +32,9 @@ type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
 // then. Her own items (she creates and edits them herself, no approval) are
 // managed from the «⚙ البنود» menu: «إدارة البنود» (with publishing to the
 // bank), «ترتيب البنود» (agenda only) and the link to «بنك الجداول».
+// scope: «العائلة» — a child's tracker, for the child (items an adult added
+// are ticked, never changed) or an adult of her family (view only: no ticks,
+// no changes); her own Rafiq tracker by default.
 export function RafiqTracker({
   data,
   g,
@@ -38,6 +42,7 @@ export function RafiqTracker({
   summary = false,
   place = null,
   celebrateKey,
+  scope = SELF_SCOPE,
 }: {
   data: RafiqTrackerData;
   g: GroupGender;
@@ -48,7 +53,14 @@ export function RafiqTracker({
   place?: PrayerLocation | null;
   // who is ticking, for the once-a-day celebration
   celebrateKey?: string;
+  scope?: RafiqScope;
 }) {
+  const can = scopeCan(scope);
+  const subjectId = scope.subjectId;
+  // «العائلة»: every action names the child on an adult's page
+  const tick = (input: Parameters<typeof setCheckAction>[0]) => setCheckAction({ ...input, subjectId });
+  const schedule = (id: string, choice: Parameters<typeof setItemScheduleAction>[1]) => setItemScheduleAction(id, choice, subjectId);
+  const reorder = (ids: string[]) => reorderItemsAction(ids, subjectId);
   const today = useToday();
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
@@ -80,9 +92,9 @@ export function RafiqTracker({
 
   // the bank is open to every «رفيق الحفظ» user; ordering only matters with «الجدول اليومي»
   const menu: MenuEntry[] = [
-    { label: "إدارة البنود", onSelect: () => show("items") },
-    ...(agenda && data.active.length > 1 ? [{ label: "ترتيب البنود", onSelect: () => show("order") }] : []),
-    { label: "بنك الجداول", href: "/rafiq/templates" },
+    { label: can.record ? "إدارة البنود" : "البنود", onSelect: () => show("items") },
+    ...(can.record && agenda && data.active.length > 1 ? [{ label: "ترتيب البنود", onSelect: () => show("order") }] : []),
+    ...(can.ownExtras ? [{ label: "بنك الجداول", href: "/rafiq/templates" }] : []),
   ];
 
   return (
@@ -91,14 +103,14 @@ export function RafiqTracker({
         // «أمس» on the agenda; the tile sheet keeps its own today/yesterday tabs
         yesterday={yesterday}
         onYesterday={agenda && view === "day" && !empty ? () => setYesterday(!yesterday) : undefined}
-        summaryHref={summary ? "/rafiq/tracker/summary" : undefined}
+        summaryHref={summary && can.ownExtras ? "/rafiq/tracker/summary" : undefined}
         menu={menu}
       />
 
       {view === "items" && (
         <>
-          <ViewBar title="إدارة البنود" onBack={() => show("day")}>
-            {!adding && (
+          <ViewBar title={can.record ? "إدارة البنود" : "البنود"} onBack={() => show("day")}>
+            {!adding && can.record && (
               <button type="button" className={`${hl.primaryBtn} pressable`} onClick={() => setAdding(true)} disabled={full}>
                 + بند جديد
               </button>
@@ -112,7 +124,7 @@ export function RafiqTracker({
               place={place}
               pending={pending}
               onCancel={() => setAdding(false)}
-              onSubmit={(fields) => run(() => addItemAction(fields), () => setAdding(false))}
+              onSubmit={(fields) => run(() => addItemAction({ ...fields, subjectId }), () => setAdding(false))}
             />
           )}
           {error && (
@@ -124,17 +136,17 @@ export function RafiqTracker({
             {data.active.length === 0 ? (
               <div className={hl.empty}>لا بنود بعد.</div>
             ) : (
-              data.active.map((item) => <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} />)
+              data.active.map((item) => <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} scope={scope} />)
             )}
           </div>
-          {data.active.length > 0 && <Publish items={data.active} p={p} agenda={agenda} />}
+          {data.active.length > 0 && can.ownExtras && <Publish items={data.active} p={p} agenda={agenda} />}
         </>
       )}
 
       {view === "order" && (
         <>
           <ViewBar title="ترتيب البنود" onBack={() => show("day")} />
-          <AgendaOrder sheet={data.sheet} today={today} groupGender={g} course={false} place={place} onReorder={reorderItemsAction} onDone={() => show("day")} />
+          <AgendaOrder sheet={data.sheet} today={today} groupGender={g} course={false} place={place} onReorder={reorder} onDone={() => show("day")} />
         </>
       )}
 
@@ -142,20 +154,30 @@ export function RafiqTracker({
         (empty ? (
           <div className={hl.section}>
             <div className={hl.empty}>
-              {p("أضف", "أضيفي")} بنودًا يومية {p("تتابعها", "تتابعينها")} {p("بنفسك", "بنفسكِ")} (مثل: ورد المراجعة، أذكار الصباح)، لكل بند درجته
-              وأيامه.
+              {scope.viewer === "self" ? (
+                <>
+                  {p("أضف", "أضيفي")} بنودًا يومية {p("تتابعها", "تتابعينها")} {p("بنفسك", "بنفسكِ")} (مثل: ورد المراجعة، أذكار الصباح)، لكل بند درجته
+                  وأيامه.
+                </>
+              ) : scope.viewer === "child" ? (
+                `لا توجد بنود في جدولك بعد. ${p("يمكنك", "يمكنكِ")} إضافة بند ${p("بنفسك", "بنفسكِ")}، وسيظهر هنا أيضًا ما يضيفه أهلك.`
+              ) : (
+                `لا توجد بنود في جدول ${scope.child?.name ?? "الطفل"} بعد.`
+              )}
             </div>
+            {can.record && (
             <div className={hl.actionsRow} style={{ justifyContent: "center" }}>
               <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => show("items")}>
                 إدارة البنود
               </button>
             </div>
+            )}
           </div>
         ) : agenda ? (
           // «الجدول اليومي»: the timeline is the only place to tick
-          <TrackerAgenda sheet={data.sheet} today={today} groupGender={g} course={false} onTick={setCheckAction} onSchedule={setItemScheduleAction} place={place} showYesterday={yesterday} celebrateKey={celebrateKey} />
+          <TrackerAgenda sheet={data.sheet} today={today} groupGender={g} course={false} onTick={tick} onSchedule={schedule} place={place} showYesterday={yesterday} celebrateKey={celebrateKey} />
         ) : (
-          <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={setCheckAction} celebrateKey={celebrateKey} />
+          <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={tick} celebrateKey={celebrateKey} readOnly={!can.record} />
         ))}
     </div>
   );
@@ -317,18 +339,27 @@ function ItemForm({
   );
 }
 
-function ItemRow({ item, run, pending, agenda, place }: { item: Item; run: Run; pending: boolean; agenda: boolean; place: PrayerLocation | null }) {
+function ItemRow({ item, run, pending, agenda, place, scope }: { item: Item; run: Run; pending: boolean; agenda: boolean; place: PrayerLocation | null; scope: RafiqScope }) {
   const [mode, setMode] = useState<"view" | "edit" | "remove">("view");
   const toggle = (m: typeof mode) => setMode(mode === m ? "view" : m);
+  // «العائلة»: an adult's item is the child's to tick, not to change; a view-only adult changes nothing
+  const editable = scopeCan(scope).record && !(scope.viewer === "child" && item.adultAdded);
+  const adder = item.addedBy ? scope.adults?.[item.addedBy] : undefined;
   return (
     <CompactRow
       title={item.title}
       points={item.value}
       days={item.days}
       time={agenda ? scheduleLabel(item.slots) : undefined}
-      onEdit={() => toggle("edit")}
-      onDelete={() => toggle("remove")}
+      onEdit={editable ? () => toggle("edit") : undefined}
+      onDelete={editable ? () => toggle("remove") : undefined}
     >
+      {scope.viewer !== "self" && item.adultAdded && (
+        <div className={hl.muted} style={{ fontSize: 12, marginTop: 4 }}>
+          {scope.viewer === "child" ? "🔒 " : ""}
+          {adder ? `من ${adder.name}` : "من أحد البالغين"}
+        </div>
+      )}
       {mode === "edit" && (
         <div className={itemStyles.rowPanel}>
           <ItemForm
@@ -338,14 +369,14 @@ function ItemRow({ item, run, pending, agenda, place }: { item: Item; run: Run; 
             submitLabel="حفظ"
             pending={pending}
             onCancel={() => setMode("view")}
-            onSubmit={(fields) => run(() => updateItemAction(item.id, fields), () => setMode("view"))}
+            onSubmit={(fields) => run(() => updateItemAction(item.id, { ...fields, subjectId: scope.subjectId }), () => setMode("view"))}
           />
         </div>
       )}
       {mode === "remove" && (
         <div className={itemStyles.confirm}>
           <span>حذف هذا البند؟ تبقى درجاته في الأيام السابقة.</span>
-          <button type="button" className={`${styles.dangerBtn} pressable`} disabled={pending} onClick={() => run(() => removeItemAction(item.id))}>
+          <button type="button" className={`${styles.dangerBtn} pressable`} disabled={pending} onClick={() => run(() => removeItemAction(item.id, scope.subjectId))}>
             نعم، حذف
           </button>
           <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setMode("view")}>

@@ -26,6 +26,8 @@ export type SubjectFeatures = {
   // adult's own data, the child's switches («العائلة», set by adults) otherwise
   homeLog: boolean;
   homeMistakes: boolean;
+  // her memorization goal (the adults set it; the child sees it)
+  goal: boolean;
 };
 
 export type Subject = {
@@ -52,11 +54,13 @@ const MESSAGES = {
   "child-cannot": "هذا متاح لأهلك فقط",
 } as const;
 
-const ALL_FEATURES: SubjectFeatures = { homeLog: true, homeMistakes: true };
-const childFeatures = (c: { homeLogEnabled: boolean; homeMistakesEnabled: boolean }): SubjectFeatures => ({
+const ALL_FEATURES: SubjectFeatures = { homeLog: true, homeMistakes: true, goal: true };
+const childFeatures = (c: { homeLogEnabled: boolean; homeMistakesEnabled: boolean; goalEnabled: boolean }): SubjectFeatures => ({
   homeLog: c.homeLogEnabled,
   homeMistakes: c.homeLogEnabled && c.homeMistakesEnabled,
+  goal: c.goalEnabled,
 });
+const FEATURE_SELECT = { homeLogEnabled: true, homeMistakesEnabled: true, goalEnabled: true } as const;
 
 export function resolveSubject(subjectId: null, need: "self"): Promise<(Subject & { account: RafiqUserSession }) | SubjectError>;
 export function resolveSubject(subjectId: unknown, need: Exclude<SubjectNeed, "self">): Promise<Subject | SubjectError>;
@@ -71,7 +75,7 @@ export async function resolveSubject(subjectId: unknown, need: SubjectNeed): Pro
     const self = target === null || target === child.id;
     const decision = decideAccess("CHILD", self, null, need);
     if (decision !== "ok") return { error: MESSAGES[decision] };
-    const flags = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: child.id }, select: { homeLogEnabled: true, homeMistakesEnabled: true } });
+    const flags = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: child.id }, select: FEATURE_SELECT });
     return { id: child.id, kind: "CHILD", gender: child.gender, name: child.name, actorId: child.id, actorKind: "CHILD", self: true, features: childFeatures(flags) };
   }
 
@@ -86,8 +90,7 @@ export async function resolveSubject(subjectId: unknown, need: SubjectNeed): Pro
       kind: true,
       gender: true,
       name: true,
-      homeLogEnabled: true,
-      homeMistakesEnabled: true,
+      ...FEATURE_SELECT,
       family: { select: { founderId: true, members: { where: { userId: adult.id }, select: { canEditChildren: true } } } },
     },
   });

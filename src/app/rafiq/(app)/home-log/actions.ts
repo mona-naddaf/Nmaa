@@ -232,6 +232,8 @@ export async function resolveSpotAction(input: {
   if ("error" in s) return s;
   if (!s.features.homeLog) return HOME_OFF;
   if (childActing(s) && !s.features.homeMistakes) return MARKS_OFF;
+  // as on her page: a child's marks are resolved by an adult with edit rights
+  if (childActing(s)) return { error: "يؤشّر أهلك على الكلمات بعد إتقانها" };
   const uid = s.id;
   const spot = { letter: Number(input?.letter ?? 0), gapAfter: input?.gapAfter === true };
   if (!isValidSpot(spot) || (spot.letter === 0 && !spot.gapAfter)) return { error: "بيانات غير صحيحة" };

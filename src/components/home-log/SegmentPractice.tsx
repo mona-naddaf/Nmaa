@@ -70,7 +70,8 @@ export function SegmentPractice({
     detail?: {
       flags: DetailFlags;
       onChange: (key: string, errors: DetailError[]) => void;
-      onMasterSpot: (key: string) => void;
+      // «تم الإتقان» on a spot (absent: not offered — «العائلة», a child)
+      onMasterSpot?: (key: string) => void;
     };
   };
   // anything to show right after each ayah number (e.g. a note marker)
@@ -271,7 +272,7 @@ export function SegmentPractice({
           onClose={() => setSheet(null)}
           onSwitch={setSheet}
           currentLabel="علاماتي هنا"
-          onMasterSpot={(key) => detail.onMasterSpot(key)}
+          onMasterSpot={detail.onMasterSpot ? (key) => detail.onMasterSpot?.(key) : undefined}
         />
       )}
 

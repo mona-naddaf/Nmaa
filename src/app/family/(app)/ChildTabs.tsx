@@ -4,11 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import shell from "@/app/(dashboard)/shell.module.css";
 
-export function ChildTabs() {
+// homeLog: «حفظي في البيت», only while the adults have it on
+export function ChildTabs({ homeLog = false }: { homeLog?: boolean }) {
   const pathname = usePathname();
   const tabs = [
     { href: "/family", label: "صفحتي", active: pathname === "/family" },
+    ...(homeLog ? [{ href: "/family/home-log", label: "حفظي في البيت", active: pathname.startsWith("/family/home-log") }] : []),
     { href: "/family/tracker", label: "جدول المتابعة", active: pathname.startsWith("/family/tracker") },
+    { href: "/family/plan", label: "خطتي", active: pathname.startsWith("/family/plan") },
   ];
   return (
     <nav className={shell.nav}>

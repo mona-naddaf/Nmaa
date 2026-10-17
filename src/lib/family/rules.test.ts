@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanFamilyName, FAMILY_LIMITS, inviteExpiry, inviteListed, inviteState, safeNext } from "./rules";
+import { CHILD_FEATURES, cleanFamilyName, FAMILY_LIMITS, inviteExpiry, inviteListed, inviteState, isChildFeature, safeNext } from "./rules";
 
 const at = (iso: string) => new Date(iso);
 
@@ -35,4 +35,13 @@ test("safeNext: only the join page, with an optional رمز", () => {
   for (const bad of ["/rafiq", "//evil.example", "https://evil.example/rafiq/family/join", "/rafiq/family/join?code=x&next=/", "/rafiq/family/join/../../settings", "/rafiq/family/joinx", null, 7]) {
     assert.equal(safeNext(bad), null, String(bad));
   }
+});
+
+test("child switches: the eight known names only, each its own column", () => {
+  const keys = Object.keys(CHILD_FEATURES);
+  assert.deepEqual(keys.sort(), ["agenda", "goal", "homeLog", "homeMistakes", "mutashabihat", "streak", "summary", "tajweed"]);
+  for (const k of keys) assert.equal(isChildFeature(k), true, k);
+  // nothing else reaches the database column map — inherited keys included
+  for (const bad of ["toString", "constructor", "__proto__", "kind", "planTemplate", "", null, 1]) assert.equal(isChildFeature(bad), false, String(bad));
+  assert.equal(new Set(Object.values(CHILD_FEATURES)).size, keys.length);
 });

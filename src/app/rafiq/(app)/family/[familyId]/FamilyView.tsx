@@ -11,6 +11,8 @@ import { DELETE_CONFIRM_WORD } from "@/lib/rafiq/rules";
 import { FAMILY_LIMITS, INVITE_DAYS } from "@/lib/family/rules";
 import type { ChildView, FamilyView as View, InviteView, MemberView } from "@/lib/family/data";
 import { ACCOUNT_LIMITS } from "@/lib/rafiq/rules";
+import { CityPicker } from "@/components/prayer/CityPicker";
+import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
 import {
   createChildAction,
@@ -18,6 +20,7 @@ import {
   deleteChildAction,
   deleteFamilyAction,
   newChildCodeAction,
+  setFamilyPlaceAction,
   stopChildLoginAction,
   leaveFamilyAction,
   removeMemberAction,
@@ -72,11 +75,25 @@ export function FamilyView({ view, gender }: { view: View; gender: PersonGender 
       <Adults view={view} p={p} />
 
       <Children view={view} p={p} />
+      {view.canEditChildren && view.children.length > 0 && (
+        <div className={hl.section}>
+          <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+            المدينة (لمواقيت الصلاة)
+          </div>
+          <CityPicker
+            initial={view.place}
+            previewZone={null}
+            intro="مدينة واحدة لأطفال العائلة: تتيح في «الجدول اليومي» أوقاتًا بالنسبة إلى الصلاة (مثل «بعد الفجر»). لكلّ بالغ مدينته في إعداداته."
+            onSave={(loc) => setFamilyPlaceAction(view.id, loc).then((r) => r ?? {})}
+          />
+        </div>
+      )}
 
       {view.isFounder && <Invites view={view} p={p} />}
       {view.isFounder && <Rename view={view} />}
       {!view.isFounder && me && <Leave view={view} p={p} />}
       {view.isFounder && <DeleteFamily view={view} p={p} />}
+      <LeaveGuard />
     </div>
   );
 }
@@ -192,7 +209,7 @@ function useOptimisticToggle(saved: boolean, failMessage: string) {
     setError(null);
     start(async () => {
       // an error answer, or no answer at all (a dropped connection, an ended session)
-      const r = await save(next).catch(() => ({ error: failMessage }));
+      const r = await trackSave(save(next)).catch(() => ({ error: failMessage }));
       if (r?.error) {
         setOn(before);
         setError(failMessage);

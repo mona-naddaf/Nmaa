@@ -7,6 +7,7 @@ import type { WordFlags } from "@/components/mistakes/FlaggableAyah";
 import type { HomeSegmentView } from "@/lib/home-log/data";
 import type { MistakeType } from "@/lib/students/mistake-types";
 import type { GroupGender } from "@/lib/text/gender";
+import type { RecitationSubject } from "@/lib/recitation/logic";
 import { parseSpotKey, type DetailError, type DetailFlags } from "@/lib/tajweed/spots";
 import type { TajweedKind } from "@/lib/tajweed/taxonomy";
 
@@ -37,6 +38,8 @@ export function PracticeWithMarks({
   mark,
   afterAyah,
   detail,
+  subject,
+  hint: hintText,
 }: {
   segment: HomeSegmentView;
   groupGender: GroupGender;
@@ -47,7 +50,12 @@ export function PracticeWithMarks({
   afterAyah?: (ayah: number) => ReactNode;
   // detailed tajweed marks (lib/tajweed), when she has them on: her open
   // ones in this passage, and the actions that save a spot and master one
-  detail?: { initial: DetailFlags; save: SpotAction; master: MasterAction };
+  // master absent: «تم الإتقان» isn't offered («العائلة»: a child's marks are resolved by an adult)
+  detail?: { initial: DetailFlags; save: SpotAction; master?: MasterAction };
+  // whose marks: herself by default («العائلة»: an adult practising with a child)
+  subject?: RecitationSubject;
+  // replaces the hint above the ayat
+  hint?: string;
 }) {
   const [flags, setFlags] = useState<WordFlags>(initialFlags);
   const [details, setDetails] = useState<DetailFlags>(detail?.initial ?? {});
@@ -73,7 +81,7 @@ export function PracticeWithMarks({
   /** «تم الإتقان» for everything on one spot: it leaves the screen (and her list). */
   function onMasterSpot(key: string) {
     const p = parseSpotKey(key);
-    if (!p || !detail) return;
+    if (!p || !detail?.master) return;
     const before = details;
     const next = { ...details };
     delete next[key];
@@ -107,6 +115,7 @@ export function PracticeWithMarks({
   const self = groupGender === "GIRLS" ? "FEMALE" : "MALE";
   const p = (m: string, f: string) => (groupGender === "GIRLS" ? f : m);
   const hint =
+    hintText ??
     `🔖 ${p("اضغط", "اضغطي")} على أي كلمة ${p("أخطأتَ", "أخطأتِ")} فيها لتحديدها، ثم ${p("علّمها", "علّميها")} متقَنة حين ${p("تتقنها", "تتقنينها")}. لا يرى هذه الكلمات أحد غيرك.` +
     (detail
       ? ` وللتجويد المفصّل ${p("اختر", "اختاري")} من قائمة الكلمة مخرجًا أو صفة أو حكمًا ثم الحرف نفسه، أو ${p("اضغط", "اضغطي")} على الفاصل بين كلمتين.`
@@ -123,7 +132,13 @@ export function PracticeWithMarks({
         groupGender={groupGender}
         actions={actions}
         listHref={listHref}
-        marking={{ flags, onFlag, subject: { self }, hint, ...(detail ? { detail: { flags: details, onChange: onDetailChange, onMasterSpot } } : {}) }}
+        marking={{
+          flags,
+          onFlag,
+          subject: subject ?? { self },
+          hint,
+          ...(detail ? { detail: { flags: details, onChange: onDetailChange, onMasterSpot: detail.master ? onMasterSpot : undefined } } : {}),
+        }}
         afterAyah={afterAyah}
       />
     </>

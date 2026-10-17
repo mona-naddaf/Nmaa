@@ -43,6 +43,7 @@ export function RafiqTracker({
   place = null,
   celebrateKey,
   scope = SELF_SCOPE,
+  summaryHref,
 }: {
   data: RafiqTrackerData;
   g: GroupGender;
@@ -54,6 +55,8 @@ export function RafiqTracker({
   // who is ticking, for the once-a-day celebration
   celebrateKey?: string;
   scope?: RafiqScope;
+  // «العائلة»: where a child's «المحصّلات» open (her switch on); her own Rafiq page otherwise
+  summaryHref?: string;
 }) {
   const can = scopeCan(scope);
   const subjectId = scope.subjectId;
@@ -103,7 +106,7 @@ export function RafiqTracker({
         // «أمس» on the agenda; the tile sheet keeps its own today/yesterday tabs
         yesterday={yesterday}
         onYesterday={agenda && view === "day" && !empty ? () => setYesterday(!yesterday) : undefined}
-        summaryHref={summary && can.ownExtras ? "/rafiq/tracker/summary" : undefined}
+        summaryHref={summaryHref ?? (summary && can.ownExtras ? "/rafiq/tracker/summary" : undefined)}
         menu={menu}
       />
 

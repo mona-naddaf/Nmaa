@@ -13,13 +13,15 @@ import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 /**
  * Picking a new segment: her plan's surahs first, the text as a preview.
  * create: saves it and returns its id; then she goes to practiceBase/id.
- * suggestionNote: what the pre-filled suggestion is, after «★ سور خطتك ·».
+ * suggestionNote: what the pre-filled suggestion is, after «★ سور خطتك ·»
+ * (planMark: that label, for whose plan it is — «العائلة»: «★ سور خطة عمر»).
  */
 export function NewSegment({
   g,
   plan,
   suggestion,
   suggestionNote,
+  planMark = "★ سور خطتك",
   create,
   practiceBase,
   onCancel,
@@ -29,6 +31,7 @@ export function NewSegment({
   plan: number[];
   suggestion: { surahNumber: number; fromAyah: number; toAyah: number };
   suggestionNote: string;
+  planMark?: string;
   create: (input: { surahNumber: number; fromAyah: number; toAyah: number }) => Promise<{ error?: string; id?: string }>;
   practiceBase: string;
   onCancel: () => void;
@@ -115,7 +118,7 @@ export function NewSegment({
         </div>
       </div>
       <div className={styles.muted} style={{ marginBottom: 6 }}>
-        ★ سور خطتك · {suggestionNote}
+        {planMark} · {suggestionNote}
       </div>
       <div className={`${styles.preview} ${quranFont.className}`} lang="ar">
         {ayahs

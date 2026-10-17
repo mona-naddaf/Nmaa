@@ -42,6 +42,8 @@ function refresh() {
 }
 
 const CHILD_NO_MARKS = { error: "تحديد الكلمات يكون مع أحد أهلك عند التسميع" };
+// «العائلة»: a child's goal follows her «الهدف» switch (always on for an adult's own)
+const GOAL_OFF = { error: "الهدف غير مفعّل لهذا الطفل" };
 
 export type SaveSessionInput = {
   type: SessionType;
@@ -339,6 +341,7 @@ export async function addPriorAction(input: { prior: unknown; today: string; sub
 export async function saveGoalAction(input: { goal: unknown; today: string; subjectId?: string }): Promise<RafiqResult> {
   const user = await resolveSubject(input?.subjectId, "manage");
   if ("error" in user) return user;
+  if (!user.features.goal) return GOAL_OFF;
   const { planTemplate, plan } = await getPlan(user.id);
   if (!planTemplate) return NO_PLAN;
   const today = acceptLocalDay(String(input?.today ?? ""));
@@ -365,6 +368,7 @@ export async function saveGoalAction(input: { goal: unknown; today: string; subj
 export async function removeGoalAction(subjectId?: string): Promise<RafiqResult> {
   const user = await resolveSubject(subjectId, "manage");
   if ("error" in user) return user;
+  if (!user.features.goal) return GOAL_OFF;
   await prisma.rafiqGoal.deleteMany({ where: { userId: user.id } });
   refresh();
   return {};

@@ -17,7 +17,8 @@ export function SegmentCard({
 }: {
   s: HomeSegmentView;
   g: GroupGender;
-  href: string;
+  // where an active passage opens (none: shown without opening — «العائلة», a view-only adult)
+  href?: string;
   recitedLabel?: string;
 }) {
   const active = s.finishedAt === null;
@@ -41,11 +42,11 @@ export function SegmentCard({
       <TargetProgress counts={s.counts} targets={s.targets} />
     </>
   );
-  return active ? (
+  return active && href ? (
     <Link href={href} className={`${styles.segCard} ${s.targetsMet ? styles.done : ""}`}>
       {body}
     </Link>
   ) : (
-    <div className={`${styles.segCard} ${styles.done}`}>{body}</div>
+    <div className={`${styles.segCard} ${!active || s.targetsMet ? styles.done : ""}`}>{body}</div>
   );
 }

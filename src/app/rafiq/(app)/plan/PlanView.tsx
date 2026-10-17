@@ -14,12 +14,17 @@ import { useToday } from "@/lib/calendar/useToday";
 import type { GoalSpec } from "@/lib/goals/goal";
 
 // Her plan: set up the first time (with memorization from before), and
-// changed whenever she likes afterwards.
+// changed whenever she likes afterwards. «العائلة»: an adult with edit rights
+// on a child's plan (subjectId + child: the wording is about the child; the
+// goal only while the child's «الهدف» switch is on).
 export function PlanView({
   gender,
   initialTemplate,
   initialPlan,
   goal = null,
+  subjectId,
+  child,
+  goalEnabled = true,
 }: {
   gender: PersonGender;
   // null the first time
@@ -27,7 +32,12 @@ export function PlanView({
   initialPlan: number[];
   // her memorization goal (lib/goals/goal.ts), or null
   goal?: GoalSpec | null;
+  subjectId?: string;
+  child?: { name: string; gender: "MALE" | "FEMALE" };
+  goalEnabled?: boolean;
 }) {
+  // about the child (an adult's view) or «you»
+  const c = (m: string, f: string) => (child?.gender === "FEMALE" ? f : m);
   const router = useRouter();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
   const firstTime = initialTemplate === null;
@@ -42,13 +52,21 @@ export function PlanView({
   const [pending, startTransition] = useTransition();
   const today = useToday();
 
-  const priorWords: PriorPickerWords = {
-    none: "لا يوجد حفظ سابق",
-    yes: "نعم، حفظتُ أجزاءً من قبل",
-    planOf: "خطتك",
-    choose: p("اختر", "اختاري"),
-    partialWho: p("تحفظ منها", "تحفظين منها"),
-  };
+  const priorWords: PriorPickerWords = child
+    ? {
+        none: "لا يوجد حفظ سابق",
+        yes: `نعم، ${c("حفظ", "حفظت")} أجزاءً من قبل`,
+        planOf: `خطة ${child.name}`,
+        choose: p("اختر", "اختاري"),
+        partialWho: c("يحفظ منها", "تحفظ منها"),
+      }
+    : {
+        none: "لا يوجد حفظ سابق",
+        yes: "نعم، حفظتُ أجزاءً من قبل",
+        planOf: "خطتك",
+        choose: p("اختر", "اختاري"),
+        partialWho: p("تحفظ منها", "تحفظين منها"),
+      };
   const changed = firstTime || template !== initialTemplate || plan.join(",") !== initialPlan.join(",");
 
   function applyTemplate(key: TemplateKey) {
@@ -60,7 +78,7 @@ export function PlanView({
     setError(null);
     setOk(null);
     startTransition(async () => {
-      const r = await savePlanAction({ template, plan, prior: firstTime ? prior.value() : undefined, today: localToday() });
+      const r = await savePlanAction({ template, plan, prior: firstTime ? prior.value() : undefined, today: localToday(), subjectId });
       if (r.error) return setError(r.error);
       if (firstTime) router.push("/rafiq");
       else {
@@ -74,7 +92,7 @@ export function PlanView({
     setPriorError(null);
     setPriorOk(null);
     startTransition(async () => {
-      const r = await addPriorAction({ prior: addPrior.value({ always: true }), today: localToday() });
+      const r = await addPriorAction({ prior: addPrior.value({ always: true }), today: localToday(), subjectId });
       if (r.error) return setPriorError(r.error);
       addPrior.reset();
       setPriorOk("تمت إضافة الحفظ السابق ✓");
@@ -85,10 +103,12 @@ export function PlanView({
   return (
     <div>
       <h1 className={styles.secTitle} style={{ fontSize: 17, color: "var(--ink)", marginTop: 0 }}>
-        {firstTime ? "إعداد خطة الحفظ" : "خطتي"}
+        {child ? `خطة ${child.name}` : firstTime ? "إعداد خطة الحفظ" : "خطتي"}
       </h1>
       <p style={{ margin: "0 4px 4px", fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.8 }}>
-        {firstTime
+        {child
+          ? `${p("يمكنك", "يمكنكِ")} تغيير خطة ${child.name} في أي وقت. ما ${c("حفظه", "حفظته")} يبقى محفوظًا، ويُحسب ${c("موضعه", "موضعها")} من جديد حسب ترتيب الخطة الجديدة.`
+          : firstTime
           ? `${p("اختر", "اختاري")} قالبًا لخطتك ثم ${p("رتّب", "رتّبي")} السور كما ${p("تشاء", "تشائين")}. ${p("يمكنك", "يمكنكِ")} تغيير الخطة في أي وقت لاحقًا.`
           : `${p("يمكنك", "يمكنكِ")} تغيير خطتك في أي وقت. ما ${p("حفظتَه", "حفظتِه")} يبقى محفوظًا، ويُحسب موضعك من جديد حسب ترتيب الخطة الجديدة.`}
       </p>
@@ -118,20 +138,20 @@ export function PlanView({
         {pending ? "جارٍ الحفظ..." : firstTime ? "حفظ الخطة والبدء" : "حفظ الخطة"}
       </button>
 
-      {!firstTime && (
+      {!firstTime && goalEnabled && (
         <div className={styles.card} style={{ marginTop: 24 }}>
           <GoalEditor
             plan={initialPlan}
             current={goal}
             today={today}
-            hint={`يُحسب المطلوب يوميًا تلقائيًا من المتبقي حتى الموعد، وكل أيام الأسبوع محسوبة. ما ${p("حفظتَه", "حفظتِه")} قبل وضع الهدف هو نقطة البداية.`}
+            hint={`يُحسب المطلوب يوميًا تلقائيًا من المتبقي حتى الموعد، وكل أيام الأسبوع محسوبة. ما ${child ? `${c("حفظه", "حفظته")} ${child.name}` : p("حفظتَه", "حفظتِه")} قبل وضع الهدف هو نقطة البداية.`}
             onSave={async (input) => {
-              const r = await saveGoalAction({ goal: input, today: localToday() });
+              const r = await saveGoalAction({ goal: input, today: localToday(), subjectId });
               if (!r.error) router.refresh();
               return r;
             }}
             onRemove={async () => {
-              const r = await removeGoalAction();
+              const r = await removeGoalAction(subjectId);
               if (!r.error) router.refresh();
               return r;
             }}
@@ -146,8 +166,17 @@ export function PlanView({
           </div>
           <div className={styles.card}>
             <p style={{ marginTop: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>
-              {p("أضف", "أضيفي")} هنا ما {p("حفظتَه", "حفظتِه")} قبل البدء في رفيق الحفظ؛ يُحسب في موضعك وصفحاتك المحفوظة،
-              ويظهر في السجلّ بعنوان «حفظ سابق».
+              {child ? (
+                <>
+                  {p("أضف", "أضيفي")} هنا ما {c("حفظه", "حفظته")} {child.name} من قبل؛ يُحسب في {c("موضعه", "موضعها")} و{c("صفحاته", "صفحاتها")} المحفوظة، ويظهر في
+                  السجلّ بعنوان «حفظ سابق».
+                </>
+              ) : (
+                <>
+                  {p("أضف", "أضيفي")} هنا ما {p("حفظتَه", "حفظتِه")} قبل البدء في رفيق الحفظ؛ يُحسب في موضعك وصفحاتك المحفوظة،
+                  ويظهر في السجلّ بعنوان «حفظ سابق».
+                </>
+              )}
             </p>
             <PriorPicker plan={initialPlan} prior={addPrior} words={priorWords} alwaysOpen />
             {priorError && <div className={styles.err} style={{ marginTop: 12 }}>{priorError}</div>}

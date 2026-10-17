@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { getRafiqUser, type RafiqUserSession } from "@/lib/rafiq/session";
 import { familyEnabled } from "./enabled";
 import { inviteListed, inviteState, type InviteState } from "./rules";
+import { locationOf, PLACE_SELECT } from "@/lib/prayer/location";
+import type { PrayerLocation } from "@/lib/prayer/times";
 
 // «العائلة»: who may see and do what in one family. Every family page and
 // action gets the signed-in adult and her place in the family from here, from
@@ -99,6 +101,8 @@ export type FamilyView = {
   members: MemberView[];
   childrenCount: number;
   children: ChildView[];
+  // «مواقيت الصلاة» for the children (null: none set)
+  place: PrayerLocation | null;
   // the founder's list only (empty for everyone else)
   invites: InviteView[];
 };
@@ -106,7 +110,7 @@ export type FamilyView = {
 export async function familyView(access: FamilyAccess): Promise<FamilyView> {
   const { family, user, isFounder } = access;
   const now = new Date();
-  const [members, children, invites] = await Promise.all([
+  const [members, children, invites, placeRow] = await Promise.all([
     prisma.familyMember.findMany({
       where: { familyId: family.id },
       orderBy: { joinedAt: "asc" },
@@ -120,6 +124,7 @@ export async function familyView(access: FamilyAccess): Promise<FamilyView> {
     isFounder
       ? prisma.familyInvite.findMany({ where: { familyId: family.id }, orderBy: { createdAt: "desc" }, select: { id: true, code: true, createdAt: true, expiresAt: true, revokedAt: true } })
       : Promise.resolve([]),
+    prisma.family.findUnique({ where: { id: family.id }, select: PLACE_SELECT }),
   ]);
   const view: MemberView[] = members.map((m) => ({
     userId: m.userId,
@@ -139,6 +144,7 @@ export async function familyView(access: FamilyAccess): Promise<FamilyView> {
     isFounder,
     canEditChildren: access.canEditChildren,
     members: view,
+    place: locationOf(placeRow),
     childrenCount: children.length,
     children: children.map((c) => ({
       id: c.id,

@@ -37,6 +37,7 @@ import {
 } from "@/components/recitation/RecitationEntry";
 import { deleteSessionAction, resolveMistakeAction, saveSessionAction, setSessionQualityAction } from "./actions";
 import { canDeleteSession, recordedByLine, scopeCan, selfAssessed, SELF_SCOPE, type RafiqScope } from "@/lib/rafiq/scope";
+import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
 const QUALITY_LABEL: Record<Quality, string> = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" };
@@ -76,8 +77,13 @@ export function RafiqHome({
   // an adult on a child's page: the wording is about the child
   const child = can.aboutChild ? (scope.child ?? null) : null;
   const ofChild = (m: string, f: string) => (child?.gender === "FEMALE" ? f : m);
-  const childGroup = child ? (child.gender === "FEMALE" ? "GIRLS" : "BOYS") : null;
-  const subject: RecitationSubject = useMemo(() => childGroup ?? { self: gender }, [childGroup, gender]);
+  // the recitation wording: about the child by name (an adult reciting with her), or «you»
+  const childName = child?.name ?? null;
+  const childGender = child?.gender ?? null;
+  const subject: RecitationSubject = useMemo(
+    () => (childName && childGender ? { child: { name: childName, gender: childGender } } : { self: gender }),
+    [childName, childGender, gender],
+  );
 
   const entry = useRecitationEntry({
     plan: data.plan,
@@ -207,7 +213,9 @@ export function RafiqHome({
         </div>
       </div>
 
-      {can.ownExtras && <CommitCard commitment={commitment} today={today} />}
+      {(can.ownExtras || scope.streak) && (
+        <CommitCard commitment={commitment} today={today} settingsHref={can.ownExtras ? "/rafiq/settings#commit" : scope.settingsHref} />
+      )}
 
       {/* recording a session */}
       {can.record && (
@@ -259,7 +267,7 @@ export function RafiqHome({
 
         {/* word-by-word mistakes: her own page, or an adult reciting with the child */}
         {!hasRangeError && can.markWords && (
-          <SimilarScope on={similar}>
+          <SimilarScope on={similar} subjectId={scope.viewer === "self" ? undefined : (scope.subjectId ?? "")}>
             <WordFlagger
               surahNumber={surahNumber}
               fromAyah={fromAyah}
@@ -274,7 +282,14 @@ export function RafiqHome({
           </SimilarScope>
         )}
 
-        <ReasonBox entry={entry} placeholder="مثال: تجاوزتُ هذه الآيات لأنني أحفظها مسبقًا..." />
+        <ReasonBox
+          entry={entry}
+          placeholder={
+            child
+              ? `مثال: ${ofChild("تجاوز", "تجاوزت")} ${child.name} هذه الآيات ${ofChild("لأنه يحفظها", "لأنها تحفظها")} مسبقًا...`
+              : "مثال: تجاوزتُ هذه الآيات لأنني أحفظها مسبقًا..."
+          }
+        />
 
         {saveError && <div className={styles.err}>{saveError}</div>}
         {!saveError && hasRangeError && <div className={styles.err}>{(pageResult as { error: string }).error}</div>}
@@ -338,6 +353,8 @@ export function RafiqHome({
       )}
 
       <History data={data} p={p} scope={scope} gender={gender} />
+      {/* «العائلة»: an assessment change still saving when she leaves */}
+      {can.assess && <LeaveGuard />}
 
       {toast && (
         <div className={styles.toast} role="status">
@@ -351,7 +368,8 @@ export function RafiqHome({
 const WEEK_MARK = { done: "✓", missed: "✗", off: "—", today: "•", future: "", before: "" } as const;
 
 /** Her streak of commitment days and this week, worked out on her local today. */
-function CommitCard({ commitment, today }: { commitment: CommitmentData; today: string | null }) {
+// settingsHref: where the commitment days are chosen (none: the child, who doesn't choose them)
+function CommitCard({ commitment, today, settingsHref }: { commitment: CommitmentData; today: string | null; settingsHref?: string }) {
   if (!today) return <div className={styles.commitCard} style={{ minHeight: 70 }} aria-busy />;
   const logged = new Set(commitment.loggedDays);
   // her first day: the local day she signed up (not the UTC one)
@@ -366,9 +384,11 @@ function CommitCard({ commitment, today }: { commitment: CommitmentData; today: 
           {current === 0 ? "لا أيام التزام متتالية بعد" : `${streakDaysText(current)} من الالتزام المتتالي`}
           {best > current && ` · الأفضل: ${streakDaysText(best)}`}
         </div>
-        <Link href="/rafiq/settings#commit" className={styles.linkBtn} style={{ display: "inline-block", marginTop: 4 }}>
-          أيام الالتزام
-        </Link>
+        {settingsHref && (
+          <Link href={settingsHref} className={styles.linkBtn} style={{ display: "inline-block", marginTop: 4 }}>
+            أيام الالتزام
+          </Link>
+        )}
       </div>
       <div className={styles.week} aria-label="هذا الأسبوع">
         {week.map((w) => (
@@ -494,7 +514,7 @@ function AssessSession({ id, quality, subjectId }: { id: string; quality: Qualit
           setError(null);
           startTransition(async () => {
             // an error answer, or no answer at all (a dropped connection, an ended session)
-            const r = await setSessionQualityAction(id, next || null, subjectId).catch(() => ({ error: "" }));
+            const r = await trackSave(setSessionQualityAction(id, next || null, subjectId)).catch(() => ({ error: "" }));
             if (r.error) {
               setShown(before);
               setError("تعذّر حفظ التقييم، يُرجى المحاولة مرة أخرى");

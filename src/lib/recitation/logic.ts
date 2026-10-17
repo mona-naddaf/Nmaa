@@ -211,9 +211,19 @@ export interface Classification {
  * third person by her group's gender (the default), or the learner herself
  * in «رفيق الحفظ», addressed in the second person by her own gender.
  */
-export type RecitationSubject = GroupGender | { self: PersonGender };
+// whose recitation: a course group's student, the learner herself («رفيق
+// الحفظ»), or — «العائلة» — a child an adult is reciting with, by name
+export type RecitationSubject = GroupGender | { self: PersonGender } | { child: { name: string; gender: "MALE" | "FEMALE" } };
 
 function subjectWords(subject: RecitationSubject) {
+  if (typeof subject === "object" && "child" in subject) {
+    const { name, gender } = subject.child;
+    return {
+      plan: `خطة ${name}`,
+      thisPlan: `خطة ${name}`,
+      reached: `${pickByPerson(gender, { m: "وصل", f: "وصلت" })} ${name}`,
+    };
+  }
   if (typeof subject === "object") {
     return {
       plan: "خطتك",

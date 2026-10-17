@@ -21,8 +21,13 @@ export function mistakeTypeLabel(type: MistakeType, subject: RecitationSubject):
     case "TAJWEED":
       return "خطأ تجويد";
     case "FORGOT_PROMPTED":
+      // «العائلة»: an adult reciting with a child
+      if (typeof subject === "object" && "child" in subject) return subject.child.gender === "FEMALE" ? "احتاجت تذكيرًا" : "احتاج تذكيرًا";
       return typeof subject === "object" ? "نسيتُها واحتجتُ تذكيرًا" : pickByGroup(subject, { m: "تم ردّه", f: "تم ردّها" });
     case "HESITATED_SELF_CORRECTED":
+      if (typeof subject === "object" && "child" in subject) {
+        return subject.child.gender === "FEMALE" ? "تعثّرت وصحّحت بنفسها" : "تعثّر وصحّح بنفسه";
+      }
       return typeof subject === "object"
         ? "تعثّرتُ وصحّحتُ بنفسي"
         : pickByGroup(subject, { m: "تعثّر وصحح بنفسه", f: "تعثّرت وصححت بنفسها" });

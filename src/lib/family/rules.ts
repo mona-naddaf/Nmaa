@@ -52,3 +52,21 @@ export function safeNext(raw: unknown): string | null {
   const m = raw.match(/^\/rafiq\/family\/join\?code=([A-Za-z0-9-]{1,12})$/);
   return m ? `${JOIN_PATH}?code=${m[1].toUpperCase()}` : null;
 }
+
+// A child's switches (step 4), all off by default, and the RafiqUser column
+// each one sets. The tajweed, mutashabihat, agenda and summary columns are
+// the same ones an adult switches on her own settings page.
+export const CHILD_FEATURES = {
+  homeLog: "homeLogEnabled",
+  homeMistakes: "homeMistakesEnabled",
+  goal: "goalEnabled",
+  mutashabihat: "mutashabihatEnabled",
+  tajweed: "tajweedDetailEnabled",
+  agenda: "agendaEnabled",
+  summary: "summaryEnabled",
+  streak: "streakEnabled",
+} as const;
+
+export type ChildFeature = keyof typeof CHILD_FEATURES;
+
+export const isChildFeature = (v: unknown): v is ChildFeature => typeof v === "string" && Object.hasOwn(CHILD_FEATURES, v);

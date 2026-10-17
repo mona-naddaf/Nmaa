@@ -26,6 +26,10 @@ export type RafiqScope = {
   viewerId?: string;
   // the family's adults by id, for «مع {الاسم}» / «سجّلها {الاسم}»
   adults?: Record<string, PersonRef>;
+  // the child's switches that change these pages (step 4): her streak card
+  streak?: boolean;
+  // where «أيام الالتزام» is set (an adult's view of the child's settings)
+  settingsHref?: string;
 };
 
 export const SELF_SCOPE: RafiqScope = { viewer: "self" };

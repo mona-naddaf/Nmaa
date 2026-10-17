@@ -11,6 +11,10 @@ import type { RafiqUserSession } from "@/lib/rafiq/session";
 import { editorAccess, familyAccess, familyUser, founderAccess, NOT_AVAILABLE } from "@/lib/family/data";
 import { issueChildCode, stopChildLogin, uniqueChildCode } from "@/lib/family/child-code";
 import { templatePlan } from "@/lib/students/new-student";
+import { resolveSubject } from "@/lib/rafiq/subject";
+import { validateLocation } from "@/lib/prayer/times";
+import { placeColumns } from "@/lib/prayer/location";
+import { CHILD_FEATURES, isChildFeature, type ChildFeature } from "@/lib/family/rules";
 import { cleanFamilyName, FAMILY_LIMITS, inviteExpiry, inviteState } from "@/lib/family/rules";
 import { joinLimited, JOIN_TOO_MANY, recordJoinFailure } from "@/lib/family/limits";
 
@@ -296,6 +300,34 @@ export async function deleteChildAction(familyId: string, childId: string, confi
   // every Rafiq row of hers cascades with her
   const { count } = await prisma.rafiqUser.deleteMany({ where: { id: String(childId ?? ""), familyId: access.family.id, kind: "CHILD" } });
   if (count === 0) return { error: "هذا الطفل غير موجود في العائلة" };
+  refresh(access.family.id);
+  return {};
+}
+
+// ---------- the child's switches and the family's place (step 4) ----------
+
+/**
+ * One of a child's switches (src/lib/family/rules.ts CHILD_FEATURES), set by
+ * the founder or an adult with edit rights; never on an adult's own account
+ * (her own settings page does that). Turning one off keeps the data.
+ */
+export async function setChildFeatureAction(childId: string, feature: ChildFeature, on: boolean): Promise<FamilyState> {
+  const user = await resolveSubject(childId, "manage");
+  if ("error" in user) return user;
+  if (user.self || user.kind !== "CHILD") return { error: NOT_AVAILABLE };
+  if (!isChildFeature(feature)) return { error: "إعداد غير معروف" };
+  await prisma.rafiqUser.update({ where: { id: user.id }, data: { [CHILD_FEATURES[feature]]: on === true } });
+  refresh();
+  return {};
+}
+
+/** «مواقيت الصلاة» for the family's children (adults keep their own): a place, or null to remove it. */
+export async function setFamilyPlaceAction(familyId: string, input: unknown): Promise<FamilyState> {
+  const access = await editorAccess(familyId);
+  if ("error" in access) return access;
+  const loc = input === null ? null : validateLocation(input);
+  if (input !== null && !loc) return { error: "يُرجى اختيار مدينة صحيحة أو إدخال إحداثيات صحيحة" };
+  await prisma.family.update({ where: { id: access.family.id }, data: placeColumns(loc) });
   refresh(access.family.id);
   return {};
 }

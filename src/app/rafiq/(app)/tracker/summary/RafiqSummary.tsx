@@ -11,12 +11,13 @@ import { summaryAction } from "../actions";
 /** Her own days are her browser's: its time zone goes with every request. */
 const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-export function RafiqSummary({ g }: { g: GroupGender }) {
+// subjectId: «العائلة», a child's summaries on an adult's page
+export function RafiqSummary({ g, subjectId }: { g: GroupGender; subjectId?: string }) {
   const [initial, setInitial] = useState<SummaryPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    summaryAction("month", 0, zone()).then((r) => {
+    summaryAction("month", 0, zone(), subjectId).then((r) => {
       if (!live) return;
       if ("error" in r) setError(r.error);
       else setInitial(r);
@@ -24,8 +25,8 @@ export function RafiqSummary({ g }: { g: GroupGender }) {
     return () => {
       live = false;
     };
-  }, []);
+  }, [subjectId]);
   if (error) return <div className={hl.err}>{error}</div>;
   if (!initial) return <div className={hl.empty}>…</div>;
-  return <TrackerSummary initial={initial} groupGender={g} self load={(kind: PeriodKind, offset: number) => summaryAction(kind, offset, zone())} />;
+  return <TrackerSummary initial={initial} groupGender={g} self load={(kind: PeriodKind, offset: number) => summaryAction(kind, offset, zone(), subjectId)} />;
 }

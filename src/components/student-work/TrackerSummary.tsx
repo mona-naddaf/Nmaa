@@ -10,6 +10,7 @@ import { OFFSET_MIN, PERIOD_KINDS, PERIOD_LABEL, percentLabel, scheduledOn, type
 import type { SummaryPayload } from "@/lib/tracker/summary-data";
 import { streakText } from "@/lib/students/streak";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
+import { inertClass, inertProps } from "@/components/nudge/nudge";
 
 // «المحصّلات»: a period's commitment as a segmented ring (one segment per
 // item, filled by its commitment) and a mosaic (one tile per day, shaded by
@@ -48,12 +49,17 @@ export function TrackerSummary({
   groupGender: g,
   self,
   load,
+  live = false,
 }: {
   initial: SummaryPayload;
   groupGender: GroupGender;
   // the student (or Rafiq user) herself, rather than her teacher or parent
   self: boolean;
   load: (kind: PeriodKind, offset: number) => Promise<SummaryPayload | { error: string }>;
+  // Rafiq and «العائلة» (unset: as before): the period arrows at the ends of
+  // the range stay visible but inactive with a tooltip, and the item shown in
+  // the ring is marked, with «يُعرض الآن: …» and «عرض الكل» above the ring
+  live?: boolean;
 }) {
   const [data, setData] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +97,12 @@ export function TrackerSummary({
             ? "بداية طيبة، وكل يوم فرصة جديدة."
             : "كل يوم فرصة جديدة للبدء.";
   const diff = data.comparison?.startsWith("+") ? styles.up : data.comparison?.startsWith("−") ? styles.down : styles.same;
+  const oldest = data.offset <= OFFSET_MIN;
+  const current = data.offset >= 0;
+  /** «→ السابق» / «التالي ←» at the end of the range: disabled, or (live) inactive with a tooltip. */
+  const nav = (atEnd: boolean, why: string) => (live ? { ...inertProps(atEnd, why), disabled: pending } : { disabled: pending || atEnd });
+  const navClass = (atEnd: boolean) => (live && atEnd ? `${styles.navBtn} ${inertClass}` : styles.navBtn);
+  const shown = live ? (s.items.find((i) => i.id === selectedItem) ?? null) : null;
 
   return (
     <div className={`${styles.wrap} ${pending ? styles.loading : ""}`} aria-busy={pending}>
@@ -109,16 +121,26 @@ export function TrackerSummary({
         ))}
       </div>
       <div className={styles.nav}>
-        <button type="button" className={styles.navBtn} disabled={pending || data.offset <= OFFSET_MIN} onClick={() => go(data.kind, data.offset - 1)}>
+        <button type="button" className={navClass(oldest)} {...nav(oldest, "لا توجد فترات أقدم")} onClick={() => !oldest && go(data.kind, data.offset - 1)}>
           → السابق
         </button>
         <div className={styles.navLabel}>{data.label}</div>
-        <button type="button" className={styles.navBtn} disabled={pending || data.offset >= 0} onClick={() => go(data.kind, data.offset + 1)}>
+        <button type="button" className={navClass(current)} {...nav(current, "هذه الفترة الحالية")} onClick={() => !current && go(data.kind, data.offset + 1)}>
           التالي ←
         </button>
       </div>
       {error && <div className={hl.err}>{error}</div>}
 
+      {shown && (
+        <div className={styles.showing} role="status">
+          <span>
+            يُعرض الآن: <b>{shown.title}</b>
+          </span>
+          <button type="button" className={styles.showAll} onClick={() => setSelectedItem(null)}>
+            عرض الكل
+          </button>
+        </div>
+      )}
       <div className={`${styles.card} ${styles.hero}`}>
         <Ring items={s.items} overall={overall} selected={selectedItem} onSelect={setSelectedItem} color={color} />
         <div>
@@ -175,7 +197,7 @@ export function TrackerSummary({
           <button
             key={i.id}
             type="button"
-            className={`${styles.itemRow} ${selectedItem === i.id ? styles.selected : ""}`}
+            className={`${styles.itemRow} ${selectedItem === i.id ? styles.selected : ""}${live && selectedItem === i.id ? ` ${styles.picked}` : ""}`}
             aria-pressed={selectedItem === i.id}
             onClick={() => setSelectedItem(selectedItem === i.id ? null : i.id)}
           >

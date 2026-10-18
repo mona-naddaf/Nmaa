@@ -296,6 +296,38 @@
   background: #eef3ef;
 }
 
+/* Rafiq / «العائلة»: the item shown in the ring, clearly marked */
+.itemRow.picked {
+  background: #e3ece6;
+  box-shadow: inset 0 0 0 1.5px var(--rose-deep);
+}
+
+/* Rafiq / «العائلة»: «يُعرض الآن: …» above the ring */
+.showing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  background: #eef3ef;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+}
+
+.showAll {
+  border: 1px solid var(--rose-deep);
+  background: #fff;
+  color: var(--rose-deep);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .dot {
   width: 12px;
   height: 12px;

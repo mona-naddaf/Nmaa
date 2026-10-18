@@ -28,5 +28,5 @@ export function RafiqSummary({ g, subjectId }: { g: GroupGender; subjectId?: str
   }, [subjectId]);
   if (error) return <div className={hl.err}>{error}</div>;
   if (!initial) return <div className={hl.empty}>…</div>;
-  return <TrackerSummary initial={initial} groupGender={g} self load={(kind: PeriodKind, offset: number) => summaryAction(kind, offset, zone(), subjectId)} />;
+  return <TrackerSummary initial={initial} groupGender={g} self load={(kind: PeriodKind, offset: number) => summaryAction(kind, offset, zone(), subjectId)} live />;
 }

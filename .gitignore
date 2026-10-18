@@ -52,3 +52,6 @@ next-env.d.ts
 
 # raw third-party data (kept locally; derived files are committed)
 /data/raw/
+
+# page snapshots for visual regression (local only; holds test credentials)
+/snapshots/

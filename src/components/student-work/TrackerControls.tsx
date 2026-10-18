@@ -1,10 +1,13 @@
 "use client";
 
 import styles from "./work.module.css";
-import { EVERY_DAY, TRACKER_LIMITS, WEEKDAY_LABELS } from "@/lib/tracker/rules";
+import { EVERY_DAY, TRACKER_LIMITS, WEEKDAY_LABELS, toggleWeekday } from "@/lib/tracker/rules";
 
-/** «كل يوم» or chosen weekdays, as the bitmask the server stores. */
-export function WeekdayPicker({ days, onChange }: { days: number; onChange: (days: number) => void }) {
+/**
+ * «كل يوم» or chosen weekdays, as the bitmask the server stores. Unticking the
+ * last day is refused (onEmpty, if given, is told so it can say why).
+ */
+export function WeekdayPicker({ days, onChange, onEmpty }: { days: number; onChange: (days: number) => void; onEmpty?: () => void }) {
   const every = days === EVERY_DAY;
   return (
     <div>
@@ -33,8 +36,9 @@ export function WeekdayPicker({ days, onChange }: { days: number; onChange: (day
                 aria-pressed={on}
                 // never leave zero days selected
                 onClick={() => {
-                  const next = days ^ (1 << i);
-                  if (next !== 0) onChange(next);
+                  const next = toggleWeekday(days, i);
+                  if (next !== null) onChange(next);
+                  else onEmpty?.();
                 }}
               >
                 {label}

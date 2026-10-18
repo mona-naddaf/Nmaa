@@ -44,6 +44,18 @@ export function parseGender(raw: unknown): RafiqGender | null {
   return raw === "MALE" || raw === "FEMALE" ? raw : null;
 }
 
+// «تذكير المراجعة»: days a completed surah may go unreviewed
+export const REVIEW_DAYS_MIN = 1;
+export const REVIEW_DAYS_MAX = 90;
+
+/** The typed review-reminder days, or null unless a whole number from 1 to 90 (Arabic-Indic digits too). */
+export function parseReviewDays(raw: string): number | null {
+  const s = raw.trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660));
+  if (!/^\d+$/.test(s)) return null;
+  const n = Number(s);
+  return n >= REVIEW_DAYS_MIN && n <= REVIEW_DAYS_MAX ? n : null;
+}
+
 // typed by her to confirm deleting the account
 export const DELETE_CONFIRM_WORD = "حذف";
 

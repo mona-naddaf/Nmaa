@@ -39,6 +39,12 @@ export const lastSevenDays = (today: string) => Array.from({ length: 7 }, (_, i)
 
 export const isActiveOn = (days: number, day: string) => (days & (1 << weekdayOf(day))) !== 0;
 
+/** The weekday set with day i switched; null when that would leave no day at all. */
+export function toggleWeekday(days: number, i: number): number | null {
+  const next = days ^ (1 << i);
+  return next === 0 ? null : next;
+}
+
 export function validateDays(days: unknown): number | null {
   return Number.isInteger(days) && (days as number) >= 1 && (days as number) <= EVERY_DAY ? (days as number) : null;
 }

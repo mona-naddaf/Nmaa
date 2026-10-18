@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useState, useTransition, type FormEvent } from "react";
+import { useActionState, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { WeekdayPicker } from "@/components/student-work/TrackerControls";
 import { localToday } from "@/lib/home-log/rules";
@@ -9,7 +9,9 @@ import { dayOfInstant, useToday } from "@/lib/calendar/useToday";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "../../rafiq.module.css";
 import { RecoveryCodeCard } from "../../RecoveryCodeCard";
-import { ACCOUNT_LIMITS, DELETE_CONFIRM_WORD, type RafiqGender } from "@/lib/rafiq/rules";
+import { ACCOUNT_LIMITS, DELETE_CONFIRM_WORD, REVIEW_DAYS_MAX, REVIEW_DAYS_MIN, parseReviewDays, type RafiqGender } from "@/lib/rafiq/rules";
+import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
+import { SavedNote } from "@/components/nudge/SavedNote";
 import { pickByPerson } from "@/lib/text/gender";
 import { CityPicker } from "@/components/prayer/CityPicker";
 import type { PrayerLocation } from "@/lib/prayer/times";
@@ -88,26 +90,12 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
         </form>
       </div>
       <DeleteAccount p={p} />
+      <LeaveGuard />
     </div>
   );
 }
 
 type P = (m: string, f: string) => string;
-
-/**
- * Submits a settings form to its action without React 19's automatic form
- * reset: a form given `action={…}` is reset once the action finishes, which
- * puts a controlled checkbox (and a field's defaultValue) back to what it was
- * when the page loaded, so the saved value only showed after a reload.
- * Pending state and feedback still come from useActionState.
- */
-function submitWithoutReset(action: (formData: FormData) => void) {
-  return (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    startTransition(() => action(formData));
-  };
-}
 
 function Feedback({ state }: { state: SettingsState }) {
   if (state?.error) return <div className={hl.err} style={{ marginBottom: 10 }}>{state.error}</div>;
@@ -157,12 +145,79 @@ function Profile({ email, name, gender }: { email: string; name: string | null; 
   );
 }
 
-function CommitDays({ p, initial }: { p: P; initial: number }) {
+const FAIL = "تعذّر حفظ الإعداد، يُرجى المحاولة مرة أخرى";
+
+type FormAction = (prev: SettingsState, formData: FormData) => Promise<SettingsState>;
+
+/** Calls a settings action the way its form used to. */
+function send(action: FormAction, fields: Record<string, string>): Promise<SettingsState> {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+  return action(null, fd);
+}
+
+/**
+ * A setting changed at once and saved in the background (no «حفظ» button):
+ * «تم الحفظ ✓» once saved, or put back with a short message when saving fails
+ * (an error answer or none at all). Pending saves keep LeaveGuard on.
+ */
+function useAutoSave<T>(saved: T) {
   const router = useRouter();
-  const [days, setDays] = useState(initial);
+  const [value, setValue] = useState(saved);
+  const [error, setError] = useState<string | null>(null);
+  const [stamp, setStamp] = useState(0);
+  const [, start] = useTransition();
+  const save = (request: () => Promise<SettingsState>, before: T) => {
+    setError(null);
+    setStamp(0);
+    start(async () => {
+      const r = await trackSave(request()).catch(() => ({ error: FAIL }));
+      if (r?.error) {
+        setValue(before);
+        setError(FAIL);
+        return;
+      }
+      setStamp(Date.now());
+      router.refresh();
+    });
+  };
+  return { value, setValue, error, setError, stamp, save };
+}
+
+// taps on the weekdays within this long are saved together
+const COMMIT_BATCH_MS = 600;
+
+function CommitDays({ p, initial }: { p: P; initial: number }) {
+  const t = useAutoSave(initial);
   const [saved, setSaved] = useState(initial);
-  const [state, setState] = useState<SettingsState>(null);
-  const [pending, startTransition] = useTransition();
+  const [hint, setHint] = useState(false);
+  // one save for a burst of taps; the burst counts as a pending save from its first tap
+  const burst = useRef<{ timer: number; done: () => void } | null>(null);
+  const change = (days: number) => {
+    t.setValue(days);
+    setHint(false);
+    if (burst.current) window.clearTimeout(burst.current.timer);
+    else {
+      let done = () => {};
+      void trackSave(new Promise<void>((resolve) => (done = resolve)));
+      burst.current = { timer: 0, done };
+    }
+    const b = burst.current;
+    b.timer = window.setTimeout(() => {
+      burst.current = null;
+      if (days === saved) return b.done();
+      t.save(
+        () =>
+          setCommitDaysAction({ days, today: localToday() })
+            .then((r) => {
+              if (!r?.error) setSaved(days);
+              return r;
+            })
+            .finally(b.done),
+        saved,
+      );
+    }, COMMIT_BATCH_MS);
+  };
   return (
     <div className={hl.section} id="commit">
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
@@ -172,166 +227,171 @@ function CommitDays({ p, initial }: { p: P; initial: number }) {
         الأيام التي {p("تنوي", "تنوين")} فيها تسجيل جلسة (حفظ أو مراجعة أو ربط). يُحسب اليوم ملتزَمًا به إذا {p("سجّلتَ", "سجّلتِ")} فيه
         جلسة، ولا تقطع أيامُ الراحة السلسلةَ. يسري التغيير من اليوم، وتبقى الأيام السابقة على ما كانت عليه.
       </p>
-      <WeekdayPicker days={days} onChange={setDays} />
-      <div className={hl.muted} style={{ margin: "6px 0 10px" }}>
-        الحالي: {daysLabel(saved)}
+      <WeekdayPicker days={t.value} onChange={change} onEmpty={() => setHint(true)} />
+      <div className={hl.muted} style={{ margin: "6px 0 0" }}>
+        الحالي: {daysLabel(saved)} <SavedNote stamp={t.stamp} />
       </div>
-      <Feedback state={state} />
-      <button
-        type="button"
-        className={hl.primaryBtn}
-        disabled={pending || days === saved}
-        onClick={() =>
-          startTransition(async () => {
-            const r = await setCommitDaysAction({ days, today: localToday() });
-            setState(r);
-            if (!r?.error) {
-              setSaved(days);
-              router.refresh();
-            }
-          })
-        }
-      >
-        {pending ? "جارٍ الحفظ…" : "حفظ"}
-      </button>
+      {hint && (
+        <div className={hl.err} role="alert" style={{ marginTop: 6 }}>
+          {p("اختر", "اختاري")} يومًا واحدًا على الأقل
+        </div>
+      )}
+      {t.error && <div className={hl.err} style={{ marginTop: 6 }}>{t.error}</div>}
     </div>
   );
 }
 
+// review days: saved this long after typing stops, or on leaving the field
+const REVIEW_TYPING_MS = 1000;
 // pre-filled when she turns reminders on (same default as courses)
 const DEFAULT_REVIEW_DAYS = 14;
 
 function ReviewReminders({ p, days }: { p: P; days: number | null }) {
-  const [state, action, pending] = useActionState<SettingsState, FormData>(setReviewRemindersAction, null);
-  const [on, setOn] = useState(days !== null);
+  const on = useAutoSave(days !== null);
+  const count = useAutoSave(days ?? DEFAULT_REVIEW_DAYS);
+  const [text, setText] = useState(String(days ?? DEFAULT_REVIEW_DAYS));
+  const [bad, setBad] = useState(false);
+  const typing = useRef<number | null>(null);
+  const request = (enabled: boolean, n: number) => () => send(setReviewRemindersAction, { on: enabled ? "1" : "0", days: String(n) });
+
+  const toggle = (next: boolean) => {
+    on.setValue(next);
+    on.save(request(next, count.value), !next);
+  };
+  // saves the typed number, or keeps the last saved one and says why
+  const commit = (raw: string, leaving: boolean) => {
+    if (typing.current) window.clearTimeout(typing.current);
+    typing.current = null;
+    const n = parseReviewDays(raw);
+    if (n === null) {
+      setBad(true);
+      if (leaving) setText(String(count.value));
+      return;
+    }
+    setBad(false);
+    if (leaving) setText(String(n));
+    if (n === count.value) return;
+    const before = count.value;
+    count.setValue(n);
+    count.save(request(true, n), before);
+  };
+  // a failed save puts the field back too
+  const shown = count.error ? String(count.value) : text;
+
   return (
-    <form className={hl.section} onSubmit={submitWithoutReset(action)}>
+    <div className={hl.section}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         تذكير المراجعة
       </div>
       <p className={hl.muted} style={{ marginTop: 0 }}>
         يُنبّهك في صفحتك إلى كل سورة {p("أتممتَ", "أتممتِ")} حفظها ولم {p("تراجعها", "تراجعيها")} كاملةً منذ المدة التي {p("تحدّدها", "تحدّدينها")}.
       </p>
-      <input type="hidden" name="on" value={on ? "1" : "0"} />
       <label className={styles.confirmRow}>
-        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+        <input type="checkbox" checked={on.value} onChange={(e) => toggle(e.target.checked)} />
         تفعيل تذكير المراجعة
+        <SavedNote stamp={on.stamp} />
       </label>
-      {on && (
+      {on.error && <div className={hl.err} style={{ marginBottom: 10 }}>{on.error}</div>}
+      {on.value && (
         <div className={styles.formField}>
           <label className={styles.fieldLabel} htmlFor="review-days">
             عدد الأيام
           </label>
-          <input id="review-days" name="days" type="number" min={1} max={90} className={styles.input} defaultValue={days ?? DEFAULT_REVIEW_DAYS} style={{ maxWidth: 120 }} />
+          <div className={hl.actionsRow} style={{ alignItems: "center" }}>
+            <input
+              id="review-days"
+              type="number"
+              inputMode="numeric"
+              min={REVIEW_DAYS_MIN}
+              max={REVIEW_DAYS_MAX}
+              className={styles.input}
+              style={{ maxWidth: 120 }}
+              value={shown}
+              aria-invalid={bad || undefined}
+              aria-describedby={bad ? "review-days-msg" : undefined}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setText(raw);
+                count.setError(null);
+                if (typing.current) window.clearTimeout(typing.current);
+                typing.current = window.setTimeout(() => commit(raw, false), REVIEW_TYPING_MS);
+              }}
+              onBlur={(e) => commit(e.target.value, true)}
+            />
+            <SavedNote stamp={count.stamp} />
+          </div>
+          {bad && (
+            <div id="review-days-msg" className={hl.err} style={{ marginTop: 6 }}>
+              {p("اكتب", "اكتبي")} عددًا من {REVIEW_DAYS_MIN} إلى {REVIEW_DAYS_MAX}. بقي العدد السابق {count.value}.
+            </div>
+          )}
+          {count.error && <div className={hl.err} style={{ marginTop: 6 }}>{count.error}</div>}
         </div>
       )}
-      <Feedback state={state} />
-      <button type="submit" className={hl.primaryBtn} disabled={pending}>
-        {pending ? "جارٍ الحفظ…" : "حفظ"}
-      </button>
-    </form>
+    </div>
+  );
+}
+
+/** A feature switch: on or off at once, saved in the background. */
+function FeatureSwitch({ title, label, enabled, action, children }: { title: string; label: string; enabled: boolean; action: FormAction; children: ReactNode }) {
+  const t = useAutoSave(enabled);
+  const toggle = (next: boolean) => {
+    t.setValue(next);
+    t.save(() => send(action, { on: next ? "1" : "0" }), !next);
+  };
+  return (
+    <div className={hl.section}>
+      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+        {title}
+      </div>
+      <p className={hl.muted} style={{ marginTop: 0 }}>
+        {children}
+      </p>
+      <label className={styles.confirmRow}>
+        <input type="checkbox" checked={t.value} onChange={(e) => toggle(e.target.checked)} />
+        {label}
+        <SavedNote stamp={t.stamp} />
+      </label>
+      {t.error && <div className={hl.err}>{t.error}</div>}
+    </div>
   );
 }
 
 function Agenda({ p, enabled }: { p: P; enabled: boolean }) {
-  const [state, action, pending] = useActionState<SettingsState, FormData>(setAgendaEnabledAction, null);
-  const [on, setOn] = useState(enabled);
   return (
-    <form className={hl.section} onSubmit={submitWithoutReset(action)}>
-      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
-        الجدول اليومي
-      </div>
-      <p className={hl.muted} style={{ marginTop: 0 }}>
-        {p("رتّب", "رتّبي")} بنود جدول المتابعة {p("وأعطِ", "وأعطي")} كل بند وقته، {p("لترى", "لتري")} جدول يومك وما {p("عليك", "عليكِ")} الآن وما
-        بعده. لا يغيّر شيئًا في الدرجات.
-      </p>
-      <input type="hidden" name="on" value={on ? "1" : "0"} />
-      <label className={styles.confirmRow}>
-        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
-        تفعيل الجدول اليومي
-      </label>
-      <Feedback state={state} />
-      <button type="submit" className={hl.primaryBtn} disabled={pending}>
-        {pending ? "جارٍ الحفظ…" : "حفظ"}
-      </button>
-    </form>
+    <FeatureSwitch title="الجدول اليومي" label="تفعيل الجدول اليومي" enabled={enabled} action={setAgendaEnabledAction}>
+      {p("رتّب", "رتّبي")} بنود جدول المتابعة {p("وأعطِ", "وأعطي")} كل بند وقته، {p("لترى", "لتري")} جدول يومك وما {p("عليك", "عليكِ")} الآن وما
+      بعده. لا يغيّر شيئًا في الدرجات.
+    </FeatureSwitch>
   );
 }
 
 function Summaries({ p, enabled }: { p: P; enabled: boolean }) {
-  const [state, action, pending] = useActionState<SettingsState, FormData>(setSummaryEnabledAction, null);
-  const [on, setOn] = useState(enabled);
   return (
-    <form className={hl.section} onSubmit={submitWithoutReset(action)}>
-      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
-        المحصّلات
-      </div>
-      <p className={hl.muted} style={{ marginTop: 0 }}>
-        ملخّص لكل أسبوع وشهر وربع ونصف سنة وسنة من جدول المتابعة: نسبة {p("التزامك", "التزامكِ")} في كل بند وإجمالًا، وفسيفساء لأيامك، ومقارنة
-        بالفترة السابقة، وما {p("أنجزته", "أنجزتِه")} من حفظ وتسميع.
-      </p>
-      <input type="hidden" name="on" value={on ? "1" : "0"} />
-      <label className={styles.confirmRow}>
-        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
-        تفعيل المحصّلات
-      </label>
-      <Feedback state={state} />
-      <button type="submit" className={hl.primaryBtn} disabled={pending}>
-        {pending ? "جارٍ الحفظ…" : "حفظ"}
-      </button>
-    </form>
+    <FeatureSwitch title="المحصّلات" label="تفعيل المحصّلات" enabled={enabled} action={setSummaryEnabledAction}>
+      ملخّص لكل أسبوع وشهر وربع ونصف سنة وسنة من جدول المتابعة: نسبة {p("التزامك", "التزامكِ")} في كل بند وإجمالًا، وفسيفساء لأيامك، ومقارنة
+      بالفترة السابقة، وما {p("أنجزته", "أنجزتِه")} من حفظ وتسميع.
+    </FeatureSwitch>
   );
 }
 
 function Similar({ p, enabled }: { p: P; enabled: boolean }) {
-  const [state, action, pending] = useActionState<SettingsState, FormData>(setMutashabihatEnabledAction, null);
-  const [on, setOn] = useState(enabled);
   return (
-    <form className={hl.section} onSubmit={submitWithoutReset(action)}>
-      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
-        المتشابهات
-      </div>
-      <p className={hl.muted} style={{ marginTop: 0 }}>
-        علامة صغيرة «≈» بعد الآية التي لها آيات متشابهة في مواضع أخرى من القرآن، في «صفحتي» و«حفظي في البيت» وصفحة الآية. عند الضغط
-        عليها {p("ترى", "ترين")} تلك الآيات مع تمييز الموضع المشترك، {p("وتنتقل", "وتنتقلين")} إلى أيٍّ منها بلمسة. المصدر: بيانات
-        المتشابهات من QUL (ترتيل).
-      </p>
-      <input type="hidden" name="on" value={on ? "1" : "0"} />
-      <label className={styles.confirmRow}>
-        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
-        إظهار المتشابهات
-      </label>
-      <Feedback state={state} />
-      <button type="submit" className={hl.primaryBtn} disabled={pending}>
-        {pending ? "جارٍ الحفظ…" : "حفظ"}
-      </button>
-    </form>
+    <FeatureSwitch title="المتشابهات" label="إظهار المتشابهات" enabled={enabled} action={setMutashabihatEnabledAction}>
+      علامة صغيرة «≈» بعد الآية التي لها آيات متشابهة في مواضع أخرى من القرآن، في «صفحتي» و«حفظي في البيت» وصفحة الآية. عند الضغط
+      عليها {p("ترى", "ترين")} تلك الآيات مع تمييز الموضع المشترك، {p("وتنتقل", "وتنتقلين")} إلى أيٍّ منها بلمسة. المصدر: بيانات
+      المتشابهات من QUL (ترتيل).
+    </FeatureSwitch>
   );
 }
 
 function TajweedDetail({ p, enabled }: { p: P; enabled: boolean }) {
-  const [state, action, pending] = useActionState<SettingsState, FormData>(setTajweedDetailEnabledAction, null);
-  const [on, setOn] = useState(enabled);
   return (
-    <form className={hl.section} onSubmit={submitWithoutReset(action)}>
-      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
-        أخطاء التجويد المفصّلة
-      </div>
-      <p className={hl.muted} style={{ marginTop: 0 }}>
-        عند تحديد خطأ تجويد في جلساتك أو في «حفظي في البيت» {p("تختار", "تختارين")} مخرجًا أو صفة أو حكمًا، فتنقسم الكلمة إلى حروفها
-        {p(" وتحدّد", " وتحدّدين")} الحرف نفسه، أو الخطأ بين كلمتين (كأحكام النون والميم والوقف والابتداء). ويظهر في «صفحتي» ملخّص أخطائك
-        المفصّلة. رواية حفص عن عاصم من طريق الشاطبية. عند الإيقاف تبقى الأخطاء المفصّلة المحفوظة ظاهرة بتفاصيلها.
-      </p>
-      <input type="hidden" name="on" value={on ? "1" : "0"} />
-      <label className={styles.confirmRow}>
-        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
-        تفعيل أخطاء التجويد المفصّلة
-      </label>
-      <Feedback state={state} />
-      <button type="submit" className={hl.primaryBtn} disabled={pending}>
-        {pending ? "جارٍ الحفظ…" : "حفظ"}
-      </button>
-    </form>
+    <FeatureSwitch title="أخطاء التجويد المفصّلة" label="تفعيل أخطاء التجويد المفصّلة" enabled={enabled} action={setTajweedDetailEnabledAction}>
+      عند تحديد خطأ تجويد في جلساتك أو في «حفظي في البيت» {p("تختار", "تختارين")} مخرجًا أو صفة أو حكمًا، فتنقسم الكلمة إلى حروفها
+      {p(" وتحدّد", " وتحدّدين")} الحرف نفسه، أو الخطأ بين كلمتين (كأحكام النون والميم والوقف والابتداء). ويظهر في «صفحتي» ملخّص أخطائك
+      المفصّلة. رواية حفص عن عاصم من طريق الشاطبية. عند الإيقاف تبقى الأخطاء المفصّلة المحفوظة ظاهرة بتفاصيلها.
+    </FeatureSwitch>
   );
 }
 

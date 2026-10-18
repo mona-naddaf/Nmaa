@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { addedBy, resolveSubject } from "@/lib/rafiq/subject";
 import { templateSearchKey } from "@/lib/rafiq/templates";
-import { checkTemplateText, itemsObject, TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
+import { checkTemplateText, itemsObject, planTemplateApply, TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 import { RAFIQ_TRACKER_MAX_ITEMS } from "@/lib/rafiq/rules";
 import { nextRafiqSortOrder } from "@/lib/tracker/agenda-data";
 import { placeOf } from "@/lib/tracker/agenda";
@@ -17,7 +17,8 @@ import { placeOf } from "@/lib/tracker/agenda";
 // it is (src/lib/rafiq/subject.ts); the publisher of a template is never
 // revealed.
 
-export type BankResult = { error?: string; added?: number };
+// skipped: items left out because her tracker already has their title
+export type BankResult = { error?: string; added?: number; skipped?: number };
 
 const NOT_FOUND = { error: "لم يُعثر على هذا الجدول" };
 
@@ -84,7 +85,10 @@ export async function publishTemplateAction(input: { title: string; description:
   return {};
 }
 
-/** Adds a template's items to the end of her tracker, as her own independent copies. */
+/**
+ * Adds a template's items to the end of her tracker, as her own independent
+ * copies — except those whose title her tracker already has.
+ */
 export async function applyTemplateAction(templateId: string, subjectId?: string): Promise<BankResult> {
   const user = await resolveSubject(subjectId, "manage");
   if ("error" in user) return user;
@@ -94,19 +98,22 @@ export async function applyTemplateAction(templateId: string, subjectId?: string
     select: { id: true, items: { orderBy: { sortOrder: "asc" }, select: { title: true, value: true, days: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true } } },
   });
   if (!template) return NOT_FOUND;
-  const active = await prisma.rafiqTrackerItem.count({ where: { userId: user.id, archivedAt: null } });
-  const room = RAFIQ_TRACKER_MAX_ITEMS - active;
-  if (template.items.length > room) {
+  const active = await prisma.rafiqTrackerItem.findMany({ where: { userId: user.id, archivedAt: null }, select: { title: true } });
+  const room = RAFIQ_TRACKER_MAX_ITEMS - active.length;
+  const plan = planTemplateApply(template.items, active.map((i) => i.title), room);
+  if ("error" in plan) {
     return {
-      error: `يضم هذا الجدول ${itemsObject(template.items.length)}، ولا يتّسع جدولك إلا لـ${room} (الحدّ ${RAFIQ_TRACKER_MAX_ITEMS} بندًا) — يُرجى حذف بعض البنود أولًا`,
+      error: `${plan.adding === template.items.length ? "يضم هذا الجدول" : "سيُضاف من هذا الجدول"} ${itemsObject(plan.adding)}، ولا يتّسع جدولك إلا لـ${room} (الحدّ ${RAFIQ_TRACKER_MAX_ITEMS} بندًا) — يُرجى حذف بعض البنود أولًا`,
     };
   }
+  // every item is already there: nothing to add, and the template wasn't used
+  if (plan.create.length === 0) return { added: 0, skipped: plan.skipped };
   // after her own items, in the template's order, each with its time if it had one
   const first = await nextRafiqSortOrder(user.id);
   const by = addedBy(user);
   await prisma.$transaction([
     // a prayer anchor is kept as is: it's placed with her own city (or waits for one)
-    ...template.items.map(({ startMin, durationMin, anchor, anchorOffsetMin, ...it }, i) =>
+    ...plan.create.map(({ startMin, durationMin, anchor, anchorOffsetMin, ...it }, i) =>
       prisma.rafiqTrackerItem.create({
         data: {
           userId: user.id,
@@ -124,7 +131,7 @@ export async function applyTemplateAction(templateId: string, subjectId?: string
     prisma.trackerTemplate.update({ where: { id: template.id }, data: { useCount: { increment: 1 } } }),
   ]);
   refresh();
-  return { added: template.items.length };
+  return { added: plan.create.length, skipped: plan.skipped };
 }
 
 export async function reportTemplateAction(templateId: string, reason: string): Promise<BankResult> {

@@ -7,13 +7,19 @@ import hl from "@/components/home-log/home-log.module.css";
 import styles from "@/components/student-work/work.module.css";
 import { daysLabel } from "@/lib/tracker/rules";
 import { rowTiming, timingLabel } from "@/lib/tracker/schedule";
-import { itemsAfterNoun, TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
+import { itemsAfterNoun, skippedItemsLine, TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 import type { TemplateCard } from "@/lib/rafiq/templates";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { reportTemplateAction, unpublishTemplateAction, applyTemplateAction } from "./actions";
 
 const itemsCount = (n: number) => (n === 1 ? "بند واحد" : n === 2 ? "بندان" : n <= 10 ? `${n} بنود` : `${n} بندًا`);
 const marks = (n: number) => (n === 1 ? "درجة" : n === 2 ? "درجتان" : `${n} درجات`);
+// what using a template did: added, and any left out because she has them already
+function appliedText(added: number, skipped: number, yours: string): string {
+  if (skipped === 0) return `تمت إضافة ${itemsAfterNoun(added)} إلى جدولك ✓`;
+  if (added === 0) return `كل بنود هذا الجدول موجودة في ${yours}.`;
+  return `تمت إضافة ${itemsAfterNoun(added)}. ${skippedItemsLine(skipped, yours)}`;
+}
 const timesUsed = (n: number) => (n === 0 ? "لم يُستخدم بعد" : n === 1 ? "استُخدم مرة واحدة" : n === 2 ? "استُخدم مرتين" : `استُخدم ${n} ${n <= 10 ? "مرات" : "مرة"}`);
 
 // «بنك جداول المتابعة»: templates shared by other learners (never with the
@@ -68,7 +74,7 @@ function Card({ c, p }: { c: TemplateCard; p: (m: string, f: string) => string }
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function run(fn: () => Promise<{ error?: string; added?: number }>, ok: (r: { added?: number }) => string) {
+  function run(fn: () => Promise<{ error?: string; added?: number; skipped?: number }>, ok: (r: { added?: number; skipped?: number }) => string) {
     setMsg(null);
     startTransition(async () => {
       const r = await fn();
@@ -138,7 +144,7 @@ function Card({ c, p }: { c: TemplateCard; p: (m: string, f: string) => string }
               type="button"
               className={hl.primaryBtn}
               disabled={pending}
-              onClick={() => run(() => applyTemplateAction(c.id), (r) => `تمت إضافة ${itemsAfterNoun(r.added ?? 0)} إلى جدولك ✓`)}
+              onClick={() => run(() => applyTemplateAction(c.id), (r) => appliedText(r.added ?? 0, r.skipped ?? 0, p("جدولك", "جدولكِ")))}
             >
               تأكيد
             </button>

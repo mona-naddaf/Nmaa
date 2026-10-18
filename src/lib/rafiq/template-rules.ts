@@ -3,6 +3,7 @@
 
 import { validateDays, validateTitle, validateValue } from "@/lib/tracker/rules";
 import { countLabel, type CountForms } from "@/lib/text/count";
+import { normalizeTitle } from "@/lib/family/tracker-copy";
 
 export const TEMPLATE_LIMITS = {
   titleMax: 80,
@@ -53,3 +54,33 @@ const ITEMS_ACC: CountForms = { one: "بندًا واحدًا", two: "بندين
 const ITEMS_GEN: CountForms = { one: "بند واحد", two: "بندين", few: "بنود", many: "بندًا" };
 export const itemsObject = (n: number) => countLabel(n, ITEMS_ACC);
 export const itemsAfterNoun = (n: number) => countLabel(n, ITEMS_GEN);
+
+/**
+ * Using a template: its items in order, except those whose title she already
+ * has (active, same title once spaces are tidied — also a repeat inside the
+ * template). Room is checked on what would really be added.
+ */
+export function planTemplateApply<T extends { title: string }>(
+  items: T[],
+  existingTitles: string[],
+  room: number,
+): { create: T[]; skipped: number } | { error: "no-room"; adding: number } {
+  const seen = new Set(existingTitles.map(normalizeTitle));
+  const create: T[] = [];
+  for (const it of items) {
+    const key = normalizeTitle(it.title);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    create.push(it);
+  }
+  if (create.length > room) return { error: "no-room", adding: create.length };
+  return { create, skipped: items.length - create.length };
+}
+
+/** «تُرك بندان موجودان …»: the items left out because she has them, as the sentence's subject. */
+export function skippedItemsLine(n: number, inYours: string): string {
+  if (n === 1) return `تُرك بند واحد موجود في ${inYours} بالاسم نفسه.`;
+  if (n === 2) return `تُرك بندان موجودان في ${inYours} بالاسم نفسه.`;
+  if (n <= 10) return `تُركت ${n} بنود موجودة في ${inYours} بالاسم نفسه.`;
+  return `تُرك ${n} بندًا موجودًا في ${inYours} بالاسم نفسه.`;
+}

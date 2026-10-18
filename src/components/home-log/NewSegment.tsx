@@ -15,6 +15,7 @@ import { pickByGroup, type GroupGender } from "@/lib/text/gender";
  * create: saves it and returns its id; then she goes to practiceBase/id.
  * suggestionNote: what the pre-filled suggestion is, after «★ سور خطتك ·»
  * (planMark: that label, for whose plan it is — «العائلة»: «★ سور خطة عمر»).
+ * rangeHint: a line under «إلى الآية» (Rafiq and «العائلة»: the 40-ayah limit).
  */
 export function NewSegment({
   g,
@@ -26,6 +27,7 @@ export function NewSegment({
   practiceBase,
   onCancel,
   afterAyah,
+  rangeHint,
 }: {
   g: GroupGender;
   plan: number[];
@@ -37,6 +39,7 @@ export function NewSegment({
   onCancel: () => void;
   // anything to show right after each ayah number in the preview (e.g. a note marker)
   afterAyah?: (ayah: number, surah: number) => React.ReactNode;
+  rangeHint?: string;
 }) {
   const router = useRouter();
   const [surah, setSurah] = useState(suggestion.surahNumber);
@@ -115,6 +118,11 @@ export function NewSegment({
               </option>
             ))}
           </select>
+          {rangeHint && (
+            <div className={styles.muted} style={{ marginTop: 4 }}>
+              {rangeHint}
+            </div>
+          )}
         </div>
       </div>
       <div className={styles.muted} style={{ marginBottom: 6 }}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/components/home-log/home-log.module.css";
 import { NewSegment } from "@/components/home-log/NewSegment";
@@ -12,6 +12,8 @@ import type { HomeLogView } from "@/lib/home-log/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { createSegmentAction, setTargetsAction } from "./actions";
 import type { RafiqViewer } from "@/lib/rafiq/scope";
+import { pointTo } from "@/components/nudge/nudge";
+import { SavedNote } from "@/components/nudge/SavedNote";
 
 // Her «حفظي في البيت» list: the shared cards and new-passage form, with her
 // own targets and wording. «العائلة»: a child's list — for the child herself,
@@ -54,7 +56,9 @@ export function RafiqHomeLog({
   const create = (input: { surahNumber: number; fromAyah: number; toAyah: number }) => createSegmentAction({ ...input, subjectId });
   const [adding, setAdding] = useState(false);
   const [editingTargets, setEditingTargets] = useState(false);
+  const [targetsSaved, setTargetsSaved] = useState(0);
   const full = log.active.length >= HOME_LIMITS.maxActiveSegments;
+  const limitRef = useRef<HTMLParagraphElement>(null);
   const recited = "سُجِّل في جلساتك ✓";
 
   return (
@@ -62,7 +66,8 @@ export function RafiqHomeLog({
       <div className={styles.sectionTitle}>
         <span style={{ fontSize: 16, color: "var(--ink)" }}>{adult ? `🏠 حفظ ${childName} في البيت` : "🏠 حفظي في البيت"}</span>
         {!adding && canAdd && (
-          <button type="button" className={styles.primaryBtn} onClick={() => setAdding(true)} disabled={full}>
+          // never dead: with the list full it points to the limit message
+          <button type="button" className={styles.primaryBtn} onClick={() => (full ? pointTo(limitRef.current, { focus: false }) : setAdding(true))}>
             + مقطع جديد
           </button>
         )}
@@ -81,7 +86,7 @@ export function RafiqHomeLog({
       </p>
       )}
       {full && !adding && canAdd && (
-        <p className={styles.err} style={{ margin: "0 4px 12px" }}>
+        <p ref={limitRef} className={styles.err} style={{ margin: "0 4px 12px" }}>
           لديك {HOME_LIMITS.maxActiveSegments} مقاطع قيد الحفظ — {p("أتمّ", "أتمّي")} أحدها لإضافة مقطع جديد.
         </p>
       )}
@@ -98,6 +103,7 @@ export function RafiqHomeLog({
           }
           planMark={adult ? `★ سور خطة ${childName}` : undefined}
           create={create}
+          rangeHint={`المقطع حتى ${HOME_LIMITS.maxAyat} آية. للمزيد، ${adult ? y("قسّمه", "قسّميه") : p("قسّمه", "قسّميه")} إلى مقطعين.`}
           practiceBase={base}
           onCancel={() => setAdding(false)}
           afterAyah={viewer === "self" ? (a, s) => <VerseNoteMarker surah={s} ayah={a} /> : undefined}
@@ -119,7 +125,12 @@ export function RafiqHomeLog({
               initial={targets}
               onSave={async (t) => {
                 const r = await setTargetsAction(t, subjectId);
-                if (!r.error) router.refresh();
+                if (!r.error) {
+                  // closes, with «تم الحفظ ✓» on the targets line; a failure keeps it open with the error
+                  setEditingTargets(false);
+                  setTargetsSaved(Date.now());
+                  router.refresh();
+                }
                 return r;
               }}
             />
@@ -129,7 +140,7 @@ export function RafiqHomeLog({
           </>
         ) : (
           <div className={styles.muted}>
-            🎧 سماع {targets.listen} · 🔁 تكرار {targets.repeat} · 🗣️ تسميع لأحد {targets.recite}
+            🎧 سماع {targets.listen} · 🔁 تكرار {targets.repeat} · 🗣️ تسميع لأحد {targets.recite} <SavedNote stamp={targetsSaved} />
           </div>
         )}
       </div>

@@ -45,7 +45,7 @@ export function FamilyPractice({
     finish: (id) => finishSegmentAction(id, subjectId),
     remove: (id) => deleteSegmentAction(id, subjectId),
   };
-  if (!marks) return <SegmentPractice segment={segment} groupGender={g} actions={actions} listHref={listHref} />;
+  if (!marks) return <SegmentPractice segment={segment} groupGender={g} actions={actions} listHref={listHref} liveUndo />;
 
   const c = (m: string, f: string) => (g === "GIRLS" ? f : m);
   const y = (m: string, f: string) => (you === "FEMALE" ? f : m);
@@ -56,6 +56,7 @@ export function FamilyPractice({
       groupGender={g}
       actions={actions}
       listHref={listHref}
+      liveUndo
       initialFlags={initialFlags}
       mark={(input) => markWordAction(input, subjectId)}
       subject={adult ? { child: { name: childName, gender: g === "GIRLS" ? "FEMALE" : "MALE" } } : undefined}

@@ -29,6 +29,7 @@ import {
 } from "@/lib/home-log/rules";
 import type { HomeSegmentView } from "@/lib/home-log/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
+import { inertClass, inertProps } from "@/components/nudge/nudge";
 
 type Key = string; // "seg" or the ayah number
 const SEG: Key = "seg";
@@ -53,6 +54,7 @@ export function SegmentPractice({
   listHref,
   marking,
   afterAyah,
+  liveUndo = false,
 }: {
   segment: HomeSegmentView;
   groupGender: GroupGender;
@@ -76,6 +78,9 @@ export function SegmentPractice({
   };
   // anything to show right after each ayah number (e.g. a note marker)
   afterAyah?: (ayah: number) => ReactNode;
+  // Rafiq and «العائلة»: undo at zero stays visible but inactive, with a
+  // tooltip, instead of disabled (unset: disabled, as before)
+  liveUndo?: boolean;
 }) {
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
@@ -102,6 +107,9 @@ export function SegmentPractice({
   const [pending, startTransition] = useTransition();
 
   const get = (key: Key, kind: HomeTapKind) => counts[key]?.[kind] ?? 0;
+  /** Undo with nothing to undo: disabled, or (liveUndo) inactive with a tooltip. */
+  const undoAt = (n: number) => (liveUndo ? inertProps(n === 0, "لا يوجد ما يُتراجَع عنه") : { disabled: n === 0 });
+  const undoClass = (base: string, n: number) => (liveUndo && n === 0 ? `${base} ${inertClass}` : base);
   const bump = (key: Key, kind: HomeTapKind, by: number) =>
     setCounts((prev) => {
       const c = { ...(prev[key] ?? EMPTY_COUNTS) };
@@ -177,7 +185,7 @@ export function SegmentPractice({
                 >
                   +
                 </button>
-                <button type="button" className={styles.undoBtn} onClick={() => tap(SEG, k, true)} disabled={n === 0}>
+                <button type="button" className={undoClass(styles.undoBtn, n)} onClick={() => tap(SEG, k, true)} {...undoAt(n)}>
                   ↶ تراجع
                 </button>
               </div>
@@ -247,9 +255,9 @@ export function SegmentPractice({
                     </button>
                     <button
                       type="button"
-                      className={styles.miniMinus}
+                      className={undoClass(styles.miniMinus, n)}
                       onClick={() => tap(String(a), k, true)}
-                      disabled={n === 0}
+                      {...undoAt(n)}
                       aria-label={`تراجع عن ${HOME_TAP_LABEL[k]} للآية ${a}`}
                     >
                       −

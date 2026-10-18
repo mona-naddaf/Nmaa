@@ -40,6 +40,7 @@ export function PracticeWithMarks({
   detail,
   subject,
   hint: hintText,
+  liveUndo,
 }: {
   segment: HomeSegmentView;
   groupGender: GroupGender;
@@ -54,6 +55,8 @@ export function PracticeWithMarks({
   detail?: { initial: DetailFlags; save: SpotAction; master?: MasterAction };
   // whose marks: herself by default («العائلة»: an adult practising with a child)
   subject?: RecitationSubject;
+  // passed on to SegmentPractice (Rafiq and «العائلة»)
+  liveUndo?: boolean;
   // replaces the hint above the ayat
   hint?: string;
 }) {
@@ -140,6 +143,7 @@ export function PracticeWithMarks({
           ...(detail ? { detail: { flags: details, onChange: onDetailChange, onMasterSpot: detail.master ? onMasterSpot : undefined } } : {}),
         }}
         afterAyah={afterAyah}
+        liveUndo={liveUndo}
       />
     </>
   );

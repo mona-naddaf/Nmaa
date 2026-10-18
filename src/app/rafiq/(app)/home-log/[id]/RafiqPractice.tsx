@@ -5,7 +5,7 @@ import { PracticeWithMarks } from "@/components/home-log/PracticeWithMarks";
 import { VerseNoteMarker } from "../../notes/NotesProvider";
 
 // Her practice screen: the shared one, with a note marker after each verse.
-export function RafiqPractice(props: Omit<ComponentProps<typeof PracticeWithMarks>, "afterAyah">) {
+export function RafiqPractice(props: Omit<ComponentProps<typeof PracticeWithMarks>, "afterAyah" | "liveUndo">) {
   const surah = props.segment.surahNumber;
-  return <PracticeWithMarks {...props} afterAyah={(a) => <VerseNoteMarker surah={surah} ayah={a} />} />;
+  return <PracticeWithMarks {...props} afterAyah={(a) => <VerseNoteMarker surah={surah} ayah={a} />} liveUndo />;
 }

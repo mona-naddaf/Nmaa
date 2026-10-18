@@ -7,6 +7,7 @@ import { TagChip } from "./TagChip";
 import { deleteNoteAction, loadVerseNotesAction, saveNoteAction } from "./actions";
 import { NOTE_LIMITS, type NoteTag, type VerseNote } from "@/lib/rafiq/notes-rules";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
+import { flash, pointTo } from "@/components/nudge/nudge";
 
 // One verse's notes: list, add, edit, delete, tags. Used in the verse dialog
 // (from a marker) and on the verse page.
@@ -66,6 +67,8 @@ export function VerseNotesPanel({
   // only the newest load may update the list (an older, slower one is dropped)
   const loadSeq = useRef(0);
   const restoredDrafts = useRef(false);
+  const box = useRef<HTMLDivElement>(null);
+  const limitRef = useRef<HTMLSpanElement>(null);
 
   const fetchNotes = useCallback(async (): Promise<Awaited<ReturnType<typeof loadVerseNotesAction>>> => {
     try {
@@ -128,6 +131,13 @@ export function VerseNotesPanel({
   const full = data.notes.length >= NOTE_LIMITS.perVerse;
   const formOpen = editing !== null;
 
+  // «+ ملاحظة جديدة» never looks dead: with a form open it goes there, at the limit it shows the limit
+  function newNote() {
+    if (formOpen) return pointTo(box.current?.querySelector<HTMLElement>(`.${styles.form} textarea`));
+    if (full) return limitRef.current && flash(limitRef.current);
+    setEditing("new");
+  }
+
   function saved(note: VerseNote | undefined, wasNew: boolean) {
     if (note) {
       setData((d) => d && { ...d, notes: wasNew ? [note, ...d.notes] : d.notes.map((n) => (n.id === note.id ? note : n)) });
@@ -158,7 +168,7 @@ export function VerseNotesPanel({
   }
 
   return (
-    <div>
+    <div ref={box}>
       {editing === "new" ? (
         <NoteForm
           key={`new-${formRound}`}
@@ -176,10 +186,14 @@ export function VerseNotesPanel({
         />
       ) : (
         <div className={styles.formRow} style={{ marginTop: 0, marginBottom: 12 }}>
-          <button type="button" className={styles.primaryBtn} disabled={full || formOpen} onClick={() => setEditing("new")}>
+          <button type="button" className={styles.primaryBtn} onClick={newNote}>
             + ملاحظة جديدة
           </button>
-          {full && <span className={styles.counter}>وصلت ملاحظات هذه الآية إلى حدّها ({NOTE_LIMITS.perVerse}).</span>}
+          {full && (
+            <span ref={limitRef} className={styles.counter}>
+              وصلت ملاحظات هذه الآية إلى حدّها ({NOTE_LIMITS.perVerse}).
+            </span>
+          )}
         </div>
       )}
 
@@ -308,6 +322,9 @@ function NoteForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // why a press did nothing: an empty note, or a tag past the limit
+  const [hint, setHint] = useState<"empty" | "tags" | null>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
   const dirty = text !== initial.text || !sameIds(tagIds, known(initial.tagIds));
 
   useEffect(() => {
@@ -326,6 +343,8 @@ function NoteForm({
   }
 
   function toggle(id: string) {
+    if (!tagIds.includes(id) && tagIds.length >= NOTE_LIMITS.tagsPerNote) return setHint("tags");
+    if (hint === "tags") setHint(null);
     const next = tagIds.includes(id) ? tagIds.filter((x) => x !== id) : [...tagIds, id];
     setTagIds(next);
     keep({ text, tagIds: next });
@@ -333,6 +352,11 @@ function NoteForm({
 
   async function save() {
     if (saving) return;
+    if (!text.trim()) {
+      setHint("empty");
+      return pointTo(textRef.current);
+    }
+    setHint(null);
     setSaving(true);
     setError(null);
     let r: { error?: string };
@@ -371,6 +395,7 @@ function NoteForm({
         </div>
       )}
       <textarea
+        ref={textRef}
         className={styles.textarea}
         value={text}
         maxLength={NOTE_LIMITS.textMax}
@@ -379,6 +404,7 @@ function NoteForm({
         autoFocus
         onChange={(e) => {
           setText(e.target.value);
+          if (hint === "empty") setHint(null);
           keep({ text: e.target.value, tagIds });
         }}
       />
@@ -405,11 +431,16 @@ function NoteForm({
                 key={t.id}
                 tag={t}
                 on={on}
-                disabled={saving || (!on && tagIds.length >= NOTE_LIMITS.tagsPerNote)}
+                disabled={saving}
                 onClick={() => toggle(t.id)}
               />
             );
           })}
+        </div>
+      )}
+      {hint === "tags" && (
+        <div className={styles.err} role="alert">
+          يمكن اختيار {NOTE_LIMITS.tagsPerNote} وسوم على الأكثر للملاحظة الواحدة.
         </div>
       )}
       {error && (
@@ -429,9 +460,14 @@ function NoteForm({
         </div>
       ) : (
         <div className={styles.formRow}>
-          <button type="button" className={styles.primaryBtn} disabled={saving || !text.trim()} onClick={save}>
+          <button type="button" className={styles.primaryBtn} disabled={saving} onClick={save}>
             {saving ? "جارٍ الحفظ…" : "حفظ"}
           </button>
+          {hint === "empty" && !text.trim() && (
+            <span className={styles.err} role="alert">
+              {p("اكتب", "اكتبي")} الملاحظة أولًا
+            </span>
+          )}
           <button type="button" className={styles.ghostBtn} disabled={saving} onClick={() => (dirty ? setConfirmDiscard(true) : discard())}>
             إلغاء
           </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import styles from "../rafiq.module.css";
 import { AYAH_COUNT, SURAH_NAME, TOTAL_PAGES } from "@/lib/quran-data";
@@ -38,6 +38,7 @@ import {
 import { deleteSessionAction, resolveMistakeAction, saveSessionAction, setSessionQualityAction } from "./actions";
 import { canDeleteSession, recordedByLine, scopeCan, selfAssessed, SELF_SCOPE, type RafiqScope } from "@/lib/rafiq/scope";
 import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
+import { flash as flashEl, pointTo } from "@/components/nudge/nudge";
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
 const QUALITY_LABEL: Record<Quality, string> = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" };
@@ -101,7 +102,10 @@ export function RafiqHome({
   const [toast, setToast] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const saveDisabled = hasRangeError || (entry.requiresReason && !entry.reasonFilled) || pending || !today;
+  // «حفظ الجلسة» never looks dead: an empty reason or a wrong range is pointed out instead
+  const saveDisabled = pending || !today;
+  const [reasonHint, setReasonHint] = useState(false);
+  const rangeErrRef = useRef<HTMLDivElement>(null);
 
   function flash(message: string) {
     setToast(message);
@@ -110,6 +114,19 @@ export function RafiqHome({
 
   function save() {
     if (!today) return;
+    if (hasRangeError) {
+      // the range message shows instead of an earlier save error
+      setSaveError(null);
+      pointTo(document.getElementById("fromAyah"));
+      requestAnimationFrame(() => rangeErrRef.current && flashEl(rangeErrRef.current));
+      return;
+    }
+    if (entry.requiresReason && !entry.reasonFilled) {
+      setReasonHint(true);
+      pointTo(document.getElementById("reasonText"));
+      return;
+    }
+    setReasonHint(false);
     setSaveError(null);
     const day = loggableDays(today)[dayIndex];
     startTransition(async () => {
@@ -292,13 +309,22 @@ export function RafiqHome({
         />
 
         {saveError && <div className={styles.err}>{saveError}</div>}
-        {!saveError && hasRangeError && <div className={styles.err}>{(pageResult as { error: string }).error}</div>}
+        {!saveError && hasRangeError && (
+          <div ref={rangeErrRef} className={styles.err}>
+            {(pageResult as { error: string }).error}
+          </div>
+        )}
 
         <PageCalc surahNumber={surahNumber} pageResult={pageResult} />
 
         <button className={rs.saveBtn} onClick={save} disabled={saveDisabled} type="button">
           {pending ? "جارٍ الحفظ..." : "حفظ الجلسة"}
         </button>
+        {reasonHint && entry.requiresReason && !entry.reasonFilled && (
+          <div className={styles.err} role="alert" style={{ marginTop: 6 }}>
+            {p("اكتب", "اكتبي")} السبب أولًا
+          </div>
+        )}
         <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6 }}>{ayahCount ? `تحتوي السورة على ${ayahCount} آية` : ""}</div>
       </div>
       </>

@@ -1,0 +1,35 @@
+/* pointTo(): the message or field she is sent to */
+@keyframes flash {
+  0%,
+  35% {
+    background-color: rgba(189, 122, 62, 0.22);
+    box-shadow: 0 0 0 4px rgba(189, 122, 62, 0.22);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+.flash {
+  border-radius: 6px;
+  animation: flash 1100ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flash {
+    animation: none;
+    outline: 2px solid var(--gold-deep);
+    outline-offset: 2px;
+  }
+}
+
+/* inertProps(): lighter, no press effect, still focusable and showing its title */
+.inert,
+.inert:hover,
+.inert:active {
+  opacity: 0.4;
+  cursor: default;
+  transform: none !important;
+  box-shadow: none !important;
+}

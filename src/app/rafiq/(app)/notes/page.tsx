@@ -12,6 +12,7 @@ import hl from "@/components/home-log/home-log.module.css";
 import styles from "./notes.module.css";
 import { TagChip } from "./TagChip";
 import { TagManager } from "./TagManager";
+import { VersePicker } from "./VersePicker";
 
 const PAGE = 50;
 
@@ -56,6 +57,9 @@ export default async function RafiqNotesPage({ searchParams }: PageProps<"/rafiq
         ملاحظاتك على الآيات: متشابهات، تدبّر، تفسير، أو ما {p("تشاء", "تشائين")}. {p("أضف", "أضيفي")} ملاحظة من علامة ✎ بعد رقم أي آية في
         جلساتك أو حفظك في البيت.
       </p>
+      <div style={{ margin: "0 4px 12px" }}>
+        <VersePicker g={g} />
+      </div>
 
       <div className={hl.section}>
         <div className={styles.filters}>

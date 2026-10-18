@@ -5,6 +5,7 @@ import { getRafiqTracker } from "@/lib/rafiq/tracker";
 import { rafiqPlace } from "@/lib/prayer/place-data";
 import { RafiqTracker } from "../../../../../tracker/RafiqTracker";
 import { ChildHeader } from "../ChildHeader";
+import { editableChildren } from "@/lib/family/tracker-copy-data";
 
 // A child's «جدول المتابعة» for an adult of her family: view only, or — with
 // edit rights — ticking for her and adding, changing and removing items
@@ -27,6 +28,8 @@ export default async function AdultChildTrackerPage({ params }: PageProps<"/rafi
         place={child.flags.agenda ? await rafiqPlace(child.id) : null}
         summaryHref={child.flags.summary ? `${base}/tracker/summary` : undefined}
         scope={{ viewer, subjectId: child.id, child: { name: child.name, gender: child.gender }, viewerId: access.user.id, adults: await familyAdults(access.family.id) }}
+        // «إضافة إلى:» and «نسخ الجدول إلى…»: this family's children, for an adult with edit rights
+        family={viewer === "adult-edit" ? (await editableChildren(access.user.id)).filter((f) => f.id === access.family.id) : undefined}
       />
     </>
   );

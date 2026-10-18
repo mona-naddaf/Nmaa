@@ -23,6 +23,9 @@ import type { PrayerLocation } from "@/lib/prayer/times";
 import { publishTemplateAction } from "../templates/actions";
 import { TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 import { scopeCan, SELF_SCOPE, type RafiqScope } from "@/lib/rafiq/scope";
+import { addItemToChildrenAction, copyTrackerAction, type CopyResult } from "./family-actions";
+import { addReport, copyReport } from "@/lib/family/tracker-copy";
+import type { CopyFamily } from "@/lib/family/tracker-copy-data";
 
 type Item = RafiqTrackerData["active"][number];
 type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
@@ -44,6 +47,7 @@ export function RafiqTracker({
   celebrateKey,
   scope = SELF_SCOPE,
   summaryHref,
+  family,
 }: {
   data: RafiqTrackerData;
   g: GroupGender;
@@ -57,6 +61,9 @@ export function RafiqTracker({
   scope?: RafiqScope;
   // «العائلة»: where a child's «المحصّلات» open (her switch on); her own Rafiq page otherwise
   summaryHref?: string;
+  // «العائلة»: the children she may add items to and copy to (an adult with
+  // edit rights): on a child's tracker her family's, on her own every family's
+  family?: CopyFamily[];
 }) {
   const can = scopeCan(scope);
   const subjectId = scope.subjectId;
@@ -72,9 +79,12 @@ export function RafiqTracker({
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
+  // «العائلة»: what the last «إضافة إلى:» or copy did, child by child (shown by the control that did it)
+  const [report, setReport] = useState<{ from: "add" | "copy"; lines: string[] } | null>(null);
 
   const run: Run = (fn, after) => {
     setError(null);
+    setReport(null);
     startTransition(async () => {
       const r = await fn();
       if (r.error) return setError(r.error);
@@ -82,6 +92,23 @@ export function RafiqTracker({
       router.refresh();
     });
   };
+  // the same, keeping the action's report (an ended session or a dropped connection: an error)
+  const runReport = (from: "add" | "copy", fn: () => Promise<CopyResult>, words: (lines: NonNullable<CopyResult["report"]>, max: number) => string[], after?: () => void) => {
+    setError(null);
+    setReport(null);
+    startTransition(async () => {
+      const r = await fn().catch(() => ({ error: "تعذّر الحفظ، يُرجى المحاولة مرة أخرى" }) as CopyResult);
+      if (r.error) return setError(r.error);
+      setReport({ from, lines: words(r.report ?? [], RAFIQ_TRACKER_MAX_ITEMS) });
+      after?.();
+      router.refresh();
+    });
+  };
+  // «إضافة إلى:» on a child's tracker: her family's children, when there are two or more
+  const siblings = scope.viewer === "adult-edit" && subjectId ? (family?.find((f) => f.children.some((c) => c.id === subjectId))?.children ?? []) : [];
+  // whom a copy can go to: the other children of hers to edit
+  const copyFamilies = (family ?? []).map((f) => ({ ...f, children: f.children.filter((c) => c.id !== subjectId) })).filter((f) => f.children.length > 0);
+  const canCopy = (scope.viewer === "self" || scope.viewer === "adult-edit") && copyFamilies.length > 0;
 
   if (!today) return <div className={hl.empty}>…</div>;
   const full = data.active.length >= RAFIQ_TRACKER_MAX_ITEMS;
@@ -90,6 +117,7 @@ export function RafiqTracker({
     setView(v);
     setAdding(false);
     setError(null);
+    setReport(null);
     window.scrollTo({ top: 0 });
   };
 
@@ -127,9 +155,16 @@ export function RafiqTracker({
               place={place}
               pending={pending}
               onCancel={() => setAdding(false)}
-              onSubmit={(fields) => run(() => addItemAction({ ...fields, subjectId }), () => setAdding(false))}
+              targets={siblings.length > 1 ? siblings : undefined}
+              hereId={subjectId}
+              onSubmit={(fields, childIds) =>
+                childIds && subjectId && !(childIds.length === 1 && childIds[0] === subjectId)
+                  ? runReport("add", () => addItemToChildrenAction(subjectId, childIds, fields), addReport, () => setAdding(false))
+                  : run(() => addItemAction({ ...fields, subjectId }), () => setAdding(false))
+              }
             />
           )}
+          {report?.from === "add" && <Report lines={report.lines} />}
           {error && (
             <div className={hl.err} role="alert" style={{ margin: "0 4px 10px" }}>
               {error}
@@ -142,6 +177,16 @@ export function RafiqTracker({
               data.active.map((item) => <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} scope={scope} />)
             )}
           </div>
+          {data.active.length > 0 && canCopy && (
+            <CopyTracker
+              families={copyFamilies}
+              own={scope.viewer === "self"}
+              childName={scope.child?.name}
+              pending={pending}
+              onCopy={(ids, after) => runReport("copy", () => copyTrackerAction(scope.viewer === "self" ? null : (subjectId ?? null), ids), copyReport, after)}
+            />
+          )}
+          {report?.from === "copy" && <Report lines={report.lines} />}
           {data.active.length > 0 && can.ownExtras && <Publish items={data.active} p={p} agenda={agenda} />}
         </>
       )}
@@ -273,6 +318,107 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
 
 type ItemFields = { title: string; value: number; days: number; schedule?: ScheduleInput };
 
+function Report({ lines }: { lines: string[] }) {
+  if (lines.length === 0) return null;
+  return (
+    <div className={hl.ok} role="status" style={{ margin: "0 4px 10px", display: "grid", gap: 4 }}>
+      {lines.map((line, i) => (
+        <div key={i}>{line}</div>
+      ))}
+    </div>
+  );
+}
+
+/** «العائلة»: checkboxes, one per child (grouped by family when there are several). */
+function ChildChecks({ families, checked, onToggle }: { families: CopyFamily[]; checked: Set<string>; onToggle: (id: string) => void }) {
+  return (
+    <>
+      {families.map((f) => (
+        <div key={f.id} style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", alignItems: "center", margin: "4px 0" }}>
+          {families.length > 1 && <span className={hl.muted} style={{ flexBasis: "100%", fontSize: 12 }}>{f.name}</span>}
+          {f.children.map((c) => (
+            <label key={c.id} style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 14, cursor: "pointer" }}>
+              <input type="checkbox" checked={checked.has(c.id)} onChange={() => onToggle(c.id)} />
+              {c.name}
+            </label>
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function useChecks(initial: string[] = []) {
+  const [checked, setChecked] = useState<Set<string>>(new Set(initial));
+  const toggle = (id: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  return { checked, toggle };
+}
+
+/** «نسخ الجدول إلى…» / «نسخ جدولي إلى…»: her current items to the children she picks. */
+function CopyTracker({
+  families,
+  own,
+  childName,
+  pending,
+  onCopy,
+}: {
+  families: CopyFamily[];
+  own: boolean;
+  childName?: string;
+  pending: boolean;
+  onCopy: (childIds: string[], after: () => void) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { checked, toggle } = useChecks();
+  const [problem, setProblem] = useState<string | null>(null);
+  const label = own ? "نسخ جدولي إلى…" : "نسخ الجدول إلى…";
+  return (
+    <>
+      <div className={hl.sectionTitle}>
+        <span>{own ? "نسخ جدولي" : "نسخ الجدول"}</span>
+        {!open && (
+          <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setOpen(true)}>
+            {label}
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className={hl.section}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{own ? "نسخ البنود الحالية في جدولي إلى:" : `نسخ البنود الحالية في جدول ${childName ?? "الطفل"} إلى:`}</div>
+          <ChildChecks families={families} checked={checked} onToggle={toggle} />
+          <p className={hl.muted} style={{ margin: "8px 0" }}>
+            تُنسخ البنود الحالية فقط، ولا يُنسخ بند يوجد في جدول الطفل بالاسم نفسه. وبعد النسخ يصبح كل بند مستقلًّا.
+          </p>
+          {problem && <div className={hl.err}>{problem}</div>}
+          <div className={hl.actionsRow}>
+            <button
+              type="button"
+              className={`${hl.primaryBtn} pressable`}
+              disabled={pending}
+              onClick={() => {
+                if (checked.size === 0) return setProblem("يُرجى اختيار طفل واحد على الأقل");
+                setProblem(null);
+                onCopy([...checked], () => setOpen(false));
+              }}
+            >
+              {pending ? "جارٍ النسخ…" : "نسخ"}
+            </button>
+            <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setOpen(false)} disabled={pending}>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function ItemForm({
   initial = { title: "", value: 1, days: EVERY_DAY, slots: [] },
   submitLabel,
@@ -281,6 +427,8 @@ function ItemForm({
   pending,
   onSubmit,
   onCancel,
+  targets,
+  hereId,
 }: {
   initial?: { title: string; value: number; days: number; slots: SlotRow[] };
   submitLabel: string;
@@ -288,10 +436,14 @@ function ItemForm({
   agenda?: boolean;
   place?: PrayerLocation | null;
   pending: boolean;
-  onSubmit: (fields: ItemFields) => void;
+  onSubmit: (fields: ItemFields, childIds?: string[]) => void;
   onCancel: () => void;
+  // «العائلة»: «إضافة إلى:» — her family's children (this one checked first)
+  targets?: { id: string; name: string; gender: "MALE" | "FEMALE" }[];
+  hereId?: string;
 }) {
   const [title, setTitle] = useState(initial.title);
+  const to = useChecks(hereId ? [hereId] : []);
   const [value, setValue] = useState(initial.value);
   const [days, setDays] = useState(initial.days);
   const time = useTimeFields(initial.slots);
@@ -301,11 +453,16 @@ function ItemForm({
       className={hl.section}
       onSubmit={(e) => {
         e.preventDefault();
-        if (!agenda) return onSubmit({ title, value, days });
+        const ids = targets ? [...to.checked] : undefined;
+        if (ids && ids.length === 0) return setProblem("يُرجى اختيار طفل واحد على الأقل");
+        if (!agenda) {
+          setProblem(null);
+          return onSubmit({ title, value, days }, ids);
+        }
         const t = time.read();
         if ("error" in t) return setProblem(t.error);
         setProblem(null);
-        onSubmit({ title, value, days, schedule: t.schedule });
+        onSubmit({ title, value, days, schedule: t.schedule }, ids);
       }}
     >
       <div className={styles.field}>
@@ -329,6 +486,12 @@ function ItemForm({
         <WeekdayPicker days={days} onChange={setDays} />
       </div>
       {agenda && <TimeFields fields={time} days={days} place={place} />}
+      {targets && (
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>إضافة إلى:</span>
+          <ChildChecks families={[{ id: "f", name: "", children: targets }]} checked={to.checked} onToggle={to.toggle} />
+        </div>
+      )}
       {problem && <div className={hl.err}>{problem}</div>}
       <div className={hl.actionsRow}>
         <button type="submit" className={`${hl.primaryBtn} pressable`} disabled={pending}>

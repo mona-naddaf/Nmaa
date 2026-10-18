@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/components/plan/plan.module.css";
+import hl from "@/components/home-log/home-log.module.css";
 import { PlanEditor } from "@/components/plan/PlanEditor";
 import { PriorPicker, usePriorState, type PriorPickerWords } from "@/components/plan/PriorPicker";
 import { templateSurahs, type TemplateKey } from "@/lib/students/new-student";
@@ -11,6 +12,7 @@ import { pickByPerson, type PersonGender } from "@/lib/text/gender";
 import { addPriorAction, removeGoalAction, saveGoalAction, savePlanAction } from "../actions";
 import { GoalEditor } from "@/components/goal/GoalEditor";
 import { useToday } from "@/lib/calendar/useToday";
+import { LeaveGuard } from "@/components/leave-guard/LeaveGuard";
 import type { GoalSpec } from "@/lib/goals/goal";
 
 // Her plan: set up the first time (with memorization from before), and
@@ -50,6 +52,7 @@ export function PlanView({
   const [priorError, setPriorError] = useState<string | null>(null);
   const [priorOk, setPriorOk] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [unchangedHint, setUnchangedHint] = useState(false);
   const today = useToday();
 
   const priorWords: PriorPickerWords = child
@@ -68,17 +71,37 @@ export function PlanView({
         partialWho: p("تحفظ منها", "تحفظين منها"),
       };
   const changed = firstTime || template !== initialTemplate || plan.join(",") !== initialPlan.join(",");
+  // an existing plan edited here and not saved yet
+  const unsaved = !firstTime && changed;
 
   function applyTemplate(key: TemplateKey) {
     setTemplate(key);
     setPlan(templateSurahs(key));
   }
 
+  // back to the saved plan
+  function discard() {
+    if (initialTemplate) setTemplate(initialTemplate);
+    setPlan(initialPlan);
+    setError(null);
+    setOk(null);
+  }
+
   function savePlan() {
     setError(null);
     setOk(null);
+    // «حفظ الخطة» never looks dead: with nothing changed it says so
+    if (!changed) return setUnchangedHint(true);
+    setUnchangedHint(false);
     startTransition(async () => {
-      const r = await savePlanAction({ template, plan, prior: firstTime ? prior.value() : undefined, today: localToday(), subjectId });
+      const r = await savePlanAction({
+        template,
+        plan,
+        // a range picked but not applied counts as applied
+        prior: firstTime ? prior.value({ pendingRangeOf: plan }) : undefined,
+        today: localToday(),
+        subjectId,
+      });
       if (r.error) return setError(r.error);
       if (firstTime) router.push("/rafiq");
       else {
@@ -92,9 +115,11 @@ export function PlanView({
     setPriorError(null);
     setPriorOk(null);
     startTransition(async () => {
-      const r = await addPriorAction({ prior: addPrior.value({ always: true }), today: localToday(), subjectId });
+      const r = await addPriorAction({ prior: addPrior.value({ always: true, pendingRangeOf: initialPlan }), today: localToday(), subjectId });
       if (r.error) return setPriorError(r.error);
       addPrior.reset();
+      addPrior.setRangeFrom(null);
+      addPrior.setRangeTo(null);
       setPriorOk("تمت إضافة الحفظ السابق ✓");
       router.refresh();
     });
@@ -119,6 +144,7 @@ export function PlanView({
         onTemplate={applyTemplate}
         onPlanChange={setPlan}
         words={{ juzAmmaStarts: p("تبدأ", "تبدئين"), add: p("أضف", "أضيفي") }}
+        live={{ inPlan: child ? `هذه السورة موجودة في خطة ${child.name}.` : `هذه السورة موجودة في ${p("خطتك", "خطتكِ")}.` }}
       />
 
       {firstTime && (
@@ -134,9 +160,23 @@ export function PlanView({
 
       {error && <div className={styles.err}>{error}</div>}
       {ok && <div style={{ color: "var(--sage-deep)", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>{ok}</div>}
-      <button className={styles.saveBtn} onClick={savePlan} disabled={pending || !changed} type="button">
+      {unchangedHint && !changed && (
+        <div className={styles.err} role="status">
+          لم {p("تغيّر", "تغيّري")} شيئًا في الخطة بعد.
+        </div>
+      )}
+      <button className={styles.saveBtn} onClick={savePlan} disabled={pending} type="button">
         {pending ? "جارٍ الحفظ..." : firstTime ? "حفظ الخطة والبدء" : "حفظ الخطة"}
       </button>
+      {unsaved && (
+        <button className={hl.ghostBtn} style={{ width: "100%", marginTop: 10 }} onClick={discard} disabled={pending} type="button">
+          إلغاء التغييرات
+        </button>
+      )}
+      <LeaveGuard
+        dirty={unsaved}
+        dirtyNote={`لم تُحفظ التغييرات على الخطة بعد — ${p("اضغط", "اضغطي")} «حفظ الخطة» أو «إلغاء التغييرات»، أو ${p("اضغط", "اضغطي")} الرابط مرة أخرى للمغادرة دونها.`}
+      />
 
       {!firstTime && goalEnabled && (
         <div className={styles.card} style={{ marginTop: 24 }}>

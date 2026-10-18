@@ -5,6 +5,7 @@ import styles from "./plan.module.css";
 import { AYAH_COUNT, SURAH_BY_NUMBER } from "@/lib/quran-data";
 import { calculatePageRange } from "@/lib/recitation/logic";
 import { planRange, type PriorPartial } from "@/lib/students/new-student";
+import { withPendingRange } from "@/lib/plan/prior-range";
 
 // Memorization from before: whole surahs (picked one by one or as a range
 // of the plan) and at most one surah memorized in part. Shared by the staff
@@ -17,14 +18,22 @@ export function usePriorState() {
   const [partialSurah, setPartialSurah] = useState<number | null>(null);
   const [partialFrom, setPartialFrom] = useState(1);
   const [partialTo, setPartialTo] = useState(1);
+  // «من سورة… / إلى سورة…», until «تحديد كمحفوظ بالكامل» applies it
+  const [rangeFrom, setRangeFrom] = useState<number | null>(null);
+  const [rangeTo, setRangeTo] = useState<number | null>(null);
 
-  /** What to send: nothing unless she said she has prior memorization. */
-  function value({ always = false }: { always?: boolean } = {}): { completedSurahs: number[]; partial: PriorPartial | null } {
+  /**
+   * What to send: nothing unless she said she has prior memorization.
+   * pendingRangeOf: a plan whose range still picked but not applied is
+   * included as if applied (Rafiq and «العائلة»); unset: left out.
+   */
+  function value({ always = false, pendingRangeOf }: { always?: boolean; pendingRangeOf?: number[] } = {}): { completedSurahs: number[]; partial: PriorPartial | null } {
     if (!hasPrior && !always) return { completedSurahs: [], partial: null };
-    return {
+    const picked = {
       completedSurahs,
       partial: partialSurah != null ? { surahNumber: partialSurah, fromAyah: partialFrom, toAyah: partialTo } : null,
     };
+    return pendingRangeOf ? withPendingRange(pendingRangeOf, picked, rangeFrom, rangeTo) : picked;
   }
 
   function reset() {
@@ -43,6 +52,10 @@ export function usePriorState() {
     setPartialFrom,
     partialTo,
     setPartialTo,
+    rangeFrom,
+    setRangeFrom,
+    rangeTo,
+    setRangeTo,
     value,
     reset,
   };
@@ -74,9 +87,7 @@ export function PriorPicker({
   words: PriorPickerWords;
   alwaysOpen?: boolean;
 }) {
-  const [rangeFrom, setRangeFrom] = useState<number | null>(null);
-  const [rangeTo, setRangeTo] = useState<number | null>(null);
-  const { hasPrior, setHasPrior, completedSurahs, setCompletedSurahs, partialSurah, setPartialSurah, partialFrom, setPartialFrom, partialTo, setPartialTo } = prior;
+  const { hasPrior, setHasPrior, completedSurahs, setCompletedSurahs, partialSurah, setPartialSurah, partialFrom, setPartialFrom, partialTo, setPartialTo, rangeFrom, setRangeFrom, rangeTo, setRangeTo } = prior;
 
   const planSurahs = useMemo(() => plan.map((n) => SURAH_BY_NUMBER[n]), [plan]);
 

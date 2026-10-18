@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import styles from "./plan.module.css";
 import { SURAHS, SURAH_BY_NUMBER } from "@/lib/quran-data";
 import type { TemplateKey } from "@/lib/students/new-student";
+import { flash, inertClass, inertProps } from "@/components/nudge/nudge";
 
 // Choosing a memorization plan: the four templates, then the plan itself as
 // an editable list (reorder, remove, add a surah) with a short summary.
@@ -16,20 +17,34 @@ export type PlanEditorWords = {
   add: string;
 };
 
+/**
+ * Rafiq and «العائلة» (unset elsewhere: the editor as before): adding a surah
+ * already in the plan says so instead of doing nothing, and ▲▼ at the ends of
+ * the list stay visible but inactive, with a tooltip.
+ */
+export type PlanEditorLive = {
+  // «هذه السورة موجودة في خطتكِ.»
+  inPlan: string;
+};
+
 export function PlanEditor({
   template,
   plan,
   onTemplate,
   onPlanChange,
   words,
+  live,
 }: {
   template: TemplateKey;
   plan: number[];
   onTemplate: (key: TemplateKey) => void;
   onPlanChange: (update: (plan: number[]) => number[]) => void;
   words: PlanEditorWords;
+  live?: PlanEditorLive;
 }) {
   const [addSurahNum, setAddSurahNum] = useState<number>(1);
+  const [inPlan, setInPlan] = useState(false);
+  const inPlanRef = useRef<HTMLDivElement>(null);
 
   function moveUp(i: number) {
     if (i === 0) return;
@@ -51,7 +66,21 @@ export function PlanEditor({
     onPlanChange((p) => p.filter((_, idx) => idx !== i));
   }
   function addSurah() {
+    if (live && plan.includes(addSurahNum)) {
+      setInPlan(true);
+      requestAnimationFrame(() => inPlanRef.current && flash(inPlanRef.current));
+      return;
+    }
+    setInPlan(false);
     onPlanChange((p) => (p.includes(addSurahNum) ? p : [...p, addSurahNum]));
+  }
+
+  /**
+   * ▲ or ▼: disabled at the end of the list, or (live) inactive with a
+   * tooltip. Without live the attributes come out exactly as before.
+   */
+  function arrow(atEnd: boolean, why: string, title: string) {
+    return live ? { title, ...inertProps(atEnd, why), className: atEnd ? inertClass : undefined } : { disabled: atEnd, title };
   }
 
   const stats = useMemo(
@@ -112,8 +141,8 @@ export function PlanEditor({
                 <div className={styles.pName}>{SURAH_BY_NUMBER[num].name}</div>
                 <div className={styles.pAyahs}>{SURAH_BY_NUMBER[num].ayahs} آية</div>
                 <div className={styles.pActions}>
-                  <button type="button" onClick={() => moveUp(i)} disabled={i === 0} title="نقل لأعلى">▲</button>
-                  <button type="button" onClick={() => moveDown(i)} disabled={i === plan.length - 1} title="نقل لأسفل">▼</button>
+                  <button type="button" onClick={() => moveUp(i)} {...arrow(i === 0, "أول سورة", "نقل لأعلى")}>▲</button>
+                  <button type="button" onClick={() => moveDown(i)} {...arrow(i === plan.length - 1, "آخر سورة", "نقل لأسفل")}>▼</button>
                   <button type="button" onClick={() => removeSurah(i)} title="حذف">×</button>
                 </div>
               </div>
@@ -122,7 +151,13 @@ export function PlanEditor({
         </div>
 
         <div className={styles.addRow}>
-          <select value={addSurahNum} onChange={(e) => setAddSurahNum(Number(e.target.value))}>
+          <select
+            value={addSurahNum}
+            onChange={(e) => {
+              setAddSurahNum(Number(e.target.value));
+              setInPlan(false);
+            }}
+          >
             {SURAHS.map((s) => (
               <option key={s.number} value={s.number}>
                 {s.number}. {s.name}
@@ -131,6 +166,11 @@ export function PlanEditor({
           </select>
           <button type="button" onClick={addSurah}>إضافة سورة</button>
         </div>
+        {live && inPlan && (
+          <div ref={inPlanRef} className={styles.err} role="alert" style={{ marginTop: 8 }}>
+            {live.inPlan}
+          </div>
+        )}
 
         <div className={styles.planSummary}>
           <div className={styles.miniStat}>

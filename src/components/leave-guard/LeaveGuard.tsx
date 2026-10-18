@@ -32,8 +32,14 @@ export function usePendingSaves(): number {
   return useSyncExternalStore(subscribe, () => pending, () => 0);
 }
 
-export function LeaveGuard() {
-  const count = usePendingSaves();
+/**
+ * dirty / dirtyNote: also warn while the page holds changes not saved yet
+ * (with dirtyNote as the note); unset: pending saves only, as before.
+ */
+export function LeaveGuard({ dirty = false, dirtyNote }: { dirty?: boolean; dirtyNote?: string } = {}) {
+  const saves = usePendingSaves();
+  // unsaved changes count as one more thing to keep
+  const count = saves + (dirty ? 1 : 0);
   const [warned, setWarned] = useState(false);
   // the note goes once everything is saved
   const [seen, setSeen] = useState(count);
@@ -85,7 +91,7 @@ export function LeaveGuard() {
         marginInline: "auto",
       }}
     >
-      يُحفظ تغيير الآن — انتظر لحظة قبل مغادرة الصفحة، أو اضغط الرابط مرة أخرى للمغادرة دون انتظار.
+      {saves === 0 && dirtyNote ? dirtyNote : "يُحفظ تغيير الآن — انتظر لحظة قبل مغادرة الصفحة، أو اضغط الرابط مرة أخرى للمغادرة دون انتظار."}
     </div>
   );
 }

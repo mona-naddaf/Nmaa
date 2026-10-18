@@ -208,6 +208,12 @@
   cursor: not-allowed;
 }
 
+/* Rafiq / «العائلة»: ▲▼ at the ends, inactive but focusable (nudge.ts inertProps) */
+.planRow button[data-inert]:hover {
+  background: var(--paper);
+  color: var(--ink-soft);
+}
+
 .emptyPlan {
   justify-content: center;
   color: var(--ink-soft);

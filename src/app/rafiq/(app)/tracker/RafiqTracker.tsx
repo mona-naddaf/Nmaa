@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import hl from "@/components/home-log/home-log.module.css";
@@ -26,6 +26,7 @@ import { scopeCan, SELF_SCOPE, type RafiqScope } from "@/lib/rafiq/scope";
 import { addItemToChildrenAction, copyTrackerAction, type CopyResult } from "./family-actions";
 import { addReport, copyReport } from "@/lib/family/tracker-copy";
 import type { CopyFamily } from "@/lib/family/tracker-copy-data";
+import { pointTo } from "@/components/nudge/nudge";
 
 type Item = RafiqTrackerData["active"][number];
 type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
@@ -81,6 +82,7 @@ export function RafiqTracker({
   const [pending, startTransition] = useTransition();
   // «العائلة»: what the last «إضافة إلى:» or copy did, child by child (shown by the control that did it)
   const [report, setReport] = useState<{ from: "add" | "copy"; lines: string[] } | null>(null);
+  const limitRef = useRef<HTMLDivElement>(null);
 
   const run: Run = (fn, after) => {
     setError(null);
@@ -142,12 +144,17 @@ export function RafiqTracker({
         <>
           <ViewBar title={can.record ? "إدارة البنود" : "البنود"} onBack={() => show("day")}>
             {!adding && can.record && (
-              <button type="button" className={`${hl.primaryBtn} pressable`} onClick={() => setAdding(true)} disabled={full}>
+              // never dead: with the tracker full it points to the limit message
+              <button type="button" className={`${hl.primaryBtn} pressable`} onClick={() => (full ? pointTo(limitRef.current, { focus: false }) : setAdding(true))}>
                 + بند جديد
               </button>
             )}
           </ViewBar>
-          {full && <div className={hl.err} style={{ margin: "0 4px 10px" }}>يضم الجدول {RAFIQ_TRACKER_MAX_ITEMS} بندًا، وهو الحدّ الأقصى.</div>}
+          {full && (
+            <div ref={limitRef} className={hl.err} style={{ margin: "0 4px 10px" }}>
+              يضم الجدول {RAFIQ_TRACKER_MAX_ITEMS} بندًا، وهو الحدّ الأقصى.
+            </div>
+          )}
           {adding && (
             <ItemForm
               submitLabel="إضافة البند"
@@ -194,7 +201,7 @@ export function RafiqTracker({
       {view === "order" && (
         <>
           <ViewBar title="ترتيب البنود" onBack={() => show("day")} />
-          <AgendaOrder sheet={data.sheet} today={today} groupGender={g} course={false} place={place} onReorder={reorder} onDone={() => show("day")} />
+          <AgendaOrder sheet={data.sheet} today={today} groupGender={g} course={false} place={place} onReorder={reorder} onDone={() => show("day")} live />
         </>
       )}
 
@@ -223,7 +230,19 @@ export function RafiqTracker({
           </div>
         ) : agenda ? (
           // «الجدول اليومي»: the timeline is the only place to tick
-          <TrackerAgenda sheet={data.sheet} today={today} groupGender={g} course={false} onTick={tick} onSchedule={schedule} place={place} showYesterday={yesterday} celebrateKey={celebrateKey} />
+          <TrackerAgenda
+            sheet={data.sheet}
+            today={today}
+            groupGender={g}
+            course={false}
+            onTick={tick}
+            onSchedule={schedule}
+            place={place}
+            showYesterday={yesterday}
+            celebrateKey={celebrateKey}
+            // the city is hers to set on her own tracker only (a child's comes from the family)
+            live={{ cityHref: scope.viewer === "self" ? "/rafiq/settings#city" : null }}
+          />
         ) : (
           <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={tick} celebrateKey={celebrateKey} readOnly={!can.record} />
         ))}
@@ -253,6 +272,8 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
 
   function publish() {
     setMsg(null);
+    // «نشر» never looks dead: with no item chosen it says so
+    if (chosen.size === 0) return setMsg({ ok: false, text: `${p("اختر", "اختاري")} بندًا واحدًا على الأقل.` });
     startTransition(async () => {
       const r = await publishTemplateAction({ title, description, itemIds: items.filter((i) => chosen.has(i.id)).map((i) => i.id) });
       if (r.error) return setMsg({ ok: false, text: r.error });
@@ -303,7 +324,7 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
           </div>
           {msg && !msg.ok && <div className={hl.err}>{msg.text}</div>}
           <div className={hl.actionsRow}>
-            <button type="button" className={`${hl.primaryBtn} pressable`} onClick={publish} disabled={pending || chosen.size === 0}>
+            <button type="button" className={`${hl.primaryBtn} pressable`} onClick={publish} disabled={pending}>
               {pending ? "جارٍ النشر…" : "نشر"}
             </button>
             <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setOpen(false)} disabled={pending}>

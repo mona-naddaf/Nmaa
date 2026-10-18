@@ -4,9 +4,10 @@ import { useState } from "react";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "./agenda.module.css";
 import work from "./work.module.css";
-import { clockLabel, clockValue, shiftEnd, timeFromInputs } from "@/lib/tracker/agenda";
+import { clockLabel, clockValue, shiftEnd } from "@/lib/tracker/agenda";
 import { WEEKDAY_SHORT } from "@/lib/tracker/rules";
 import { copyToDays, OFFSET_MAX, resolveTiming, scheduleModel, scheduleRows, timingLabel, type SlotRow, type Timing } from "@/lib/tracker/schedule";
+import { readTiming, type TimingField, type TimingMode, type TimingProblem } from "@/lib/tracker/timing-input";
 import { PRAYERS, PRAYER_NAME, type Prayer } from "@/lib/prayer/times";
 
 // An item's schedule (lib/tracker/schedule.ts): every day, or per weekday
@@ -21,6 +22,7 @@ export function ScheduleEditor({
   anchors,
   prayers,
   onChange,
+  live = false,
 }: {
   rows: SlotRow[];
   // the item's weekdays (bitmask): only these get their own timing
@@ -29,7 +31,10 @@ export function ScheduleEditor({
   anchors: boolean;
   // today's prayer times, for a preview of an anchor
   prayers: Record<Prayer, number> | null;
-  onChange: (rows: ScheduleInput, valid: boolean) => void;
+  // problem: what is wrong when not valid, and in which field
+  onChange: (rows: ScheduleInput, valid: boolean, problem?: TimingProblem | null) => void;
+  // Rafiq and «العائلة»: the fields carry data-field, so «حفظ الوقت» can send her to the wrong one
+  live?: boolean;
 }) {
   const initial = scheduleModel(rows);
   const [base, setBase] = useState<Timing | undefined>(initial.base);
@@ -39,10 +44,10 @@ export function ScheduleEditor({
   const [copyTo, setCopyTo] = useState<Set<number>>(new Set());
   const active = [0, 1, 2, 3, 4, 5, 6].filter((w) => activeDays & (1 << w));
 
-  function update(nextBase: Timing | undefined, nextDays: typeof days, valid = true) {
+  function update(nextBase: Timing | undefined, nextDays: typeof days, valid = true, problem: TimingProblem | null = null) {
     setBase(nextBase);
     setDays(nextDays);
-    onChange(scheduleRows(nextBase, nextDays), valid);
+    onChange(scheduleRows(nextBase, nextDays), valid, problem);
   }
 
   const dayTiming = scope === "ALL" ? undefined : days[scope];
@@ -74,7 +79,7 @@ export function ScheduleEditor({
       )}
 
       {scope === "ALL" ? (
-        <TimingInput key="ALL" value={base ?? null} anchors={anchors} prayers={prayers} onChange={(t, ok) => update(t, days, ok)} />
+        <TimingInput key="ALL" value={base ?? null} anchors={anchors} prayers={prayers} live={live} onChange={(t, ok, problem) => update(t, days, ok, problem)} />
       ) : dayTiming === undefined ? (
         <div className={styles.editor} style={{ marginBottom: 0 }}>
           <div className={hl.muted} style={{ marginBottom: 8 }}>
@@ -86,7 +91,7 @@ export function ScheduleEditor({
         </div>
       ) : (
         <>
-          <TimingInput key={scope} value={dayTiming} anchors={anchors} prayers={prayers} onChange={(t, ok) => update(base, { ...days, [scope]: t }, ok)} />
+          <TimingInput key={scope} value={dayTiming} anchors={anchors} prayers={prayers} live={live} onChange={(t, ok, problem) => update(base, { ...days, [scope]: t }, ok, problem)} />
           <div className={hl.actionsRow} style={{ marginTop: 8 }}>
             <button
               type="button"
@@ -149,7 +154,7 @@ export function ScheduleEditor({
   );
 }
 
-type Mode = "NONE" | "CLOCK" | "PRAYER";
+type Mode = TimingMode;
 
 /** One timing: a clock time, a prayer anchor or «بلا وقت». */
 function TimingInput({
@@ -157,11 +162,13 @@ function TimingInput({
   anchors,
   prayers,
   onChange,
+  live,
 }: {
   value: Timing;
   anchors: boolean;
   prayers: Record<Prayer, number> | null;
-  onChange: (t: Timing, valid: boolean) => void;
+  onChange: (t: Timing, valid: boolean, problem: TimingProblem | null) => void;
+  live: boolean;
 }) {
   const [mode, setMode] = useState<Mode>(value === null ? "NONE" : value.kind);
   const [start, setStart] = useState(value?.kind === "CLOCK" ? clockValue(value.startMin) : "");
@@ -173,43 +180,24 @@ function TimingInput({
   const [problem, setProblem] = useState<string | null>(null);
 
   function emit(next: { mode?: Mode; start?: string; end?: string; prayer?: Prayer; before?: boolean; offset?: string; duration?: string }) {
-    const m = next.mode ?? mode;
-    if (m === "NONE") {
-      setProblem(null);
-      return onChange(null, true);
-    }
-    if (m === "CLOCK") {
-      const s = next.start ?? start;
-      if (!s) {
-        setProblem("يُرجى اختيار وقت البداية");
-        return onChange(null, false);
-      }
-      const t = timeFromInputs(s, next.end ?? end);
-      if ("error" in t) {
-        setProblem(t.error);
-        return onChange(null, false);
-      }
-      setProblem(null);
-      return onChange({ kind: "CLOCK", ...t }, true);
-    }
-    const mins = Number(next.offset ?? offset);
-    const dur = (next.duration ?? duration).trim();
-    const d = dur ? Number(dur) : null;
-    if (!Number.isInteger(mins) || mins < 0 || mins > OFFSET_MAX) {
-      setProblem(`يُرجى إدخال دقائق من 0 إلى ${OFFSET_MAX}`);
-      return onChange(null, false);
-    }
-    if ((next.before ?? before) && mins === 0) {
-      setProblem("يُرجى تحديد كم دقيقة قبل الصلاة");
-      return onChange(null, false);
-    }
-    if (d !== null && (!Number.isInteger(d) || d < 5 || d > 720)) {
-      setProblem("يُرجى أن تكون المدة من 5 إلى 720 دقيقة");
-      return onChange(null, false);
+    const r = readTiming({
+      mode: next.mode ?? mode,
+      start: next.start ?? start,
+      end: next.end ?? end,
+      prayer: next.prayer ?? prayer,
+      before: next.before ?? before,
+      offset: next.offset ?? offset,
+      duration: next.duration ?? duration,
+    });
+    if ("error" in r) {
+      setProblem(r.error);
+      return onChange(null, false, r);
     }
     setProblem(null);
-    onChange({ kind: "PRAYER", prayer: next.prayer ?? prayer, offsetMin: (next.before ?? before) ? -mins : mins, durationMin: d }, true);
+    onChange(r.timing, true, null);
   }
+  // live: marks a field for «حفظ الوقت» to point at (nothing otherwise)
+  const field = (name: TimingField) => (live ? { "data-field": name } : {});
 
   const preview =
     mode === "PRAYER" && prayers
@@ -252,6 +240,7 @@ function TimingInput({
             <input
               type="time"
               value={start}
+              {...field("start")}
               onChange={(e) => {
                 const e2 = shiftEnd(start, end, e.target.value);
                 setStart(e.target.value);
@@ -265,6 +254,7 @@ function TimingInput({
             <input
               type="time"
               value={end}
+              {...field("end")}
               onChange={(e) => {
                 setEnd(e.target.value);
                 emit({ end: e.target.value });
@@ -316,6 +306,7 @@ function TimingInput({
               max={OFFSET_MAX}
               value={offset}
               style={{ minWidth: 80, width: 90 }}
+              {...field("offset")}
               onChange={(e) => {
                 setOffset(e.target.value);
                 emit({ offset: e.target.value });
@@ -330,6 +321,7 @@ function TimingInput({
               max={720}
               value={duration}
               style={{ minWidth: 80, width: 110 }}
+              {...field("duration")}
               onChange={(e) => {
                 setDuration(e.target.value);
                 emit({ duration: e.target.value });

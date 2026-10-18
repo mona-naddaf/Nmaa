@@ -59,7 +59,7 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
       <CommitDays p={p} initial={commitDays} />
       <ReviewReminders p={p} days={reviewReminderDays} />
       <Agenda p={p} enabled={agendaEnabled} />
-      <div className={hl.section}>
+      <div className={hl.section} id="city">
         <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
           المدينة (لمواقيت الصلاة)
         </div>

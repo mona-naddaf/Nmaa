@@ -4,8 +4,16 @@ import { useRef, useState } from "react";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "./agenda.module.css";
 import { moveId } from "@/lib/tracker/agenda";
+import { inertClass, inertProps } from "@/components/nudge/nudge";
 
 export type OrderEntry = { id: string; title: string; note?: string };
+
+/**
+ * Rafiq and «العائلة» (unset elsewhere: as before): ▲ on the first item and ▼
+ * on the last stay visible but inactive, with a tooltip, and «حفظ الترتيب»
+ * with nothing moved says so (unchanged) instead of being disabled.
+ */
+export type OrderListLive = { unchanged: string };
 
 /**
  * Reordering a list: drag the ⠿ handle (mouse, pen or finger — pointer
@@ -18,6 +26,7 @@ export function OrderList({
   error,
   onSave,
   onCancel,
+  live,
 }: {
   // the instruction, worded for whoever reads it
   hint: string;
@@ -26,6 +35,7 @@ export function OrderList({
   error?: string | null;
   onSave: (ids: string[]) => void;
   onCancel: () => void;
+  live?: OrderListLive;
 }) {
   const byId = new Map(entries.map((e) => [e.id, e]));
   const [moved, setIds] = useState(() => entries.map((e) => e.id));
@@ -35,6 +45,10 @@ export function OrderList({
   const [dragId, setDragId] = useState<string | null>(null);
   const rows = useRef(new Map<string, HTMLDivElement>());
   const changed = ids.some((id, i) => id !== entries[i]?.id);
+  const [unchangedHint, setUnchangedHint] = useState(false);
+  /** ▲ or ▼ at the end of the list: disabled, or (live) inactive with a tooltip. */
+  const arrow = (atEnd: boolean, why: string) => (live ? { ...inertProps(atEnd, why), disabled: pending } : { disabled: atEnd || pending });
+  const arrowClass = (atEnd: boolean) => (live && atEnd ? `${styles.arrow} pressable ${inertClass}` : `${styles.arrow} pressable`);
 
   function onMove(e: React.PointerEvent) {
     if (!dragId) return;
@@ -89,14 +103,14 @@ export function OrderList({
                 {e.title}
                 {e.note && <small>{e.note}</small>}
               </span>
-              <button type="button" className={`${styles.arrow} pressable`} aria-label={`نقل «${e.title}» إلى أعلى`} disabled={i === 0 || pending} onClick={() => setIds(moveId(ids, id, -1))}>
+              <button type="button" className={arrowClass(i === 0)} aria-label={`نقل «${e.title}» إلى أعلى`} {...arrow(i === 0, "هذا أول بند")} onClick={() => setIds(moveId(ids, id, -1))}>
                 ▲
               </button>
               <button
                 type="button"
-                className={`${styles.arrow} pressable`}
+                className={arrowClass(i === ids.length - 1)}
                 aria-label={`نقل «${e.title}» إلى أسفل`}
-                disabled={i === ids.length - 1 || pending}
+                {...arrow(i === ids.length - 1, "هذا آخر بند")}
                 onClick={() => setIds(moveId(ids, id, 1))}
               >
                 ▼
@@ -106,8 +120,22 @@ export function OrderList({
         })}
       </div>
       {error && <div className={hl.err}>{error}</div>}
+      {live && unchangedHint && !changed && (
+        <div className={hl.err} role="status">
+          {live.unchanged}
+        </div>
+      )}
       <div className={hl.actionsRow} style={{ marginTop: 10 }}>
-        <button type="button" className={`${hl.primaryBtn} pressable`} disabled={pending || !changed} onClick={() => onSave(ids)}>
+        <button
+          type="button"
+          className={`${hl.primaryBtn} pressable`}
+          disabled={pending || (!live && !changed)}
+          onClick={() => {
+            if (!changed) return setUnchangedHint(true);
+            setUnchangedHint(false);
+            onSave(ids);
+          }}
+        >
           {pending ? "جارٍ الحفظ…" : "حفظ الترتيب"}
         </button>
         <button type="button" className={`${hl.ghostBtn} pressable`} disabled={pending} onClick={onCancel}>

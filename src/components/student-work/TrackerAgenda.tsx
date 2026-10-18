@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import Link from "next/link";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "./agenda.module.css";
 import work from "./work.module.css";
@@ -29,6 +30,8 @@ import {
 import { effectiveTiming, resolveTiming, scheduleLabel, timingLabelOn, type SlotRow, type Timing } from "@/lib/tracker/schedule";
 import { PRAYERS, PRAYER_NAME, prayerMinutes, type Prayer, type PrayerLocation } from "@/lib/prayer/times";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
+import type { TimingProblem } from "@/lib/tracker/timing-input";
+import { pointTo } from "@/components/nudge/nudge";
 
 // «الجدول اليومي»: the «الآن» card, the items «بلا وقت» as a compact strip,
 // today's timeline (a moving «now» line; overlapping items side by side;
@@ -95,10 +98,15 @@ export function TrackerAgenda({
   place,
   showYesterday = false,
   celebrateKey,
+  live,
 }: {
   sheet: TrackerSheet;
   today: string;
   groupGender: GroupGender;
+  // Rafiq and «العائلة» (unset: as before): «حفظ الوقت» is never disabled and
+  // points to what is wrong; cityHref (her own tracker): the «يتاح بعد تحديد
+  // المدينة» note becomes a link to the city picker
+  live?: { cityHref: string | null };
   // the header's «أمس» pill: yesterday's items, to tick what was missed
   showYesterday?: boolean;
   // who is ticking, for the once-a-day celebration (none: never celebrates)
@@ -260,7 +268,7 @@ export function TrackerAgenda({
       </div>
 
       {/* the items with no time today: a compact strip above the timeline */}
-      {untimed.length > 0 && <ChipStrip label="بلا وقت" items={untimed} checked={checkedSet} onTick={(i) => tick(i)} editButton={editButton} />}
+      {untimed.length > 0 && <ChipStrip label="بلا وقت" items={untimed} checked={checkedSet} onTick={(i) => tick(i)} editButton={editButton} cityHref={live?.cityHref ?? null} />}
 
       {editingItem && (
         <TimeEditor
@@ -273,6 +281,7 @@ export function TrackerAgenda({
           prayers={prayersToday}
           pending={pending}
           error={error}
+          live={!!live}
           onCancel={() => setEditing(null)}
           onChoose={(choice) => run(() => onSchedule(editingItem.id, choice), () => setEditing(null))}
           onRemove={onRemoveOwn && editingItem.own ? () => run(() => onRemoveOwn(editingItem.id), () => setEditing(null)) : undefined}
@@ -303,12 +312,15 @@ function ChipStrip({
   checked,
   onTick,
   editButton,
+  cityHref = null,
 }: {
   label?: string;
   items: (TrackerItemView & { timing?: Timing; label?: string })[];
   checked: Set<string>;
   onTick: (item: TrackerItemView) => void;
   editButton?: (item: TrackerItemView) => React.ReactNode;
+  // where the city is chosen: the «يتاح بعد تحديد المدينة» note links there (outside the tick button)
+  cityHref?: string | null;
 }) {
   return (
     <div className={styles.chips}>
@@ -331,9 +343,14 @@ function ChipStrip({
                 {item.title}
                 {item.own && item.status === "PENDING" && <small>بانتظار الاعتماد</small>}
                 {/* an anchor that can't be placed: no city yet */}
-                {item.timing?.kind === "PRAYER" && <small>{item.label} — يتاح بعد تحديد المدينة</small>}
+                {item.timing?.kind === "PRAYER" && !cityHref && <small>{item.label} — يتاح بعد تحديد المدينة</small>}
               </span>
             </button>
+            {item.timing?.kind === "PRAYER" && cityHref && (
+              <Link href={cityHref} className={styles.cityLink}>
+                {item.label} — يتاح بعد تحديد المدينة
+              </Link>
+            )}
             {editButton?.(item)}
           </span>
         );
@@ -351,6 +368,7 @@ export function AgendaOrder({
   place,
   onReorder,
   onDone,
+  live = false,
 }: {
   sheet: TrackerSheet;
   today: string;
@@ -359,6 +377,8 @@ export function AgendaOrder({
   place: PrayerLocation | null;
   onReorder: (ids: string[]) => Result;
   onDone: () => void;
+  // Rafiq and «العائلة»: OrderList's live behaviour (unset: as before)
+  live?: boolean;
 }) {
   const tz = useTimeZone();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
@@ -376,6 +396,7 @@ export function AgendaOrder({
       entries={orderable.map((i) => ({ id: i.id, title: i.title, note: i.label }))}
       pending={pending}
       error={error}
+      live={live ? { unchanged: `لم ${p("تغيّر", "تغيّري")} الترتيب بعد.` } : undefined}
       onCancel={onDone}
       onSave={(ids) =>
         startTransition(async () => {
@@ -552,6 +573,7 @@ function TimeEditor({
   onCancel,
   onChoose,
   onRemove,
+  live,
 }: {
   item: Placed;
   course: boolean;
@@ -564,6 +586,7 @@ function TimeEditor({
   onCancel: () => void;
   onChoose: (choice: ScheduleChoice) => void;
   onRemove?: () => void;
+  live: boolean;
 }) {
   const staffItem = course && !item.own;
   const own = item.ownSlots ?? [];
@@ -573,9 +596,23 @@ function TimeEditor({
   const [rows, setRows] = useState<ScheduleInput | null>(null);
   const [valid, setValid] = useState(true);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // live: what is wrong (and where), and the message shown once she presses «حفظ الوقت»
+  const [problem, setProblem] = useState<TimingProblem | null>(null);
+  const [said, setSaid] = useState<string | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const g2 = (m: string, f: string) => pickByGroup(g, { m, f });
+  function save() {
+    if (!valid && problem) {
+      setSaid(problem.error);
+      return pointTo(box.current?.querySelector<HTMLElement>(`[data-field="${problem.field}"]`));
+    }
+    if (rows === null) return setSaid(`لم ${g2("تغيّر", "تغيّري")} الوقت بعد.`);
+    setSaid(null);
+    onChoose(rows);
+  }
 
   return (
-    <div className={styles.editor}>
+    <div className={styles.editor} ref={box}>
       <div className={styles.editorTitle}>وقت «{item.title}»</div>
       {staffItem && (
         <div className={hl.muted} style={{ marginBottom: 8 }}>
@@ -588,16 +625,30 @@ function TimeEditor({
         activeDays={item.days}
         anchors={place !== null}
         prayers={prayers}
-        onChange={(r, ok) => {
+        live={live}
+        onChange={(r, ok, why) => {
           setRows(r);
           setValid(ok);
+          setProblem(why ?? null);
+          setSaid(null);
         }}
       />
       {error && <div className={hl.err}>{error}</div>}
       <div className={hl.actionsRow} style={{ marginTop: 10 }}>
-        <button type="button" className={`${hl.primaryBtn} pressable`} disabled={pending || !valid || rows === null} onClick={() => rows && onChoose(rows)}>
-          {pending ? "جارٍ الحفظ…" : "حفظ الوقت"}
-        </button>
+        {live ? (
+          <button type="button" className={`${hl.primaryBtn} pressable`} disabled={pending} onClick={save}>
+            {pending ? "جارٍ الحفظ…" : "حفظ الوقت"}
+          </button>
+        ) : (
+          <button type="button" className={`${hl.primaryBtn} pressable`} disabled={pending || !valid || rows === null} onClick={() => rows && onChoose(rows)}>
+            {pending ? "جارٍ الحفظ…" : "حفظ الوقت"}
+          </button>
+        )}
+        {said && (
+          <span className={hl.err} role="alert" style={{ alignSelf: "center" }}>
+            {said}
+          </span>
+        )}
         {staffItem && own.length > 0 && (
           <button type="button" className={`${hl.ghostBtn} pressable`} disabled={pending} onClick={() => onChoose("STAFF")}>
             العودة إلى وقت {teacher}

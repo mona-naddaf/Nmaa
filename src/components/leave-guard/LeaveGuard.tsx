@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { pickByPerson, type PersonGender } from "@/lib/text/gender";
 
 // Saves still on their way to the server. Server actions run one after
 // another, so after several quick changes (switches shown at once) some may
@@ -35,8 +36,11 @@ export function usePendingSaves(): number {
 /**
  * dirty / dirtyNote: also warn while the page holds changes not saved yet
  * (with dirtyNote as the note); unset: pending saves only, as before.
+ * you: whoever is looking (her own page, the child herself, or the adult on a
+ * child's page), for the note's wording.
  */
-export function LeaveGuard({ dirty = false, dirtyNote }: { dirty?: boolean; dirtyNote?: string } = {}) {
+export function LeaveGuard({ dirty = false, dirtyNote, you = null }: { dirty?: boolean; dirtyNote?: string; you?: PersonGender } = {}) {
+  const y = (m: string, f: string) => pickByPerson(you, { m, f });
   const saves = usePendingSaves();
   // unsaved changes count as one more thing to keep
   const count = saves + (dirty ? 1 : 0);
@@ -91,7 +95,9 @@ export function LeaveGuard({ dirty = false, dirtyNote }: { dirty?: boolean; dirt
         marginInline: "auto",
       }}
     >
-      {saves === 0 && dirtyNote ? dirtyNote : "يُحفظ تغيير الآن — انتظر لحظة قبل مغادرة الصفحة، أو اضغط الرابط مرة أخرى للمغادرة دون انتظار."}
+      {saves === 0 && dirtyNote
+        ? dirtyNote
+        : `يُحفظ تغيير الآن — ${y("انتظر", "انتظري")} لحظة قبل مغادرة الصفحة، أو ${y("اضغط", "اضغطي")} الرابط مرة أخرى للمغادرة دون انتظار.`}
     </div>
   );
 }

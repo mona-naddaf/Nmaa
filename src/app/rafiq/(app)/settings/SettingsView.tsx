@@ -90,7 +90,7 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
         </form>
       </div>
       <DeleteAccount p={p} />
-      <LeaveGuard />
+      <LeaveGuard you={gender} />
     </div>
   );
 }

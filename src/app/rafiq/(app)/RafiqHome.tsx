@@ -380,7 +380,7 @@ export function RafiqHome({
 
       <History data={data} p={p} scope={scope} gender={gender} />
       {/* «العائلة»: an assessment change still saving when she leaves */}
-      {can.assess && <LeaveGuard />}
+      {can.assess && <LeaveGuard you={gender} />}
 
       {toast && (
         <div className={styles.toast} role="status">

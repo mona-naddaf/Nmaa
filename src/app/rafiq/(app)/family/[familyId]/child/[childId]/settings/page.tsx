@@ -20,6 +20,7 @@ export default async function AdultChildSettingsPage({ params }: PageProps<"/raf
         childId={child.id}
         name={child.name}
         gender={child.gender}
+        you={access.user.gender}
         canEdit={viewer === "adult-edit"}
         flags={child.flags}
         commitDays={await currentCommitDays(child.id)}

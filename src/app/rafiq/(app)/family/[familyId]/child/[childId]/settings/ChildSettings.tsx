@@ -59,6 +59,7 @@ export function ChildSettings({
   childId,
   name,
   gender,
+  you,
   canEdit,
   flags,
   commitDays,
@@ -66,6 +67,8 @@ export function ChildSettings({
   childId: string;
   name: string;
   gender: "MALE" | "FEMALE";
+  // the adult looking, for the leave note's wording
+  you: "MALE" | "FEMALE" | null;
   canEdit: boolean;
   flags: ChildFlags;
   commitDays: number;
@@ -100,7 +103,7 @@ export function ChildSettings({
         </div>
       </div>
       {flags.streak && <CommitDays childId={childId} name={name} g={g} initial={commitDays} canEdit={canEdit} />}
-      <LeaveGuard />
+      <LeaveGuard you={you} />
     </div>
   );
 }

@@ -174,6 +174,7 @@ export function PlanView({
         </button>
       )}
       <LeaveGuard
+        you={gender}
         dirty={unsaved}
         dirtyNote={`لم تُحفظ التغييرات على الخطة بعد — ${p("اضغط", "اضغطي")} «حفظ الخطة» أو «إلغاء التغييرات»، أو ${p("اضغط", "اضغطي")} الرابط مرة أخرى للمغادرة دونها.`}
       />

@@ -112,7 +112,7 @@ export function FamilyView({ view, gender, dashboard, upcoming }: { view: View; 
       {view.isFounder && <Rename view={view} />}
       {!view.isFounder && me && <Leave view={view} p={p} />}
       {view.isFounder && <DeleteFamily view={view} p={p} />}
-      <LeaveGuard />
+      <LeaveGuard you={gender} />
     </div>
   );
 }

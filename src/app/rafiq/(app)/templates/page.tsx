@@ -8,5 +8,7 @@ export default async function RafiqTemplatesPage({ searchParams }: PageProps<"/r
   const { q } = await searchParams;
   const query = typeof q === "string" ? q.slice(0, 100) : "";
   const { agendaEnabled } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { agendaEnabled: true } });
-  return <TemplateBank cards={await listTemplates(user.id, query, agendaEnabled)} query={query} g={user.gender === "FEMALE" ? "GIRLS" : "BOYS"} />;
+  // her active item titles: «استخدام الجدول» counts only what would really be added
+  const mine = (await prisma.rafiqTrackerItem.findMany({ where: { userId: user.id, archivedAt: null }, select: { title: true } })).map((i) => i.title);
+  return <TemplateBank cards={await listTemplates(user.id, query, agendaEnabled)} mine={mine} query={query} g={user.gender === "FEMALE" ? "GIRLS" : "BOYS"} />;
 }

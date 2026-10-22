@@ -7,7 +7,7 @@ import hl from "@/components/home-log/home-log.module.css";
 import styles from "@/components/student-work/work.module.css";
 import { daysLabel } from "@/lib/tracker/rules";
 import { rowTiming, timingLabel } from "@/lib/tracker/schedule";
-import { itemsAfterNoun, skippedItemsLine, TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
+import { itemsAfterNoun, planTemplateApply, skippedItemsLine, TEMPLATE_LIMITS } from "@/lib/rafiq/template-rules";
 import type { TemplateCard } from "@/lib/rafiq/templates";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { reportTemplateAction, unpublishTemplateAction, applyTemplateAction } from "./actions";
@@ -24,7 +24,7 @@ const timesUsed = (n: number) => (n === 0 ? "لم يُستخدم بعد" : n ===
 
 // «بنك جداول المتابعة»: templates shared by other learners (never with the
 // publisher's name), and the owner's suggested ones first.
-export function TemplateBank({ cards, query, g }: { cards: TemplateCard[]; query: string; g: GroupGender }) {
+export function TemplateBank({ cards, mine, query, g }: { cards: TemplateCard[]; mine: string[]; query: string; g: GroupGender }) {
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const [q, setQ] = useState(query);
@@ -60,19 +60,23 @@ export function TemplateBank({ cards, query, g }: { cards: TemplateCard[]; query
           <div className={hl.empty}>{query ? "لا توجد جداول مطابقة للبحث." : "لا توجد جداول منشورة بعد."}</div>
         </div>
       ) : (
-        cards.map((c) => <Card key={c.id} c={c} p={p} />)
+        cards.map((c) => <Card key={c.id} c={c} mine={mine} p={p} />)
       )}
     </div>
   );
 }
 
-function Card({ c, p }: { c: TemplateCard; p: (m: string, f: string) => string }) {
+function Card({ c, mine, p }: { c: TemplateCard; mine: string[]; p: (m: string, f: string) => string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"view" | "use" | "report" | "unpublish">("view");
   const [reason, setReason] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  // what using it would really add (the server applies the same rule; room is its to check)
+  const plan = planTemplateApply(c.items, mine, Infinity);
+  const willAdd = "create" in plan ? plan.create.length : c.items.length;
+  const yours = p("جدولك", "جدولكِ");
 
   function run(fn: () => Promise<{ error?: string; added?: number; skipped?: number }>, ok: (r: { added?: number; skipped?: number }) => string) {
     setMsg(null);
@@ -117,7 +121,12 @@ function Card({ c, p }: { c: TemplateCard; p: (m: string, f: string) => string }
       <div className={hl.actionsRow}>
         {mode === "view" && (
           <>
-            <button type="button" className={hl.primaryBtn} onClick={() => setMode("use")}>
+            <button
+              type="button"
+              className={hl.primaryBtn}
+              // nothing to add: say so at once, without asking first
+              onClick={() => (willAdd === 0 ? setMsg({ ok: true, text: appliedText(0, c.items.length, yours) }) : (setMsg(null), setMode("use")))}
+            >
               استخدام الجدول
             </button>
             {c.own ? (
@@ -138,13 +147,13 @@ function Card({ c, p }: { c: TemplateCard; p: (m: string, f: string) => string }
         {mode === "use" && (
           <>
             <span className={hl.muted} style={{ alignSelf: "center" }}>
-              إضافة {itemsAfterNoun(c.items.length)} إلى جدولك؟
+              إضافة {itemsAfterNoun(willAdd)} إلى {yours}؟
             </span>
             <button
               type="button"
               className={hl.primaryBtn}
               disabled={pending}
-              onClick={() => run(() => applyTemplateAction(c.id), (r) => appliedText(r.added ?? 0, r.skipped ?? 0, p("جدولك", "جدولكِ")))}
+              onClick={() => run(() => applyTemplateAction(c.id), (r) => appliedText(r.added ?? 0, r.skipped ?? 0, yours))}
             >
               تأكيد
             </button>

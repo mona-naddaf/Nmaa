@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "./summary.module.css";
 import { GoalLine } from "@/components/goal/GoalLine";
@@ -65,6 +65,18 @@ export function TrackerSummary({
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // live: an item picked in «الالتزام في كل بند» brings «يُعرض الآن» and the ring into view when they are off screen
+  const showingRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const [reveal, setReveal] = useState(0);
+  useEffect(() => {
+    const top = showingRef.current ?? heroRef.current;
+    const ring = heroRef.current;
+    if (!reveal || !top || !ring) return;
+    if (top.getBoundingClientRect().top >= 0 && ring.getBoundingClientRect().bottom <= window.innerHeight) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    top.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  }, [reveal]);
   const [pending, startTransition] = useTransition();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const s = data.summary;
@@ -132,7 +144,7 @@ export function TrackerSummary({
       {error && <div className={hl.err}>{error}</div>}
 
       {shown && (
-        <div className={styles.showing} role="status">
+        <div className={styles.showing} role="status" ref={showingRef}>
           <span>
             يُعرض الآن: <b>{shown.title}</b>
           </span>
@@ -141,7 +153,7 @@ export function TrackerSummary({
           </button>
         </div>
       )}
-      <div className={`${styles.card} ${styles.hero}`}>
+      <div className={`${styles.card} ${styles.hero}`} ref={heroRef}>
         <Ring items={s.items} overall={overall} selected={selectedItem} onSelect={setSelectedItem} color={color} />
         <div>
           {/* the percentage itself is in the ring's centre */}
@@ -199,7 +211,10 @@ export function TrackerSummary({
             type="button"
             className={`${styles.itemRow} ${selectedItem === i.id ? styles.selected : ""}${live && selectedItem === i.id ? ` ${styles.picked}` : ""}`}
             aria-pressed={selectedItem === i.id}
-            onClick={() => setSelectedItem(selectedItem === i.id ? null : i.id)}
+            onClick={() => {
+              setSelectedItem(selectedItem === i.id ? null : i.id);
+              if (live && selectedItem !== i.id) setReveal(Date.now());
+            }}
           >
             <span className={styles.dot} style={{ background: color(i.id) }} />
             <span className={styles.itemTitle}>{i.title}</span>

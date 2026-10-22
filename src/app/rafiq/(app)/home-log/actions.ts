@@ -141,7 +141,7 @@ export async function deleteSegmentAction(segmentId: string, subjectId?: string)
 }
 
 /** Her own targets: for new passages, and her active ones too. */
-export async function setTargetsAction(input: HomeTargets, subjectId?: string): Promise<HomeResult> {
+export async function setTargetsAction(input: HomeTargets, subjectId?: string): Promise<HomeResult & { targets?: HomeTargets }> {
   const s = await resolveSubject(subjectId, "manage");
   if ("error" in s) return s;
   if (!s.features.homeLog) return HOME_OFF;
@@ -156,7 +156,8 @@ export async function setTargetsAction(input: HomeTargets, subjectId?: string): 
     }),
   ]);
   refresh();
-  return {};
+  // what was saved, so her targets line shows it before the page refreshes
+  return { targets: t };
 }
 
 /** Marks, re-types or removes (type null) one word of an active passage of hers. */

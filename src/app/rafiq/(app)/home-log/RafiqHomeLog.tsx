@@ -57,6 +57,9 @@ export function RafiqHomeLog({
   const [adding, setAdding] = useState(false);
   const [editingTargets, setEditingTargets] = useState(false);
   const [targetsSaved, setTargetsSaved] = useState(0);
+  // the values just saved, shown until the refreshed page brings them (never the old ones beside «تم الحفظ ✓»)
+  const [savedTargets, setSavedTargets] = useState<{ from: HomeTargets; to: HomeTargets } | null>(null);
+  const shownTargets = savedTargets && savedTargets.from === targets ? savedTargets.to : targets;
   const full = log.active.length >= HOME_LIMITS.maxActiveSegments;
   const limitRef = useRef<HTMLParagraphElement>(null);
   const recited = "سُجِّل في جلساتك ✓";
@@ -122,11 +125,12 @@ export function RafiqHomeLog({
         {editingTargets ? (
           <>
             <TargetsEditor
-              initial={targets}
+              initial={shownTargets}
               onSave={async (t) => {
                 const r = await setTargetsAction(t, subjectId);
                 if (!r.error) {
                   // closes, with «تم الحفظ ✓» on the targets line; a failure keeps it open with the error
+                  setSavedTargets({ from: targets, to: r.targets ?? t });
                   setEditingTargets(false);
                   setTargetsSaved(Date.now());
                   router.refresh();
@@ -140,7 +144,7 @@ export function RafiqHomeLog({
           </>
         ) : (
           <div className={styles.muted}>
-            🎧 سماع {targets.listen} · 🔁 تكرار {targets.repeat} · 🗣️ تسميع لأحد {targets.recite} <SavedNote stamp={targetsSaved} />
+            🎧 سماع {shownTargets.listen} · 🔁 تكرار {shownTargets.repeat} · 🗣️ تسميع لأحد {shownTargets.recite} <SavedNote stamp={targetsSaved} />
           </div>
         )}
       </div>

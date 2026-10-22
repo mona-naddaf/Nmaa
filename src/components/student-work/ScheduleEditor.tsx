@@ -33,7 +33,8 @@ export function ScheduleEditor({
   prayers: Record<Prayer, number> | null;
   // problem: what is wrong when not valid, and in which field
   onChange: (rows: ScheduleInput, valid: boolean, problem?: TimingProblem | null) => void;
-  // Rafiq and «العائلة»: the fields carry data-field, so «حفظ الوقت» can send her to the wrong one
+  // Rafiq and «العائلة»: the fields carry data-field and the message under them data-problem,
+  // so «حفظ الوقت» can send her to the wrong one and highlight why
   live?: boolean;
 }) {
   const initial = scheduleModel(rows);
@@ -331,7 +332,11 @@ function TimingInput({
         </div>
       )}
       {preview && <div className={work.hint}>اليوم: {clockLabel(preview.startMin)}</div>}
-      {problem && <div className={hl.err}>{problem}</div>}
+      {problem && (
+        <div className={hl.err} {...(live ? { "data-problem": "" } : {})}>
+          {problem}
+        </div>
+      )}
     </div>
   );
 }

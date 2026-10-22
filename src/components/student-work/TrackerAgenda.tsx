@@ -31,7 +31,7 @@ import { effectiveTiming, resolveTiming, scheduleLabel, timingLabelOn, type Slot
 import { PRAYERS, PRAYER_NAME, prayerMinutes, type Prayer, type PrayerLocation } from "@/lib/prayer/times";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import type { TimingProblem } from "@/lib/tracker/timing-input";
-import { pointTo } from "@/components/nudge/nudge";
+import { flash, pointTo } from "@/components/nudge/nudge";
 
 // «الجدول اليومي»: the «الآن» card, the items «بلا وقت» as a compact strip,
 // today's timeline (a moving «now» line; overlapping items side by side;
@@ -596,15 +596,19 @@ function TimeEditor({
   const [rows, setRows] = useState<ScheduleInput | null>(null);
   const [valid, setValid] = useState(true);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  // live: what is wrong (and where), and the message shown once she presses «حفظ الوقت»
+  // live: what is wrong (and where); «لم تغيّري الوقت بعد» once she presses «حفظ الوقت» unchanged
   const [problem, setProblem] = useState<TimingProblem | null>(null);
   const [said, setSaid] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const g2 = (m: string, f: string) => pickByGroup(g, { m, f });
   function save() {
     if (!valid && problem) {
-      setSaid(problem.error);
-      return pointTo(box.current?.querySelector<HTMLElement>(`[data-field="${problem.field}"]`));
+      // the reason is already under the fields: send her to the field, and highlight it there
+      setSaid(null);
+      pointTo(box.current?.querySelector<HTMLElement>(`[data-field="${problem.field}"]`));
+      const why = box.current?.querySelector<HTMLElement>("[data-problem]");
+      if (why) flash(why);
+      return;
     }
     if (rows === null) return setSaid(`لم ${g2("تغيّر", "تغيّري")} الوقت بعد.`);
     setSaid(null);

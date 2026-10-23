@@ -148,8 +148,10 @@ test("decideGuide: after the reset an existing account sees each welcome line on
 });
 
 test("decideGuide: after the reset an existing account gets dismissed intro lines back", () => {
-  // the reset removed the intro.* rows: the first eligible one shows again
-  assert.equal(run({ isNew: false, states: states("hints.restored"), intros: ["review", "goal"] }).intro, "review");
+  // the reset removed the intro.* rows: the first eligible one shows again,
+  // once the page's welcome line (back too) is dismissed
+  assert.equal(run({ isNew: false, states: states("hints.restored"), intros: ["review", "goal"] }).intro, null);
+  assert.equal(run({ isNew: false, states: states("hints.restored", "welcome.home"), intros: ["review", "goal"] }).intro, "review");
 });
 
 test("decideGuide: the reset never brings the checklist to an existing account", () => {
@@ -167,9 +169,45 @@ test("decideGuide: the reset doesn't start the questions for an existing account
 // ---------- intro lines ----------
 
 test("decideGuide: one intro line at a time, the first not yet dismissed", () => {
-  assert.equal(run({ intros: ["agenda", "summary", "city"] }).intro, "agenda");
-  assert.equal(run({ intros: ["agenda", "summary", "city"], states: states("intro.agenda") }).intro, "summary");
-  assert.equal(run({ intros: ["agenda"], states: states("intro.agenda") }).intro, null);
+  const seen = (...k: (keyof GuideStates)[]) => states("welcome.home", ...k);
+  assert.equal(run({ intros: ["agenda", "summary", "city"], states: seen() }).intro, "agenda");
+  assert.equal(run({ intros: ["agenda", "summary", "city"], states: seen("intro.agenda") }).intro, "summary");
+  assert.equal(run({ intros: ["agenda"], states: seen("intro.agenda") }).intro, null);
+});
+
+// ---------- one line at a time on a page (Mona) ----------
+
+test("decideGuide: the welcome line comes first; the page's intro line waits", () => {
+  const d = run({ page: "tracker", intros: ["agenda"] });
+  assert.equal(d.welcome, "tracker");
+  assert.equal(d.intro, null);
+});
+
+test("decideGuide: the intro line appears once the welcome line is dismissed", () => {
+  const d = run({ page: "tracker", intros: ["agenda"], states: states("welcome.tracker") });
+  assert.equal(d.welcome, null);
+  assert.equal(d.intro, "agenda");
+});
+
+test("decideGuide: never a welcome line and an intro line together, in any state", () => {
+  const variants: GuideInput[] = [
+    { ...base, page: "home", intros: ["review", "goal"] },
+    { ...base, isNew: false, page: "home", intros: ["review"], states: states("hints.restored") },
+    { ...base, page: "plan", welcome: "plan-setup", intros: ["goal"], states: states("welcome.plan") },
+    { ...base, page: "segment", intros: ["mutashabihat", "verseNotes"], states: { "wizard.deferred": { via: "family" } } },
+  ];
+  for (const v of variants) {
+    const d = decideGuide(v);
+    assert.ok(!(d.welcome && d.intro), JSON.stringify(v));
+  }
+});
+
+test("decideGuide: another page's dismissed welcome doesn't free this page's intro line", () => {
+  assert.equal(run({ page: "tracker", intros: ["agenda"], states: states("welcome.home") }).intro, null);
+});
+
+test("decideGuide: an existing account (no welcome lines) gets the intro line straight away", () => {
+  assert.equal(run({ isNew: false, page: "tracker", intros: ["agenda"] }).intro, "agenda");
 });
 
 // ---------- signup ----------

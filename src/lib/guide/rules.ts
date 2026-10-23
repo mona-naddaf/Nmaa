@@ -42,6 +42,7 @@ export type GuideDecision = {
     mode: "first" | "rerun";
   };
   checklist: { show: boolean; trackerItem: boolean; celebrate: boolean };
+  // one line at a time: never both
   welcome: WelcomeId | null;
   intro: IntroId | null;
 };
@@ -71,8 +72,9 @@ export function decideGuide(input: GuideInput): GuideDecision {
   const welcomeId = input.page ? (input.welcome ?? input.page) : null;
   const welcome = welcomeId && (isNew || has("hints.restored")) && !has(`welcome.${welcomeId}`) ? welcomeId : null;
 
-  // at most one intro line on a page: the first one still not dismissed
-  const intro = input.page ? ((input.intros ?? []).find((i) => !has(`intro.${i}`)) ?? null) : null;
+  // one line at a time on a page: the welcome line first; then at most one
+  // intro line, the first still not dismissed (right after «فهمت» on the welcome)
+  const intro = input.page && !welcome ? ((input.intros ?? []).find((i) => !has(`intro.${i}`)) ?? null) : null;
 
   return {
     wizard: {

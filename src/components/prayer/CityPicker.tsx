@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useEffectEvent, useState, useTransition } from "react";
 import hl from "@/components/home-log/home-log.module.css";
 import work from "@/components/student-work/work.module.css";
 import { CITIES, COUNTRIES, cityByKey, type City } from "@/lib/prayer/cities";
@@ -23,6 +23,9 @@ import { zoneToday } from "@/lib/time/zone";
 // from the curated list or «موقع مخصّص» (name + coordinates), the
 // calculation method (the country's default, overridable) and the Asr
 // school. Shows today's times before saving. Optional: «إزالة المدينة».
+// With onDraft (the setup questions, whose «التالي» saves), the choice is
+// open from the start and has no buttons of its own: the place chosen so far
+// is reported instead, and onSave is never called.
 
 const MAX_RESULTS = 20;
 const norm = (s: string) => s.replace(/[ً-ْـ]/g, "").replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").toLowerCase().trim();
@@ -33,6 +36,7 @@ export function CityPicker({
   intro,
   onSave,
   onCity,
+  onDraft,
 }: {
   initial: PrayerLocation | null;
   // the zone today's preview is shown in (a course's); null: the city's own, or the browser's
@@ -41,9 +45,12 @@ export function CityPicker({
   onSave: (loc: PrayerLocation | null) => Promise<{ error?: string }>;
   // a city was chosen (a course preselects its time zone)
   onCity?: (city: City) => void;
+  // saved by the caller: the complete place chosen so far, or null
+  onDraft?: (loc: PrayerLocation | null) => void;
 }) {
+  const outside = onDraft !== undefined;
   const [current, setCurrent] = useState(initial);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(outside);
   const [query, setQuery] = useState("");
   const [custom, setCustom] = useState(false);
   const [draft, setDraft] = useState<PrayerLocation | null>(initial);
@@ -86,6 +93,14 @@ export function CityPicker({
   } catch {
     preview = null;
   }
+
+  // onDraft: the place she could save now (the same rule as «حفظ المدينة»), reported when it changes
+  const ready = effective && effective.name.trim() ? effective : null;
+  const readyKey = JSON.stringify(ready);
+  const report = useEffectEvent(() => onDraft?.(ready));
+  useEffect(() => {
+    if (outside) report();
+  }, [outside, readyKey]);
 
   return (
     <div>
@@ -182,23 +197,25 @@ export function CityPicker({
               مواقيت اليوم: {PRAYERS.map((p) => `${PRAYER_NAME[p]} ${clockLabel(preview![p])}`).join(" · ")}
             </div>
           )}
-          <div className={hl.actionsRow}>
-            <button type="button" className={hl.primaryBtn} disabled={pending || !effective || !effective.name.trim()} onClick={() => effective && save(effective)}>
-              {pending ? "جارٍ الحفظ…" : "حفظ المدينة"}
-            </button>
-            <button
-              type="button"
-              className={hl.ghostBtn}
-              disabled={pending}
-              onClick={() => {
-                setOpen(false);
-                setDraft(current);
-                setCustom(false);
-              }}
-            >
-              إلغاء
-            </button>
-          </div>
+          {!outside && (
+            <div className={hl.actionsRow}>
+              <button type="button" className={hl.primaryBtn} disabled={pending || !effective || !effective.name.trim()} onClick={() => effective && save(effective)}>
+                {pending ? "جارٍ الحفظ…" : "حفظ المدينة"}
+              </button>
+              <button
+                type="button"
+                className={hl.ghostBtn}
+                disabled={pending}
+                onClick={() => {
+                  setOpen(false);
+                  setDraft(current);
+                  setCustom(false);
+                }}
+              >
+                إلغاء
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

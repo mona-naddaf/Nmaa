@@ -60,6 +60,7 @@ export function RafiqHome({
   tajweed = false,
   tajweedSummary = null,
   scope = SELF_SCOPE,
+  guide,
 }: {
   data: MemorizationView;
   gender: PersonGender;
@@ -68,6 +69,8 @@ export function RafiqHome({
   tajweed?: boolean;
   tajweedSummary?: TajweedSummary | null;
   scope?: RafiqScope;
+  // guidance (src/lib/guide), her own page only and only while it's on: shown under where she stands
+  guide?: React.ReactNode;
 }) {
   const router = useRouter();
   const today = useToday();
@@ -189,6 +192,7 @@ export function RafiqHome({
           <GoalLine goal={goal} feminine={gender === "FEMALE"} invalidHint="الهدف لم يعد ضمن خطتك الحالية — يمكن تعديله من «خطتي»." />
         </div>
       </div>
+      {guide}
 
       {/* progress, prominent */}
       <div className={styles.progressCard}>

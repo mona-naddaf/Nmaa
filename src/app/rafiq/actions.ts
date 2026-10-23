@@ -18,7 +18,9 @@ import { guideAtSignup } from "@/lib/guide/rules";
 // recovery رمز, and signing out. Every action re-checks that the feature is
 // on and applies the limits in src/lib/rafiq/limits.ts.
 
-export type AuthState = { error?: string; recoveryCode?: string; gender?: "MALE" | "FEMALE" } | null;
+// start: guidance is on and the account is new (not from a «العائلة» invite):
+// after the recovery رمز she continues to the setup questions (/rafiq/start)
+export type AuthState = { error?: string; recoveryCode?: string; gender?: "MALE" | "FEMALE"; start?: true } | null;
 
 const OFF: AuthState = { error: "هذه الخدمة غير متاحة حاليًا" };
 
@@ -77,8 +79,8 @@ export async function rafiqSignupAction(_prev: AuthState, formData: FormData): P
   }
   await record("signup");
   await createRafiqSession({ uid: user.id, v: user.sessionVersion });
-  // shown once on the next screen, then she continues to /rafiq
-  return { recoveryCode: recovery.code, gender };
+  // shown once on the next screen, then she continues to /rafiq (or the setup questions)
+  return { recoveryCode: recovery.code, gender, ...(guide.isNew && !guide.deferred && { start: true as const }) };
 }
 
 export async function rafiqLoginAction(_prev: AuthState, formData: FormData): Promise<AuthState> {

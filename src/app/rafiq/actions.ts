@@ -11,6 +11,8 @@ import { createRafiqSession, destroyRafiqSession } from "@/lib/rafiq/session";
 import { newRecoveryCode, normalizeRecoveryCode } from "@/lib/rafiq/recovery";
 import { limited, record, TOO_MANY, TOO_MANY_SIGNUPS } from "@/lib/rafiq/limits";
 import { cleanName, normalizeEmail, parseGender, passwordProblem, validEmail } from "@/lib/rafiq/rules";
+import { guideEnabled } from "@/lib/guide/enabled";
+import { guideAtSignup } from "@/lib/guide/rules";
 
 // «رفيق الحفظ»: creating an account, signing in, recovering with the
 // recovery رمز, and signing out. Every action re-checks that the feature is
@@ -53,11 +55,18 @@ export async function rafiqSignupAction(_prev: AuthState, formData: FormData): P
     return { error: "يوجد حساب مسجَّل بهذا البريد الإلكتروني مسبقًا" };
   }
 
+  // guidance (src/lib/guide): a new account while it's on; one from a «العائلة»
+  // invite link gets the resume card instead of the setup questions
+  const guide = guideAtSignup(guideEnabled(), familyEnabled() ? safeNext(formData.get("next")) : null);
+  const guideData = guide.isNew
+    ? { guideNewAt: new Date(), ...(guide.deferred && { guideStates: { create: [{ key: "wizard.deferred", value: { via: "family" } }] } }) }
+    : {};
+
   const recovery = await newRecoveryCode();
   let user;
   try {
     user = await prisma.rafiqUser.create({
-      data: { email, passwordHash: await hashPassword(password), name: named.name, gender, ...recovery.data, lastLoginAt: new Date() },
+      data: { email, passwordHash: await hashPassword(password), name: named.name, gender, ...recovery.data, lastLoginAt: new Date(), ...guideData },
       select: { id: true, sessionVersion: true },
     });
   } catch (e) {

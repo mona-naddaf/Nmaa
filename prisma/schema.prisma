@@ -1088,6 +1088,14 @@ model RafiqUser {
   templates           TrackerTemplate[]
   templateReports     TrackerTemplateReport[]
   goal                RafiqGoal?
+  guideStates         GuideState[]
+
+  // in-site guidance (src/lib/guide): when she signed up with guidance on —
+  // the setup questions, «الخطوات الأولى» and the first-visit welcome lines
+  // are only for her. null = an account from before (or created while
+  // guidance was off), which counts as already onboarded. Never set for a
+  // CHILD.
+  guideNewAt DateTime?
 
   // her calendar: the optional occasions she turned on (the core ones are
   // always shown), as Course.enabledOccasions
@@ -1119,6 +1127,24 @@ model RafiqUser {
   prayerAsr            String?
 
   @@index([familyId])
+}
+
+// In-site guidance state (src/lib/guide), one row per thing she finished or
+// dismissed: «wizard.done», «checklist.hidden», «welcome.tracker»,
+// «intro.mutashabihat»… (keys are an allowlist in the code). Server-side so
+// it follows her across devices. Rafiq only for now; later rounds add their
+// own owner columns (admin, teacher, student, parent).
+model GuideState {
+  id          String    @id @default(cuid())
+  rafiqUserId String
+  rafiqUser   RafiqUser @relation(fields: [rafiqUserId], references: [id], onDelete: Cascade)
+  key         String
+  // what the key needs beyond "done" (e.g. the wizard's resume step)
+  value       Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([rafiqUserId, key])
 }
 
 // A personal day she added to her calendar (same meaning as CalendarEvent).

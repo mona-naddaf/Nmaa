@@ -6,6 +6,8 @@ import { RafiqTabs } from "./RafiqTabs";
 import { getNoteSummary } from "@/lib/rafiq/notes";
 import { NotesProvider } from "./notes/NotesProvider";
 import { familyEnabled } from "@/lib/family/enabled";
+import { getGuide } from "@/lib/guide/state";
+import { GuideProvider } from "./GuideProvider";
 
 // Shell for every signed-in «رفيق الحفظ» page. Later phases add their tabs
 // in RafiqTabs and their pages next to page.tsx.
@@ -13,6 +15,13 @@ export default async function RafiqAreaLayout({ children }: { children: React.Re
   const user = await requireRafiqUser();
   // which verses have her notes, for the markers after verse numbers
   const noteSummary = await getNoteSummary(user.id);
+  // guidance (src/lib/guide): null while it's off — then no provider at all
+  const guide = await getGuide();
+  const notes = (
+    <NotesProvider summary={noteSummary} g={user.gender === "FEMALE" ? "GIRLS" : "BOYS"}>
+      {children}
+    </NotesProvider>
+  );
 
   return (
     <div className={shell.shell}>
@@ -37,11 +46,7 @@ export default async function RafiqAreaLayout({ children }: { children: React.Re
           </form>
         </div>
       </div>
-      <div className={shell.content}>
-        <NotesProvider summary={noteSummary} g={user.gender === "FEMALE" ? "GIRLS" : "BOYS"}>
-          {children}
-        </NotesProvider>
-      </div>
+      <div className={shell.content}>{guide ? <GuideProvider snapshot={guide}>{notes}</GuideProvider> : notes}</div>
     </div>
   );
 }

@@ -11,7 +11,10 @@ import { PrivacyNote } from "../PrivacyNote";
 import { SignedInNote } from "../SignedInNote";
 import { ACCOUNT_LIMITS } from "@/lib/rafiq/rules";
 
-export function SignupForm({ signedIn, next = null }: { signedIn: boolean; next?: string | null }) {
+// sendNext: guidance is on (src/lib/guide), so the invite link she came from
+// goes with the form (a «العائلة» signup gets the resume card, not the setup
+// questions); off: no extra field, as before
+export function SignupForm({ signedIn, next = null, sendNext = false }: { signedIn: boolean; next?: string | null; sendNext?: boolean }) {
   const [state, formAction, pending] = useActionState<AuthState, FormData>(rafiqSignupAction, null);
 
   return (
@@ -30,6 +33,7 @@ export function SignupForm({ signedIn, next = null }: { signedIn: boolean; next?
           ) : (
             <>
               <form action={formAction}>
+                {sendNext && next && <input type="hidden" name="next" value={next} />}
                 <div className={login.field}>
                   <label htmlFor="email">البريد الإلكتروني</label>
                   <input id="email" name="email" type="email" placeholder="name@example.com" autoComplete="email" maxLength={ACCOUNT_LIMITS.emailMax} required />

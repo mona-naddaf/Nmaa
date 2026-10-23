@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useState } from "react";
 import { usePathname } from "next/navigation";
 import { trackSave } from "@/components/leave-guard/LeaveGuard";
 import type { GuideKey, GuideValue } from "@/lib/guide/keys";
-import { decideGuide, type GuideDecision, type GuideInput, type GuideReset, type GuideStates } from "@/lib/guide/rules";
+import { decideGuide, resetFor, type GuideDecision, type GuideInput, type GuideReset, type GuideStates } from "@/lib/guide/rules";
 import type { GuideSnapshot } from "@/lib/guide/state";
 import { markGuideAction, resetGuideAction, type GuideResult } from "./guide-actions";
 
@@ -43,11 +43,15 @@ export function useGuide(): GuideContext {
 export function GuideProvider({ snapshot, children }: { snapshot: GuideSnapshot; children: React.ReactNode }) {
   const pathname = usePathname();
   const [states, setStates] = useState<GuideStates>(snapshot.states);
+  // what she marked on these pages: a server snapshot can be older than such a
+  // save (a link prefetched while it was on its way), so it never takes them back;
+  // only a reset (through this provider) removes them
+  const [mine, setMine] = useState<GuideStates>({});
   // a fresh server snapshot (a new render of the layout) replaces the local one
   const [seen, setSeen] = useState(snapshot);
   if (seen !== snapshot) {
     setSeen(snapshot);
-    setStates(snapshot.states);
+    setStates({ ...snapshot.states, ...mine });
   }
 
   const mark = useCallback(
@@ -55,24 +59,33 @@ export function GuideProvider({ snapshot, children }: { snapshot: GuideSnapshot;
       // only this key goes back on a failure, so other changes made meanwhile stay
       const had = Object.hasOwn(states, key);
       const prev = states[key] ?? null;
+      const hadMine = Object.hasOwn(mine, key);
+      const prevMine = mine[key] ?? null;
       setStates((s) => ({ ...s, [key]: value }));
+      setMine((m) => ({ ...m, [key]: value }));
       const r = await trackSave(markGuideAction(key, value)).catch(() => ({ error: "تعذّر الحفظ، يُرجى المحاولة مرة أخرى" }));
       if (r.error) {
-        setStates((s) => {
+        const putBack = (was: boolean, before: GuideValue) => (s: GuideStates) => {
           const next = { ...s };
-          if (had) next[key] = prev;
+          if (was) next[key] = before;
           else delete next[key];
           return next;
-        });
+        };
+        setStates(putBack(had, prev));
+        setMine(putBack(hadMine, prevMine));
       }
       return r;
     },
-    [states],
+    [states, mine],
   );
 
   const reset = useCallback(async (kind: GuideReset) => {
     const r = await trackSave(resetGuideAction(kind)).catch(() => ({ error: "تعذّر الحفظ، يُرجى المحاولة مرة أخرى", states: undefined }));
-    if (r.states) setStates(r.states);
+    if (r.states) {
+      const gone = new Set<string>(resetFor(kind).remove);
+      setMine((m) => Object.fromEntries(Object.entries(m).filter(([k]) => !gone.has(k))));
+      setStates(r.states);
+    }
     return r.error ? { error: r.error } : {};
   }, []);
 

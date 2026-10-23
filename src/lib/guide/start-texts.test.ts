@@ -82,6 +82,8 @@ test("start texts: the closing summary lists only what is set", () => {
   assert.deepEqual(bare, ["أيام الالتزام: الأحد، الاثنين ✓"]);
   const hours = f.done.lines({ planTemplate: "CUSTOM", priorSurahs: 1, commitDays: "كل يوم", trackerItems: 1, agenda: true, city: null, reviewDays: 7 });
   assert.deepEqual(hours, ["الخطة: خطة مخصّصة ✓", "الحفظ السابق: سورة واحدة ✓", "أيام الالتزام: كل يوم ✓", "جدول المتابعة: بند واحد، بساعات محدّدة ✓", "تذكير المراجعة: بعد 7 أيام ✓"]);
+  const two = f.done.lines({ planTemplate: null, priorSurahs: 2, commitDays: "كل يوم", trackerItems: 2, agenda: false, city: null, reviewDays: null });
+  assert.deepEqual(two, ["الحفظ السابق: سورتان ✓", "أيام الالتزام: كل يوم ✓", "جدول المتابعة: بندان ✓"]);
   assert.equal(f.done.skipped, "ما تخطّيتِه: تذكير المراجعة. يمكنكِ ضبطه من «الإعدادات» متى شئتِ.");
   assert.equal(m.done.skipped, "ما تخطّيتَه: تذكير المراجعة. يمكنك ضبطه من «الإعدادات» متى شئتَ.");
 });

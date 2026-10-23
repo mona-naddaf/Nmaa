@@ -22,6 +22,9 @@ const PLAN_NAME: Record<string, string> = {
 
 export const planName = (template: string) => PLAN_NAME[template] ?? PLAN_NAME.CUSTOM;
 
+// the summary line is a subject: «بندان», not «بندين»
+const ITEMS = { one: "بند واحد", two: "بندان", few: "بنود", many: "بندًا" };
+
 const reviewAfter = (n: number) => (n === 1 ? "بعد يوم واحد" : n === 2 ? "بعد يومين" : n <= 10 ? `بعد ${n} أيام` : `بعد ${n} يومًا`);
 
 /** What the last screen lists: her real data once the questions are done. */
@@ -184,7 +187,7 @@ export function startTexts(gender: PersonGender) {
         out.push(`أيام الالتزام: ${s.commitDays} ✓`);
         if (s.trackerItems > 0) {
           const timing = !s.agenda ? "" : s.city ? `، بحسب أوقات الصلاة في ${s.city}` : "، بساعات محدّدة";
-          out.push(`جدول المتابعة: ${itemsAfterNoun(s.trackerItems)}${timing} ✓`);
+          out.push(`جدول المتابعة: ${countLabel(s.trackerItems, ITEMS)}${timing} ✓`);
         }
         if (s.reviewDays !== null) out.push(`تذكير المراجعة: ${reviewAfter(s.reviewDays)} ✓`);
         return out;

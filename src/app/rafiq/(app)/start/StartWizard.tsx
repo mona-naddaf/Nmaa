@@ -506,7 +506,7 @@ export function StartWizard(props: Props) {
             />
             {timing === "prayer" && (
               <div id="start-city" className={s.sub}>
-                <CityPicker initial={props.place} previewZone={null} intro={t.q4c.city} onSave={setPlaceAction} onDraft={(c) => (setCity(c), c && clearLines())} />
+                <CityPicker initial={props.place} previewZone={null} intro={t.q4c.city} onSave={setPlaceAction} onDraft={(c) => (setCity(c), c && clearLines())} chosenLine={t.q4c.chosen} />
               </div>
             )}
             {timing === "hours" && <p className={s.note}>{t.q4c.hoursNote}</p>}

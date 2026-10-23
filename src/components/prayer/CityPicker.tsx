@@ -37,6 +37,7 @@ export function CityPicker({
   onSave,
   onCity,
   onDraft,
+  chosenLine,
 }: {
   initial: PrayerLocation | null;
   // the zone today's preview is shown in (a course's); null: the city's own, or the browser's
@@ -47,6 +48,8 @@ export function CityPicker({
   onCity?: (city: City) => void;
   // saved by the caller: the complete place chosen so far, or null
   onDraft?: (loc: PrayerLocation | null) => void;
+  // the place chosen so far, named at once in place of the saved one («مدينتكِ: الرياض»)
+  chosenLine?: (name: string) => string;
 }) {
   const outside = onDraft !== undefined;
   const [current, setCurrent] = useState(initial);
@@ -107,10 +110,16 @@ export function CityPicker({
       <p className={hl.muted} style={{ marginTop: 0 }}>
         {intro}
       </p>
-      <div style={{ fontSize: 14, marginBottom: 10 }}>
-        المدينة: <b>{current ? current.name : "لم تُحدَّد"}</b>
-        {current && ` — ${METHOD_LABEL[current.method]}، العصر: ${ASR_LABEL[current.asr]}`}
-      </div>
+      {chosenLine ? (
+        <div role="status" style={{ fontSize: 14, marginBottom: 10 }}>
+          {ready ? <b>{chosenLine(ready.name)}</b> : <>المدينة: <b>لم تُحدَّد</b></>}
+        </div>
+      ) : (
+        <div style={{ fontSize: 14, marginBottom: 10 }}>
+          المدينة: <b>{current ? current.name : "لم تُحدَّد"}</b>
+          {current && ` — ${METHOD_LABEL[current.method]}، العصر: ${ASR_LABEL[current.asr]}`}
+        </div>
+      )}
       {msg && <div className={msg.ok ? hl.ok : hl.err}>{msg.text}</div>}
       {!open ? (
         <div className={hl.actionsRow}>

@@ -53,6 +53,8 @@ test("start texts: the masculine forms, including the possessives the page wrote
   assert.equal(m.q4a.emptyDesc, "ستضيف بنودك بنفسك من «جدول المتابعة».");
   assert.equal(m.q4b.title, "هل تريد ترتيب بنودك بأوقات محدّدة؟");
   assert.equal(m.laterNote, "حُفظت إجاباتك حتى الآن. تجد بقية الأسئلة في «صفحتي».");
+  assert.equal(f.q4c.chosen("الرياض"), "مدينتكِ: الرياض");
+  assert.equal(m.q4c.chosen("الرياض"), "مدينتك: الرياض");
   assert.equal(m.q4c.noCity, "لم تختر مدينة بعد. اختر مدينتك، أو اختر «بساعات محدّدة».");
 });
 

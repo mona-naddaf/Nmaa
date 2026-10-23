@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import login from "@/app/login/login.module.css";
 import styles from "./rafiq.module.css";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
+import { pointTo } from "@/components/nudge/nudge";
 
 // The recovery رمز, shown exactly once (after sign-up, a recovery, or a
-// regeneration in settings). She must tick that she saved it before going on.
+// regeneration in settings). She must tick that she saved it before going on:
+// pressing the button before that sends her to the box with a short line.
 export function RecoveryCodeCard({
   code,
   gender,
@@ -22,6 +24,8 @@ export function RecoveryCodeCard({
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [missing, setMissing] = useState(false);
+  const box = useRef<HTMLInputElement>(null);
 
   return (
     <div>
@@ -50,18 +54,35 @@ export function RecoveryCodeCard({
       {continueHref && (
         <>
           <label className={styles.confirmRow}>
-            <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
+            <input
+              ref={box}
+              type="checkbox"
+              checked={saved}
+              onChange={(e) => setSaved(e.target.checked)}
+              aria-describedby={missing && !saved ? "recovery-missing" : undefined}
+            />
             حفظتُ رمز الاستعادة في مكان آمن
           </label>
-          {saved ? (
-            <Link href={continueHref} className={login.primaryBtn} style={{ display: "block", textAlign: "center", textDecoration: "none" }}>
-              {continueLabel}
-            </Link>
-          ) : (
-            <button type="button" className={login.primaryBtn} disabled>
-              {continueLabel}
-            </button>
+          {missing && !saved && (
+            <div id="recovery-missing" className={login.err} role="alert">
+              {p("ضع", "ضعي")} علامة على «حفظتُ رمز الاستعادة في مكان آمن» أولًا.
+            </div>
           )}
+          <Link
+            href={continueHref}
+            className={login.primaryBtn}
+            style={{ display: "block", textAlign: "center", textDecoration: "none" }}
+            onClick={(e) => {
+              if (saved) return;
+              e.preventDefault();
+              setMissing(true);
+              // the whole row flashes (the box alone is too small to see); focus goes to the box
+              pointTo(box.current?.closest("label"), { focus: false });
+              box.current?.focus({ preventScroll: true });
+            }}
+          >
+            {continueLabel}
+          </Link>
         </>
       )}
     </div>

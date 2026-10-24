@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useState } from "react";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
+import { GuideTargets } from "@/components/guide/targets";
 import { trackSave } from "@/components/leave-guard/LeaveGuard";
 import type { GuideKey, GuideValue } from "@/lib/guide/keys";
 import { decideGuide, resetFor, type GuideDecision, type GuideInput, type GuideReset, type GuideStates } from "@/lib/guide/rules";
@@ -14,6 +16,10 @@ import { markGuideAction, resetGuideAction, type GuideResult } from "./guide-act
 // is saved in the background (counted by LeaveGuard while on its way); a
 // failed save puts the state back and returns the message for the caller to
 // show. «العائلة» pages get «off» too: the guidance doesn't cover them.
+// It also puts the names on what «أرِني» lights up (GuideTargets) and loads
+// the help button with its panel and tours (./help, in its own chunk).
+
+const RafiqHelp = dynamic(() => import("./help/RafiqHelp"), { ssr: false });
 
 type GuideContext = {
   on: boolean;
@@ -100,5 +106,10 @@ export function GuideProvider({ snapshot, children }: { snapshot: GuideSnapshot;
         mark,
         reset,
       };
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={value}>
+      <GuideTargets on={family ? "family" : true}>{children}</GuideTargets>
+      <RafiqHelp gender={snapshot.gender} facts={snapshot.facts} />
+    </Ctx.Provider>
+  );
 }

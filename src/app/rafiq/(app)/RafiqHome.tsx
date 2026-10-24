@@ -39,6 +39,7 @@ import { deleteSessionAction, resolveMistakeAction, saveSessionAction, setSessio
 import { canDeleteSession, recordedByLine, scopeCan, selfAssessed, SELF_SCOPE, type RafiqScope } from "@/lib/rafiq/scope";
 import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
 import { flash as flashEl, pointTo } from "@/components/nudge/nudge";
+import { useGuideTarget } from "@/components/guide/targets";
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
 const QUALITY_LABEL: Record<Quality, string> = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" };
@@ -74,6 +75,7 @@ export function RafiqHome({
 }) {
   const router = useRouter();
   const today = useToday();
+  const t = useGuideTarget();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
   // surahs overdue for review, on her own today
   const overdue = today ? overdueFrom(data.reviewAges, data.reviewReminderDays, today) : [];
@@ -178,7 +180,7 @@ export function RafiqHome({
   return (
     <div>
       {/* where she stands */}
-      <div className={styles.position}>
+      <div className={styles.position} {...t("home.position")}>
         <div className={styles.icon}>📖</div>
         <div>
           <div className={styles.label}>{child ? `موضع ${child.name} الحالي (حسب ${ofChild("خطته", "خطتها")})` : "موضعك الحالي (حسب خطتك)"}</div>
@@ -196,7 +198,7 @@ export function RafiqHome({
 
       {/* progress, prominent */}
       <div className={styles.progressCard}>
-        <div className={styles.stats}>
+        <div className={styles.stats} {...t("home.stats")}>
           <div className={styles.stat}>
             <div className={styles.statNum}>{round1(data.memorizedPages)}</div>
             <div className={styles.statLbl}>صفحة محفوظة</div>
@@ -210,7 +212,7 @@ export function RafiqHome({
             <div className={styles.statLbl}>{data.loggedSessions === 0 ? "لا جلسات بعد" : `جلسة · ${round1(data.recitedPages)} صفحة مسمَّعة`}</div>
           </div>
         </div>
-        <div className={styles.bars}>
+        <div className={styles.bars} {...t("home.bars")}>
           {data.progressBars.map((bar) => (
             <div key={bar.key}>
               <div className={styles.barHead}>
@@ -241,12 +243,12 @@ export function RafiqHome({
       {/* recording a session */}
       {can.record && (
       <>
-      <div className={styles.secTitle} id="record">
+      <div className={styles.secTitle} id="record" {...t("record.section")}>
         {child ? `التسميع مع ${child.name}` : "تسجيل جلسة"}
       </div>
       <div className={styles.recordCard}>
         <SessionTypePills entry={entry} />
-        <div className={rs.fieldRow}>
+        <div className={rs.fieldRow} {...t("record.range")}>
           <SurahRangeFields entry={entry} />
           <div className={rs.field}>
             <label htmlFor="quality">مستوى التسميع (اختياري)</label>
@@ -261,7 +263,7 @@ export function RafiqHome({
           </div>
         </div>
         <div className={rs.fieldRow}>
-          <div className={rs.field}>
+          <div className={rs.field} {...t("record.day")}>
             <label>تاريخ الجلسة</label>
             <div className={styles.dayPills} role="radiogroup" aria-label="تاريخ الجلسة">
               {DAY_LABEL.map((label, i) => (
@@ -321,7 +323,7 @@ export function RafiqHome({
 
         <PageCalc surahNumber={surahNumber} pageResult={pageResult} />
 
-        <button className={rs.saveBtn} onClick={save} disabled={saveDisabled} type="button">
+        <button className={rs.saveBtn} onClick={save} disabled={saveDisabled} type="button" {...t("record.save")}>
           {pending ? "جارٍ الحفظ..." : "حفظ الجلسة"}
         </button>
         {reasonHint && entry.requiresReason && !entry.reasonFilled && (
@@ -335,7 +337,12 @@ export function RafiqHome({
       )}
 
       {data.mistakes.length > 0 && (
-        <Collapsible title="🔖 كلمات تحتاج مراجعة" tag={countLabel(mistakeWordCount(data.mistakes), WORDS)} persistKey="rafiq.mistakes">
+        <Collapsible
+          title="🔖 كلمات تحتاج مراجعة"
+          tag={countLabel(mistakeWordCount(data.mistakes), WORDS)}
+          persistKey="rafiq.mistakes"
+          target={t("mistakes.section")}
+        >
           <MistakesList
             mistakes={data.mistakes}
             subject={subject}
@@ -366,7 +373,7 @@ export function RafiqHome({
       )}
 
       {overdue.length > 0 && (
-        <Collapsible title="🔁 سور تحتاج مراجعة" tag={countLabel(overdue.length, SURAHS_COUNT)} persistKey="rafiq.review">
+        <Collapsible title="🔁 سور تحتاج مراجعة" tag={countLabel(overdue.length, SURAHS_COUNT)} persistKey="rafiq.review" target={t("review.section")}>
           <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 8 }}>
             لم تُراجع كاملةً منذ أكثر من {countLabel(data.reviewReminderDays ?? 0, DAYS_AFTER_PREP)}
           </div>
@@ -400,6 +407,7 @@ const WEEK_MARK = { done: "✓", missed: "✗", off: "—", today: "•", future
 /** Her streak of commitment days and this week, worked out on her local today. */
 // settingsHref: where the commitment days are chosen (none: the child, who doesn't choose them)
 function CommitCard({ commitment, today, settingsHref }: { commitment: CommitmentData; today: string | null; settingsHref?: string }) {
+  const t = useGuideTarget();
   if (!today) return <div className={styles.commitCard} style={{ minHeight: 70 }} aria-busy />;
   const logged = new Set(commitment.loggedDays);
   // her first day: the local day she signed up (not the UTC one)
@@ -407,7 +415,7 @@ function CommitCard({ commitment, today, settingsHref }: { commitment: Commitmen
   const { current, best } = computeStreak(commitment.schedule, logged, today, start);
   const week = weekView(commitment.schedule, logged, today, start);
   return (
-    <div className={styles.commitCard}>
+    <div className={styles.commitCard} {...t("home.streak")}>
       <div>
         <div className={styles.streakNum}>🔥 {current}</div>
         <div className={styles.streakLbl}>
@@ -415,7 +423,7 @@ function CommitCard({ commitment, today, settingsHref }: { commitment: Commitmen
           {best > current && ` · الأفضل: ${streakDaysText(best)}`}
         </div>
         {settingsHref && (
-          <Link href={settingsHref} className={styles.linkBtn} style={{ display: "inline-block", marginTop: 4 }}>
+          <Link href={settingsHref} className={styles.linkBtn} style={{ display: "inline-block", marginTop: 4 }} {...t("home.commitLink")}>
             أيام الالتزام
           </Link>
         )}
@@ -438,6 +446,7 @@ function History({ data, p, scope, gender }: { data: MemorizationView; p: (m: st
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const t = useGuideTarget();
   const logged = data.history.filter((h) => h.source === "LOGGED");
 
   function remove(id: string) {
@@ -455,6 +464,8 @@ function History({ data, p, scope, gender }: { data: MemorizationView; p: (m: st
       title="سجل الجلسات"
       tag={logged.length === 0 ? "لا توجد جلسات بعد" : `${countLabel(logged.length, SESSIONS)} · آخرها ${logged[0].day}`}
       persistKey="rafiq.history"
+      // «أرِني» lights it only once there is a session to delete
+      target={logged.length > 0 ? t("history.section") : undefined}
     >
       {data.history.length === 0 ? (
         <div style={{ textAlign: "center", fontSize: 13, color: "var(--ink-soft)", padding: "12px 0" }}>

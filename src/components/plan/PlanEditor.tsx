@@ -5,6 +5,7 @@ import styles from "./plan.module.css";
 import { SURAHS, SURAH_BY_NUMBER } from "@/lib/quran-data";
 import type { TemplateKey } from "@/lib/students/new-student";
 import { flash, inertClass, inertProps } from "@/components/nudge/nudge";
+import { useGuideTarget } from "@/components/guide/targets";
 
 // Choosing a memorization plan: the four templates, then the plan itself as
 // an editable list (reorder, remove, add a surah) with a short summary.
@@ -83,6 +84,7 @@ export function PlanEditor({
     return live ? { title, ...inertProps(atEnd, why), className: atEnd ? inertClass : undefined } : { disabled: atEnd, title };
   }
 
+  const t = useGuideTarget();
   const stats = useMemo(
     () => ({
       count: plan.length,
@@ -99,7 +101,7 @@ export function PlanEditor({
         <span className={styles.dot} /> اختيار قالب خطة الحفظ
       </div>
       <div className={styles.card}>
-        <div className={styles.templateGrid}>
+        <div className={styles.templateGrid} {...t("plan.templates")}>
           <div className={`${styles.templateCard} ${template === "mushafrev" ? styles.sel : ""}`} onClick={() => onTemplate("mushafrev")}>
             <div className={styles.tIcon}>🔁</div>
             <div className={styles.tName}>ترتيب المصحف بالعكس</div>
@@ -131,7 +133,7 @@ export function PlanEditor({
         <span className={styles.dot} /> ترتيب الخطة (قابل للتعديل)
       </div>
       <div className={styles.card}>
-        <div className={styles.planList}>
+        <div className={styles.planList} {...t("plan.list")}>
           {plan.length === 0 ? (
             <div className={`${styles.planRow} ${styles.emptyPlan}`}>الخطة فارغة حاليًا — {words.add} سورة من الأسفل</div>
           ) : (
@@ -152,6 +154,7 @@ export function PlanEditor({
 
         <div className={styles.addRow}>
           <select
+            {...t("plan.addSelect")}
             value={addSurahNum}
             onChange={(e) => {
               setAddSurahNum(Number(e.target.value));
@@ -164,7 +167,9 @@ export function PlanEditor({
               </option>
             ))}
           </select>
-          <button type="button" onClick={addSurah}>إضافة سورة</button>
+          <button type="button" onClick={addSurah} {...t("plan.addBtn")}>
+            إضافة سورة
+          </button>
         </div>
         {live && inPlan && (
           <div ref={inPlanRef} className={styles.err} role="alert" style={{ marginTop: 8 }}>

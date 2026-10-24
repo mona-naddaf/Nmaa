@@ -3,6 +3,7 @@
 import { SimilarAfter } from "@/components/quran/Similar";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import styles from "./mistakes.module.css";
+import { useGuideTarget } from "@/components/guide/targets";
 import { quranFont } from "./quran-font";
 import { MISTAKE_TYPES, mistakeTypeLabel, type MistakeType } from "@/lib/students/mistake-types";
 import type { RecitationSubject } from "@/lib/recitation/logic";
@@ -97,6 +98,7 @@ export function WordFlagger({
   const [ayahs, setAyahs] = useState<{ surah: number; text: string[] } | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [expanded, setExpanded] = useState<boolean | null>(null); // null = automatic
+  const t = useGuideTarget();
   const menu = useWordMenu();
   // the letter / gap sheet, one at a time
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
@@ -160,7 +162,7 @@ export function WordFlagger({
   }
 
   return (
-    <div className={styles.flagger}>
+    <div className={styles.flagger} {...t("record.flagger")}>
       <button type="button" className={styles.flaggerHead} onClick={() => setExpanded(!open)} aria-expanded={open}>
         <span>🔖 تحديد الأخطاء على مستوى الكلمة (اختياري)</span>
         <span className={styles.flaggerCount}>

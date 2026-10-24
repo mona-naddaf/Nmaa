@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import styles from "./recitation.module.css";
+import { useGuideTarget } from "@/components/guide/targets";
 import {
   calculatePageRange,
   classifyRecitation,
@@ -382,8 +383,9 @@ export function useRecitationEntry({
 export type RecitationEntryState = ReturnType<typeof useRecitationEntry>;
 
 export function SessionTypePills({ entry }: { entry: RecitationEntryState }) {
+  const t = useGuideTarget();
   return (
-    <div className={styles.typePills} role="radiogroup" aria-label="نوع الجلسة">
+    <div className={styles.typePills} role="radiogroup" aria-label="نوع الجلسة" {...t("record.type")}>
       {(["NEW", "REVIEW", "LINK"] as SessionType[]).map((t) => (
         <button
           key={t}
@@ -523,9 +525,10 @@ export function EntryStatus({
 
 /** The mandatory reason, shown only when the gap check requires one. */
 export function ReasonBox({ entry, placeholder }: { entry: RecitationEntryState; placeholder: string }) {
+  const t = useGuideTarget();
   if (!entry.requiresReason) return null;
   return (
-    <div className={styles.reasonBox}>
+    <div className={styles.reasonBox} {...t("record.reason")}>
       <label htmlFor="reasonText">سبب هذا التسجيل (إلزامي)</label>
       <textarea id="reasonText" placeholder={placeholder} value={entry.reason} onChange={(e) => entry.setReason(e.target.value)} />
     </div>

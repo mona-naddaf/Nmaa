@@ -54,6 +54,7 @@ export function Collapsible({
   defaultOpen = false,
   persistKey,
   id,
+  target,
   children,
 }: {
   title: React.ReactNode;
@@ -63,6 +64,8 @@ export function Collapsible({
   persistKey?: string;
   // anchor for links to this section
   id?: string;
+  // the guide's name for it (src/components/guide/targets.tsx): undefined adds nothing
+  target?: { "data-guide": string };
   children: React.ReactNode;
 }) {
   // null until clicked on this page; then it wins over storage, so a failed
@@ -84,7 +87,7 @@ export function Collapsible({
   }
 
   return (
-    <section className={`${styles.box} ${open ? styles.open : ""}`} id={id}>
+    <section className={`${styles.box} ${open ? styles.open : ""}`} id={id} {...target}>
       <h2 className={styles.heading}>
         <button type="button" className={styles.toggle} aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
           <span className={styles.dot} aria-hidden />

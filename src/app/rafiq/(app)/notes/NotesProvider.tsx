@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import styles from "./notes.module.css";
+import { useGuideTarget } from "@/components/guide/targets";
 import { VerseNotesPanel } from "./VerseNotesPanel";
 import { useSurahText } from "@/components/home-log/useSurahText";
 import { quranFont } from "@/components/mistakes/quran-font";
@@ -30,6 +31,7 @@ export function NotesProvider({ summary, g, children }: { summary: NoteSummary; 
 /** The small button after a verse number: a coloured dot and count, or a faint ✎ to add one. */
 export function VerseNoteMarker({ surah, ayah }: { surah: number; ayah: number }) {
   const ctx = useContext(NotesCtx);
+  const t = useGuideTarget();
   if (!ctx) return null;
   const s = ctx.summary[verseKey(surah, ayah)];
   const open = (e: React.MouseEvent) => {
@@ -38,7 +40,14 @@ export function VerseNoteMarker({ surah, ayah }: { surah: number; ayah: number }
   };
   if (!s) {
     return (
-      <button type="button" className={`${styles.marker} ${styles.markerEmpty}`} onClick={open} aria-label={`إضافة ملاحظة على الآية ${ayah}`} title="إضافة ملاحظة">
+      <button
+        type="button"
+        className={`${styles.marker} ${styles.markerEmpty}`}
+        onClick={open}
+        aria-label={`إضافة ملاحظة على الآية ${ayah}`}
+        title="إضافة ملاحظة"
+        {...t("record.noteMarker")}
+      >
         ✎
       </button>
     );
@@ -52,6 +61,7 @@ export function VerseNoteMarker({ surah, ayah }: { surah: number; ayah: number }
       onClick={open}
       aria-label={`ملاحظاتي على الآية ${ayah} (${s.count})`}
       title="ملاحظاتي على هذه الآية"
+      {...t("record.noteMarker")}
     >
       <span className={styles.markerDot} style={{ background: c?.dot ?? "var(--lavender)" }} />
       {s.count > 1 && s.count}

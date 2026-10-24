@@ -14,6 +14,7 @@ import { GoalEditor } from "@/components/goal/GoalEditor";
 import { useToday } from "@/lib/calendar/useToday";
 import { LeaveGuard } from "@/components/leave-guard/LeaveGuard";
 import type { GoalSpec } from "@/lib/goals/goal";
+import { useGuideTarget } from "@/components/guide/targets";
 
 // Her plan: set up the first time (with memorization from before), and
 // changed whenever she likes afterwards. «العائلة»: an adult with edit rights
@@ -41,6 +42,7 @@ export function PlanView({
   // about the child (an adult's view) or «you»
   const c = (m: string, f: string) => (child?.gender === "FEMALE" ? f : m);
   const router = useRouter();
+  const t = useGuideTarget();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
   const firstTime = initialTemplate === null;
   const [template, setTemplate] = useState<TemplateKey>(initialTemplate ?? "mushafrev");
@@ -152,7 +154,7 @@ export function PlanView({
           <div className={styles.secTitle}>
             <span className={styles.dot} /> الحفظ السابق
           </div>
-          <div className={styles.card}>
+          <div className={styles.card} {...t("plan.prior")}>
             <PriorPicker plan={plan} prior={prior} words={priorWords} />
           </div>
         </>
@@ -165,11 +167,11 @@ export function PlanView({
           لم {p("تغيّر", "تغيّري")} شيئًا في الخطة بعد.
         </div>
       )}
-      <button className={styles.saveBtn} onClick={savePlan} disabled={pending} type="button">
+      <button className={styles.saveBtn} onClick={savePlan} disabled={pending} type="button" {...t("plan.save")}>
         {pending ? "جارٍ الحفظ..." : firstTime ? "حفظ الخطة والبدء" : "حفظ الخطة"}
       </button>
       {unsaved && (
-        <button className={hl.ghostBtn} style={{ width: "100%", marginTop: 10 }} onClick={discard} disabled={pending} type="button">
+        <button className={hl.ghostBtn} style={{ width: "100%", marginTop: 10 }} onClick={discard} disabled={pending} type="button" {...t("plan.discard")}>
           إلغاء التغييرات
         </button>
       )}
@@ -205,7 +207,7 @@ export function PlanView({
           <div className={styles.secTitle} style={{ marginTop: 30 }}>
             <span className={styles.dot} /> إضافة حفظ سابق
           </div>
-          <div className={styles.card}>
+          <div className={styles.card} {...t("plan.prior")}>
             <p style={{ marginTop: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>
               {child ? (
                 <>

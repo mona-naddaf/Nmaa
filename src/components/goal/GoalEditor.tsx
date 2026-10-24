@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import styles from "./goal.module.css";
+import { useGuideTarget } from "@/components/guide/targets";
 import rs from "@/components/recitation/recitation.module.css";
 import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import { juzOf } from "@/lib/quran-data/juz";
@@ -33,6 +34,7 @@ export function GoalEditor({
   onRemove: () => Promise<{ error?: string }>;
 }) {
   const [editing, setEditing] = useState(false);
+  const t = useGuideTarget();
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [kind, setKind] = useState<GoalTargetKind>("PLAN");
   const [juz, setJuz] = useState<number | null>(null);
@@ -86,7 +88,7 @@ export function GoalEditor({
   if (plan.length === 0) return null;
 
   return (
-    <div className={styles.box}>
+    <div className={styles.box} {...t("plan.goal")}>
       <div className={styles.head}>🎯 هدف الحفظ</div>
       {!editing ? (
         <>

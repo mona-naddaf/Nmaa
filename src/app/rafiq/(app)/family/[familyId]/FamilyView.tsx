@@ -17,6 +17,7 @@ import { FamilyDashboard } from "@/components/family/FamilyDashboard";
 import type { DashboardData } from "@/lib/family/dashboard-build";
 import type { FamilyCalendarData } from "@/lib/family/calendar";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
+import { useGuideTarget } from "@/components/guide/targets";
 import {
   createChildAction,
   createInviteAction,
@@ -681,8 +682,10 @@ function Leave({ view, p }: { view: View; p: P }) {
 function DeleteFamily({ view, p }: { view: View; p: P }) {
   const [state, action, pending] = useActionState<FamilyState, FormData>(deleteFamilyAction, null);
   const [open, setOpen] = useState(false);
+  // the founder step of «كيف أحذف حسابي؟» lights this card (and nothing else here)
+  const t = useGuideTarget();
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...t("family.card")}>
       <div className={`${hl.sectionTitle} ${styles.dangerTitle}`} style={{ margin: "0 0 8px" }}>
         حذف العائلة
       </div>

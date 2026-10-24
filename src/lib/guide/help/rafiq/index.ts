@@ -12,6 +12,7 @@ import { templates } from "./templates";
 import { calendar } from "./calendar";
 import { notes } from "./notes";
 import { verse } from "./verse";
+import { settings } from "./settings";
 
 // «رفيق الحفظ»'s help, one content file per page (review page ٤, v17).
 
@@ -28,4 +29,5 @@ export const RAFIQ_HELP: Partial<Record<GuidePage, RafiqHelpPage>> = {
   calendar,
   notes,
   verse,
+  settings,
 };

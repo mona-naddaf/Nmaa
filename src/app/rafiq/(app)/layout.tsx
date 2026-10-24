@@ -29,7 +29,8 @@ export default async function RafiqAreaLayout({ children }: { children: React.Re
         <div className={shell.brand}>
           <BrandLogo variant="header" priority />
         </div>
-        <RafiqTabs family={familyEnabled()} />
+        {/* the guide prop only while guidance is on, so the page is the same without it */}
+        <RafiqTabs family={familyEnabled()} {...(guide ? { guide: true } : {})} />
         <div className={shell.who}>
           <span>
             {user.name && (

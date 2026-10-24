@@ -15,6 +15,7 @@ import { SavedNote } from "@/components/nudge/SavedNote";
 import { pickByPerson } from "@/lib/text/gender";
 import { CityPicker } from "@/components/prayer/CityPicker";
 import type { PrayerLocation } from "@/lib/prayer/times";
+import { useGuideTarget } from "@/components/guide/targets";
 import {
   changePasswordAction,
   deleteAccountAction,
@@ -49,6 +50,7 @@ type Props = {
 
 export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled, summaryEnabled, similarEnabled, tajweedEnabled, place }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
+  const t = useGuideTarget();
 
   return (
     <div className={styles.settingsGrid}>
@@ -59,7 +61,7 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
       <CommitDays p={p} initial={commitDays} />
       <ReviewReminders p={p} days={reviewReminderDays} />
       <Agenda p={p} enabled={agendaEnabled} />
-      <div className={hl.section} id="city">
+      <div className={hl.section} id="city" {...t("settings.city")}>
         <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
           المدينة (لمواقيت الصلاة)
         </div>
@@ -75,7 +77,7 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
       <TajweedDetail p={p} enabled={tajweedEnabled} />
       <Password p={p} />
       <Recovery p={p} gender={gender} createdAt={recoveryCodeCreatedAt} />
-      <div className={hl.section}>
+      <div className={hl.section} {...t("settings.devices")}>
         <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
           الأجهزة
         </div>
@@ -105,8 +107,9 @@ function Feedback({ state }: { state: SettingsState }) {
 
 function Profile({ email, name, gender }: { email: string; name: string | null; gender: RafiqGender }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(updateProfileAction, null);
+  const t = useGuideTarget();
   return (
-    <form className={hl.section} action={action}>
+    <form className={hl.section} action={action} {...t("settings.profile")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 10px" }}>
         بياناتي
       </div>
@@ -188,6 +191,7 @@ function useAutoSave<T>(saved: T) {
 const COMMIT_BATCH_MS = 600;
 
 function CommitDays({ p, initial }: { p: P; initial: number }) {
+  const guide = useGuideTarget();
   const t = useAutoSave(initial);
   const [saved, setSaved] = useState(initial);
   const [hint, setHint] = useState(false);
@@ -219,7 +223,7 @@ function CommitDays({ p, initial }: { p: P; initial: number }) {
     }, COMMIT_BATCH_MS);
   };
   return (
-    <div className={hl.section} id="commit">
+    <div className={hl.section} id="commit" {...guide("settings.commit")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         أيام الالتزام
       </div>
@@ -247,6 +251,7 @@ const REVIEW_TYPING_MS = 1000;
 const DEFAULT_REVIEW_DAYS = 14;
 
 function ReviewReminders({ p, days }: { p: P; days: number | null }) {
+  const t = useGuideTarget();
   const on = useAutoSave(days !== null);
   const count = useAutoSave(days ?? DEFAULT_REVIEW_DAYS);
   const [text, setText] = useState(String(days ?? DEFAULT_REVIEW_DAYS));
@@ -279,7 +284,7 @@ function ReviewReminders({ p, days }: { p: P; days: number | null }) {
   const shown = count.error ? String(count.value) : text;
 
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...t("settings.review")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         تذكير المراجعة
       </div>
@@ -335,12 +340,13 @@ function ReviewReminders({ p, days }: { p: P; days: number | null }) {
 /** A feature switch: on or off at once, saved in the background. */
 function FeatureSwitch({ title, label, enabled, action, children }: { title: string; label: string; enabled: boolean; action: FormAction; children: ReactNode }) {
   const t = useAutoSave(enabled);
+  const guide = useGuideTarget();
   const toggle = (next: boolean) => {
     t.setValue(next);
     t.save(() => send(action, { on: next ? "1" : "0" }), !next);
   };
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...guide("settings.features")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         {title}
       </div>
@@ -397,8 +403,9 @@ function TajweedDetail({ p, enabled }: { p: P; enabled: boolean }) {
 
 function Password({ p }: { p: P }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(changePasswordAction, null);
+  const t = useGuideTarget();
   return (
-    <form className={hl.section} action={action}>
+    <form className={hl.section} action={action} {...t("settings.password")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 10px" }}>
         كلمة المرور
       </div>
@@ -436,8 +443,9 @@ function Recovery({ p, gender, createdAt }: { p: P; gender: RafiqGender; created
   const [open, setOpen] = useState(false);
   // the day it was created on her own calendar, known once in her browser
   const ready = useToday() !== null;
+  const t = useGuideTarget();
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...t("settings.recovery")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         رمز الاستعادة
       </div>
@@ -481,8 +489,9 @@ function Recovery({ p, gender, createdAt }: { p: P; gender: RafiqGender; created
 function DeleteAccount({ p }: { p: P }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(deleteAccountAction, null);
   const [open, setOpen] = useState(false);
+  const t = useGuideTarget();
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...t("settings.delete")}>
       <div className={`${hl.sectionTitle} ${styles.dangerTitle}`} style={{ margin: "0 0 8px" }}>
         حذف الحساب
       </div>

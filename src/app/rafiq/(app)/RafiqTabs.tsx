@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import shell from "@/app/(dashboard)/shell.module.css";
+import { targetAttr } from "@/lib/guide/help/targets";
 
 // family: «عائلتي» (only while «العائلة» is on, src/lib/family/enabled.ts)
-export function RafiqTabs({ family = false }: { family?: boolean }) {
+// guide: the guidance is on, so «أرِني» can light «عائلتي» (src/lib/guide)
+export function RafiqTabs({ family = false, guide = false }: { family?: boolean; guide?: boolean }) {
   const pathname = usePathname();
   const tabs = [
     { href: "/rafiq", label: "صفحتي", active: pathname === "/rafiq" },
@@ -24,7 +26,12 @@ export function RafiqTabs({ family = false }: { family?: boolean }) {
   return (
     <nav className={shell.nav}>
       {tabs.map((t) => (
-        <Link key={t.href} href={t.href} className={`${shell.navLink} ${t.active ? shell.active : ""}`}>
+        <Link
+          key={t.href}
+          href={t.href}
+          className={`${shell.navLink} ${t.active ? shell.active : ""}`}
+          {...targetAttr("nav.family", guide && t.href === "/rafiq/family")}
+        >
           {t.label}
         </Link>
       ))}

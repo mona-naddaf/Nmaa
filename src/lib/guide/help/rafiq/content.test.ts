@@ -29,8 +29,8 @@ function texts(): string[] {
   return all;
 }
 
-test("help content: each page under its own id", () => {
-  for (const [id, page] of Object.entries(RAFIQ_HELP)) assert.equal(page?.id, id, id);
+test("help content: the 11 pages, each under its own id", () => {
+  for (const id of GUIDE_PAGES) assert.equal(RAFIQ_HELP[id]?.id, id, id);
 });
 
 test("help content: at most 5 questions listed per page; every page has some", () => {

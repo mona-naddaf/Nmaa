@@ -8,6 +8,8 @@ import { pickByPerson } from "@/lib/text/gender";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "../../rafiq.module.css";
 import f from "./family.module.css";
+import { targetAttr } from "@/lib/guide/help/targets";
+import { guideEnabled } from "@/lib/guide/enabled";
 
 // «عائلاتي»: the families she belongs to, and creating or joining one. With
 // exactly one family she goes straight to it (?list=1 shows this page anyway,
@@ -52,7 +54,7 @@ export default async function FamiliesPage({ searchParams }: PageProps<"/rafiq/f
       ) : (
         <div className={f.cards}>
           {families.map((fam) => (
-            <Link key={fam.id} href={`/rafiq/family/${fam.id}`} className={f.card}>
+            <Link key={fam.id} href={`/rafiq/family/${fam.id}`} className={f.card} {...targetAttr("family.card", guideEnabled() && fam.isFounder)}>
               <span className={f.cardTitle}>{fam.name}</span>
               <span className={f.cardMeta}>
                 {fam.isFounder ? p("المؤسِّس", "المؤسِّسة") : p("بالغ", "بالغة")} · البالغون: {fam.adults} · الأطفال: {fam.children}

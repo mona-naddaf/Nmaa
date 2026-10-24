@@ -11,6 +11,7 @@ import { itemsAfterNoun, planTemplateApply, skippedItemsLine, TEMPLATE_LIMITS } 
 import type { TemplateCard } from "@/lib/rafiq/templates";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { reportTemplateAction, unpublishTemplateAction, applyTemplateAction } from "./actions";
+import { useGuideTarget } from "@/components/guide/targets";
 
 const itemsCount = (n: number) => (n === 1 ? "بند واحد" : n === 2 ? "بندان" : n <= 10 ? `${n} بنود` : `${n} بندًا`);
 const marks = (n: number) => (n === 1 ? "درجة" : n === 2 ? "درجتان" : `${n} درجات`);
@@ -28,6 +29,7 @@ export function TemplateBank({ cards, mine, query, g }: { cards: TemplateCard[];
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const [q, setQ] = useState(query);
+  const t = useGuideTarget();
 
   return (
     <div>
@@ -44,6 +46,7 @@ export function TemplateBank({ cards, mine, query, g }: { cards: TemplateCard[];
       <form
         className={hl.section}
         style={{ display: "flex", gap: 8 }}
+        {...t("templates.search")}
         onSubmit={(e) => {
           e.preventDefault();
           router.push(q.trim() ? `/rafiq/templates?q=${encodeURIComponent(q.trim())}` : "/rafiq/templates");
@@ -73,6 +76,7 @@ function Card({ c, mine, p }: { c: TemplateCard; mine: string[]; p: (m: string, 
   const [reason, setReason] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const t = useGuideTarget();
   // what using it would really add (the server applies the same rule; room is its to check)
   const plan = planTemplateApply(c.items, mine, Infinity);
   const willAdd = "create" in plan ? plan.create.length : c.items.length;
@@ -90,7 +94,7 @@ function Card({ c, mine, p }: { c: TemplateCard; mine: string[]; p: (m: string, 
   }
 
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...(c.own ? t("templates.card", "templates.own") : t("templates.card"))}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <div style={{ fontWeight: 800, fontSize: 16 }}>{c.title}</div>
         {c.suggested && <span className={`${styles.tag} ${styles.green}`}>مقترح</span>}

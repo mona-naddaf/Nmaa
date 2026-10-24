@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext } from "react";
-import { targetAttr, type GuideTarget } from "@/lib/guide/help/targets";
+import type { GuideTarget } from "@/lib/guide/help/targets";
 
 // Names on the elements «أرِني» can light up (src/lib/guide/help/targets.ts).
 // Only inside <GuideTargets on>, which the guide's provider mounts while the
@@ -17,8 +17,18 @@ export function GuideTargets({ on, children }: { on: TargetsOn; children: React.
   return <On.Provider value={on}>{children}</On.Provider>;
 }
 
-/** `{...t("record.save")}` on an element: data-guide while on, nothing at all otherwise. */
-export function useGuideTarget(): (name: GuideTarget) => { "data-guide": GuideTarget } | undefined {
+/**
+ * `{...t("record.save")}` on an element: data-guide while on, nothing at all
+ * otherwise. An element can carry more than one name (`t("templates.card",
+ * "templates.own")`).
+ */
+export function useGuideTarget(): (...names: GuideTarget[]) => { "data-guide": string } | undefined {
   const on = useContext(On);
-  return useCallback((name: GuideTarget) => targetAttr(name, on === true || (on === "family" && name === "family.card")), [on]);
+  return useCallback(
+    (...names: GuideTarget[]) => {
+      const named = on === true ? names : on === "family" ? names.filter((n) => n === "family.card") : [];
+      return named.length ? { "data-guide": named.join(" ") } : undefined;
+    },
+    [on],
+  );
 }

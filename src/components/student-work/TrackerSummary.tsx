@@ -11,6 +11,7 @@ import type { SummaryPayload } from "@/lib/tracker/summary-data";
 import { streakText } from "@/lib/students/streak";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { inertClass, inertProps } from "@/components/nudge/nudge";
+import { useGuideTarget } from "@/components/guide/targets";
 
 // «المحصّلات»: a period's commitment as a segmented ring (one segment per
 // item, filled by its commitment) and a mosaic (one tile per day, shaded by
@@ -65,6 +66,7 @@ export function TrackerSummary({
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const t = useGuideTarget();
   // live: an item picked in «الالتزام في كل بند» brings «يُعرض الآن» and the ring into view when they are off screen
   const showingRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -118,7 +120,7 @@ export function TrackerSummary({
 
   return (
     <div className={`${styles.wrap} ${pending ? styles.loading : ""}`} aria-busy={pending}>
-      <div className={styles.periods} role="tablist" aria-label="الفترة">
+      <div className={styles.periods} role="tablist" aria-label="الفترة" {...t("summary.periods")}>
         {PERIOD_KINDS.map((k) => (
           <button
             key={k}
@@ -132,7 +134,7 @@ export function TrackerSummary({
           </button>
         ))}
       </div>
-      <div className={styles.nav}>
+      <div className={styles.nav} {...t("summary.nav")}>
         <button type="button" className={navClass(oldest)} {...nav(oldest, "لا توجد فترات أقدم")} onClick={() => !oldest && go(data.kind, data.offset - 1)}>
           → السابق
         </button>
@@ -153,7 +155,7 @@ export function TrackerSummary({
           </button>
         </div>
       )}
-      <div className={`${styles.card} ${styles.hero}`} ref={heroRef}>
+      <div className={`${styles.card} ${styles.hero}`} ref={heroRef} {...t("summary.ring")}>
         <Ring items={s.items} overall={overall} selected={selectedItem} onSelect={setSelectedItem} color={color} />
         <div>
           {/* the percentage itself is in the ring's centre */}
@@ -168,7 +170,7 @@ export function TrackerSummary({
         </div>
       </div>
 
-      <div className={styles.card}>
+      <div className={styles.card} {...t("summary.mosaic")}>
         <Mosaic data={data} selected={selectedDay} onSelect={(d) => setSelectedDay(d === selectedDay ? null : d)} />
         <div className={styles.legend}>
           {LEGEND.map(([c, label]) => (
@@ -185,7 +187,7 @@ export function TrackerSummary({
         {selectedDay && <DayDetails data={data} day={selectedDay} />}
       </div>
 
-      <div className={styles.achieve}>
+      <div className={styles.achieve} {...t("summary.stats")}>
         <Stat num={formatPages(data.achievements.pages)} label="صفحات الحفظ الجديد" />
         <Stat num={String(data.achievements.sessions)} label="جلسات التسميع" />
         <Stat num={String(s.bestRun)} label="أطول سلسلة أيام مكتملة" />
@@ -200,7 +202,7 @@ export function TrackerSummary({
         </div>
       )}
 
-      <div className={styles.card}>
+      <div className={styles.card} {...t("summary.items")}>
         <div className={styles.bigLabel} style={{ marginBottom: 6 }}>
           الالتزام في كل بند
         </div>

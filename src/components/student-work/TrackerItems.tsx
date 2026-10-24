@@ -5,17 +5,21 @@ import Link from "next/link";
 import styles from "./items.module.css";
 import agendaStyles from "./agenda.module.css";
 import { daysLabel } from "@/lib/tracker/rules";
+import { useGuideTarget } from "@/components/guide/targets";
+import type { GuideTarget } from "@/lib/guide/help/targets";
 
 // The «⚙ البنود» menu on «جدول المتابعة» and the compact rows of «إدارة
 // البنود». Shared by the course student and «رفيق الحفظ»; each page decides
 // which entries the user may see (the server actions check again).
 
-export type MenuEntry = { label: string; onSelect: () => void } | { label: string; href: string };
+// guide: the guide's name for the entry (src/components/guide/targets.tsx)
+export type MenuEntry = ({ label: string; onSelect: () => void } | { label: string; href: string }) & { guide?: GuideTarget };
 
 /** A small «⚙ البنود» button opening a menu of item views. */
 export function ItemsMenu({ entries }: { entries: MenuEntry[] }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const t = useGuideTarget();
 
   // closes on a tap outside it or Escape
   useEffect(() => {
@@ -37,14 +41,14 @@ export function ItemsMenu({ entries }: { entries: MenuEntry[] }) {
   if (entries.length === 0) return null;
   return (
     <div className={styles.menuBox} ref={box}>
-      <button type="button" className={styles.pill} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button type="button" className={styles.pill} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} {...t("tracker.menu")}>
         ⚙ البنود
       </button>
       {/* always mounted so it can fade out; inert (and hidden) while closed */}
       <div className={`${styles.menu} ${open ? styles.open : ""}`} role="menu" inert={!open} aria-hidden={!open}>
         {entries.map((e) =>
           "href" in e ? (
-            <Link key={e.label} href={e.href} role="menuitem" className={styles.menuItem}>
+            <Link key={e.label} href={e.href} role="menuitem" className={styles.menuItem} {...(e.guide && t(e.guide))}>
               {e.label}
             </Link>
           ) : (
@@ -53,6 +57,7 @@ export function ItemsMenu({ entries }: { entries: MenuEntry[] }) {
               type="button"
               role="menuitem"
               className={styles.menuItem}
+              {...(e.guide && t(e.guide))}
               onClick={() => {
                 setOpen(false);
                 e.onSelect();
@@ -83,6 +88,7 @@ export function TrackerHeader({
   summaryHref?: string;
   menu: MenuEntry[];
 }) {
+  const t = useGuideTarget();
   return (
     <div className={styles.header}>
       <h2 className={styles.heading}>🗓️ جدول اليوم</h2>
@@ -96,7 +102,7 @@ export function TrackerHeader({
           </button>
         )}
         {summaryHref && (
-          <Link href={summaryHref} className={styles.pill}>
+          <Link href={summaryHref} className={styles.pill} {...t("tracker.summary")}>
             📊 المحصّلات
           </Link>
         )}
@@ -136,6 +142,7 @@ export function CompactRow({
   editLabel = "تعديل",
   onDelete,
   muted = false,
+  target,
   children,
 }: {
   title: string;
@@ -149,10 +156,12 @@ export function CompactRow({
   editLabel?: string;
   onDelete?: () => void;
   muted?: boolean;
+  // the guide's name for the row (src/components/guide/targets.tsx): undefined adds nothing
+  target?: { "data-guide": string };
   children?: React.ReactNode;
 }) {
   return (
-    <div className={styles.row}>
+    <div className={styles.row} {...target}>
       <div className={styles.rowMain}>
         <div className={styles.rowBody}>
           <div className={`${styles.rowTitle} ${muted ? styles.muted : ""}`}>{title}</div>

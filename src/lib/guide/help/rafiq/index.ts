@@ -6,6 +6,9 @@ import { home } from "./home";
 import { plan } from "./plan";
 import { homelog } from "./homelog";
 import { segment } from "./segment";
+import { tracker } from "./tracker";
+import { summary } from "./summary";
+import { templates } from "./templates";
 
 // «رفيق الحفظ»'s help, one content file per page (review page ٤, v17).
 
@@ -16,4 +19,7 @@ export const RAFIQ_HELP: Partial<Record<GuidePage, RafiqHelpPage>> = {
   plan,
   homelog,
   segment,
+  tracker,
+  summary,
+  templates,
 };

@@ -10,6 +10,7 @@ import { DayScoreBar, LastSevenDays, pruneAgreed, type TickInput } from "./Track
 import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { ScheduleEditor, type ScheduleInput } from "./ScheduleEditor";
 import { gregorianLabelWithWeekday } from "@/lib/calendar/hijri";
+import { useGuideTarget } from "@/components/guide/targets";
 import { addDays, dayScore, isComplete, shownOn, weekdayOf, withLocalDays } from "@/lib/tracker/rules";
 import { TickMark } from "./TickMark";
 import { useDayCelebration } from "./DayCelebration";
@@ -136,6 +137,7 @@ export function TrackerAgenda({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const party = useDayCelebration(celebrateKey, today, g);
+  const t = useGuideTarget();
 
   if (!now) return <div className={hl.empty}>…</div>;
 
@@ -215,7 +217,13 @@ export function TrackerAgenda({
   };
 
   const editButton = (item: TrackerItemView) => (
-    <button type="button" className={styles.iconBtn} aria-label={`وقت «${item.title}»`} onClick={() => setEditing(editing === item.id ? null : item.id)}>
+    <button
+      type="button"
+      className={styles.iconBtn}
+      aria-label={`وقت «${item.title}»`}
+      onClick={() => setEditing(editing === item.id ? null : item.id)}
+      {...t("agenda.timeBtn")}
+    >
       ⏱
     </button>
   );
@@ -225,7 +233,7 @@ export function TrackerAgenda({
 
   return (
     // relative: the celebration's layer covers (and is clipped to) the day area
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative" }} {...t("tracker.sheet")}>
       {party.layer}
       {status && (status.current.length > 0 || status.next) && (
         <div className={styles.nowCard} aria-live="polite">

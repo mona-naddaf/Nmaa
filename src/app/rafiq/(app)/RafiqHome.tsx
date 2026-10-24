@@ -40,6 +40,7 @@ import { canDeleteSession, recordedByLine, scopeCan, selfAssessed, SELF_SCOPE, t
 import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
 import { flash as flashEl, pointTo } from "@/components/nudge/nudge";
 import { useGuideTarget } from "@/components/guide/targets";
+import { useHelpAvoid } from "@/components/guide/help-avoid";
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
 const QUALITY_LABEL: Record<Quality, string> = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" };
@@ -105,6 +106,8 @@ export function RafiqHome({
   const [notes, setNotes] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // the help button («؟») moves above the message
+  useHelpAvoid(toast !== null);
   const [pending, startTransition] = useTransition();
 
   // «حفظ الجلسة» never looks dead: an empty reason or a wrong range is pointed out instead

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./motion.module.css";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
+import { useHelpAvoid } from "@/components/guide/help-avoid";
 
 // The day-complete celebration on «جدول المتابعة»: when her own tick makes
 // today complete (isComplete(dayScore), as everywhere), leaves fall softly
@@ -91,6 +92,8 @@ function dropLeaves(stage: HTMLElement) {
 export function useDayCelebration(key: string | undefined, today: string, g: GroupGender) {
   const stage = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<"off" | "in" | "shown" | "out">("off");
+  // the help button («؟») steps aside while it shows
+  useHelpAvoid(phase !== "off", "hide");
   const timers = useRef<number[]>([]);
 
   const clear = () => {

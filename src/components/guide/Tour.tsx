@@ -42,7 +42,8 @@ function visible(el: HTMLElement): boolean {
 
 /** The first element on the page with this name that can be seen (or sits in a closed <details>). */
 function findTarget(name: string): HTMLElement | null {
-  const all = [...document.querySelectorAll<HTMLElement>(`[data-guide="${CSS.escape(name)}"]`)].filter((el) => !el.closest("[data-guide-root]"));
+  // an element can carry several names, space-separated
+  const all = [...document.querySelectorAll<HTMLElement>(`[data-guide~="${CSS.escape(name)}"]`)].filter((el) => !el.closest("[data-guide-root]"));
   return all.find(visible) ?? all.find((el) => el.closest("details:not([open])")) ?? null;
 }
 

@@ -27,6 +27,7 @@ import { addItemToChildrenAction, copyTrackerAction, type CopyResult } from "./f
 import { addReport, copyReport } from "@/lib/family/tracker-copy";
 import type { CopyFamily } from "@/lib/family/tracker-copy-data";
 import { pointTo } from "@/components/nudge/nudge";
+import { useGuideTarget } from "@/components/guide/targets";
 
 type Item = RafiqTrackerData["active"][number];
 type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
@@ -76,6 +77,7 @@ export function RafiqTracker({
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const [view, setView] = useState<"day" | "items" | "order">("day");
+  const t = useGuideTarget();
   const [yesterday, setYesterday] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -125,9 +127,9 @@ export function RafiqTracker({
 
   // the bank is open to every «رفيق الحفظ» user; ordering only matters with «الجدول اليومي»
   const menu: MenuEntry[] = [
-    { label: can.record ? "إدارة البنود" : "البنود", onSelect: () => show("items") },
-    ...(can.record && agenda && data.active.length > 1 ? [{ label: "ترتيب البنود", onSelect: () => show("order") }] : []),
-    ...(can.ownExtras ? [{ label: "بنك الجداول", href: "/rafiq/templates" }] : []),
+    { label: can.record ? "إدارة البنود" : "البنود", onSelect: () => show("items"), guide: "tracker.menu.items" },
+    ...(can.record && agenda && data.active.length > 1 ? [{ label: "ترتيب البنود", onSelect: () => show("order"), guide: "tracker.menu.order" as const }] : []),
+    ...(can.ownExtras ? [{ label: "بنك الجداول", href: "/rafiq/templates", guide: "tracker.menu.bank" as const }] : []),
   ];
 
   return (
@@ -145,13 +147,18 @@ export function RafiqTracker({
           <ViewBar title={can.record ? "إدارة البنود" : "البنود"} onBack={() => show("day")}>
             {!adding && can.record && (
               // never dead: with the tracker full it points to the limit message
-              <button type="button" className={`${hl.primaryBtn} pressable`} onClick={() => (full ? pointTo(limitRef.current, { focus: false }) : setAdding(true))}>
+              <button
+                type="button"
+                className={`${hl.primaryBtn} pressable`}
+                onClick={() => (full ? pointTo(limitRef.current, { focus: false }) : setAdding(true))}
+                {...t("tracker.newItem")}
+              >
                 + بند جديد
               </button>
             )}
           </ViewBar>
           {full && (
-            <div ref={limitRef} className={hl.err} style={{ margin: "0 4px 10px" }}>
+            <div ref={limitRef} className={hl.err} style={{ margin: "0 4px 10px" }} {...t("tracker.limit")}>
               يضم الجدول {RAFIQ_TRACKER_MAX_ITEMS} بندًا، وهو الحدّ الأقصى.
             </div>
           )}
@@ -257,6 +264,7 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
   const [description, setDescription] = useState("");
   // what she unticked; every other current item (including ones added later) is included
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const t = useGuideTarget();
   const chosen = new Set(items.filter((i) => !excluded.has(i.id)).map((i) => i.id));
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -289,7 +297,7 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
       <div className={hl.sectionTitle}>
         <span>مشاركة جدولي</span>
         {!open && (
-          <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setOpen(true)}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setOpen(true)} {...t("tracker.publish")}>
             نشر في بنك الجداول
           </button>
         )}
@@ -528,6 +536,7 @@ function ItemForm({
 
 function ItemRow({ item, run, pending, agenda, place, scope }: { item: Item; run: Run; pending: boolean; agenda: boolean; place: PrayerLocation | null; scope: RafiqScope }) {
   const [mode, setMode] = useState<"view" | "edit" | "remove">("view");
+  const t = useGuideTarget();
   const toggle = (m: typeof mode) => setMode(mode === m ? "view" : m);
   // «العائلة»: an adult's item is the child's to tick, not to change; a view-only adult changes nothing
   const editable = scopeCan(scope).record && !(scope.viewer === "child" && item.adultAdded);
@@ -540,6 +549,7 @@ function ItemRow({ item, run, pending, agenda, place, scope }: { item: Item; run
       time={agenda ? scheduleLabel(item.slots) : undefined}
       onEdit={editable ? () => toggle("edit") : undefined}
       onDelete={editable ? () => toggle("remove") : undefined}
+      target={t("tracker.itemRow")}
     >
       {scope.viewer !== "self" && item.adultAdded && (
         <div className={hl.muted} style={{ fontSize: 12, marginTop: 4 }}>

@@ -10,6 +10,7 @@ import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { TickMark } from "./TickMark";
 import { useDayCelebration } from "./DayCelebration";
+import { useGuideTarget } from "@/components/guide/targets";
 
 const pointsLabel = (n: number) => (n === 1 ? "درجة" : n === 2 ? "درجتان" : n <= 10 ? `${n} درجات` : `${n} درجة`);
 
@@ -65,6 +66,7 @@ export function TrackerDaySheet({
   const [, startTransition] = useTransition();
   const tz = useTimeZone();
   const party = useDayCelebration(celebrateKey, today, g);
+  const t = useGuideTarget();
 
   // items exist from the day they were created (the course's day, or hers in «رفيق الحفظ»; not the UTC one)
   const allItems = withLocalDays(sheet.items, tz);
@@ -107,7 +109,7 @@ export function TrackerDaySheet({
 
   return (
     // relative: the celebration's layer covers (and is clipped to) the day area
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative" }} {...t("tracker.sheet")}>
         {party.layer}
         <div className={styles.dayTabs} role="tablist">
           {(["today", "yesterday"] as const).map((w) => (

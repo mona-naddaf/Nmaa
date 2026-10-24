@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { genderText } from "@/lib/guide/help/text";
-import { nextPresses, onPress, progressLabel, stepView, type StepView } from "@/lib/guide/help/run";
+import { catchUp, nextPresses, onPress, progressLabel, stepView, type StepView } from "@/lib/guide/help/run";
 import type { HelpFacts, HelpStep } from "@/lib/guide/help/types";
 import type { HelpHost } from "./host";
 import { focusables } from "./focus";
@@ -28,16 +28,37 @@ const PHONE = 640;
 
 type Rect = { top: number; left: number; width: number; height: number };
 type View = StepView | "wait";
-type Geo = { view: View; rect: Rect | null; pos: { top: number; left: number } | null; vw: number; vh: number };
+// via: the lit element is an opener of the step's element (a menu, a view);
+// press: «التالي» presses something there (and the bubble says so)
+type Geo = { view: View; rect: Rect | null; pos: { top: number; left: number } | null; vw: number; vh: number; via: boolean; press: boolean };
+
+/** Shown on the screen: laid out, not hidden, not inside something closed (a menu fading out is inert). */
+function visible(el: HTMLElement): boolean {
+  if (el.getClientRects().length === 0 || el.closest("[inert]")) return false;
+  return el.checkVisibility ? el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) : true;
+}
 
 /** The first element on the page with this name that can be seen (or sits in a closed <details>). */
 function findTarget(name: string): HTMLElement | null {
   const all = [...document.querySelectorAll<HTMLElement>(`[data-guide="${CSS.escape(name)}"]`)].filter((el) => !el.closest("[data-guide-root]"));
-  return all.find((el) => el.getClientRects().length > 0) ?? all.find((el) => el.closest("details:not([open])")) ?? null;
+  return all.find(visible) ?? all.find((el) => el.closest("details:not([open])")) ?? null;
+}
+
+// what counts as pressing in a lit area: a control, not a click on its text
+const CONTROL = 'button, a[href], summary, [role="button"], [role="tab"], [role="menuitem"], [role="radio"]';
+
+/**
+ * What «التالي» presses on a step that opens something: the lit element when
+ * it is a control; in a lit section, its closed toggle, else its link. Never
+ * anything else (a save button is a «save» step and is never pressed).
+ */
+function pressable(el: HTMLElement): HTMLElement | null {
+  if (el.matches(CONTROL)) return el;
+  return el.querySelector<HTMLElement>('[aria-expanded="false"]') ?? el.querySelector<HTMLElement>("a[href]");
 }
 
 const sameGeo = (a: Geo, b: Geo) =>
-  a.view === b.view && a.vw === b.vw && a.vh === b.vh && JSON.stringify([a.rect, a.pos]) === JSON.stringify([b.rect, b.pos]);
+  a.view === b.view && a.vw === b.vw && a.vh === b.vh && a.via === b.via && a.press === b.press && JSON.stringify([a.rect, a.pos]) === JSON.stringify([b.rect, b.pos]);
 
 type Live<T extends string, P extends string> = {
   step: HelpStep<T, P>;
@@ -67,9 +88,19 @@ export function Tour<T extends string, P extends string>({
   const [leaving, setLeaving] = useState(false);
   const [note, setNote] = useState<"enabled" | "failed" | null>(null);
   const [busy, setBusy] = useState(false);
-  const [geo, setGeo] = useState<Geo>({ view: "wait", rect: null, pos: null, vw: 0, vh: 0 });
+  const [geo, setGeo] = useState<Geo>({ view: "wait", rect: null, pos: null, vw: 0, vh: 0, via: false, press: false });
   const textId = useId();
   const t = (s: string) => genderText(s, host.gender);
+
+  // she went to a later step's page herself (a verse opened from a dialog): on to that step
+  const [seenHere, setSeenHere] = useState(host.here);
+  if (seenHere !== host.here) {
+    setSeenHere(host.here);
+    if (!leaving) {
+      const to = catchUp(steps, index, home, host.here);
+      if (to !== index) setIndex(to);
+    }
+  }
 
   const base = steps[index];
   const step: HelpStep<T, P> = leaving && base.then ? { text: base.text, target: base.then.target, page: base.then.page } : base;
@@ -83,9 +114,12 @@ export function Tour<T extends string, P extends string>({
   const bubbleRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
   const viewRef = useRef<View>("wait");
+  // the openers pressed in this step, and whether the lit element is one
+  const viaPressed = useRef(new Set<string>());
+  const viaLit = useRef<string | null>(null);
   const frame = useRef(0);
   const timer = useRef(0);
-  const act = useRef({ next: () => {}, end: onEnd, leave: () => {} });
+  const act = useRef<{ next: (link: boolean) => void; end: () => void; leave: () => void }>({ next: () => {}, end: onEnd, leave: () => {} });
 
   // measures on the next frame; it reads only refs, so it never works from an old render
   const schedule = useRef(() => {
@@ -100,6 +134,21 @@ export function Tour<T extends string, P extends string>({
     let el = onPage && s.step.target ? findTarget(s.step.target) : null;
     const blockedEl = onPage && s.step.blocked ? findTarget(s.step.blocked.target) : null;
     let view: View = stepView(s.step, { here: s.here, home: s.home, found: !!el, blocked: !!blockedEl, facts: s.facts, hrefOf: s.hrefOf });
+    // its element is inside something closed: the innermost opener showing, not pressed yet in this step
+    let via: string | null = null;
+    if (onPage && !el && view !== "blocked" && s.step.via) {
+      for (const name of [...s.step.via].reverse()) {
+        if (viaPressed.current.has(name)) continue;
+        const opener = findTarget(name);
+        if (opener) {
+          el = opener;
+          via = name;
+          view = "show";
+          break;
+        }
+      }
+    }
+    viaLit.current = via;
     const left = s.waitUntil - Date.now();
     if (left > 0 && view !== "show" && view !== "plain") {
       view = "wait";
@@ -111,7 +160,7 @@ export function Tour<T extends string, P extends string>({
     if (view === "blocked") el = blockedEl;
     else if (view === "plain") el = lastLit.current?.isConnected && lastLit.current.getClientRects().length ? lastLit.current : null;
     else if (view !== "show") el = null;
-    if (view === "show" && el) {
+    if (view === "show" && el && !via) {
       lastLit.current = el;
       // a closed <details> around it opens (only what is shown changes)
       for (let d = el.closest("details:not([open])"); d; d = el.closest("details:not([open])")) (d as HTMLDetailsElement).open = true;
@@ -127,7 +176,7 @@ export function Tour<T extends string, P extends string>({
     let rect: Rect | null = null;
     if (el) {
       let r = el.getBoundingClientRect();
-      const key = `${s.key}:${view}`;
+      const key = `${s.key}:${view}:${via}`;
       if (scrolledFor.current !== key) {
         scrolledFor.current = key;
         // into view when it isn't, leaving room for a docked bubble
@@ -155,7 +204,8 @@ export function Tour<T extends string, P extends string>({
         pos = { left: x, top: below + bh <= vh - GUTTER ? below : above >= GUTTER ? above : vh - bh - GUTTER };
       }
     }
-    const next: Geo = { view, rect, pos, vw, vh };
+    const press = view === "show" && el !== null && (via !== null || nextPresses(s.step)) && pressable(el) !== null;
+    const next: Geo = { view, rect, pos, vw, vh, via: via !== null, press };
     setGeo((g) => (sameGeo(g, next) ? g : next));
   }
 
@@ -169,7 +219,7 @@ export function Tour<T extends string, P extends string>({
       live.current.waitUntil = Math.min(Math.max(was.waitUntil, Date.now()), Date.now() + AFTER_ARRIVAL_MS);
       if (was.here !== host.here) live.current.waitUntil = Date.now() + AFTER_ARRIVAL_MS;
     }
-    act.current = { next: () => next(true), end: onEnd, leave };
+    act.current = { next: (link: boolean) => next(link ? "link" : "press"), end: onEnd, leave };
     schedule();
   });
 
@@ -194,24 +244,29 @@ export function Tour<T extends string, P extends string>({
     live.current.waitUntil = Date.now() + ms;
   }
 
-  function next(pressed = false) {
+  // pressed: something opening, or a link (a page on its way)
+  function next(pressed: "press" | "link" | null = null) {
     setNote(null);
     if (last) return onEnd();
-    wait(pressed ? AFTER_PRESS_MS : 0);
+    wait(pressed === "link" ? WHILE_LEAVING_MS : pressed ? AFTER_PRESS_MS : 0);
+    viaPressed.current.clear();
     setIndex((i) => i + 1);
   }
 
   function back() {
     setNote(null);
     wait(0);
+    viaPressed.current.clear();
     setIndex((i) => Math.max(0, i - 1));
   }
 
   function pressNext() {
     // «التالي» presses only a button that opens something, never one that saves;
     // the press itself then moves the tour on
-    if (geo.view === "show" && nextPresses(step) && litRef.current) {
-      litRef.current.click();
+    // an opener lit in its place is pressed too: it only opens a menu or a view
+    const control = geo.press && litRef.current ? pressable(litRef.current) : null;
+    if (control) {
+      control.click();
       return;
     }
     next();
@@ -248,9 +303,19 @@ export function Tour<T extends string, P extends string>({
     function onClick(e: MouseEvent) {
       const el = litRef.current;
       if (!el || viewRef.current !== "show" || !el.contains(e.target as Node)) return;
+      // a press on a control in the lit area (the element itself, or a toggle or link in it)
+      const control = (e.target as Element).closest(CONTROL);
+      if (!control || !(el.contains(control) || control.contains(el))) return;
+      // an opener: the step's own element shows next (or the next opener)
+      if (viaLit.current) {
+        viaPressed.current.add(viaLit.current);
+        live.current.waitUntil = Date.now() + AFTER_PRESS_MS;
+        window.setTimeout(schedule);
+        return;
+      }
       const what = onPress(live.current.step);
       // after the page has handled the press
-      if (what === "next") window.setTimeout(() => act.current.next());
+      if (what === "next") window.setTimeout(() => act.current.next(control.matches("a[href]")));
       else if (what === "then") window.setTimeout(() => act.current.leave());
     }
     function onKey(e: KeyboardEvent) {
@@ -273,7 +338,7 @@ export function Tour<T extends string, P extends string>({
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("keydown", onKey, true);
     };
-  }, []);
+  }, [schedule]);
 
   // each new step: the focus on its main button (the screen reader hears the step from the status line)
   useEffect(() => {
@@ -295,7 +360,7 @@ export function Tour<T extends string, P extends string>({
         <p id={textId} className={styles.bubbleText}>
           {t(step.text)}
         </p>
-        {view === "show" && (step.kind ?? "look") === "press" && <p className={styles.bubbleHint}>{t(host.texts.pressOrNext)}</p>}
+        {view === "show" && geo.press && <p className={styles.bubbleHint}>{t(host.texts.pressOrNext)}</p>}
         {!leaving && <p className={styles.count}>{progress}</p>}
       </>
     );

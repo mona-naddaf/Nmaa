@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { genderText, pairsAreWellFormed } from "./text";
-import { MAX_VISIBLE, nextPresses, onPress, progressLabel, splitQuestions, stepView, stepsFor, type StepContext } from "./run";
+import { MAX_VISIBLE, catchUp, nextPresses, onPress, progressLabel, splitQuestions, stepView, stepsFor, type StepContext } from "./run";
 import type { HelpFacts, HelpQuestion, HelpStep, StepKind } from "./types";
 import { GUIDE_TARGETS, isGuideTarget, targetAttr } from "./targets";
 import { helpPageFor, hrefOf, tourPageFor } from "./rafiq/pages";
@@ -110,6 +110,26 @@ test("stepView: missing element: «تفعيل الآن» for a feature that is o
   assert.equal(stepView(step, ctx()), "offer");
   assert.equal(stepView(step, ctx({ facts: facts({}, { review: true }) })), "missing");
   assert.equal(stepView({ text: "", target: "record.reason" }, ctx()), "missing");
+});
+
+test("stepView: a step without an element of its own can still need a feature («≈»)", () => {
+  const step: HelpStep = { text: "", needs: "similar" };
+  assert.equal(stepView(step, ctx()), "offer");
+  assert.equal(stepView(step, ctx({ facts: facts({}, { similar: true }) })), "plain");
+});
+
+test("stepView: an element that shows only sometimes leaves the sentence alone, not «غير موجود»", () => {
+  assert.equal(stepView({ text: "", target: "plan.discard", optional: true }, ctx()), "plain");
+  assert.equal(stepView({ text: "", target: "plan.discard", optional: true }, ctx({ found: true })), "show");
+});
+
+test("catchUp: she opened a later step's page herself; on to its first step there", () => {
+  const steps: HelpStep[] = [{ text: "a" }, { text: "b" }, { text: "c", page: "verse" }, { text: "d", page: "verse" }];
+  assert.equal(catchUp(steps, 1, "notes", "verse"), 2);
+  assert.equal(catchUp(steps, 1, "notes", "notes"), 1);
+  // a page none of the next steps is on: stays (the step then links back)
+  assert.equal(catchUp(steps, 1, "notes", "plan"), 1);
+  assert.equal(catchUp(steps, 3, "notes", "verse"), 3);
 });
 
 test("stepView: the city is picked in the settings, not switched on", () => {

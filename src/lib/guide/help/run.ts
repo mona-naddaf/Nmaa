@@ -63,11 +63,24 @@ export function stepView<T extends string, P extends string>(step: HelpStep<T, P
   const page = step.page ?? ctx.home;
   if (page !== ctx.here) return ctx.hrefOf(page) === null ? "missing" : "away";
   if (step.blocked && ctx.blocked) return "blocked";
-  if (!step.target) return "plain";
+  // a step about something the page shows only with a feature on
+  if (!step.target) return step.needs && step.needs !== "city" && !ctx.facts.features[step.needs] ? "offer" : "plain";
   if (ctx.found) return "show";
+  if (step.optional) return "plain";
   if (step.needs === "city") return ctx.facts.city ? "missing" : "city";
   if (step.needs && !ctx.facts.features[step.needs]) return "offer";
   return "missing";
+}
+
+/**
+ * The step to be on after she went to another page herself (opened a verse
+ * from a dialog, a segment from its card): the first step from here on that
+ * belongs to that page; the same step when none does.
+ */
+export function catchUp<T extends string, P extends string>(steps: HelpStep<T, P>[], index: number, home: P, here: P | null): number {
+  if ((steps[index].page ?? home) === here) return index;
+  const later = steps.findIndex((s, i) => i > index && (s.page ?? home) === here);
+  return later === -1 ? index : later;
 }
 
 /**

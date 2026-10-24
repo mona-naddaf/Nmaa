@@ -47,6 +47,12 @@ export type HelpStep<T extends string = string, P extends string = string> = {
   missing?: string;
   // «إن ظهرت رسالة الحدّ»: when this element shows, the step can't be done; say why
   blocked?: { target: T; text: string };
+  // inside something closed (a menu, a list view): what opens it, outermost
+  // first; while the element is hidden, the innermost opener showing is lit
+  // instead (each one once: pressed, it isn't lit again in this step)
+  via?: T[];
+  // the element shows only sometimes («إلغاء التغييرات»): without it, the sentence alone
+  optional?: true;
   // only when this holds
   when?: HelpCond;
   // in place of the text and target when this holds

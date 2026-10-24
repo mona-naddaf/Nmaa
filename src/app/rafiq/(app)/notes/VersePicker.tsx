@@ -11,6 +11,7 @@ import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import { ayatCount, exactSurah, findSurahs } from "@/lib/rafiq/surah-search";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import styles from "./notes.module.css";
+import { useGuideTarget } from "@/components/guide/targets";
 
 /**
  * «+ ملاحظة على آية»: pick a surah by name (or number) and a verse, see the
@@ -22,6 +23,7 @@ export function VersePicker({ g }: { g: GroupGender }) {
   const router = useRouter();
   const id = useId();
   const [open, setOpen] = useState(false);
+  const t = useGuideTarget();
   const [query, setQuery] = useState("");
   // the surah picked from the suggestions (or typed in full)
   const [picked, setPicked] = useState<number | null>(null);
@@ -56,7 +58,7 @@ export function VersePicker({ g }: { g: GroupGender }) {
 
   if (!open)
     return (
-      <button type="button" className={styles.primaryBtn} onClick={() => setOpen(true)}>
+      <button type="button" className={styles.primaryBtn} onClick={() => setOpen(true)} {...t("notes.pickVerse")}>
         + ملاحظة على آية
       </button>
     );

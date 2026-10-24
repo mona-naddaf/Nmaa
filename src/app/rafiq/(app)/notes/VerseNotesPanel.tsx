@@ -8,6 +8,7 @@ import { deleteNoteAction, loadVerseNotesAction, saveNoteAction } from "./action
 import { NOTE_LIMITS, type NoteTag, type VerseNote } from "@/lib/rafiq/notes-rules";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { flash, pointTo } from "@/components/nudge/nudge";
+import { useGuideTarget } from "@/components/guide/targets";
 
 // One verse's notes: list, add, edit, delete, tags. Used in the verse dialog
 // (from a marker) and on the verse page.
@@ -63,6 +64,7 @@ export function VerseNotesPanel({
   const [formRound, setFormRound] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const t = useGuideTarget();
   const [noteError, setNoteError] = useState<{ id: string; msg: string } | null>(null);
   // only the newest load may update the list (an older, slower one is dropped)
   const loadSeq = useRef(0);
@@ -186,7 +188,7 @@ export function VerseNotesPanel({
         />
       ) : (
         <div className={styles.formRow} style={{ marginTop: 0, marginBottom: 12 }}>
-          <button type="button" className={styles.primaryBtn} onClick={newNote}>
+          <button type="button" className={styles.primaryBtn} onClick={newNote} {...t("verse.newNote")}>
             + ملاحظة جديدة
           </button>
           {full && (
@@ -229,7 +231,7 @@ export function VerseNotesPanel({
             }}
           />
         ) : (
-          <div key={n.id} className={styles.note}>
+          <div key={n.id} className={styles.note} {...t("verse.noteRow")}>
             <div className={styles.noteText}>{n.text}</div>
             <div className={styles.noteMeta}>
               <div className={styles.chips}>

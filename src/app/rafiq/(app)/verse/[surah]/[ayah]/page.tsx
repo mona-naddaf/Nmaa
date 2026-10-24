@@ -11,6 +11,8 @@ import { VerseNotesPanel } from "../../../notes/VerseNotesPanel";
 import { prisma } from "@/lib/db";
 import { SimilarAfter } from "@/components/quran/Similar";
 import { SimilarScope } from "../../../SimilarScope";
+import { targetAttr } from "@/lib/guide/help/targets";
+import { guideEnabled } from "@/lib/guide/enabled";
 
 // One verse with the verses around it and her notes on it (where «ملاحظاتي»
 // links to).
@@ -54,7 +56,7 @@ export default async function RafiqVersePage({ params }: PageProps<"/rafiq/verse
           </div>
         )}
       </div>
-      <div className={styles.verseNav}>
+      <div className={styles.verseNav} {...targetAttr("verse.nav", guideEnabled())}>
         {ayah > 1 ? (
           <Link href={`/rafiq/verse/${surah}/${ayah - 1}`} className={styles.ghostBtn}>
             → الآية السابقة

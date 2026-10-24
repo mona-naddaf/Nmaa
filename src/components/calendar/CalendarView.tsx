@@ -36,6 +36,7 @@ import {
 import { imperative, type PersonGender } from "@/lib/text/gender";
 import { itemDates, NextItemBanner } from "./CalendarBanner";
 import { EventForm, type EventInput } from "./EventForm";
+import { useGuideTarget } from "@/components/guide/targets";
 
 type ActionResult = Promise<{ error?: string }>;
 
@@ -119,6 +120,7 @@ export function CalendarView({
   const today = useToday();
   const [view, setView] = useState<{ year: number; month: number } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const t = useGuideTarget();
   const [form, setForm] = useState<FormState>(null);
   const [adjustKey, setAdjustKey] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -177,9 +179,11 @@ export function CalendarView({
     const days = daysUntil(today!, item);
     const adjustableItem = canAdjust && item.kind === "occasion" && adjustable.has(item.hijriYear);
     const event = item.kind === "event" ? item.event : null;
+    // her own day under a day picked in the calendar
+    const target = event?.editable ? t("calendar.dayItem") : undefined;
 
     return (
-      <div key={item.key} className={styles.row}>
+      <div key={item.key} className={styles.row} {...target}>
         <span className={`${styles.rowMark} ${item.kind === "occasion" ? styles.occasion : ""}`} />
         <div className={styles.rowBody}>
           <button type="button" className={styles.rowTitle} onClick={() => jumpTo(item.date)}>
@@ -298,7 +302,7 @@ export function CalendarView({
         {/* ---- month view ---- */}
         <div>
           <div className={styles.card}>
-            <div className={styles.monthHead}>
+            <div className={styles.monthHead} {...t("calendar.nav")}>
               <button type="button" className={styles.navBtn} onClick={() => goToMonth(-1)} aria-label="الشهر السابق">
                 →
               </button>
@@ -330,7 +334,7 @@ export function CalendarView({
                 <div key={d}>{d}</div>
               ))}
             </div>
-            <div className={styles.grid}>
+            <div className={styles.grid} {...t("calendar.grid")}>
               {Array.from({ length: blanks }, (_, i) => (
                 <div key={`b${i}`} className={`${styles.cell} ${styles.blank}`} />
               ))}
@@ -410,7 +414,7 @@ export function CalendarView({
           </div>
 
           {canManage && (
-            <div className={styles.card}>
+            <div className={styles.card} {...t("calendar.optional")}>
               <div className={styles.cardTitle}>
                 <span>
                   <span className={styles.dot} />
@@ -478,14 +482,14 @@ export function CalendarView({
             </div>
           )}
 
-          <div className={styles.card}>
+          <div className={styles.card} {...t("calendar.upcoming")}>
             <div className={styles.cardTitle}>
               <span>
                 <span className={styles.dot} />
                 القادم
               </span>
               {canAddEvents && !form && (
-                <button type="button" className={styles.addBtn} onClick={() => setForm({ kind: "new", date: today })}>
+                <button type="button" className={styles.addBtn} onClick={() => setForm({ kind: "new", date: today })} {...t("calendar.add")}>
                   {w.addEvent}
                 </button>
               )}

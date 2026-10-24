@@ -13,6 +13,8 @@ import styles from "./notes.module.css";
 import { TagChip } from "./TagChip";
 import { TagManager } from "./TagManager";
 import { VersePicker } from "./VersePicker";
+import { targetAttr } from "@/lib/guide/help/targets";
+import { guideEnabled } from "@/lib/guide/enabled";
 
 const PAGE = 50;
 
@@ -64,7 +66,7 @@ export default async function RafiqNotesPage({ searchParams }: PageProps<"/rafiq
       <div className={hl.section}>
         <div className={styles.filters}>
           {tags.length > 0 && (
-            <div className={styles.chips} aria-label="تصفية بالوسوم">
+            <div className={styles.chips} aria-label="تصفية بالوسوم" {...targetAttr("notes.tags", guideEnabled())}>
               {tags.map((t) => {
                 const on = tagIds.includes(t.id);
                 const c = NOTE_COLORS[t.color];
@@ -84,7 +86,7 @@ export default async function RafiqNotesPage({ searchParams }: PageProps<"/rafiq
               })}
             </div>
           )}
-          <form className={styles.filterRow} action="/rafiq/notes">
+          <form className={styles.filterRow} action="/rafiq/notes" {...targetAttr("notes.search", guideEnabled())}>
             {tagIds.map((id) => (
               <input key={id} type="hidden" name="tag" value={id} />
             ))}
@@ -146,7 +148,7 @@ export default async function RafiqNotesPage({ searchParams }: PageProps<"/rafiq
                   })}
                 </div>
                 <span className={styles.spacer} />
-                <Link href={`/rafiq/verse/${n.surahNumber}/${n.ayah}`} className={styles.linkBtn}>
+                <Link href={`/rafiq/verse/${n.surahNumber}/${n.ayah}`} className={styles.linkBtn} {...targetAttr("notes.open", guideEnabled())}>
                   فتح الآية ←
                 </Link>
               </div>

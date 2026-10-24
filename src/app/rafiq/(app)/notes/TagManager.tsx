@@ -3,6 +3,7 @@
 import { useState } from "react";
 import styles from "./notes.module.css";
 import { TagChip } from "./TagChip";
+import { useGuideTarget } from "@/components/guide/targets";
 import { deleteTagAction, saveTagAction } from "./actions";
 import { NOTE_COLOR_KEYS, NOTE_COLORS, NOTE_LIMITS, notesCountText, type NoteColor, type NoteTag } from "@/lib/rafiq/notes-rules";
 
@@ -12,6 +13,7 @@ export function TagManager({ tags, counts }: { tags: NoteTag[]; counts: Record<s
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const guide = useGuideTarget();
   const full = tags.length >= NOTE_LIMITS.tagsPerAccount;
 
   async function remove(id: string) {
@@ -37,7 +39,7 @@ export function TagManager({ tags, counts }: { tags: NoteTag[]; counts: Record<s
             }}
           />
         ) : (
-          <div key={t.id} className={styles.tagRow}>
+          <div key={t.id} className={styles.tagRow} {...guide("notes.tagRow")}>
             <TagChip tag={t} />
             <span className={styles.counter}>{notesCountText(counts[t.id] ?? 0)}</span>
             <span className={styles.spacer} />
@@ -79,7 +81,7 @@ export function TagManager({ tags, counts }: { tags: NoteTag[]; counts: Record<s
         />
       ) : (
         <div className={styles.formRow}>
-          <button type="button" className={styles.ghostBtn} disabled={full} onClick={() => setEditing("new")}>
+          <button type="button" className={styles.ghostBtn} disabled={full} onClick={() => setEditing("new")} {...guide("notes.newTag")}>
             + وسم جديد
           </button>
           {full && <span className={styles.counter}>وصلت الوسوم إلى حدّها ({NOTE_LIMITS.tagsPerAccount}).</span>}

@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useEffectEvent, useI
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import styles from "./similar.module.css";
+import { useGuideTarget } from "@/components/guide/targets";
 import { quranFont } from "@/components/mistakes/quran-font";
 import { toArabicDigits } from "@/components/mistakes/FlaggableAyah";
 import { splitAyah } from "@/lib/quran-data/words";
@@ -120,6 +121,7 @@ function placeFor(mark: HTMLElement): Place {
 function SimilarMark({ surah, ayah, groups, ctx }: { surah: number; ayah: number; groups: SimilarGroup[]; ctx: Ctx }) {
   const button = useRef<HTMLButtonElement>(null);
   const [place, setPlace] = useState<Place | null>(null);
+  const t = useGuideTarget();
   const count = new Set(groups.flatMap((g) => g.others.map((o) => o.key))).size;
   return (
     <>
@@ -131,6 +133,7 @@ function SimilarMark({ surah, ayah, groups, ctx }: { surah: number; ayah: number
         aria-label={`آيات متشابهة بالآية ${ayah} (${count})`}
         aria-haspopup="dialog"
         aria-expanded={place !== null}
+        {...t("verse.similar")}
         onClick={(e) => {
           // the word picker's menus close on an outside press; this isn't a word
           e.stopPropagation();

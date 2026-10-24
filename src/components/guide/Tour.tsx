@@ -9,7 +9,9 @@ import { focusables } from "./focus";
 import styles from "./help.module.css";
 
 // «أرِني»: the page is dimmed and blocked except for the lit element, which
-// stays usable; a bubble beside it says the step. A button that opens
+// stays usable; a bubble beside it says the step. A step with no element of
+// its own (filling in the form a button opened, pressing «نعم») leaves the
+// whole page usable, with the last element still ringed. A button that opens
 // something moves the tour on when pressed (and «التالي» presses it); a field
 // or a section stays hers to use until she presses «التالي»; a save button is
 // only pointed at. A step on another page continues there, and an element
@@ -323,7 +325,7 @@ export function Tour<T extends string, P extends string>({
         e.preventDefault();
         e.stopPropagation();
         act.current.end();
-      } else if (e.key === "Tab" && bubbleRef.current) {
+      } else if (e.key === "Tab" && bubbleRef.current && viewRef.current !== "plain") {
         const list = [...(litRef.current ? focusables(litRef.current) : []), ...focusables(bubbleRef.current)];
         if (list.length === 0) return;
         const at = list.indexOf(document.activeElement as HTMLElement);
@@ -449,6 +451,8 @@ export function Tour<T extends string, P extends string>({
     );
   }
 
+  // a step with nothing of its own to light: nothing blocked
+  const open = view === "plain";
   const hole = rect && {
     top: Math.max(0, rect.top),
     left: Math.max(0, rect.left),
@@ -459,7 +463,9 @@ export function Tour<T extends string, P extends string>({
   return (
     <div className={styles.tour} data-guide-root="">
       {/* everything but the lit element is dimmed and can't be pressed */}
-      {rect && hole ? (
+      {open ? (
+        rect && <div className={styles.ring} style={{ width: rect.width, height: rect.height, transform: `translate(${rect.left}px, ${rect.top}px)` }} aria-hidden />
+      ) : rect && hole ? (
         <>
           <div className={styles.block} style={{ top: 0, left: 0, width: vw, height: hole.top }} />
           <div className={styles.block} style={{ top: hole.bottom, left: 0, width: vw, height: Math.max(0, vh - hole.bottom) }} />

@@ -30,6 +30,7 @@ import {
 import type { HomeSegmentView } from "@/lib/home-log/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { inertClass, inertProps } from "@/components/nudge/nudge";
+import { useGuideTarget } from "@/components/guide/targets";
 
 type Key = string; // "seg" or the ayah number
 const SEG: Key = "seg";
@@ -104,6 +105,7 @@ export function SegmentPractice({
   });
   const [message, setMessage] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"finish" | "delete" | null>(null);
+  const t = useGuideTarget();
   const [pending, startTransition] = useTransition();
 
   const get = (key: Key, kind: HomeTapKind) => counts[key]?.[kind] ?? 0;
@@ -143,7 +145,7 @@ export function SegmentPractice({
 
   return (
     <div>
-      <Link href={listHref} className={styles.linkBtn} style={{ display: "inline-block", margin: "0 4px 10px" }}>
+      <Link href={listHref} className={styles.linkBtn} style={{ display: "inline-block", margin: "0 4px 10px" }} {...t("practice.back")}>
         → مقاطعي
       </Link>
 
@@ -162,7 +164,7 @@ export function SegmentPractice({
           </div>
         )}
 
-        <div className={styles.counters}>
+        <div className={styles.counters} {...t("practice.counters")}>
           {HOME_TAP_KINDS.map((k) => {
             const n = get(SEG, k);
             const target = targetFor(s.targets, k);
@@ -200,13 +202,15 @@ export function SegmentPractice({
         )}
       </div>
 
-      <div className={styles.sectionTitle}>الآيات — {p("تدرّب", "تدرّبي")} على كل آية وحدها</div>
+      <div className={styles.sectionTitle} {...t("practice.ayat")}>
+        الآيات — {p("تدرّب", "تدرّبي")} على كل آية وحدها
+      </div>
       {marking?.hint && (
         <p className={styles.muted} style={{ margin: "0 4px 10px" }}>
           {marking.hint}
         </p>
       )}
-      <div className={`${styles.section}`}>
+      <div className={`${styles.section}`} {...t("practice.text")}>
         {Array.from({ length: s.toAyah - s.fromAyah + 1 }, (_, i) => s.fromAyah + i).map((a) => (
           <div key={a} className={styles.ayah}>
             <div className={`${styles.ayahText} ${quranFont.className} ${detail ? mistakeStyles.detailMode : ""}`} lang="ar">
@@ -299,11 +303,11 @@ export function SegmentPractice({
           </div>
         ) : (
           <div className={styles.actionsRow} style={{ marginTop: 0 }}>
-            <button type="button" className={styles.ghostBtn} onClick={() => setConfirm("finish")}>
+            <button type="button" className={styles.ghostBtn} onClick={() => setConfirm("finish")} {...t("practice.finish")}>
               ✓ أتممتُ هذا المقطع
             </button>
             {!hasTaps && !s.assignmentId && (
-              <button type="button" className={styles.ghostBtn} onClick={() => setConfirm("delete")}>
+              <button type="button" className={styles.ghostBtn} onClick={() => setConfirm("delete")} {...t("practice.delete")}>
                 حذف المقطع
               </button>
             )}

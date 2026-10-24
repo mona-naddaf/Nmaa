@@ -10,6 +10,7 @@ import { TargetsEditor } from "@/components/home-log/TargetsEditor";
 import { HOME_LIMITS, type HomeTargets } from "@/lib/home-log/rules";
 import type { HomeLogView } from "@/lib/home-log/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
+import { useGuideTarget } from "@/components/guide/targets";
 import { createSegmentAction, setTargetsAction } from "./actions";
 import type { RafiqViewer } from "@/lib/rafiq/scope";
 import { pointTo } from "@/components/nudge/nudge";
@@ -62,6 +63,7 @@ export function RafiqHomeLog({
   const shownTargets = savedTargets && savedTargets.from === targets ? savedTargets.to : targets;
   const full = log.active.length >= HOME_LIMITS.maxActiveSegments;
   const limitRef = useRef<HTMLParagraphElement>(null);
+  const t = useGuideTarget();
   const recited = "سُجِّل في جلساتك ✓";
 
   return (
@@ -70,7 +72,12 @@ export function RafiqHomeLog({
         <span style={{ fontSize: 16, color: "var(--ink)" }}>{adult ? `🏠 حفظ ${childName} في البيت` : "🏠 حفظي في البيت"}</span>
         {!adding && canAdd && (
           // never dead: with the list full it points to the limit message
-          <button type="button" className={styles.primaryBtn} onClick={() => (full ? pointTo(limitRef.current, { focus: false }) : setAdding(true))}>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={() => (full ? pointTo(limitRef.current, { focus: false }) : setAdding(true))}
+            {...t("homeLog.new")}
+          >
             + مقطع جديد
           </button>
         )}
@@ -89,7 +96,7 @@ export function RafiqHomeLog({
       </p>
       )}
       {full && !adding && canAdd && (
-        <p ref={limitRef} className={styles.err} style={{ margin: "0 4px 12px" }}>
+        <p ref={limitRef} className={styles.err} style={{ margin: "0 4px 12px" }} {...t("homeLog.limit")}>
           لديك {HOME_LIMITS.maxActiveSegments} مقاطع قيد الحفظ — {p("أتمّ", "أتمّي")} أحدها لإضافة مقطع جديد.
         </p>
       )}
@@ -113,7 +120,7 @@ export function RafiqHomeLog({
         />
       )}
 
-      <div className={styles.section}>
+      <div className={styles.section} {...t("homeLog.targets")}>
         <div className={styles.sectionTitle} style={{ margin: "0 0 8px" }}>
           <span>{adult ? `أهداف ${childName} لكل مقطع` : "أهدافي لكل مقطع"}</span>
           {!editingTargets && canTargets && (
@@ -155,7 +162,7 @@ export function RafiqHomeLog({
           <div className={styles.empty}>{canAdd && !adult ? <>لا توجد مقاطع قيد الحفظ — {p("ابدأ", "ابدئي")} بإضافة مقطع جديد.</> : "لا توجد مقاطع قيد الحفظ."}</div>
         </div>
       ) : (
-        <div className={styles.cards} style={{ marginBottom: 14 }}>
+        <div className={styles.cards} style={{ marginBottom: 14 }} {...t("homeLog.active")}>
           {log.active.map((s) => (
             <SegmentCard key={s.id} s={s} g={g} href={canAdd ? `${base}/${s.id}` : undefined} recitedLabel={recited} />
           ))}
@@ -165,7 +172,7 @@ export function RafiqHomeLog({
       {log.past.length > 0 && (
         <>
           <div className={styles.sectionTitle}>مقاطع سابقة</div>
-          <div className={styles.cards}>
+          <div className={styles.cards} {...t("homeLog.past")}>
             {log.past.map((s) => (
               <SegmentCard key={s.id} s={s} g={g} href={`${base}/${s.id}`} recitedLabel={recited} />
             ))}

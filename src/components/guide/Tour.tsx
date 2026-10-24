@@ -343,10 +343,12 @@ export function Tour<T extends string, P extends string>({
     };
   }, [schedule]);
 
-  // each new step: the focus on its main button (the screen reader hears the step from the status line)
+  // each new step: the focus on its main button (the screen reader hears the step from the status line),
+  // once the bubble is placed (a hidden button can't take the focus)
+  const placed = geo.pos !== null;
   useEffect(() => {
-    if (geo.view !== "wait") primaryRef.current?.focus({ preventScroll: true });
-  }, [index, leaving, geo.view, note]);
+    if (geo.view !== "wait" && placed) primaryRef.current?.focus({ preventScroll: true });
+  }, [index, leaving, geo.view, note, placed]);
 
   const { view, rect, pos, vw, vh } = geo;
   const page = step.page ?? home;

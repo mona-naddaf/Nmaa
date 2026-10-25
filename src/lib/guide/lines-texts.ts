@@ -1,9 +1,10 @@
 // The words of the page-level guidance (review page v17: the welcome lines and
 // empty pages of ٤, the checklist of ٢, the intro lines of ٥, the settings
 // card of ١), in the page's [f|m] notation; genderText() picks her forms, and
-// a «كِ» outside a pair becomes «ك» for a man. Digits are Western. The only
-// change from v17 (Mona, 2026-10-25): «إظهار الإرشادات من جديد» names the
-// checklist only when it really comes back (checklistComesBack). Pure.
+// a «كِ» outside a pair becomes «ك» for a man. Digits are Western. Changes
+// from v17 (Mona, 2026-10-25): «إظهار الإرشادات من جديد» names the checklist
+// only when it really comes back (checklistComesBack), and the checklist's
+// lead line has a two-step form when item 2 is hidden. Pure.
 
 import type { IntroId, WelcomeId } from "./keys";
 
@@ -33,6 +34,8 @@ export const CHECKLIST = {
   count: (done: number, total: number) => `[أنجزتِ|أنجزتَ] ${done} من ${total}`,
   hide: "إخفاء القائمة",
   lead: "ثلاث خطوات تساعد[كِ|ك] على البدء. تُعلَّم كل خطوة وحدها حين [تنجزينها|تنجزها].",
+  // item 2 hidden after «لا، ليس الآن» (Mona, 2026-10-25)
+  leadTwo: "خطوتان [تساعدانكِ|تساعدانكَ] على البدء. تُعلَّم كل خطوة وحدها حين [تنجزينها|تنجزها].",
   session: {
     title: "[سجّلي|سجّل] أول جلسة حفظ",
     note: "بعد أن [تحفظي|تحفظ] أو [تراجعي|تراجع]، [سجّلي|سجّل] ما [قرأتِه|قرأتَه] من قسم «تسجيل جلسة» في هذه الصفحة.",

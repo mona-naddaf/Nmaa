@@ -35,6 +35,12 @@ test("guide lines: a man's forms have no feminine «كِ» left", () => {
   assert.equal(genderText(WELCOME.segment, "MALE"), "هذه صفحة التدريب على مقطعك. اضغط + في كل مرة تستمع أو تكرّر أو تسمّع لأحد.");
 });
 
+test("guide lines: the two-step lead after «لا، ليس الآن», in both genders", () => {
+  assert.equal(genderText(CHECKLIST.leadTwo, "FEMALE"), "خطوتان تساعدانكِ على البدء. تُعلَّم كل خطوة وحدها حين تنجزينها.");
+  assert.equal(genderText(CHECKLIST.leadTwo, "MALE"), "خطوتان تساعدانكَ على البدء. تُعلَّم كل خطوة وحدها حين تنجزها.");
+  assert.match(CHECKLIST.lead, /^ثلاث خطوات/);
+});
+
 test("guide lines: Western digits only", () => {
   for (const s of all()) assert.doesNotMatch(s, /[٠-٩]/, s);
 });

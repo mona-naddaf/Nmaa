@@ -91,7 +91,7 @@ export function Checklist({ facts }: { facts: ChecklistFacts }) {
           </button>
         </span>
       </div>
-      <p className={styles.lead}>{t(CHECKLIST.lead)}</p>
+      <p className={styles.lead}>{t(total === 2 ? CHECKLIST.leadTwo : CHECKLIST.lead)}</p>
       {error && (
         <p className={styles.fail} role="alert">
           {error}

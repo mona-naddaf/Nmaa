@@ -12,6 +12,9 @@ import type { TemplateCard } from "@/lib/rafiq/templates";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { reportTemplateAction, unpublishTemplateAction, applyTemplateAction } from "./actions";
 import { useGuideTarget } from "@/components/guide/targets";
+import { requestTour } from "@/components/guide/tour-request";
+import { genderText } from "@/lib/guide/help/text";
+import { EMPTY, TOUR_FROM } from "@/lib/guide/lines-texts";
 
 const itemsCount = (n: number) => (n === 1 ? "بند واحد" : n === 2 ? "بندان" : n <= 10 ? `${n} بنود` : `${n} بندًا`);
 const marks = (n: number) => (n === 1 ? "درجة" : n === 2 ? "درجتان" : `${n} درجات`);
@@ -24,12 +27,26 @@ function appliedText(added: number, skipped: number, yours: string): string {
 const timesUsed = (n: number) => (n === 0 ? "لم يُستخدم بعد" : n === 1 ? "استُخدم مرة واحدة" : n === 2 ? "استُخدم مرتين" : `استُخدم ${n} ${n <= 10 ? "مرات" : "مرة"}`);
 
 // «بنك جداول المتابعة»: templates shared by other learners (never with the
-// publisher's name), and the owner's suggested ones first.
-export function TemplateBank({ cards, mine, query, g }: { cards: TemplateCard[]; mine: string[]; query: string; g: GroupGender }) {
+// publisher's name), and the owner's suggested ones first. guided: guidance
+// on — an empty bank or search says what to do next, with a button.
+export function TemplateBank({
+  cards,
+  mine,
+  query,
+  g,
+  guided = false,
+}: {
+  cards: TemplateCard[];
+  mine: string[];
+  query: string;
+  g: GroupGender;
+  guided?: boolean;
+}) {
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const [q, setQ] = useState(query);
   const t = useGuideTarget();
+  const gender = g === "GIRLS" ? "FEMALE" : "MALE";
 
   return (
     <div>
@@ -60,7 +77,31 @@ export function TemplateBank({ cards, mine, query, g }: { cards: TemplateCard[];
 
       {cards.length === 0 ? (
         <div className={hl.section}>
-          <div className={hl.empty}>{query ? "لا توجد جداول مطابقة للبحث." : "لا توجد جداول منشورة بعد."}</div>
+          {guided ? (
+            <div className={hl.empty}>
+              {query ? genderText(EMPTY.templatesSearch, gender).replace("{word}", () => query) : genderText(EMPTY.templates, gender)}
+              <div className={hl.actionsRow} style={{ justifyContent: "center" }}>
+                {query ? (
+                  <button
+                    type="button"
+                    className={`${hl.ghostBtn} pressable`}
+                    onClick={() => {
+                      setQ("");
+                      router.push("/rafiq/templates");
+                    }}
+                  >
+                    {EMPTY.templatesSearchButton}
+                  </button>
+                ) : (
+                  <button type="button" className={`${hl.ghostBtn} pressable`} onClick={(e) => requestTour({ ...TOUR_FROM.share, from: e.currentTarget })}>
+                    {EMPTY.templatesButton}
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className={hl.empty}>{query ? "لا توجد جداول مطابقة للبحث." : "لا توجد جداول منشورة بعد."}</div>
+          )}
         </div>
       ) : (
         cards.map((c) => <Card key={c.id} c={c} mine={mine} p={p} />)

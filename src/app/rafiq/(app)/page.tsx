@@ -5,12 +5,16 @@ import { RafiqHome } from "./RafiqHome";
 import { getCommitment } from "@/lib/rafiq/commitment";
 import { prisma } from "@/lib/db";
 import { rafiqTajweedSummary } from "@/lib/rafiq/tajweed";
-import { guideEnabled } from "@/lib/guide/enabled";
+import { getGuide } from "@/lib/guide/state";
+import { checklistFacts, hasFlaggedWords } from "@/lib/guide/page-facts";
 import { ResumeCard } from "./ResumeCard";
+import { Checklist } from "./guide/Checklist";
 
 // «صفحتي»: where she stands, her progress, recording a session, her
 // mistakes, review reminders and her session history. Before she has a plan,
 // she's sent to set one up. ?later=1: back from «إكمال الأسئلة لاحقًا».
+// With guidance on: the resume card, then «الخطوات الأولى» (a new account's),
+// under where she stands.
 export default async function RafiqHomePage({ searchParams }: PageProps<"/rafiq">) {
   const user = await requireRafiqUser();
   const data = await getMemorization(user.id);
@@ -19,6 +23,7 @@ export default async function RafiqHomePage({ searchParams }: PageProps<"/rafiq"
     where: { id: user.id },
     select: { mutashabihatEnabled: true, tajweedDetailEnabled: true },
   });
+  const guide = await getGuide();
   return (
     <RafiqHome
       data={data}
@@ -27,7 +32,19 @@ export default async function RafiqHomePage({ searchParams }: PageProps<"/rafiq"
       similar={mutashabihatEnabled}
       tajweed={tajweedDetailEnabled}
       tajweedSummary={await rafiqTajweedSummary(user.id)}
-      guide={guideEnabled() ? <ResumeCard gender={user.gender} later={(await searchParams).later === "1"} /> : undefined}
+      guide={
+        guide
+          ? {
+              slot: (
+                <>
+                  <ResumeCard gender={user.gender} later={(await searchParams).later === "1"} />
+                  {guide.isNew && <Checklist facts={await checklistFacts(user.id)} />}
+                </>
+              ),
+              flaggedWords: await hasFlaggedWords(user.id),
+            }
+          : undefined
+      }
     />
   );
 }

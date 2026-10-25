@@ -26,6 +26,8 @@ export type PlanEditorWords = {
 export type PlanEditorLive = {
   // «هذه السورة موجودة في خطتكِ.»
   inPlan: string;
+  // Rafiq's guidance: shown in the empty list instead (unset: as before)
+  empty?: React.ReactNode;
 };
 
 export function PlanEditor({
@@ -135,7 +137,7 @@ export function PlanEditor({
       <div className={styles.card}>
         <div className={styles.planList} {...t("plan.list")}>
           {plan.length === 0 ? (
-            <div className={`${styles.planRow} ${styles.emptyPlan}`}>الخطة فارغة حاليًا — {words.add} سورة من الأسفل</div>
+            <div className={`${styles.planRow} ${styles.emptyPlan}`}>{live?.empty ?? <>الخطة فارغة حاليًا — {words.add} سورة من الأسفل</>}</div>
           ) : (
             plan.map((num, i) => (
               <div className={styles.planRow} key={`${num}-${i}`}>

@@ -15,6 +15,8 @@ export type HelpHost<T extends string = string, P extends string = string> = {
   here: P | null;
   // its help: null where the button doesn't show
   page: HelpPage<T, P> | null;
+  // any page's help, for a tour asked for from outside the panel (tour-request.ts)
+  helpOf: (page: P) => HelpPage<T, P> | null;
   facts: HelpFacts;
   title: (page: P) => string;
   hrefOf: (page: P) => string | null;

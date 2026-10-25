@@ -68,6 +68,8 @@ export function WordFlagger({
   mastered,
   onToggleMastered,
   detail,
+  onOpenChange,
+  inside,
 }: {
   surahNumber: number;
   fromAyah: number;
@@ -94,6 +96,9 @@ export function WordFlagger({
     onChange: (flags: DetailFlags) => void;
     previous?: DetailFlags;
   };
+  // Rafiq's guidance only: told when it opens or closes, and a line shown inside it while open
+  onOpenChange?: (open: boolean) => void;
+  inside?: ReactNode;
 }) {
   const [ayahs, setAyahs] = useState<{ surah: number; text: string[] } | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -114,6 +119,9 @@ export function WordFlagger({
   const previousHere = previousWords.size;
   const open = expanded ?? (!startCollapsed || previousHere > 0);
   const loaded = ayahs?.surah === surahNumber ? ayahs.text : null;
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
 
   useEffect(() => {
     if (!open || loaded) return;
@@ -228,6 +236,7 @@ export function WordFlagger({
             ))}
             {showDetail && <span className={`${styles.legendItem} ${styles.tDetail}`}>تجويد مفصّل (على حرف أو بين كلمتين)</span>}
           </div>
+          {inside}
         </>
       )}
       {sheet && detail && sheet.surah === surahNumber && (

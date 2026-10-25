@@ -41,6 +41,7 @@ export function PracticeWithMarks({
   subject,
   hint: hintText,
   liveUndo,
+  beforeAyat,
 }: {
   segment: HomeSegmentView;
   groupGender: GroupGender;
@@ -57,6 +58,8 @@ export function PracticeWithMarks({
   subject?: RecitationSubject;
   // passed on to SegmentPractice (Rafiq and «العائلة»)
   liveUndo?: boolean;
+  // passed on to SegmentPractice (Rafiq's guidance)
+  beforeAyat?: ReactNode;
   // replaces the hint above the ayat
   hint?: string;
 }) {
@@ -144,6 +147,7 @@ export function PracticeWithMarks({
         }}
         afterAyah={afterAyah}
         liveUndo={liveUndo}
+        beforeAyat={beforeAyat}
       />
     </>
   );

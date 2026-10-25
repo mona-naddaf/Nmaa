@@ -6,6 +6,7 @@ import { nextExpectedEntry } from "@/lib/recitation/logic";
 import { RafiqHomeLog } from "./RafiqHomeLog";
 import { prisma } from "@/lib/db";
 import { SimilarScope } from "../SimilarScope";
+import { guideEnabled } from "@/lib/guide/enabled";
 
 export default async function RafiqHomeLogPage() {
   const user = await requireRafiqUser();
@@ -26,6 +27,7 @@ export default async function RafiqHomeLogPage() {
         // default: the portion right after her position in her plan
         suggestion={nextExpectedEntry(memorization.plan, memorization.position)}
         targets={targets}
+        {...(guideEnabled() ? { guided: true } : {})}
       />
     </SimilarScope>
   );

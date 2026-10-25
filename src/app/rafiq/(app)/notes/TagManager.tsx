@@ -4,12 +4,14 @@ import { useState } from "react";
 import styles from "./notes.module.css";
 import { TagChip } from "./TagChip";
 import { useGuideTarget } from "@/components/guide/targets";
+import { EMPTY } from "@/lib/guide/lines-texts";
 import { deleteTagAction, saveTagAction } from "./actions";
 import { NOTE_COLOR_KEYS, NOTE_COLORS, NOTE_LIMITS, notesCountText, type NoteColor, type NoteTag } from "@/lib/rafiq/notes-rules";
 
 // Her tags on «ملاحظاتي»: add, rename, recolour, delete. Deleting a tag only
-// takes it off her notes; the notes stay.
-export function TagManager({ tags, counts }: { tags: NoteTag[]; counts: Record<string, number> }) {
+// takes it off her notes; the notes stay. guided: guidance on — no tags yet
+// says what a tag is for («+ وسم جديد» is right under it).
+export function TagManager({ tags, counts, guided = false }: { tags: NoteTag[]; counts: Record<string, number>; guided?: boolean }) {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export function TagManager({ tags, counts }: { tags: NoteTag[]; counts: Record<s
 
   return (
     <div>
-      {tags.length === 0 && editing !== "new" && <div className={styles.counter}>لا توجد وسوم بعد.</div>}
+      {tags.length === 0 && editing !== "new" && <div className={styles.counter}>{guided ? EMPTY.tags : "لا توجد وسوم بعد."}</div>}
       {tags.map((t) =>
         editing === t.id ? (
           <TagForm

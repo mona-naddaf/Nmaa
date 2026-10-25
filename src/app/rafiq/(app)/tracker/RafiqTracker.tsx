@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import hl from "@/components/home-log/home-log.module.css";
@@ -28,6 +28,10 @@ import { addReport, copyReport } from "@/lib/family/tracker-copy";
 import type { CopyFamily } from "@/lib/family/tracker-copy-data";
 import { pointTo } from "@/components/nudge/nudge";
 import { useGuideTarget } from "@/components/guide/targets";
+import { genderText } from "@/lib/guide/help/text";
+import type { IntroId } from "@/lib/guide/keys";
+import { EMPTY } from "@/lib/guide/lines-texts";
+import { IntroLine } from "../guide/IntroLine";
 
 type Item = RafiqTrackerData["active"][number];
 type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
@@ -50,6 +54,7 @@ export function RafiqTracker({
   scope = SELF_SCOPE,
   summaryHref,
   family,
+  guide,
 }: {
   data: RafiqTrackerData;
   g: GroupGender;
@@ -66,6 +71,10 @@ export function RafiqTracker({
   // «العائلة»: the children she may add items to and copy to (an adult with
   // edit rights): on a child's tracker her family's, on her own every family's
   family?: CopyFamily[];
+  // guidance (src/lib/guide), her own tracker only and only while it's on:
+  // its intro lines, ?add=1 (the new-item form opened at once), and the
+  // guide's empty-page wording
+  guide?: { intros: IntroId[]; add: boolean };
 }) {
   const can = scopeCan(scope);
   const subjectId = scope.subjectId;
@@ -76,11 +85,17 @@ export function RafiqTracker({
   const today = useToday();
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
-  const [view, setView] = useState<"day" | "items" | "order">("day");
+  const [view, setView] = useState<"day" | "items" | "order">(guide?.add ? "items" : "day");
   const t = useGuideTarget();
   const [yesterday, setYesterday] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(guide?.add === true);
+  const gt = (s: string) => genderText(s, g === "GIRLS" ? "FEMALE" : "MALE");
+  // ?add=1 is done once the form is open: a reload shows her tracker as usual
+  const openedByLink = guide?.add === true;
+  useEffect(() => {
+    if (openedByLink) router.replace("/rafiq/tracker", { scroll: false });
+  }, [openedByLink, router]);
   const [pending, startTransition] = useTransition();
   // «العائلة»: what the last «إضافة إلى:» or copy did, child by child (shown by the control that did it)
   const [report, setReport] = useState<{ from: "add" | "copy"; lines: string[] } | null>(null);
@@ -134,6 +149,7 @@ export function RafiqTracker({
 
   return (
     <div>
+      {guide && <IntroLine candidates={guide.intros} here={["agenda", "summary", "city"]} />}
       <TrackerHeader
         // «أمس» on the agenda; the tile sheet keeps its own today/yesterday tabs
         yesterday={yesterday}
@@ -186,7 +202,7 @@ export function RafiqTracker({
           )}
           <div className={hl.section}>
             {data.active.length === 0 ? (
-              <div className={hl.empty}>لا بنود بعد.</div>
+              <div className={hl.empty}>{guide ? gt(EMPTY.trackerItems) : "لا بنود بعد."}</div>
             ) : (
               data.active.map((item) => <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} scope={scope} />)
             )}
@@ -208,7 +224,30 @@ export function RafiqTracker({
       {view === "order" && (
         <>
           <ViewBar title="ترتيب البنود" onBack={() => show("day")} />
-          <AgendaOrder sheet={data.sheet} today={today} groupGender={g} course={false} place={place} onReorder={reorder} onDone={() => show("day")} live />
+          <AgendaOrder
+            sheet={data.sheet}
+            today={today}
+            groupGender={g}
+            course={false}
+            place={place}
+            onReorder={reorder}
+            onDone={() => show("day")}
+            live
+            {...(guide
+              ? {
+                  empty: (
+                    <div className={hl.empty}>
+                      {EMPTY.trackerOrder}
+                      <div className={hl.actionsRow} style={{ justifyContent: "center" }}>
+                        <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => show("items")}>
+                          {EMPTY.trackerOrderButton}
+                        </button>
+                      </div>
+                    </div>
+                  ),
+                }
+              : {})}
+          />
         </>
       )}
 
@@ -216,7 +255,9 @@ export function RafiqTracker({
         (empty ? (
           <div className={hl.section}>
             <div className={hl.empty}>
-              {scope.viewer === "self" ? (
+              {guide ? (
+                gt(EMPTY.tracker)
+              ) : scope.viewer === "self" ? (
                 <>
                   {p("أضف", "أضيفي")} بنودًا يومية {p("تتابعها", "تتابعينها")} {p("بنفسك", "بنفسكِ")} (مثل: ورد المراجعة، أذكار الصباح)، لكل بند درجته
                   وأيامه.
@@ -227,12 +268,30 @@ export function RafiqTracker({
                 `لا توجد بنود في جدول ${scope.child?.name ?? "الطفل"} بعد.`
               )}
             </div>
-            {can.record && (
-            <div className={hl.actionsRow} style={{ justifyContent: "center" }}>
-              <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => show("items")}>
-                إدارة البنود
-              </button>
-            </div>
+            {guide ? (
+              <div className={hl.actionsRow} style={{ justifyContent: "center" }}>
+                <button
+                  type="button"
+                  className={`${hl.primaryBtn} pressable`}
+                  onClick={() => {
+                    show("items");
+                    setAdding(true);
+                  }}
+                >
+                  {EMPTY.trackerAdd}
+                </button>
+                <Link href="/rafiq/templates" className={`${hl.ghostBtn} pressable`} style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+                  {EMPTY.trackerBank}
+                </Link>
+              </div>
+            ) : (
+              can.record && (
+                <div className={hl.actionsRow} style={{ justifyContent: "center" }}>
+                  <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => show("items")}>
+                    إدارة البنود
+                  </button>
+                </div>
+              )
             )}
           </div>
         ) : agenda ? (
@@ -251,7 +310,15 @@ export function RafiqTracker({
             live={{ cityHref: scope.viewer === "self" ? "/rafiq/settings#city" : null }}
           />
         ) : (
-          <TrackerDaySheet sheet={data.sheet} groupGender={g} today={today} onTick={tick} celebrateKey={celebrateKey} readOnly={!can.record} />
+          <TrackerDaySheet
+            sheet={data.sheet}
+            groupGender={g}
+            today={today}
+            onTick={tick}
+            celebrateKey={celebrateKey}
+            readOnly={!can.record}
+            {...(guide ? { emptyDay: gt(EMPTY.trackerDay) } : {})}
+          />
         ))}
     </div>
   );

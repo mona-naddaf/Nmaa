@@ -16,6 +16,7 @@ import { pickByPerson } from "@/lib/text/gender";
 import { CityPicker } from "@/components/prayer/CityPicker";
 import type { PrayerLocation } from "@/lib/prayer/times";
 import { useGuideTarget } from "@/components/guide/targets";
+import { GuideCard } from "./GuideCard";
 import {
   changePasswordAction,
   deleteAccountAction,
@@ -46,9 +47,24 @@ type Props = {
   tajweedEnabled: boolean;
   // her place for prayer times (null: none)
   place: PrayerLocation | null;
+  // guidance on: her «الخطوات الأولى» are all done (for «أسئلة البداية»)
+  checklistComplete?: boolean;
 };
 
-export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, reviewReminderDays, commitDays, agendaEnabled, summaryEnabled, similarEnabled, tajweedEnabled, place }: Props) {
+export function SettingsView({
+  email,
+  name,
+  gender,
+  recoveryCodeCreatedAt,
+  reviewReminderDays,
+  commitDays,
+  agendaEnabled,
+  summaryEnabled,
+  similarEnabled,
+  tajweedEnabled,
+  place,
+  checklistComplete = false,
+}: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
   const t = useGuideTarget();
 
@@ -75,6 +91,8 @@ export function SettingsView({ email, name, gender, recoveryCodeCreatedAt, revie
       <Summaries p={p} enabled={summaryEnabled} />
       <Similar p={p} enabled={similarEnabled} />
       <TajweedDetail p={p} enabled={tajweedEnabled} />
+      {/* guidance only (renders nothing while it is off) */}
+      <GuideCard checklistComplete={checklistComplete} />
       <Password p={p} />
       <Recovery p={p} gender={gender} createdAt={recoveryCodeCreatedAt} />
       <div className={hl.section} {...t("settings.devices")}>

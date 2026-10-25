@@ -43,6 +43,7 @@ export function TrackerDaySheet({
   onTick,
   celebrateKey,
   readOnly = false,
+  emptyDay,
 }: {
   sheet: TrackerSheet;
   groupGender: GroupGender;
@@ -52,6 +53,8 @@ export function TrackerDaySheet({
   celebrateKey?: string;
   // shown without ticking («العائلة»: a view-only adult on a child's tracker)
   readOnly?: boolean;
+  // Rafiq's guidance: its wording for a day with no items (unset: as before)
+  emptyDay?: string;
 }) {
   const [which, setWhich] = useState<"today" | "yesterday">("today");
   // optimistic ticks keyed "day|itemId", dropped once the server's sheet catches up
@@ -137,7 +140,7 @@ export function TrackerDaySheet({
 
         {items.length === 0 ? (
           <div className={hl.section}>
-            <div className={hl.empty}>لا توجد بنود لهذا اليوم.</div>
+            <div className={hl.empty}>{emptyDay ?? "لا توجد بنود لهذا اليوم."}</div>
           </div>
         ) : (
           <div className={styles.tiles}>

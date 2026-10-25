@@ -41,6 +41,11 @@ import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
 import { flash as flashEl, pointTo } from "@/components/nudge/nudge";
 import { useGuideTarget } from "@/components/guide/targets";
 import { useHelpAvoid } from "@/components/guide/help-avoid";
+import { genderText } from "@/lib/guide/help/text";
+import { introsFor } from "@/lib/guide/lines";
+import { EMPTY } from "@/lib/guide/lines-texts";
+import { useGuide } from "./GuideProvider";
+import { IntroLine } from "./guide/IntroLine";
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
 const QUALITY_LABEL: Record<Quality, string> = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" };
@@ -71,13 +76,30 @@ export function RafiqHome({
   tajweed?: boolean;
   tajweedSummary?: TajweedSummary | null;
   scope?: RafiqScope;
-  // guidance (src/lib/guide), her own page only and only while it's on: shown under where she stands
-  guide?: React.ReactNode;
+  // guidance (src/lib/guide), her own page only and only while it's on: slot
+  // (the resume card, «الخطوات الأولى») shown under where she stands, then
+  // the page's intro lines (flaggedWords: a word flagged in any session of
+  // hers), and the guide's empty-page wording
+  guide?: { slot: React.ReactNode; flaggedWords: boolean };
 }) {
   const router = useRouter();
   const today = useToday();
   const t = useGuideTarget();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
+  const guided = useGuide();
+  const [flaggerOpen, setFlaggerOpen] = useState(false);
+  const intros =
+    guide && guided.facts
+      ? introsFor("home", {
+          features: guided.facts.features,
+          city: guided.facts.city,
+          flaggerOpen,
+          flaggedWords: guide.flaggedWords,
+          completedSurah: Object.entries(data.memorizedRanges).some(([s, ranges]) => ranges.some(([a, b]) => a === 1 && b === AYAH_COUNT[Number(s)])),
+          sessions: data.loggedSessions,
+          goal: data.goal !== null,
+        })
+      : [];
   // surahs overdue for review, on her own today
   const overdue = today ? overdueFrom(data.reviewAges, data.reviewReminderDays, today) : [];
   const can = scopeCan(scope);
@@ -197,7 +219,12 @@ export function RafiqHome({
           <GoalLine goal={goal} feminine={gender === "FEMALE"} invalidHint="الهدف لم يعد ضمن خطتك الحالية — يمكن تعديله من «خطتي»." />
         </div>
       </div>
-      {guide}
+      {guide && (
+        <>
+          {guide.slot}
+          <IntroLine candidates={intros} here={["review", "goal"]} />
+        </>
+      )}
 
       {/* progress, prominent */}
       <div className={styles.progressCard}>
@@ -240,7 +267,12 @@ export function RafiqHome({
       </div>
 
       {(can.ownExtras || scope.streak) && (
-        <CommitCard commitment={commitment} today={today} settingsHref={can.ownExtras ? "/rafiq/settings#commit" : scope.settingsHref} />
+        <CommitCard
+          commitment={commitment}
+          today={today}
+          settingsHref={can.ownExtras ? "/rafiq/settings#commit" : scope.settingsHref}
+          {...(guide ? { noStreak: genderText(EMPTY.homeStreak, gender) } : {})}
+        />
       )}
 
       {/* recording a session */}
@@ -304,6 +336,7 @@ export function RafiqHome({
               subject={subject}
               afterAyah={can.ownExtras ? (a) => <VerseNoteMarker surah={surahNumber} ayah={a} /> : undefined}
               detail={tajweed ? { enabled: true, flags: entry.detailFlags, onChange: entry.setDetailFlags } : undefined}
+              {...(guide ? { onOpenChange: setFlaggerOpen, inside: <IntroLine candidates={intros} here={["mutashabihat", "tajweed"]} /> } : {})}
             />
           </SimilarScope>
         )}
@@ -392,7 +425,7 @@ export function RafiqHome({
         </Collapsible>
       )}
 
-      <History data={data} p={p} scope={scope} gender={gender} />
+      <History data={data} p={p} scope={scope} gender={gender} guided={!!guide} />
       {/* «العائلة»: an assessment change still saving when she leaves */}
       {can.assess && <LeaveGuard you={gender} />}
 
@@ -409,7 +442,8 @@ const WEEK_MARK = { done: "✓", missed: "✗", off: "—", today: "•", future
 
 /** Her streak of commitment days and this week, worked out on her local today. */
 // settingsHref: where the commitment days are chosen (none: the child, who doesn't choose them)
-function CommitCard({ commitment, today, settingsHref }: { commitment: CommitmentData; today: string | null; settingsHref?: string }) {
+// noStreak: the guide's wording for no streak yet (her own page, guidance on)
+function CommitCard({ commitment, today, settingsHref, noStreak }: { commitment: CommitmentData; today: string | null; settingsHref?: string; noStreak?: string }) {
   const t = useGuideTarget();
   if (!today) return <div className={styles.commitCard} style={{ minHeight: 70 }} aria-busy />;
   const logged = new Set(commitment.loggedDays);
@@ -422,7 +456,7 @@ function CommitCard({ commitment, today, settingsHref }: { commitment: Commitmen
       <div>
         <div className={styles.streakNum}>🔥 {current}</div>
         <div className={styles.streakLbl}>
-          {current === 0 ? "لا أيام التزام متتالية بعد" : `${streakDaysText(current)} من الالتزام المتتالي`}
+          {current === 0 ? (noStreak ?? "لا أيام التزام متتالية بعد") : `${streakDaysText(current)} من الالتزام المتتالي`}
           {best > current && ` · الأفضل: ${streakDaysText(best)}`}
         </div>
         {settingsHref && (
@@ -443,7 +477,20 @@ function CommitCard({ commitment, today, settingsHref }: { commitment: Commitmen
   );
 }
 
-function History({ data, p, scope, gender }: { data: MemorizationView; p: (m: string, f: string) => string; scope: RafiqScope; gender: PersonGender }) {
+// guided: her own page with guidance on — the empty list says what to do, with a button to the form
+function History({
+  data,
+  p,
+  scope,
+  gender,
+  guided,
+}: {
+  data: MemorizationView;
+  p: (m: string, f: string) => string;
+  scope: RafiqScope;
+  gender: PersonGender;
+  guided: boolean;
+}) {
   const can = scopeCan(scope);
   const router = useRouter();
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -472,7 +519,25 @@ function History({ data, p, scope, gender }: { data: MemorizationView; p: (m: st
     >
       {data.history.length === 0 ? (
         <div style={{ textAlign: "center", fontSize: 13, color: "var(--ink-soft)", padding: "12px 0" }}>
-          {can.record ? <>لا توجد جلسات بعد — {p("سجّل", "سجّلي")} أول جلسة من الأعلى</> : "لا توجد جلسات بعد"}
+          {guided ? (
+            <>
+              {genderText(EMPTY.homeHistory, gender)}
+              <div style={{ marginTop: 10 }}>
+                <button
+                  type="button"
+                  className={styles.linkBtn}
+                  // the first choice of the form («حفظ جديد»…), scrolled to and focused
+                  onClick={() => pointTo(document.getElementById("record")?.nextElementSibling?.querySelector<HTMLElement>("button, select"))}
+                >
+                  {EMPTY.homeHistoryButton}
+                </button>
+              </div>
+            </>
+          ) : can.record ? (
+            <>لا توجد جلسات بعد — {p("سجّل", "سجّلي")} أول جلسة من الأعلى</>
+          ) : (
+            "لا توجد جلسات بعد"
+          )}
         </div>
       ) : (
         data.history.map((h) => (

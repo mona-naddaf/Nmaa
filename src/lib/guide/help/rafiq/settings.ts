@@ -1,6 +1,8 @@
 // «الإعدادات»: its help questions and «أرِني» steps, word for word from the
 // review page (v17, section ٤), with Western digits. Generated with the
 // step metadata (kind, page, fallbacks); edit the texts only with Mona.
+// One change from v17 (Mona, 2026-10-25): «إظهار الإرشادات من جديد» doesn't
+// promise the checklist, which comes back only for some accounts.
 
 import type { RafiqHelpPage } from "./index";
 
@@ -50,7 +52,7 @@ export const settings: RafiqHelpPage = {
       showMe: true,
       steps: [
         { text: "[اضغطي|اضغط] «إعادة أسئلة البداية». إعادتها لا تحذف شيئًا.", target: "settings.restart" },
-        { text: "[اضغطي|اضغط] «إظهار الإرشادات من جديد» لتعود أسطر الترحيب والتعريف وقائمة الخطوات الأولى." },
+        { text: "[اضغطي|اضغط] «إظهار الإرشادات من جديد» لتعود أسطر الترحيب والتعريف." },
       ],
     },
     {

@@ -377,6 +377,7 @@ export function AgendaOrder({
   onReorder,
   onDone,
   live = false,
+  empty,
 }: {
   sheet: TrackerSheet;
   today: string;
@@ -387,6 +388,8 @@ export function AgendaOrder({
   onDone: () => void;
   // Rafiq and «العائلة»: OrderList's live behaviour (unset: as before)
   live?: boolean;
+  // Rafiq's guidance: shown instead when there's nothing to order (unset: as before)
+  empty?: React.ReactNode;
 }) {
   const tz = useTimeZone();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
@@ -397,7 +400,7 @@ export function AgendaOrder({
     .filter((i) => i.archivedDay === null && i.status !== "REJECTED")
     .map((i) => placeOn(i, today, prayers));
 
-  if (orderable.length < 2) return <div className={hl.empty}>لا يوجد ما يُرتَّب؛ يلزم بندان على الأقل.</div>;
+  if (orderable.length < 2) return empty ?? <div className={hl.empty}>لا يوجد ما يُرتَّب؛ يلزم بندان على الأقل.</div>;
   return (
     <OrderList
       hint={`${p("اسحب", "اسحبي")} البند من المقبض ⠿ أو ${p("استخدم", "استخدمي")} السهمين ▲ ▼، ثم ${p("احفظ", "احفظي")} الترتيب.${course ? ` الترتيب ${p("لك وحدك", "لكِ وحدكِ")}، ولا يغيّر جدول ${p("المعلم", "المعلمة")}.` : ""}`}

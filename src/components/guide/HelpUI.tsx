@@ -8,6 +8,7 @@ import type { HelpHost } from "./host";
 import { useHelpAvoidState } from "./help-avoid";
 import { focusables } from "./focus";
 import { Tour } from "./Tour";
+import { onTourRequest } from "./tour-request";
 import styles from "./help.module.css";
 
 // The help on a page: the «؟ كيف أستخدم هذه الصفحة» button (bottom left, «؟»
@@ -25,12 +26,51 @@ export function HelpUI<T extends string, P extends string>({ host }: { host: Hel
   const avoid = useHelpAvoidState();
   const t = (s: string) => genderText(s, host.gender);
 
+  // a tour asked for from outside the panel: the button that asked, and one
+  // waiting for its page to open
+  const returnTo = useRef<HTMLElement | null>(null);
+  const [waiting, setWaiting] = useState<{ page: P; q: HelpQuestion<T, P> } | null>(null);
+  const hostRef = useRef(host);
+  useEffect(() => {
+    hostRef.current = host;
+  });
+
   // a new page closes the panel (a running tour carries on there)
   const [seenPage, setSeenPage] = useState(host.page?.id ?? null);
   if (seenPage !== (host.page?.id ?? null)) {
     setSeenPage(host.page?.id ?? null);
     setOpen(false);
   }
+  // arrived where an asked-for tour waits: it starts (anywhere else, it's dropped)
+  const [seenHere, setSeenHere] = useState(host.here);
+  if (seenHere !== host.here) {
+    setSeenHere(host.here);
+    if (waiting) {
+      setWaiting(null);
+      if (waiting.page === host.here) setTour({ key: Date.now(), home: waiting.page, steps: stepsFor(waiting.q, host.facts) });
+    }
+  }
+
+  useEffect(
+    () =>
+      onTourRequest((req) => {
+        const h = hostRef.current;
+        const page = req.page as P;
+        const q = h.helpOf(page)?.questions.find((x) => x.q === req.question);
+        if (!q) return;
+        returnTo.current = req.from ?? null;
+        setOpen(false);
+        if (h.here === page) {
+          setTour({ key: Date.now(), home: page, steps: stepsFor(q, h.facts) });
+          return;
+        }
+        const href = h.hrefOf(page);
+        if (!href) return;
+        setWaiting({ page, q });
+        h.go(href);
+      }),
+    [],
+  );
 
   function close() {
     setOpen(false);
@@ -39,14 +79,18 @@ export function HelpUI<T extends string, P extends string>({ host }: { host: Hel
 
   function showMe(q: HelpQuestion<T, P>) {
     if (!host.page) return;
+    returnTo.current = null;
     setOpen(false);
     setTour({ key: Date.now(), home: host.page.id, steps: stepsFor(q, host.facts) });
   }
 
   function endTour() {
     setTour(null);
-    // after the tour the focus goes back to «؟» (when the page has it)
-    requestAnimationFrame(() => buttonRef.current?.focus());
+    // after the tour the focus goes back to the button that asked for it,
+    // else to «؟» (when the page has it)
+    const from = returnTo.current;
+    returnTo.current = null;
+    requestAnimationFrame(() => (from?.isConnected && from.getClientRects().length ? from.focus() : buttonRef.current?.focus()));
   }
 
   return (

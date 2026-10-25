@@ -11,6 +11,8 @@ import { HOME_LIMITS, type HomeTargets } from "@/lib/home-log/rules";
 import type { HomeLogView } from "@/lib/home-log/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { useGuideTarget } from "@/components/guide/targets";
+import { genderText } from "@/lib/guide/help/text";
+import { EMPTY } from "@/lib/guide/lines-texts";
 import { createSegmentAction, setTargetsAction } from "./actions";
 import type { RafiqViewer } from "@/lib/rafiq/scope";
 import { pointTo } from "@/components/nudge/nudge";
@@ -31,6 +33,7 @@ export function RafiqHomeLog({
   base = "/rafiq/home-log",
   childName,
   you = null,
+  guided = false,
 }: {
   log: HomeLogView;
   g: GroupGender;
@@ -45,6 +48,8 @@ export function RafiqHomeLog({
   childName?: string;
   // the adult looking (an adult's view), for «يمكنكِ»
   you?: "MALE" | "FEMALE" | null;
+  // her own list with guidance on: the empty list says what to do, with «+ مقطع جديد»
+  guided?: boolean;
 }) {
   const router = useRouter();
   // g: whose list it is (her own, or the child's)
@@ -159,7 +164,20 @@ export function RafiqHomeLog({
       <div className={styles.sectionTitle}>قيد الحفظ</div>
       {log.active.length === 0 ? (
         <div className={styles.section}>
-          <div className={styles.empty}>{canAdd && !adult ? <>لا توجد مقاطع قيد الحفظ — {p("ابدأ", "ابدئي")} بإضافة مقطع جديد.</> : "لا توجد مقاطع قيد الحفظ."}</div>
+          {guided ? (
+            <div className={styles.empty}>
+              {genderText(EMPTY.homelog, g === "GIRLS" ? "FEMALE" : "MALE")}
+              {!adding && (
+                <div className={styles.actionsRow} style={{ justifyContent: "center" }}>
+                  <button type="button" className={styles.primaryBtn} onClick={() => setAdding(true)}>
+                    {EMPTY.homelogButton}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={styles.empty}>{canAdd && !adult ? <>لا توجد مقاطع قيد الحفظ — {p("ابدأ", "ابدئي")} بإضافة مقطع جديد.</> : "لا توجد مقاطع قيد الحفظ."}</div>
+          )}
         </div>
       ) : (
         <div className={styles.cards} style={{ marginBottom: 14 }} {...t("homeLog.active")}>

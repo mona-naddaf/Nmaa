@@ -32,7 +32,8 @@ type Rect = { top: number; left: number; width: number; height: number };
 type View = StepView | "wait";
 // via: the lit element is an opener of the step's element (a menu, a view);
 // press: «التالي» presses something there (and the bubble says so)
-type Geo = { view: View; rect: Rect | null; pos: { top: number; left: number } | null; vw: number; vh: number; via: boolean; press: boolean };
+// step: which step it was measured for (a hint is never shown for the step before)
+type Geo = { view: View; rect: Rect | null; pos: { top: number; left: number } | null; vw: number; vh: number; via: boolean; press: boolean; step: string };
 
 /** Shown on the screen: laid out, not hidden, not inside something closed (a menu fading out is inert). */
 function visible(el: HTMLElement): boolean {
@@ -61,7 +62,7 @@ function pressable(el: HTMLElement): HTMLElement | null {
 }
 
 const sameGeo = (a: Geo, b: Geo) =>
-  a.view === b.view && a.vw === b.vw && a.vh === b.vh && a.via === b.via && a.press === b.press && JSON.stringify([a.rect, a.pos]) === JSON.stringify([b.rect, b.pos]);
+  a.view === b.view && a.step === b.step && a.vw === b.vw && a.vh === b.vh && a.via === b.via && a.press === b.press && JSON.stringify([a.rect, a.pos]) === JSON.stringify([b.rect, b.pos]);
 
 type Live<T extends string, P extends string> = {
   step: HelpStep<T, P>;
@@ -91,7 +92,7 @@ export function Tour<T extends string, P extends string>({
   const [leaving, setLeaving] = useState(false);
   const [note, setNote] = useState<"enabled" | "failed" | null>(null);
   const [busy, setBusy] = useState(false);
-  const [geo, setGeo] = useState<Geo>({ view: "wait", rect: null, pos: null, vw: 0, vh: 0, via: false, press: false });
+  const [geo, setGeo] = useState<Geo>({ view: "wait", rect: null, pos: null, vw: 0, vh: 0, via: false, press: false, step: "" });
   const textId = useId();
   const t = (s: string) => genderText(s, host.gender);
 
@@ -208,7 +209,7 @@ export function Tour<T extends string, P extends string>({
       }
     }
     const press = view === "show" && el !== null && (via !== null || nextPresses(s.step)) && pressable(el) !== null;
-    const next: Geo = { view, rect, pos, vw, vh, via: via !== null, press };
+    const next: Geo = { view, rect, pos, vw, vh, via: via !== null, press, step: s.key };
     setGeo((g) => (sameGeo(g, next) ? g : next));
   }
 
@@ -365,7 +366,7 @@ export function Tour<T extends string, P extends string>({
         <p id={textId} className={styles.bubbleText}>
           {t(step.text)}
         </p>
-        {view === "show" && geo.press && <p className={styles.bubbleHint}>{t(host.texts.pressOrNext)}</p>}
+        {view === "show" && geo.press && geo.step === `${index}:${leaving}` && <p className={styles.bubbleHint}>{t(host.texts.pressOrNext)}</p>}
         {!leaving && <p className={styles.count}>{progress}</p>}
       </>
     );

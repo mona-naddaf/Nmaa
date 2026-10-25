@@ -15,6 +15,8 @@ import { TagManager } from "./TagManager";
 import { VersePicker } from "./VersePicker";
 import { targetAttr } from "@/lib/guide/help/targets";
 import { guideEnabled } from "@/lib/guide/enabled";
+import { genderText } from "@/lib/guide/help/text";
+import { EMPTY } from "@/lib/guide/lines-texts";
 
 const PAGE = 50;
 
@@ -116,9 +118,27 @@ export default async function RafiqNotesPage({ searchParams }: PageProps<"/rafiq
       </div>
       {notes.length === 0 ? (
         <div className={hl.section}>
-          <div className={hl.empty}>
-            {filtered ? "لا توجد ملاحظات تطابق هذه التصفية." : `لا توجد ملاحظات بعد — ${p("اضغط", "اضغطي")} على ✎ بعد رقم أي آية لتدوين أول ملاحظة.`}
-          </div>
+          {guideEnabled() ? (
+            <div className={hl.empty}>
+              {filtered ? EMPTY.notesFiltered : genderText(EMPTY.notes, user.gender)}
+              <div className={hl.actionsRow} style={{ justifyContent: "center" }}>
+                {filtered ? (
+                  <Link href="/rafiq/notes" className={hl.ghostBtn} style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+                    {EMPTY.notesFilteredButton}
+                  </Link>
+                ) : (
+                  // its fields read from the start of the line, not centred like the message
+                  <div style={{ display: "contents", textAlign: "start" }}>
+                    <VersePicker g={g} />
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className={hl.empty}>
+              {filtered ? "لا توجد ملاحظات تطابق هذه التصفية." : `لا توجد ملاحظات بعد — ${p("اضغط", "اضغطي")} على ✎ بعد رقم أي آية لتدوين أول ملاحظة.`}
+            </div>
+          )}
         </div>
       ) : (
         notes.map((n) => {
@@ -171,7 +191,7 @@ export default async function RafiqNotesPage({ searchParams }: PageProps<"/rafiq
         <p className={hl.muted} style={{ marginTop: 0 }}>
           حتى 20 وسمًا بألوان {p("تختارها", "تختارينها")}. حذف الوسم يزيله من الملاحظات، وتبقى الملاحظات نفسها.
         </p>
-        <TagManager tags={tags} counts={counts} />
+        <TagManager tags={tags} counts={counts} {...(guideEnabled() ? { guided: true } : {})} />
       </div>
     </div>
   );

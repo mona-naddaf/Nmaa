@@ -15,6 +15,9 @@ import { useToday } from "@/lib/calendar/useToday";
 import { LeaveGuard } from "@/components/leave-guard/LeaveGuard";
 import type { GoalSpec } from "@/lib/goals/goal";
 import { useGuideTarget } from "@/components/guide/targets";
+import { requestTour } from "@/components/guide/tour-request";
+import { genderText } from "@/lib/guide/help/text";
+import { EMPTY, TOUR_FROM } from "@/lib/guide/lines-texts";
 
 // Her plan: set up the first time (with memorization from before), and
 // changed whenever she likes afterwards. «العائلة»: an adult with edit rights
@@ -28,6 +31,7 @@ export function PlanView({
   subjectId,
   child,
   goalEnabled = true,
+  guided,
 }: {
   gender: PersonGender;
   // null the first time
@@ -38,6 +42,10 @@ export function PlanView({
   subjectId?: string;
   child?: { name: string; gender: "MALE" | "FEMALE" };
   goalEnabled?: boolean;
+  // her own plan with guidance on: the empty list says what to do (with
+  // «أرِني»); startCustom: she chose «أختار السور بنفسي» in the setup
+  // questions (?from=start), so a first plan starts empty
+  guided?: { startCustom: boolean };
 }) {
   // about the child (an adult's view) or «you»
   const c = (m: string, f: string) => (child?.gender === "FEMALE" ? f : m);
@@ -45,8 +53,9 @@ export function PlanView({
   const t = useGuideTarget();
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
   const firstTime = initialTemplate === null;
-  const [template, setTemplate] = useState<TemplateKey>(initialTemplate ?? "mushafrev");
-  const [plan, setPlan] = useState<number[]>(firstTime ? templateSurahs("mushafrev") : initialPlan);
+  const startKey: TemplateKey = guided?.startCustom ? "custom" : "mushafrev";
+  const [template, setTemplate] = useState<TemplateKey>(initialTemplate ?? startKey);
+  const [plan, setPlan] = useState<number[]>(firstTime ? templateSurahs(startKey) : initialPlan);
   const prior = usePriorState();
   const addPrior = usePriorState();
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +155,21 @@ export function PlanView({
         onTemplate={applyTemplate}
         onPlanChange={setPlan}
         words={{ juzAmmaStarts: p("تبدأ", "تبدئين"), add: p("أضف", "أضيفي") }}
-        live={{ inPlan: child ? `هذه السورة موجودة في خطة ${child.name}.` : `هذه السورة موجودة في ${p("خطتك", "خطتكِ")}.` }}
+        live={{
+          inPlan: child ? `هذه السورة موجودة في خطة ${child.name}.` : `هذه السورة موجودة في ${p("خطتك", "خطتكِ")}.`,
+          ...(guided && !child
+            ? {
+                empty: (
+                  <>
+                    {genderText(EMPTY.plan, gender)}{" "}
+                    <button type="button" className={hl.linkBtn} onClick={(e) => requestTour({ ...TOUR_FROM.planAdd, from: e.currentTarget })}>
+                      {EMPTY.planButton}
+                    </button>
+                  </>
+                ),
+              }
+            : {}),
+        }}
       />
 
       {firstTime && (

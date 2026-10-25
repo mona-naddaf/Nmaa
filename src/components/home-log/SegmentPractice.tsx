@@ -56,6 +56,7 @@ export function SegmentPractice({
   marking,
   afterAyah,
   liveUndo = false,
+  beforeAyat,
 }: {
   segment: HomeSegmentView;
   groupGender: GroupGender;
@@ -82,6 +83,8 @@ export function SegmentPractice({
   // Rafiq and «العائلة»: undo at zero stays visible but inactive, with a
   // tooltip, instead of disabled (unset: disabled, as before)
   liveUndo?: boolean;
+  // Rafiq's guidance: a line just above «الآيات» (unset: nothing)
+  beforeAyat?: ReactNode;
 }) {
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
@@ -202,6 +205,7 @@ export function SegmentPractice({
         )}
       </div>
 
+      {beforeAyat}
       <div className={styles.sectionTitle} {...t("practice.ayat")}>
         الآيات — {p("تدرّب", "تدرّبي")} على كل آية وحدها
       </div>

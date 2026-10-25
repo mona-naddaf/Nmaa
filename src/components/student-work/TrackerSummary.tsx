@@ -51,6 +51,7 @@ export function TrackerSummary({
   self,
   load,
   live = false,
+  empty,
 }: {
   initial: SummaryPayload;
   groupGender: GroupGender;
@@ -61,6 +62,8 @@ export function TrackerSummary({
   // the range stay visible but inactive with a tooltip, and the item shown in
   // the ring is marked, with «يُعرض الآن: …» and «عرض الكل» above the ring
   live?: boolean;
+  // Rafiq's guidance: shown instead when the period had no items (unset: as before)
+  empty?: React.ReactNode;
 }) {
   const [data, setData] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -206,7 +209,7 @@ export function TrackerSummary({
         <div className={styles.bigLabel} style={{ marginBottom: 6 }}>
           الالتزام في كل بند
         </div>
-        {s.items.length === 0 && <div className={hl.empty}>لا بنود في هذه الفترة.</div>}
+        {s.items.length === 0 && (empty ?? <div className={hl.empty}>لا بنود في هذه الفترة.</div>)}
         {s.items.map((i) => (
           <button
             key={i.id}

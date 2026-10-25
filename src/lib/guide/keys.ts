@@ -11,6 +11,7 @@
 //   checklist.hidden      «إخفاء القائمة»
 //   checklist.celebrated  the «أحسنتِ، بدأتِ على مُكث» line was shown once
 //   checklist.noTracker   «لا، ليس الآن» to the tracker question: item 2 hidden
+//   checklist.homelog     she opened «حفظي في البيت» once: item 3 is done
 //   hints.restored     «إظهار الإرشادات من جديد»: welcome lines show again,
 //                      for existing accounts too (set by the reset)
 //   welcome.<page>     «فهمت» on that page's welcome line
@@ -55,6 +56,7 @@ const FIXED = [
   "checklist.hidden",
   "checklist.celebrated",
   "checklist.noTracker",
+  "checklist.homelog",
   "hints.restored",
 ] as const;
 

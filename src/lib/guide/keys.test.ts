@@ -21,7 +21,7 @@ test("guide keys: the server's own markers can't be set by the page", () => {
     assert.equal(isGuideKey(k), true, k);
     assert.equal(isClientKey(k), false, k);
   }
-  for (const k of ["wizard.step", "wizard.done", "wizard.cardHidden", "checklist.hidden", "checklist.celebrated", "checklist.noTracker", "welcome.home", "intro.goal"]) {
+  for (const k of ["wizard.step", "wizard.done", "wizard.cardHidden", "checklist.hidden", "checklist.celebrated", "checklist.noTracker", "checklist.homelog", "welcome.home", "intro.goal"]) {
     assert.equal(isClientKey(k), true, k);
   }
 });
@@ -47,4 +47,6 @@ test("guide values: every other key stores no value", () => {
   assert.equal(checkGuideValue("welcome.home", undefined), null);
   assert.equal(checkGuideValue("checklist.hidden", { anything: 1 }), undefined);
   assert.equal(checkGuideValue("intro.agenda", "yes"), undefined);
+  assert.equal(checkGuideValue("checklist.homelog", null), null);
+  assert.equal(checkGuideValue("checklist.homelog", true), undefined);
 });

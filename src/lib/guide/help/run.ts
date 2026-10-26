@@ -35,6 +35,11 @@ export function stepsFor<T extends string, P extends string>(q: HelpQuestion<T, 
     });
 }
 
+/** One question's tour: its steps for her, and its name for the bubble's dialog (the question's own text). */
+export function tourFor<T extends string, P extends string>(q: HelpQuestion<T, P>, facts: HelpFacts): { title: string; steps: HelpStep<T, P>[] } {
+  return { title: q.q, steps: stepsFor(q, facts) };
+}
+
 /**
  * What a step shows:
  * - show: its element, lit

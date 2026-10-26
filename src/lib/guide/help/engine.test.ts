@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { genderText, pairsAreWellFormed } from "./text";
-import { MAX_VISIBLE, catchUp, nextPresses, onPress, progressLabel, splitQuestions, stepView, stepsFor, type StepContext } from "./run";
+import { MAX_VISIBLE, catchUp, nextPresses, onPress, progressLabel, splitQuestions, stepView, stepsFor, tourFor, type StepContext } from "./run";
 import type { HelpFacts, HelpQuestion, HelpStep, StepKind } from "./types";
 import { GUIDE_TARGETS, isGuideTarget, targetAttr } from "./targets";
 import { helpPageFor, hrefOf, tourPageFor } from "./rafiq/pages";
@@ -204,4 +204,19 @@ test("tourPageFor: «عائلتي» (the list, or her one family's page) for the
   assert.equal(hrefOf("verse"), null);
   assert.equal(hrefOf("segment"), null);
   assert.equal(hrefOf("family"), "/rafiq/family");
+});
+
+test("tourFor: the tour carries its question's own text, to name the bubble for a screen reader", () => {
+  const q: HelpQuestion = {
+    q: "كيف [أسجّل|أسجّل] ما [حفظتُه|حفظتُه]؟",
+    showMe: true,
+    steps: [{ text: "family", target: "nav.family", when: "founder" }, { text: "tick it", target: "tracker.sheet" }],
+  };
+  const tour = tourFor(q, facts());
+  assert.equal(tour.title, q.q);
+  assert.deepEqual(tour.steps, stepsFor(q, facts()));
+  // shown in her or his forms, like the panel's question
+  const named: HelpQuestion = { ...q, q: "كيف [أضيفُ|أضيفُ] [سورتكِ|سورتك]؟" };
+  assert.equal(genderText(tourFor(named, facts()).title, "FEMALE"), "كيف أضيفُ سورتكِ؟");
+  assert.equal(genderText(tourFor(named, facts()).title, "MALE"), "كيف أضيفُ سورتك؟");
 });

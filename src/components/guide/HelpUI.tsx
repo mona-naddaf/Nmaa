@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { genderText } from "@/lib/guide/help/text";
-import { splitQuestions, stepsFor } from "@/lib/guide/help/run";
+import { splitQuestions, stepsFor, tourFor } from "@/lib/guide/help/run";
 import type { HelpQuestion, HelpStep } from "@/lib/guide/help/types";
 import type { HelpHost } from "./host";
 import { useHelpAvoidState } from "./help-avoid";
@@ -17,7 +17,7 @@ import styles from "./help.module.css";
 // anything: opening, reading and touring write nothing; the only change a
 // tour can make is a feature she switches on herself with «تفعيل الآن».
 
-type Running<T extends string, P extends string> = { key: number; home: P; steps: HelpStep<T, P>[] };
+type Running<T extends string, P extends string> = { key: number; home: P; title: string; steps: HelpStep<T, P>[] };
 
 export function HelpUI<T extends string, P extends string>({ host }: { host: HelpHost<T, P> }) {
   const [open, setOpen] = useState(false);
@@ -47,7 +47,8 @@ export function HelpUI<T extends string, P extends string>({ host }: { host: Hel
     setSeenHere(host.here);
     if (waiting) {
       setWaiting(null);
-      if (waiting.page === host.here) setTour({ key: Date.now(), home: waiting.page, steps: stepsFor(waiting.q, host.facts) });
+      // (during render: a new key from the last one, not the clock)
+      if (waiting.page === host.here) setTour((cur) => ({ key: (cur?.key ?? 0) + 1, home: waiting.page, ...tourFor(waiting.q, host.facts) }));
     }
   }
 
@@ -61,7 +62,7 @@ export function HelpUI<T extends string, P extends string>({ host }: { host: Hel
         returnTo.current = req.from ?? null;
         setOpen(false);
         if (h.here === page) {
-          setTour({ key: Date.now(), home: page, steps: stepsFor(q, h.facts) });
+          setTour({ key: Date.now(), home: page, ...tourFor(q, h.facts) });
           return;
         }
         const href = h.hrefOf(page);
@@ -81,7 +82,7 @@ export function HelpUI<T extends string, P extends string>({ host }: { host: Hel
     if (!host.page) return;
     returnTo.current = null;
     setOpen(false);
-    setTour({ key: Date.now(), home: host.page.id, steps: stepsFor(q, host.facts) });
+    setTour({ key: Date.now(), home: host.page.id, ...tourFor(q, host.facts) });
   }
 
   function endTour() {
@@ -115,7 +116,7 @@ export function HelpUI<T extends string, P extends string>({ host }: { host: Hel
           {open && <Panel host={host} t={t} onClose={close} onShowMe={showMe} />}
         </>
       )}
-      {tour && <Tour key={tour.key} host={host} home={tour.home} steps={tour.steps} onEnd={endTour} />}
+      {tour && <Tour key={tour.key} host={host} home={tour.home} title={tour.title} steps={tour.steps} onEnd={endTour} />}
     </>
   );
 }

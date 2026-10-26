@@ -79,11 +79,14 @@ type Live<T extends string, P extends string> = {
 export function Tour<T extends string, P extends string>({
   host,
   home,
+  title,
   steps,
   onEnd,
 }: {
   host: HelpHost<T, P>;
   home: P;
+  // its question («كيف …؟»): the bubble's name for a screen reader
+  title: string;
   steps: HelpStep<T, P>[];
   onEnd: () => void;
 }) {
@@ -493,6 +496,7 @@ export function Tour<T extends string, P extends string>({
           className={styles.bubble}
           role="dialog"
           aria-modal="false"
+          aria-label={t(title)}
           aria-describedby={counted ? textId : undefined}
           style={pos ? { top: pos.top, left: pos.left } : { visibility: "hidden" }}
         >

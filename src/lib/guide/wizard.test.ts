@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { everyDaysLabel, landing, nextScreen, presetLabel, prevScreen, questionOf, questionsLeft, reviewChoices, type Screen } from "./wizard";
+import { DONE_SAVE_MS, doneSaveWithin, everyDaysLabel, landing, nextScreen, presetLabel, prevScreen, questionOf, questionsLeft, reviewChoices, type Screen } from "./wizard";
 
 const withPlan = { hasPlan: true, bankCount: 3 };
 const noPlan = { hasPlan: false, bankCount: 3 };
@@ -86,4 +86,19 @@ test("wizard: questions left on the resume card", () => {
   assert.equal(questionsLeft(2), "سؤالان");
   assert.equal(questionsLeft(3), "3 أسئلة");
   assert.equal(questionsLeft(5), "5 أسئلة");
+});
+
+test("wizard: the «wizard.done» save within its time — its own result, a rejection or lateness as the error", async () => {
+  const E = "تعذّر الحفظ";
+  assert.deepEqual(await doneSaveWithin(Promise.resolve({}), 50, E), {});
+  assert.deepEqual(await doneSaveWithin(Promise.resolve({ error: "رفض الخادم" }), 50, E), { error: "رفض الخادم" });
+  assert.deepEqual(await doneSaveWithin(Promise.reject(new Error("network")), 50, E), { error: E });
+  const never = new Promise<{ error?: string }>(() => {});
+  const started = Date.now();
+  assert.deepEqual(await doneSaveWithin(never, 30, E), { error: E });
+  assert.ok(Date.now() - started >= 25);
+  // a save that answers after the time is up changes nothing
+  const slow = new Promise<{ error?: string }>((r) => setTimeout(() => r({}), 60));
+  assert.deepEqual(await doneSaveWithin(slow, 20, E), { error: E });
+  assert.equal(DONE_SAVE_MS, 10_000);
 });

@@ -130,3 +130,27 @@ export function questionsLeft(n: number): string {
   if (n === 2) return "سؤالان";
   return n <= 10 ? `${n} أسئلة` : `${n} سؤالًا`;
 }
+
+/** How long the summary waits for «wizard.done» before saying the save failed (Mona, 2026-10-26). */
+export const DONE_SAVE_MS = 10_000;
+
+/**
+ * The save of «wizard.done», given at most `ms`: its own result, or a failure
+ * with `error` once the time is up. A link pressed meanwhile would wait behind
+ * the save in flight, so the summary's buttons hold until this settles.
+ */
+export function doneSaveWithin<R extends { error?: string }>(save: Promise<R>, ms: number, error: string): Promise<{ error?: string }> {
+  return new Promise((resolve) => {
+    const late = setTimeout(() => resolve({ error }), ms);
+    save.then(
+      (r) => {
+        clearTimeout(late);
+        resolve(r?.error ? { error: r.error } : {});
+      },
+      () => {
+        clearTimeout(late);
+        resolve({ error });
+      },
+    );
+  });
+}

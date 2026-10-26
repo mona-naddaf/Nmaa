@@ -16,7 +16,7 @@ import { daysLabel } from "@/lib/tracker/rules";
 import { templateSurahs } from "@/lib/students/new-student";
 import type { PrayerLocation } from "@/lib/prayer/times";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
-import { landing, nextScreen, prevScreen, presetLabel, questionOf, REVIEW_DEFAULT, reviewChoices, type Branch, type Screen } from "@/lib/guide/wizard";
+import { DONE_SAVE_MS, doneSaveWithin, landing, nextScreen, prevScreen, presetLabel, questionOf, REVIEW_DEFAULT, reviewChoices, type Branch, type Screen } from "@/lib/guide/wizard";
 import { startTexts, type PlanChoice } from "@/lib/guide/start-texts";
 import { useGuide } from "../GuideProvider";
 import { addPriorAction, savePlanAction } from "../actions";
@@ -94,6 +94,7 @@ export function StartWizard(props: Props) {
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [doneSaving, setDoneSaving] = useState(false);
   const busy = useRef(false);
 
   const heading = useRef<HTMLHeadingElement>(null);
@@ -130,9 +131,26 @@ export function StartWizard(props: Props) {
     });
   }
 
+  // the summary's buttons hold («جارٍ الحفظ…») until «wizard.done» is saved: a link
+  // pressed meanwhile would wait behind the save. A failure, or no answer within
+  // DONE_SAVE_MS, goes back to the screen she came from with the save error,
+  // whose «التالي» tries again (Mona, 2026-10-26).
+  async function saveDone(from: Screen) {
+    setDoneSaving(true);
+    const r = await doneSaveWithin(guide.mark("wizard.done"), DONE_SAVE_MS, t.saveError);
+    setDoneSaving(false);
+    if (!r.error) return;
+    setHistory((h) => h.slice(0, -1));
+    setScreen(from);
+    setNotice(null);
+    setShowSaved(false);
+    setMissing(null);
+    setError(t.saveError);
+  }
+
   function remember(next: Screen) {
     const nq = next === "done" ? null : questionOf(next);
-    if (next === "done") void guide.mark("wizard.done");
+    if (next === "done") void saveDone(screen);
     else if (nq !== null && nq > reached.current) {
       reached.current = nq;
       void guide.mark("wizard.step", { q: nq });
@@ -309,10 +327,10 @@ export function StartWizard(props: Props) {
       {/* outside the screen, so they stay in place and are announced when they change */}
       <div role="status" className={s.status}>
         {notice && <p className={hl.ok}>{notice}</p>}
-        {saving && <span className={s.srOnly}>{t.saving}</span>}
+        {(saving || doneSaving) && <span className={s.srOnly}>{t.saving}</span>}
       </div>
       <SavedNote stamp={showSaved ? savedCount : 0} className={s.saved} />
-      <section key={screen} className={`${hl.section} ${s.screen}`} aria-labelledby="start-title" aria-busy={saving || undefined}>
+      <section key={screen} className={`${hl.section} ${s.screen}`} aria-labelledby="start-title" aria-busy={saving || doneSaving || undefined}>
         {q !== null && <p className={s.progress}>{t.progress(q)}</p>}
 
         {screen === "welcome" && (
@@ -630,7 +648,12 @@ export function StartWizard(props: Props) {
             </>
           )}
           {screen === "done" &&
-            (facts.hasPlan ? (
+            (doneSaving ? (
+              // never inactive-looking; a press while saving does nothing
+              <button type="button" className={hl.primaryBtn} aria-busy="true" onClick={() => {}}>
+                {t.saving}
+              </button>
+            ) : facts.hasPlan ? (
               <Link href="/rafiq" className={hl.primaryBtn}>
                 {t.done.home}
               </Link>

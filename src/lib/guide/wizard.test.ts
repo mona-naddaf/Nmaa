@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DONE_SAVE_MS, doneSaveWithin, everyDaysLabel, landing, nextScreen, presetLabel, prevScreen, questionOf, questionsLeft, reviewChoices, type Screen } from "./wizard";
+import { DONE_SAVE_MS, doneSaveWithin, everyDaysLabel, landing, nextScreen, nextRepeatsSkip, presetLabel, prevScreen, questionOf, questionsLeft, reviewChoices, type Screen } from "./wizard";
 
 const withPlan = { hasPlan: true, bankCount: 3 };
 const noPlan = { hasPlan: false, bankCount: 3 };
@@ -101,4 +101,14 @@ test("wizard: the «wizard.done» save within its time — its own result, a rej
   const slow = new Promise<{ error?: string }>((r) => setTimeout(() => r({}), 60));
   assert.deepEqual(await doneSaveWithin(slow, 20, E), { error: E });
   assert.equal(DONE_SAVE_MS, 10_000);
+});
+
+test("wizard: after a failed «wizard.done» reached by «تخطٍّ», «التالي» with nothing chosen repeats the skip", () => {
+  assert.equal(nextRepeatsSkip("q5", "q5", false), true);
+  // she chose something meanwhile: «التالي» saves her answer as usual
+  assert.equal(nextRepeatsSkip("q5", "q5", true), false);
+  // reached by «التالي», or no failure: the usual missing-choice line
+  assert.equal(nextRepeatsSkip(null, "q5", false), false);
+  // another screen (after «السابق»): nothing carried over
+  assert.equal(nextRepeatsSkip("q5", "q4", false), false);
 });

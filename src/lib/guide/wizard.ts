@@ -154,3 +154,12 @@ export function doneSaveWithin<R extends { error?: string }>(save: Promise<R>, m
     );
   });
 }
+
+/**
+ * After a failed «wizard.done» save that she reached with «تخطٍّ», the error
+ * names «التالي»: on that same screen, with nothing chosen, «التالي» repeats
+ * the skip (Mona, 2026-10-26). Once she chooses something it saves as usual.
+ */
+export function nextRepeatsSkip(skippedFrom: Screen | null, screen: Screen, chosen: boolean): boolean {
+  return skippedFrom === screen && !chosen;
+}

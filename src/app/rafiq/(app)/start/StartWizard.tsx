@@ -16,7 +16,7 @@ import { daysLabel } from "@/lib/tracker/rules";
 import { templateSurahs } from "@/lib/students/new-student";
 import type { PrayerLocation } from "@/lib/prayer/times";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
-import { DONE_SAVE_MS, doneSaveWithin, landing, nextScreen, prevScreen, presetLabel, questionOf, REVIEW_DEFAULT, reviewChoices, type Branch, type Screen } from "@/lib/guide/wizard";
+import { DONE_SAVE_MS, doneSaveWithin, landing, nextRepeatsSkip, nextScreen, prevScreen, presetLabel, questionOf, REVIEW_DEFAULT, reviewChoices, type Branch, type Screen } from "@/lib/guide/wizard";
 import { startTexts, type PlanChoice } from "@/lib/guide/start-texts";
 import { useGuide } from "../GuideProvider";
 import { addPriorAction, savePlanAction } from "../actions";
@@ -95,6 +95,9 @@ export function StartWizard(props: Props) {
   const [missing, setMissing] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [doneSaving, setDoneSaving] = useState(false);
+  // the screen she skipped to the summary from, when that «wizard.done» save failed
+  const [skippedFrom, setSkippedFrom] = useState<Screen | null>(null);
+  const viaSkip = useRef(false);
   const busy = useRef(false);
 
   const heading = useRef<HTMLHeadingElement>(null);
@@ -118,6 +121,7 @@ export function StartWizard(props: Props) {
   function clearLines() {
     setMissing(null);
     setError(null);
+    setSkippedFrom(null);
   }
 
   /** «التالي» with something missing: the line under the choices, flashed, and focus on the first choice. */
@@ -134,8 +138,8 @@ export function StartWizard(props: Props) {
   // the summary's buttons hold («جارٍ الحفظ…») until «wizard.done» is saved: a link
   // pressed meanwhile would wait behind the save. A failure, or no answer within
   // DONE_SAVE_MS, goes back to the screen she came from with the save error,
-  // whose «التالي» tries again (Mona, 2026-10-26).
-  async function saveDone(from: Screen) {
+  // whose «التالي» tries again (Mona, 2026-10-26); reached by «تخطٍّ», it skips again.
+  async function saveDone(from: Screen, skipped: boolean) {
     setDoneSaving(true);
     const r = await doneSaveWithin(guide.mark("wizard.done"), DONE_SAVE_MS, t.saveError);
     setDoneSaving(false);
@@ -146,11 +150,12 @@ export function StartWizard(props: Props) {
     setShowSaved(false);
     setMissing(null);
     setError(t.saveError);
+    setSkippedFrom(skipped ? from : null);
   }
 
   function remember(next: Screen) {
     const nq = next === "done" ? null : questionOf(next);
-    if (next === "done") void saveDone(screen);
+    if (next === "done") void saveDone(screen, viaSkip.current);
     else if (nq !== null && nq > reached.current) {
       reached.current = nq;
       void guide.mark("wizard.step", { q: nq });
@@ -278,6 +283,7 @@ export function StartWizard(props: Props) {
         return go({}, null, true);
       }
       case "q5": {
+        if (nextRepeatsSkip(skippedFrom, screen, review !== null)) return skipNow();
         if (!review) return showMissing(t.q5.missing);
         // «لا، شكرًا» saves nothing: reminders are turned off in «الإعدادات» only
         if (review === "no" || reviewDays === props.reviewDays) return go();
@@ -291,9 +297,18 @@ export function StartWizard(props: Props) {
 
   function skip() {
     if (busy.current) return;
+    skipNow();
+  }
+
+  function skipNow() {
     if (screen === "q1" && !facts.hasPlan) return advance(nextScreen(screen, facts), t.q1.skipNote);
     if (screen === "q5") setSkippedReview(props.reviewDays === null);
-    advance(nextScreen(screen, facts));
+    viaSkip.current = true;
+    try {
+      advance(nextScreen(screen, facts));
+    } finally {
+      viaSkip.current = false;
+    }
   }
 
   // «إكمال الأسئلة لاحقًا»: what was saved stays; the choice on this screen isn't saved

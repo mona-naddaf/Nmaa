@@ -27,18 +27,23 @@ export function welcomeFor(page: GuidePage, plan: { hasPlan: boolean; fromStart:
 }
 
 /** What «الخطوات الأولى» is ticked from: her own data. */
-export type ChecklistFacts = { sessions: number; trackerItems: number; trackerChecks: number };
+// timedItems: her current items with a time (a slot)
+export type ChecklistFacts = { sessions: number; trackerItems: number; trackerChecks: number; timedItems: number };
 
 export type ChecklistItem =
   | { id: "session"; done: boolean }
   // while her tracker is empty: «أضيفي أول بندٍ…»; then «علّمي أول بندٍ…»
   | { id: "tracker"; done: boolean; add: boolean }
+  // «حدّدي وقت أول بند»: only after the setup questions turned the agenda on; waits while her tracker is empty
+  | { id: "times"; done: boolean; waiting: boolean }
   | { id: "homelog"; done: boolean };
 
 /**
  * The items, in order. Item 2 is left out after «لا، ليس الآن» to the
  * tracker question, until she adds an item herself (the same rule as
- * decideGuide's trackerItem).
+ * decideGuide's trackerItem). The item-time step follows it when the setup
+ * questions turned «الجدول اليومي» on (checklist.times), never on a list
+ * already celebrated (Mona, 2026-10-26).
  */
 export function checklistItems(facts: ChecklistFacts, states: GuideStates): ChecklistItem[] {
   const tracker = !has(states, "checklist.noTracker") || facts.trackerItems > 0;
@@ -46,6 +51,9 @@ export function checklistItems(facts: ChecklistFacts, states: GuideStates): Chec
   return [
     { id: "session", done: facts.sessions > 0 },
     ...(tracker ? [{ id: "tracker" as const, add, done: !add && facts.trackerChecks > 0 }] : []),
+    ...(tracker && has(states, "checklist.times") && !has(states, "checklist.celebrated")
+      ? [{ id: "times" as const, done: facts.timedItems > 0, waiting: add }]
+      : []),
     { id: "homelog", done: has(states, "checklist.homelog") },
   ];
 }

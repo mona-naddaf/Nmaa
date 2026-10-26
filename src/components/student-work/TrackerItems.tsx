@@ -113,10 +113,21 @@ export function TrackerHeader({
 }
 
 /** The title of an item view, with the way back to the day. */
-export function ViewBar({ title, onBack, children }: { title: string; onBack: () => void; children?: React.ReactNode }) {
+export function ViewBar({
+  title,
+  onBack,
+  back,
+  children,
+}: {
+  title: string;
+  onBack: () => void;
+  // the guide's name for the way back (src/components/guide/targets.tsx): undefined adds nothing
+  back?: { "data-guide": string };
+  children?: React.ReactNode;
+}) {
   return (
     <div className={styles.viewBar}>
-      <button type="button" className={`${styles.backBtn} pressable`} onClick={onBack}>
+      <button type="button" className={`${styles.backBtn} pressable`} onClick={onBack} {...back}>
         → العودة إلى الجدول
       </button>
       <span className={styles.viewTitle}>{title}</span>

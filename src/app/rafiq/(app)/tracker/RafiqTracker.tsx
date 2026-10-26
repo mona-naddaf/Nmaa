@@ -160,7 +160,7 @@ export function RafiqTracker({
 
       {view === "items" && (
         <>
-          <ViewBar title={can.record ? "إدارة البنود" : "البنود"} onBack={() => show("day")}>
+          <ViewBar title={can.record ? "إدارة البنود" : "البنود"} onBack={() => show("day")} back={t("tracker.back")}>
             {!adding && can.record && (
               // never dead: with the tracker full it points to the limit message
               <button
@@ -223,7 +223,7 @@ export function RafiqTracker({
 
       {view === "order" && (
         <>
-          <ViewBar title="ترتيب البنود" onBack={() => show("day")} />
+          <ViewBar title="ترتيب البنود" onBack={() => show("day")} back={t("tracker.back")} />
           <AgendaOrder
             sheet={data.sheet}
             today={today}

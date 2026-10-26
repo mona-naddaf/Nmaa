@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { checklistComesBack, checklistComplete, checklistItems, checklistProgress, introsFor, planWelcome, welcomeFor, type IntroFacts } from "./lines";
 import { decideGuide } from "./rules";
 
-const NONE = { sessions: 0, trackerItems: 0, trackerChecks: 0 };
+const NONE = { sessions: 0, trackerItems: 0, trackerChecks: 0, timedItems: 0 };
 const OFF = { agenda: false, summary: false, similar: false, tajweed: false, review: false };
 
 test("plan welcome: custom from the questions, first setup, then the page's own", () => {
@@ -33,7 +33,7 @@ test("checklist: item 2 asks for an item while the tracker is empty, then for a 
 });
 
 test("checklist: each item ticks from her data, item 3 from her first visit", () => {
-  const facts = { sessions: 1, trackerItems: 1, trackerChecks: 1 };
+  const facts = { sessions: 1, trackerItems: 1, trackerChecks: 1, timedItems: 0 };
   assert.deepEqual(checklistProgress(checklistItems(facts, {})), { done: 2, total: 3 });
   assert.equal(checklistComplete(facts, {}), false);
   assert.equal(checklistComplete(facts, { "checklist.homelog": null }), true);
@@ -46,7 +46,7 @@ test("checklist: «لا، ليس الآن» hides item 2 (1 من 2) until she ad
   assert.deepEqual(checklistProgress(items), { done: 1, total: 2 });
   assert.equal(checklistComplete({ ...NONE, sessions: 1 }, { ...no, "checklist.homelog": null }), true);
   // she added an item herself: back, counted from 3
-  const back = checklistItems({ sessions: 1, trackerItems: 1, trackerChecks: 0 }, no);
+  const back = checklistItems({ sessions: 1, trackerItems: 1, trackerChecks: 0, timedItems: 0 }, no);
   assert.deepEqual(checklistProgress(back), { done: 1, total: 3 });
 });
 
@@ -112,4 +112,31 @@ test("intros with a welcome line: one at a time, the welcome first", () => {
   assert.deepEqual([first.welcome, first.intro], ["tracker", null]);
   const after = decideGuide({ on: true, kind: "ADULT", isNew: true, states: { "welcome.tracker": null }, page: "tracker", intros });
   assert.deepEqual([after.welcome, after.intro], [null, "agenda"]);
+});
+
+test("checklist: the item-time step only after the setup questions turned the agenda on (checklist.times)", () => {
+  const times = { "checklist.times": null };
+  assert.deepEqual(checklistItems(NONE, {}).map((i) => i.id), ["session", "tracker", "homelog"]);
+  const items = checklistItems(NONE, times);
+  assert.deepEqual(items.map((i) => i.id), ["session", "tracker", "times", "homelog"]);
+  assert.deepEqual(checklistProgress(items), { done: 0, total: 4 });
+  // an empty tracker: it waits after «أضيفي أول بندٍ»
+  assert.deepEqual(items[2], { id: "times", done: false, waiting: true });
+  assert.deepEqual(checklistItems({ ...NONE, trackerItems: 2 }, times)[2], { id: "times", done: false, waiting: false });
+  // ticks itself once an item has a time
+  assert.deepEqual(checklistItems({ ...NONE, trackerItems: 2, timedItems: 1 }, times)[2], { id: "times", done: true, waiting: false });
+  const all = { sessions: 1, trackerItems: 2, trackerChecks: 1, timedItems: 1 };
+  assert.equal(checklistComplete(all, { ...times, "checklist.homelog": null }), true);
+  assert.equal(checklistComplete({ ...all, timedItems: 0 }, { ...times, "checklist.homelog": null }), false);
+});
+
+test("checklist: no item-time step without item 2, or on a list already celebrated", () => {
+  // «لا، ليس الآن» hides item 2, and the time step with it
+  const no = { "checklist.times": null, "checklist.noTracker": null };
+  assert.deepEqual(checklistItems(NONE, no).map((i) => i.id), ["session", "homelog"]);
+  // a finished list stays finished
+  const done = { "checklist.times": null, "checklist.celebrated": null, "checklist.homelog": null };
+  const facts = { sessions: 1, trackerItems: 1, trackerChecks: 1, timedItems: 0 };
+  assert.deepEqual(checklistItems(facts, done).map((i) => i.id), ["session", "tracker", "homelog"]);
+  assert.equal(checklistComplete(facts, done), true);
 });

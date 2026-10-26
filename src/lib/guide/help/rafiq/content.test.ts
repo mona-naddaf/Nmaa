@@ -77,3 +77,20 @@ test("help content: a question without «أرِني» has nothing to light", () 
   for (const p of pages)
     for (const q of p.questions) if (!q.showMe) assert.ok(q.steps.every((s) => !s.target), `${p.id}: «${q.q}»`);
 });
+
+test("help content: «كيف أعطي كل بند وقتًا؟» — ⏱ with its way back, its fallback and the panel note (approved 2026-10-26)", () => {
+  const q = RAFIQ_HELP.tracker!.questions.find((x) => x.q === "كيف أعطي كل بند وقتًا؟")!;
+  const step = q.steps[0];
+  assert.equal(step.target, "agenda.timeBtn");
+  assert.deepEqual(step.via, ["tracker.back"]);
+  assert.ok(isGuideTarget("tracker.back"));
+  assert.equal(
+    genderText(step.missing!, "FEMALE"),
+    "يظهر ⏱ بجانب كل بند من بنود اليوم، ولا بنود لليوم في جدولكِ الآن. أضيفي بندًا من «⚙ البنود» ← «إدارة البنود»، ثم اضغطي ⏱ بجانبه.",
+  );
+  assert.equal(
+    genderText(step.missing!, "MALE"),
+    "يظهر ⏱ بجانب كل بند من بنود اليوم، ولا بنود لليوم في جدولك الآن. أضف بندًا من «⚙ البنود» ← «إدارة البنود»، ثم اضغط ⏱ بجانبه.",
+  );
+  assert.equal(q.notes?.[0], "يظهر ⏱ بجانب بنود اليوم فقط.");
+});

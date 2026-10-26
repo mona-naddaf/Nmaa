@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { pointTo } from "@/components/nudge/nudge";
 import { requestTour } from "@/components/guide/tour-request";
 import { genderText } from "@/lib/guide/help/text";
 import { checklistComplete, checklistItems, checklistProgress, type ChecklistFacts, type ChecklistItem } from "@/lib/guide/lines";
@@ -10,7 +11,7 @@ import { useGuide } from "../GuideProvider";
 import styles from "./lines.module.css";
 
 // «خطواتكِ الأولى» on «صفحتي» (review page ٢), a new account's only: three
-// steps that tick themselves from her own data (facts, read on the server),
+// steps (four with the item-time one) that tick themselves from her own data (facts, read on the server),
 // never by a tap. «إخفاء القائمة» hides it (back from the settings while not
 // complete); once all are done, «أحسنتِ، بدأتِ على مُكث 🌿» shows once, then
 // fades away.
@@ -91,7 +92,7 @@ export function Checklist({ facts }: { facts: ChecklistFacts }) {
           </button>
         </span>
       </div>
-      <p className={styles.lead}>{t(total === 2 ? CHECKLIST.leadTwo : CHECKLIST.lead)}</p>
+      <p className={styles.lead}>{t(total === 2 ? CHECKLIST.leadTwo : total === 4 ? CHECKLIST.leadFour : CHECKLIST.lead)}</p>
       {error && (
         <p className={styles.fail} role="alert">
           {error}
@@ -117,6 +118,22 @@ function Item({ item, t }: { item: ChecklistItem; t: (s: string) => string }) {
           {words.button}
         </button>
       );
+    } else if (item.id === "times") {
+      // with no item yet it waits: the press points to «أضيفي أول بندٍ» (never a dead button)
+      action = (
+        <button
+          type="button"
+          className={btn}
+          onClick={(e) => {
+            if (!item.waiting) return requestTour({ ...TOUR_FROM.times, from: e.currentTarget });
+            const first = e.currentTarget.closest("ol")?.querySelector<HTMLElement>('[data-check="tracker"]');
+            pointTo(first, { focus: false });
+            first?.querySelector<HTMLElement>("a, button")?.focus({ preventScroll: true });
+          }}
+        >
+          {words.button}
+        </button>
+      );
     } else {
       const href = item.id === "homelog" ? "/rafiq/home-log" : item.id === "tracker" && item.add ? "/rafiq/tracker?add=1" : "/rafiq/tracker";
       action = (
@@ -127,7 +144,7 @@ function Item({ item, t }: { item: ChecklistItem; t: (s: string) => string }) {
     }
   }
   return (
-    <li className={`${styles.item} ${item.done ? styles.done : ""}`}>
+    <li className={`${styles.item} ${item.done ? styles.done : ""}`} data-check={item.id}>
       <span className={styles.mark} aria-hidden>
         {item.done ? "✓" : ""}
       </span>

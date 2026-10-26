@@ -270,14 +270,16 @@ export function StartWizard(props: Props) {
         return go({ withTimes });
       case "q4c": {
         if (!timing) return showMissing(t.q4c.missing);
+        // turning «الجدول اليومي» on here also adds the item-time step to «خطواتكِ الأولى» (Mona, 2026-10-26)
         const agenda = () => send(setAgendaEnabledAction, { on: "1" });
+        const times = () => guide.mark("checklist.times");
         if (timing === "hours") {
           if (props.agendaEnabled) return go();
-          if (!(await run(agenda))) return;
+          if (!(await run(agenda, times))) return;
           return go({}, null, true);
         }
         if (!city) return showMissing(t.q4c.noCity, document.getElementById("start-city"));
-        const saves = [...(samePlace(city, props.place) ? [] : [() => setPlaceAction(city)]), ...(props.agendaEnabled ? [] : [agenda])];
+        const saves = [...(samePlace(city, props.place) ? [] : [() => setPlaceAction(city)]), ...(props.agendaEnabled ? [] : [agenda, times])];
         if (saves.length === 0) return go();
         if (!(await run(...saves))) return;
         return go({}, null, true);

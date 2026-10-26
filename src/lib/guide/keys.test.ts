@@ -21,7 +21,7 @@ test("guide keys: the server's own markers can't be set by the page", () => {
     assert.equal(isGuideKey(k), true, k);
     assert.equal(isClientKey(k), false, k);
   }
-  for (const k of ["wizard.step", "wizard.done", "wizard.cardHidden", "checklist.hidden", "checklist.celebrated", "checklist.noTracker", "checklist.homelog", "welcome.home", "intro.goal"]) {
+  for (const k of ["wizard.step", "wizard.done", "wizard.cardHidden", "checklist.hidden", "checklist.celebrated", "checklist.noTracker", "checklist.homelog", "checklist.times", "welcome.home", "intro.goal"]) {
     assert.equal(isClientKey(k), true, k);
   }
 });

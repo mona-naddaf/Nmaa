@@ -10,12 +10,13 @@ import type { ChecklistFacts } from "./lines";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function checklistFacts(userId: string): Promise<ChecklistFacts> {
-  const [sessions, trackerItems, trackerChecks] = await Promise.all([
+  const [sessions, trackerItems, trackerChecks, timedItems] = await Promise.all([
     prisma.rafiqSession.count({ where: { userId, source: "LOGGED" } }),
     prisma.rafiqTrackerItem.count({ where: { userId, archivedAt: null } }),
     prisma.rafiqTrackerCheck.count({ where: { userId } }),
+    prisma.rafiqTrackerItem.count({ where: { userId, archivedAt: null, slots: { some: {} } } }),
   ]);
-  return { sessions, trackerItems, trackerChecks };
+  return { sessions, trackerItems, trackerChecks, timedItems };
 }
 
 /** A word flagged in any of her sessions, ever (the detailed-tajweed line waits for one). */

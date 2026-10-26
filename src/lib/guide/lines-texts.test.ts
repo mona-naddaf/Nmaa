@@ -41,6 +41,16 @@ test("guide lines: the two-step lead after «لا، ليس الآن», in both g
   assert.match(CHECKLIST.lead, /^ثلاث خطوات/);
 });
 
+test("guide lines: the item-time step and the four-step lead, word for word (approved 2026-10-26)", () => {
+  assert.equal(genderText(CHECKLIST.times.title, "FEMALE"), "حدّدي وقت أول بند في جدولكِ");
+  assert.equal(genderText(CHECKLIST.times.title, "MALE"), "حدّد وقت أول بند في جدولك");
+  assert.equal(genderText(CHECKLIST.times.note, "FEMALE"), "في «جدول المتابعة» اضغطي ⏱ بجانب البند، ثم اختاري وقتًا محدّدًا أو بالنسبة إلى صلاة.");
+  assert.equal(genderText(CHECKLIST.times.note, "MALE"), "في «جدول المتابعة» اضغط ⏱ بجانب البند، ثم اختر وقتًا محدّدًا أو بالنسبة إلى صلاة.");
+  assert.equal(CHECKLIST.times.button, "أرِني");
+  assert.equal(genderText(CHECKLIST.leadFour, "FEMALE"), "أربع خطوات تساعدكِ على البدء. تُعلَّم كل خطوة وحدها حين تنجزينها.");
+  assert.equal(genderText(CHECKLIST.leadFour, "MALE"), "أربع خطوات تساعدك على البدء. تُعلَّم كل خطوة وحدها حين تنجزها.");
+});
+
 test("guide lines: Western digits only", () => {
   for (const s of all()) assert.doesNotMatch(s, /[٠-٩]/, s);
 });

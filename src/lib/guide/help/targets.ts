@@ -53,6 +53,7 @@ export const GUIDE_TARGETS = [
   "tracker.itemRow",
   "tracker.sheet",
   "tracker.summary",
+  "tracker.back",
   "tracker.publish",
   "agenda.timeBtn",
   "summary.periods",

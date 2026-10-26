@@ -47,8 +47,8 @@ type Props = {
   tajweedEnabled: boolean;
   // her place for prayer times (null: none)
   place: PrayerLocation | null;
-  // guidance on: her «الخطوات الأولى» are all done (for «أسئلة البداية»)
-  checklistComplete?: boolean;
+  // set only while guidance is on; checklistComplete: her «الخطوات الأولى» are all done (for «أسئلة البداية»)
+  guide?: { checklistComplete: boolean };
 };
 
 export function SettingsView({
@@ -63,10 +63,11 @@ export function SettingsView({
   similarEnabled,
   tajweedEnabled,
   place,
-  checklistComplete = false,
+  guide,
 }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
   const t = useGuideTarget();
+  const tajweed = <TajweedDetail p={p} enabled={tajweedEnabled} />;
 
   return (
     <div className={styles.settingsGrid}>
@@ -90,9 +91,16 @@ export function SettingsView({
       </div>
       <Summaries p={p} enabled={summaryEnabled} />
       <Similar p={p} enabled={similarEnabled} />
-      <TajweedDetail p={p} enabled={tajweedEnabled} />
-      {/* guidance only (renders nothing while it is off) */}
-      <GuideCard checklistComplete={checklistComplete} />
+      {/* guidance only. While it is off the list keeps its old shape: a form's
+          $ACTION_KEY follows its place among siblings, and an empty slot counts */}
+      {guide ? (
+        <>
+          {tajweed}
+          <GuideCard checklistComplete={guide.checklistComplete} />
+        </>
+      ) : (
+        tajweed
+      )}
       <Password p={p} />
       <Recovery p={p} gender={gender} createdAt={recoveryCodeCreatedAt} />
       <div className={hl.section} {...t("settings.devices")}>

@@ -30,7 +30,7 @@ export default async function RafiqSettingsPage() {
       tajweedEnabled={tajweedDetailEnabled}
       place={locationOf(placeRow)}
       commitDays={await currentCommitDays(user.id)}
-      {...(done !== null ? { checklistComplete: done } : {})}
+      {...(guide ? { guide: { checklistComplete: done ?? false } } : {})}
     />
   );
 }

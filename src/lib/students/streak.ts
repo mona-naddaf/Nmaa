@@ -12,6 +12,9 @@
 //  - A week in which nobody in her group qualified (no class — Eid, a
 //    holiday, a cancelled session) is neutral: it neither counts nor breaks.
 //    Groups meet on different days, so this is judged per group.
+//  - «أيام العذر» (girls groups): a week she didn't qualify in, with a day
+//    marked «معذورة» and none marked absent, is neutral for her too
+//    (excusedWeeks, src/lib/excuse/attendance.ts).
 //  - Nothing is stored: it's recomputed from the logs every time, so a
 //    backdated session counts toward the week it's dated in.
 
@@ -32,8 +35,9 @@ export function weekIndex(date: Date): number {
  * @param studentWeeks weeks in which the student qualified
  * @param groupWeeks   weeks in which anyone in her group qualified (includes hers)
  * @param currentWeek  weekIndex(today)
+ * @param excused      her weeks that are neutral by «معذورة» (excusedWeeks)
  */
-export function computeStreak(studentWeeks: Set<number>, groupWeeks: Set<number>, currentWeek: number): number {
+export function computeStreak(studentWeeks: Set<number>, groupWeeks: Set<number>, currentWeek: number, excused: Set<number> = new Set()): number {
   if (studentWeeks.size === 0) return 0;
   const earliest = Math.min(...groupWeeks);
   let streak = 0;
@@ -41,6 +45,7 @@ export function computeStreak(studentWeeks: Set<number>, groupWeeks: Set<number>
     if (studentWeeks.has(w)) streak++;
     else if (w === currentWeek) continue; // still in progress
     else if (!groupWeeks.has(w)) continue; // neutral: no class that week
+    else if (excused.has(w)) continue; // neutral: «معذورة»
     else break;
   }
   return streak;

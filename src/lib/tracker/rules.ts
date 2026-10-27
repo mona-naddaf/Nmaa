@@ -104,12 +104,16 @@ export interface DayScore {
   earned: number;
 }
 
-/** checked: the item ids she ticked that day. Calculated, never stored. */
-export function dayScore(items: ScoredItem[], checked: Set<string>, day: string): DayScore {
+/**
+ * checked: the item ids she ticked that day. skipped: «أيام العذر», items
+ * not due that day («لا يُحسب» while excused; skippedBy in
+ * src/lib/excuse/rules.ts). Calculated, never stored.
+ */
+export function dayScore(items: ScoredItem[], checked: Set<string>, day: string, skipped?: (itemId: string, day: string) => boolean): DayScore {
   let possible = 0;
   let earned = 0;
   for (const item of items) {
-    if (!countsOn(item, day)) continue;
+    if (!countsOn(item, day) || skipped?.(item.id, day)) continue;
     possible += item.value!;
     if (checked.has(item.id)) earned += item.value!;
   }

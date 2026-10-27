@@ -26,6 +26,12 @@ import { DAYS_AFTER_PREP, countLabel, type CountForms } from "@/lib/text/count";
 // at the start of today spread over the days left (today and the deadline
 // included), so it doesn't shrink while she recites today; it rises when
 // she falls behind and drops when she gets ahead.
+//
+// Paused days («أيام العذر»: «رفيق الحفظ» with «إيقاف الحفظ أيضًا», a course
+// student's «معذورة» days) don't count as days at all: the deadline stays,
+// the straight line waits while she is paused, and what is left is spread
+// over the days left that aren't paused. While today is paused she is never
+// «متأخرة». Only past days and today can be known as paused.
 
 export type GoalTargetKind = "PLAN" | "JUZ" | "POINT";
 
@@ -149,15 +155,25 @@ export type GoalView = { label: string; deadline: string } & (
       // today's exact share is done
       todayDone: boolean;
       remainingPages: number;
-      // today and the deadline included
+      // today and the deadline included, paused days left out
       daysLeft: number;
       status: GoalStatus;
+      // today is a paused day («أيام العذر»)
+      paused: boolean;
     }
 );
 
 const EPS = 1e-6;
 
-export function computeGoal(plan: number[], spec: GoalSpec, sessions: GoalSession[], today: string): GoalView {
+/** Days from `from` to `to` (both included) that aren't paused. */
+function countedDays(from: string, to: string, paused: Set<string>): number {
+  let n = daysBetween(from, to) + 1;
+  for (const d of paused) if (d >= from && d <= to) n--;
+  return Math.max(0, n);
+}
+
+/** paused: her paused days, up to today (pausedDays, src/lib/excuse/rules.ts). */
+export function computeGoal(plan: number[], spec: GoalSpec, sessions: GoalSession[], today: string, paused: Set<string> = new Set()): GoalView {
   const base = { label: targetLabel(spec), deadline: spec.deadline };
   const stretch = targetStretch(plan, spec);
   if (!stretch) return { ...base, state: "INVALID" };
@@ -169,7 +185,9 @@ export function computeGoal(plan: number[], spec: GoalSpec, sessions: GoalSessio
   const atStart = uncovered(stretch, coveredBy(sessions, (s) => s.prior || s.day < spec.startDay));
   const startOfToday = uncovered(stretch, coveredBy(sessions, (s) => s.prior || s.day < today));
 
-  const daysLeft = daysBetween(today, spec.deadline) + 1;
+  const pausedToday = paused.has(today);
+  // while today is paused, the share shown is the one after she returns
+  const daysLeft = Math.max(1, countedDays(today, spec.deadline, paused));
   const dailyExact = startOfToday.pages / daysLeft;
   const dailyQuarter = Math.max(0.25, Math.round(dailyExact * 4) / 4);
   // her next ayat (not yet memorized this morning) until a day's share is filled
@@ -183,11 +201,12 @@ export function computeGoal(plan: number[], spec: GoalSpec, sessions: GoalSessio
 
   // the straight line from the start day to the deadline: where she should
   // be by the end of yesterday, against what she has done since the start
-  const totalDays = Math.max(1, daysBetween(spec.startDay, spec.deadline) + 1);
-  const elapsed = Math.min(totalDays, Math.max(0, daysBetween(spec.startDay, today)));
+  // (paused days left out of both, so the line waits while she is paused)
+  const totalDays = Math.max(1, countedDays(spec.startDay, spec.deadline, paused));
+  const elapsed = Math.min(totalDays, Math.max(0, countedDays(spec.startDay, today, paused) - (pausedToday ? 0 : 1)));
   const pace = atStart.pages / totalDays;
   const diff = atStart.pages - now.pages - (atStart.pages * elapsed) / totalDays;
-  const status: GoalStatus = diff > pace + EPS ? "AHEAD" : diff < -pace - EPS ? "BEHIND" : "ON_TRACK";
+  const status: GoalStatus = diff > pace + EPS ? "AHEAD" : diff < -pace - EPS && !pausedToday ? "BEHIND" : "ON_TRACK";
 
   const doneToday = Math.max(0, startOfToday.pages - now.pages);
   return {
@@ -200,6 +219,7 @@ export function computeGoal(plan: number[], spec: GoalSpec, sessions: GoalSessio
     remainingPages: now.pages,
     daysLeft,
     status,
+    paused: pausedToday,
   };
 }
 

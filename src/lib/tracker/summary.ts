@@ -9,6 +9,8 @@
 //  - Per item: days ticked ÷ days due. Overall: weighted by value
 //    (Σ value × ticked ÷ Σ value × due), as the day scores are.
 //  - A day with nothing due is neutral (a different tile from 0%).
+//  - «أيام العذر»: an item skipped while she is excused («لا يُحسب») isn't
+//    due that day; an alternative is the item itself (same id and value).
 //  - Days are "YYYY-MM-DD": the course's days (its time zone), or «رفيق
 //    الحفظ»'s own. Weeks run Sunday–Saturday.
 
@@ -123,6 +125,7 @@ export function computeSummary({
   from,
   to,
   today,
+  skipped,
 }: {
   items: SummaryItem[];
   // day → ids ticked that day
@@ -130,6 +133,8 @@ export function computeSummary({
   from: string;
   to: string;
   today: string;
+  // «أيام العذر»: (item, day) pairs not due (skippedBy, src/lib/excuse/rules.ts)
+  skipped?: (itemId: string, day: string) => boolean;
 }): Summary {
   // seen: scheduled on some day of the period up to today
   const per = new Map(items.map((i) => [i.id, { due: 0, done: 0, seen: false }]));
@@ -149,7 +154,7 @@ export function computeSummary({
     let possible = 0;
     let earned = 0;
     for (const item of items) {
-      if (!scheduledOn(item, day)) continue;
+      if (!scheduledOn(item, day) || skipped?.(item.id, day)) continue;
       per.get(item.id)!.seen = true;
       possible += item.value;
       const on = ticked.has(item.id);

@@ -11,6 +11,8 @@ import { countLabel, type CountForms } from "@/lib/text/count";
 //    the day she makes it, so past days keep the schedule they had.
 //  - A missed day she intended to commit to breaks the streak; a day off
 //    never does. A session on a day off still counts toward the streak.
+//  - A paused day («أيام العذر» with «إيقاف الحفظ أيضًا») is a day off: it
+//    never breaks the streak, and a session on it still counts.
 //  - Today never breaks it: until she logs today, the streak runs to
 //    yesterday. (Sessions can be backdated two days at most, so a missed
 //    day can only be filled within that window.)
@@ -37,15 +39,23 @@ export const isCommitDay = (schedule: CommitSchedule, day: string) => isActiveOn
 
 /**
  * schedule: sorted by `from`; logged: her days with a logged session;
- * start: her first day (no day before it can break anything).
+ * start: her first day (no day before it can break anything); paused: her
+ * paused days (pausedDays, src/lib/excuse/rules.ts).
  */
-export function computeStreak(schedule: CommitSchedule, logged: Set<string>, today: string, start: string): { current: number; best: number } {
+export function computeStreak(
+  schedule: CommitSchedule,
+  logged: Set<string>,
+  today: string,
+  start: string,
+  paused: Set<string> = new Set(),
+): { current: number; best: number } {
+  const breaks = (d: string) => isCommitDay(schedule, d) && !paused.has(d);
   // current: back from today
   let current = 0;
   for (let d = today; d >= start; d = addDays(d, -1)) {
     if (logged.has(d)) current++;
     else if (d === today) continue; // still in progress
-    else if (isCommitDay(schedule, d)) break;
+    else if (breaks(d)) break;
   }
 
   // best: one pass forward from her first day
@@ -53,7 +63,7 @@ export function computeStreak(schedule: CommitSchedule, logged: Set<string>, tod
   let run = 0;
   for (let d = start; d <= today; d = addDays(d, 1)) {
     if (logged.has(d)) run++;
-    else if (d !== today && isCommitDay(schedule, d)) run = 0;
+    else if (d !== today && breaks(d)) run = 0;
     best = Math.max(best, run);
   }
   return { current, best: Math.max(best, current) };
@@ -61,8 +71,14 @@ export function computeStreak(schedule: CommitSchedule, logged: Set<string>, tod
 
 export type WeekDayState = "done" | "missed" | "off" | "today" | "future" | "before";
 
-/** Sunday–Saturday of this week, each with its state. */
-export function weekView(schedule: CommitSchedule, logged: Set<string>, today: string, start: string): { day: string; state: WeekDayState }[] {
+/** Sunday–Saturday of this week, each with its state (a paused day shows as a day off). */
+export function weekView(
+  schedule: CommitSchedule,
+  logged: Set<string>,
+  today: string,
+  start: string,
+  paused: Set<string> = new Set(),
+): { day: string; state: WeekDayState }[] {
   return weekDays(today).map((day) => {
     const state: WeekDayState = logged.has(day)
       ? "done"
@@ -72,7 +88,7 @@ export function weekView(schedule: CommitSchedule, logged: Set<string>, today: s
           ? "before"
           : day === today
             ? "today"
-            : isCommitDay(schedule, day)
+            : isCommitDay(schedule, day) && !paused.has(day)
               ? "missed"
               : "off";
     return { day, state };

@@ -38,7 +38,10 @@ test("on with a list: only the listed accounts (any case), never a child, an emp
   assert.equal(excuseAllowed("mona@example.com"), false);
 });
 
-test("on without a list: everyone", () => {
+test("on without a list: nobody — «*» opens it to everyone (children included)", () => {
   set("1", undefined);
+  assert.equal(excuseAllowed("anyone@example.com"), false);
+  set("1", "*");
   assert.equal(excuseAllowed("anyone@example.com"), true);
+  assert.equal(excuseAllowed(null), true);
 });

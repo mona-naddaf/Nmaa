@@ -20,13 +20,15 @@ export function parseAllowList(raw: string | undefined): Set<string> | null {
 }
 
 /**
- * While it is tried out on the live site: with EXCUSE_ALLOW_EMAILS set, only
- * the «رفيق الحفظ» accounts listed there have it (an empty list: nobody);
- * unset, everyone does. A child (no email) never does through this list.
+ * Who has it, besides EXCUSE_ENABLED: the «رفيق الحفظ» accounts listed in
+ * EXCUSE_ALLOW_EMAILS, or everyone with «*». Unset or empty: nobody — so
+ * turning EXCUSE_ENABLED on alone never shows it to anyone. A child (no
+ * email) only through «*».
  */
 export function excuseAllowed(email: string | null | undefined): boolean {
   if (!excuseEnabled()) return false;
   const list = parseAllowList(process.env.EXCUSE_ALLOW_EMAILS);
-  if (list === null) return true;
+  if (!list) return false;
+  if (list.has("*")) return true;
   return !!email && list.has(email.trim().toLowerCase());
 }

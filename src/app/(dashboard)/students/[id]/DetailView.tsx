@@ -34,6 +34,7 @@ import { mistakeWordCount, type ActiveMistake } from "@/lib/students/mistake-typ
 import { GoalLine } from "@/components/goal/GoalLine";
 import type { GoalView } from "@/lib/goals/goal";
 import { SimilarScope } from "./SimilarScope";
+import type { AttendanceStatus } from "@/lib/attendance";
 import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
 import {
   presentWord,
@@ -48,7 +49,7 @@ import {
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
 type Mode = "IN_PERSON" | "ONLINE";
-type Attendance = "IN" | "OUT" | "PENDING";
+type Attendance = AttendanceStatus;
 type Source = "LOGGED" | "PRIOR";
 
 interface PointsActivity {

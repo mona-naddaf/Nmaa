@@ -16,7 +16,8 @@ export function parseDateOnlyInput(raw: string, timeZone: string, now: Date = ne
   return parsed;
 }
 
-export type AttendanceStatus = "IN" | "OUT" | "PENDING";
+// EXCUSED: «معذورة» («أيام العذر», girls groups; src/lib/excuse/attendance.ts)
+export type AttendanceStatus = "IN" | "OUT" | "PENDING" | "EXCUSED";
 
 // AttendanceLog is append-only, one row per student per day; a day with no
 // row is implicitly PENDING (nothing to reset — there's simply no entry yet)

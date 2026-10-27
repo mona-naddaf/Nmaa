@@ -50,7 +50,7 @@ async function selectedStudents(session: Session, rawIds: unknown): Promise<Deni
 // ---------- «تراجع» ----------
 
 type UndoData =
-  | { kind: "attendance"; day: string; status: "IN" | "OUT"; teacherId: string; prev: [string, "IN" | "OUT" | null, string | null][] }
+  | { kind: "attendance"; day: string; status: "IN" | "OUT"; teacherId: string; prev: [string, "IN" | "OUT" | "EXCUSED" | null, string | null][] }
   | { kind: "points"; ids: string[] };
 
 const undoTokens = createScopedToken<{ u: string; c: string; d: string }>({
@@ -86,7 +86,7 @@ export async function bulkAttendance(session: Session, studentIds: unknown, stat
         create: { studentId, day, status, teacherId },
       });
     }
-    return picked.ids.map((id): [string, "IN" | "OUT" | null, string | null] => {
+    return picked.ids.map((id): [string, "IN" | "OUT" | "EXCUSED" | null, string | null] => {
       const b = before.find((x) => x.studentId === id);
       return [id, b && b.status !== "PENDING" ? b.status : null, b?.teacherId ?? null];
     });

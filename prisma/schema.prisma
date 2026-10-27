@@ -151,6 +151,10 @@ model Course {
   // (src/lib/time/zone.ts). Supervisor only. Stored date-only values never
   // shift when it changes; only which day "now" falls on does.
   timeZone                    String                 @default("Asia/Riyadh")
+  // «أيام العذر» (src/lib/excuse) for girls groups only: «معذورة» in
+  // attendance, the excuse button above her tracker, and the items' excuse
+  // setting. Off by default; turning it off ends every open excuse.
+  excuseEnabled               Boolean                @default(false)
   createdAt                   DateTime               @default(now())
 
   teachers            Teacher[]
@@ -193,6 +197,8 @@ model Teacher {
   resourceReports  ResourceReport[]
   assignments      Assignment[]
   trackerItems     TrackerItem[]
+  excusesStarted   StudentExcuse[]          @relation("ExcuseStartedByTeacher")
+  excusesEnded     StudentExcuse[]          @relation("ExcuseEndedByTeacher")
 
   @@unique([courseId, nameKey])
   @@index([courseId])
@@ -298,6 +304,11 @@ model Student {
   // change it. Off by default.
   tajweedDetailed Boolean @default(false)
 
+  // «إظهار العذر لولي الأمر» (Course.excuseEnabled): her parent sees her
+  // excuse days. Off by default; while off the parent sees the items quietly
+  // not counted, with no label.
+  excuseParentVisible Boolean @default(false)
+
   planItems          PlanItem[]
   juzDirections      StudentJuzDirection[]
   secondTracks       StudentTrack[]
@@ -317,6 +328,7 @@ model Student {
   trackerSlots       TrackerStudentSlot[]
   trackerOrder       TrackerStudentOrder[]
   infoValues         StudentInfoValue[]
+  excuses            StudentExcuse[]
 
   @@index([courseId])
   @@index([groupId])
@@ -891,6 +903,11 @@ model TrackerItem {
   // «الجدول اليومي»: staff's order of the items (the template; a student may
   // set her own, TrackerStudentOrder). Ties: creation order.
   sortOrder          Int               @default(0)
+  // «أيام العذر»: what the item is on her excuse days — as usual, not
+  // counted, or an alternative (excuseAltTitle, same score). Set by its
+  // owner: staff for staff's items, she for her own.
+  excuseMode         ExcuseMode        @default(NONE)
+  excuseAltTitle     String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
@@ -1043,6 +1060,10 @@ model RafiqUser {
   homeMistakesEnabled Boolean     @default(false)
   goalEnabled         Boolean     @default(false)
   streakEnabled       Boolean     @default(false)
+  // «أيام العذر» (src/lib/excuse): a woman's own switch, or a girl's 10th
+  // per-child feature. Off by default; turning it off ends an open excuse.
+  // Ignored for anyone it doesn't apply to (a man, a boy).
+  excuseEnabled       Boolean     @default(false)
 
   // ---- ADULT only («العائلة») ----
   foundedFamilies   Family[]           @relation("FamilyFounder")
@@ -1089,6 +1110,13 @@ model RafiqUser {
   templateReports     TrackerTemplateReport[]
   goal                RafiqGoal?
   guideStates         GuideState[]
+  excuses             RafiqExcuse[]             @relation("ExcuseOwner")
+  // excuses she started or ended on a child's page
+  excusesStarted      RafiqExcuse[]             @relation("ExcuseStartedBy")
+  excusesEnded        RafiqExcuse[]             @relation("ExcuseEndedBy")
+  // a girl's page: which adults see her excuse (no row = by gender)
+  excuseViewers       FamilyExcuseViewer[]      @relation("ExcuseViewerChild")
+  excuseViewing       FamilyExcuseViewer[]      @relation("ExcuseViewerAdult")
 
   // in-site guidance (src/lib/guide): when she signed up with guidance on —
   // the setup questions, «الخطوات الأولى» and the first-visit welcome lines
@@ -1229,6 +1257,10 @@ model RafiqTrackerItem {
 
   // «الجدول اليومي»: her order (ties: creation order)
   sortOrder Int @default(0)
+
+  // «أيام العذر»: as TrackerItem (set by whoever may edit the item)
+  excuseMode     ExcuseMode @default(NONE)
+  excuseAltTitle String?
 
   checks RafiqTrackerCheck[]
   slots  RafiqTrackerSlot[]
@@ -1655,6 +1687,93 @@ model LoginAttempt {
   @@index([scope, ipHash, createdAt])
 }
 
+// ---------- «أيام العذر» (src/lib/excuse) ----------
+//
+// One excuse: a start and (once over) an end, each a day + a minute of that
+// day. The keep* lists are «day:itemId» keys worked out when it started /
+// ended (boundaryKeys), so a half day stays as it was whatever changes later:
+// keepOriginal = items of the start that stay as usual, keepExcused = items
+// of the end day that stay excused. At most one open excuse per person
+// (partial unique index in the migration); one never lasts past 15 days.
+// Never loaded for anyone who may not see it (visibility.ts).
+
+model StudentExcuse {
+  id                 String       @id @default(cuid())
+  studentId          String
+  student            Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  startDay           DateTime     @db.Date
+  startMin           Int
+  endDay             DateTime?    @db.Date
+  endMin             Int?
+  keepOriginal       String[]     @default([])
+  keepExcused        String[]     @default([])
+  startedBy          ExcuseActor
+  // STAFF: the teacher (or the supervisor's stand-in row)
+  startedByTeacherId String?
+  startedByTeacher   Teacher?     @relation("ExcuseStartedByTeacher", fields: [startedByTeacherId], references: [id], onDelete: SetNull)
+  // null while it lasts
+  endedBy            ExcuseActor?
+  endedByTeacherId   String?
+  endedByTeacher     Teacher?     @relation("ExcuseEndedByTeacher", fields: [endedByTeacherId], references: [id], onDelete: SetNull)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([studentId, startDay])
+}
+
+model RafiqExcuse {
+  id             String       @id @default(cuid())
+  userId         String
+  user           RafiqUser    @relation("ExcuseOwner", fields: [userId], references: [id], onDelete: Cascade)
+  startDay       DateTime     @db.Date
+  startMin       Int
+  endDay         DateTime?    @db.Date
+  endMin         Int?
+  keepOriginal   String[]     @default([])
+  keepExcused    String[]     @default([])
+  startedBy      ExcuseActor
+  // ADULT: the family adult (null once her account is deleted)
+  startedById    String?
+  startedByAdult RafiqUser?   @relation("ExcuseStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
+  endedBy        ExcuseActor?
+  endedById      String?
+  endedByAdult   RafiqUser?   @relation("ExcuseEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  pauses RafiqExcusePause[]
+
+  @@index([userId, startDay])
+}
+
+// «إيقاف الحفظ أيضًا»: whole days her memorization is paused during one
+// excuse (pausedDays), both ends included; toDay null = still paused. It may
+// be stopped and resumed while the excuse lasts; ending the excuse closes it.
+// At most one open pause per excuse (partial unique index in the migration).
+model RafiqExcusePause {
+  id       String      @id @default(cuid())
+  excuseId String
+  excuse   RafiqExcuse @relation(fields: [excuseId], references: [id], onDelete: Cascade)
+  fromDay  DateTime    @db.Date
+  toDay    DateTime?   @db.Date
+
+  @@index([excuseId])
+}
+
+// A girl's page («العائلة»): whether one adult of her family sees her
+// excuse. No row = the default (women yes, men no).
+model FamilyExcuseViewer {
+  id      String    @id @default(cuid())
+  childId String
+  child   RafiqUser @relation("ExcuseViewerChild", fields: [childId], references: [id], onDelete: Cascade)
+  adultId String
+  adult   RafiqUser @relation("ExcuseViewerAdult", fields: [adultId], references: [id], onDelete: Cascade)
+  canSee  Boolean
+
+  @@unique([childId, adultId])
+  @@index([adultId])
+}
+
 // ---------- Enums ----------
 
 // Labels live in src/lib/students/extra-info.ts. Values are never renamed:
@@ -1838,6 +1957,27 @@ enum AttendanceStatus {
   IN
   OUT
   PENDING
+  // «معذورة» (girls groups with Course.excuseEnabled): neither presence nor
+  // absence — a neutral week for the streak, a paused day for the goal
+  EXCUSED
+}
+
+// «أيام العذر»: an item on her excuse days
+enum ExcuseMode {
+  NONE
+  SKIP
+  ALT
+}
+
+// who started or ended an excuse
+enum ExcuseActor {
+  SELF
+  // a course's teacher or supervisor (startedByTeacherId / endedByTeacherId)
+  STAFF
+  // an adult of her family (startedById / endedById)
+  ADULT
+  // ended by itself after 15 days
+  AUTO
 }
 
 enum PointType {

@@ -7,3 +7,26 @@
 export function excuseEnabled(): boolean {
   return process.env.EXCUSE_ENABLED === "1";
 }
+
+/** EXCUSE_ALLOW_EMAILS: emails separated by commas, spaces or new lines → trimmed + lowercased (Rafiq stores them so). */
+export function parseAllowList(raw: string | undefined): Set<string> | null {
+  if (raw === undefined) return null;
+  return new Set(
+    raw
+      .split(/[\s,;]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+/**
+ * While it is tried out on the live site: with EXCUSE_ALLOW_EMAILS set, only
+ * the «رفيق الحفظ» accounts listed there have it (an empty list: nobody);
+ * unset, everyone does. A child (no email) never does through this list.
+ */
+export function excuseAllowed(email: string | null | undefined): boolean {
+  if (!excuseEnabled()) return false;
+  const list = parseAllowList(process.env.EXCUSE_ALLOW_EMAILS);
+  if (list === null) return true;
+  return !!email && list.has(email.trim().toLowerCase());
+}

@@ -7,7 +7,7 @@ import { addDays, isActiveOn, weekdayOf } from "@/lib/tracker/rules";
 import { effectiveTiming, resolveTiming } from "@/lib/tracker/schedule";
 import { prayerMinutes } from "@/lib/prayer/times";
 import { rafiqPlace } from "@/lib/prayer/place-data";
-import { excuseEnabled } from "./enabled";
+import { excuseAllowed, excuseEnabled } from "./enabled";
 import { adultExcuseApplies } from "./visibility";
 import { autoEndOf, boundaryKeys, checkEnd, checkStart, effectiveEnd, keyOf, pausedDays, type Excuse, type Moment, type MomentError } from "./rules";
 import { excuseLens } from "./lens";
@@ -42,8 +42,9 @@ export function nowIn(tz: string): Moment {
  */
 export async function ownExcuse(userId: string): Promise<{ show: boolean; on: boolean }> {
   if (!excuseEnabled()) return { show: false, on: false };
-  const u = await prisma.rafiqUser.findUnique({ where: { id: userId }, select: { kind: true, gender: true, excuseEnabled: true } });
-  if (!u) return { show: false, on: false };
+  const u = await prisma.rafiqUser.findUnique({ where: { id: userId }, select: { kind: true, gender: true, excuseEnabled: true, email: true } });
+  // EXCUSE_ALLOW_EMAILS: only the listed accounts while it's tried out
+  if (!u || !excuseAllowed(u.email)) return { show: false, on: false };
   const woman = adultExcuseApplies({ kind: u.kind, gender: u.gender, excuseEnabled: true });
   return { show: woman, on: woman && u.excuseEnabled };
 }
@@ -254,7 +255,9 @@ export async function endOnSwitchOff(userId: string, tz: string, by: { adultId: 
  */
 export async function quietSkips(userIds: string[], fromDay: string): Promise<Record<string, string[]>> {
   if (!excuseEnabled() || userIds.length === 0) return {};
-  const women = (await prisma.rafiqUser.findMany({ where: { id: { in: userIds }, kind: "ADULT", gender: "FEMALE" }, select: { id: true } })).map((u) => u.id);
+  const women = (await prisma.rafiqUser.findMany({ where: { id: { in: userIds }, kind: "ADULT", gender: "FEMALE" }, select: { id: true, email: true } }))
+    .filter((u) => excuseAllowed(u.email))
+    .map((u) => u.id);
   if (women.length === 0) return {};
   const [excuses, items] = await Promise.all([
     prisma.rafiqExcuse.findMany({
@@ -279,14 +282,18 @@ export async function quietSkips(userIds: string[], fromDay: string): Promise<Re
 }
 
 /**
- * For her family's dashboard (shared progress): per woman, her paused days
- * up to tomorrow (time-zone slack) — every woman gets an entry, maybe empty,
- * so whether one has a pause never shows in what leaves the server (the
- * results are worked out from these there; dashboard-build.ts resultsOf).
+ * For her family's dashboard (shared progress): per woman who has «أيام
+ * العذر», her paused days up to tomorrow (time-zone slack) — every such
+ * woman gets an entry, maybe empty, so whether she paused never shows in
+ * what leaves the server (the results are worked out from these there;
+ * dashboard-build.ts resultsOf).
  */
 export async function quietPauses(userIds: string[]): Promise<Record<string, string[]>> {
   if (!excuseEnabled() || userIds.length === 0) return {};
-  const women = (await prisma.rafiqUser.findMany({ where: { id: { in: userIds }, kind: "ADULT", gender: "FEMALE" }, select: { id: true } })).map((u) => u.id);
+  // only women who have it (EXCUSE_ALLOW_EMAILS): everyone else's card stays exactly as before
+  const women = (await prisma.rafiqUser.findMany({ where: { id: { in: userIds }, kind: "ADULT", gender: "FEMALE" }, select: { id: true, email: true } }))
+    .filter((u) => excuseAllowed(u.email))
+    .map((u) => u.id);
   const tomorrow = addDays(new Date().toISOString().slice(0, 10), 1);
   const out: Record<string, string[]> = {};
   for (const id of women) out[id] = [...pausedDays(await loadPauses(id), tomorrow)].sort();

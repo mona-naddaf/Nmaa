@@ -15,12 +15,16 @@ export function GoalLine({
   goal,
   feminine,
   invalidHint = null,
+  pausedText,
 }: {
   goal: GoalView | null;
   // the status in the feminine («متأخرة»)
   feminine: boolean;
   // shown when the target is no longer in her plan; null hides the goal then
   invalidHint?: string | null;
+  // «أيام العذر», for whoever may see it: today is paused (goal.paused), so
+  // this replaces the daily amount (D6). Unset: the daily amount as usual.
+  pausedText?: string;
 }) {
   if (!goal || (goal.state === "INVALID" && !invalidHint)) return null;
   return (
@@ -29,9 +33,13 @@ export function GoalLine({
       <div>
         {goal.state === "ACTIVE" && (
           <>
-            <span className={styles.daily}>
-              المطلوب يوميًا: <b>{quarterPagesLabel(goal.dailyQuarter)}</b> ≈ {ayatLabel(goal.dailyAyat)}
-            </span>
+            {goal.paused && pausedText ? (
+              <span className={styles.daily}>{pausedText}</span>
+            ) : (
+              <span className={styles.daily}>
+                المطلوب يوميًا: <b>{quarterPagesLabel(goal.dailyQuarter)}</b> ≈ {ayatLabel(goal.dailyAyat)}
+              </span>
+            )}
             <span className={`${styles.status} ${styles[goal.status]}`}>{STATUS_LABEL[goal.status][feminine ? "f" : "m"]}</span>
             <div>
               المتبقي: {pagesTotalLabel(goal.remainingPages)} {daysLeftLabel(goal.daysLeft)}

@@ -9,6 +9,7 @@ import { getGuide } from "@/lib/guide/state";
 import { checklistFacts, hasFlaggedWords } from "@/lib/guide/page-facts";
 import { ResumeCard } from "./ResumeCard";
 import { Checklist } from "./guide/Checklist";
+import { loadPauses, ownExcuse, pausedNow } from "@/lib/excuse/rafiq-data";
 
 // «صفحتي»: where she stands, her progress, recording a session, her
 // mistakes, review reminders and her session history. Before she has a plan,
@@ -24,6 +25,8 @@ export default async function RafiqHomePage({ searchParams }: PageProps<"/rafiq"
     select: { mutashabihatEnabled: true, tajweedDetailEnabled: true },
   });
   const guide = await getGuide();
+  // «أيام العذر»: a woman's own paused days (EXCUSE_ENABLED); nothing of it is loaded otherwise
+  const excuse = await ownExcuse(user.id);
   return (
     <RafiqHome
       data={data}
@@ -32,6 +35,7 @@ export default async function RafiqHomePage({ searchParams }: PageProps<"/rafiq"
       similar={mutashabihatEnabled}
       tajweed={tajweedDetailEnabled}
       tajweedSummary={await rafiqTajweedSummary(user.id)}
+      {...(excuse.show ? { paused: await loadPauses(user.id), pausedNow: await pausedNow(user.id) } : {})}
       guide={
         guide
           ? {

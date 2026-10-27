@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { addDays } from "@/lib/tracker/rules";
-import { quietSkips } from "@/lib/excuse/rafiq-data";
+import { quietPauses, quietSkips } from "@/lib/excuse/rafiq-data";
 import { buildDashboard, dashboardSections, type DashboardData, type DashFacts, type DashRows, type DashViewer } from "./dashboard-build";
 
 // «عائلتي»: the family dashboard, loaded in one batch for the whole family
@@ -62,7 +62,18 @@ async function loadRows(viewer: DashViewer, facts: DashFacts): Promise<DashRows>
   ]);
   // «أيام العذر»: a woman sharing her tracker — her excuse stays hers; the scores just leave those items out
   const skipped = await quietSkips(s.trackerAdultIds, day(from));
-  return { planItems, sessions, goals, commitDays, trackerItems, checks, ...(Object.keys(skipped).length ? { skipped } : {}) };
+  // and her paused days: her 🔥 and goal leave as results only
+  const paused = await quietPauses(s.progressAdultIds);
+  return {
+    planItems,
+    sessions,
+    goals,
+    commitDays,
+    trackerItems,
+    checks,
+    ...(Object.keys(skipped).length ? { skipped } : {}),
+    ...(Object.keys(paused).length ? { paused } : {}),
+  };
 }
 
 /** The dashboard of a family for one of its adults (the caller checked she belongs to it). */

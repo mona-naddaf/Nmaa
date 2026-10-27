@@ -37,7 +37,7 @@ import { ItemExcuseField, useItemExcuse } from "@/components/excuse/ItemExcuse";
 import { excuseLens } from "@/lib/excuse/lens";
 import type { Excuse, ExcuseMode } from "@/lib/excuse/rules";
 import { itemExcuseLine } from "@/lib/excuse/texts";
-import { endExcuseAction, settleExcuseAction, startExcuseAction } from "./excuse-actions";
+import { endExcuseAction, setPauseAction, settleExcuseAction, startExcuseAction } from "./excuse-actions";
 
 type Item = RafiqTrackerData["active"][number];
 type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
@@ -83,8 +83,9 @@ export function RafiqTracker({
   // guide's empty-page wording
   guide?: { intros: IntroId[]; add: boolean };
   // «أيام العذر» (her own, a woman's): her excuses; on: her switch is on (the
-  // button and each item's setting). Unset: none of it.
-  excuse?: { excuses: Excuse[]; on: boolean };
+  // button and each item's setting); pausedNow: her memorization is paused
+  // now («إيقاف الحفظ أيضًا»). Unset: none of it.
+  excuse?: { excuses: Excuse[]; on: boolean; pausedNow: boolean };
 }) {
   const can = scopeCan(scope);
   const subjectId = scope.subjectId;
@@ -274,9 +275,10 @@ export function RafiqTracker({
           excuses={excuse!.excuses}
           you={g === "GIRLS" ? "FEMALE" : "MALE"}
           self
-          onStart={(at) => startExcuseAction({ at, zone: zone() })}
+          onStart={(at, pause) => startExcuseAction({ at, zone: zone(), pause })}
           onEnd={(at) => endExcuseAction({ at, zone: zone() })}
           onSettle={() => settleExcuseAction({ zone: zone() })}
+          pause={{ paused: excuse!.pausedNow, onPause: (on) => setPauseAction({ on, zone: zone() }) }}
         />
       )}
 

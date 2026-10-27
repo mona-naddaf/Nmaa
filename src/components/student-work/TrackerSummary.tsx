@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "./summary.module.css";
 import { GoalLine } from "@/components/goal/GoalLine";
-import { GREGORIAN_MONTHS, gregorianLabelWithWeekday } from "@/lib/calendar/hijri";
+import { GREGORIAN_MONTHS, gregorianLabel, gregorianLabelWithWeekday } from "@/lib/calendar/hijri";
 import { weekStart, weekdayOf, WEEKDAY_SHORT } from "@/lib/tracker/rules";
 import { OFFSET_MIN, PERIOD_KINDS, PERIOD_LABEL, percentLabel, scheduledOn, type DayCell, type PeriodKind } from "@/lib/tracker/summary";
 import type { SummaryPayload } from "@/lib/tracker/summary-data";
@@ -12,7 +12,7 @@ import { streakText } from "@/lib/students/streak";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { inertClass, inertProps } from "@/components/nudge/nudge";
 import { useGuideTarget } from "@/components/guide/targets";
-import { EXCUSE_DAY, EXCUSE_SUMMARY_NOTE, excuseSkipNote } from "@/lib/excuse/texts";
+import { EXCUSE_DAY, EXCUSE_SUMMARY_NOTE, excuseSkipNote, goalPausedText } from "@/lib/excuse/texts";
 import { ExcuseWas } from "@/components/excuse/ItemExcuse";
 
 // «المحصّلات»: a period's commitment as a segmented ring (one segment per
@@ -209,7 +209,12 @@ export function TrackerSummary({
           <div className={styles.bigLabel} style={{ marginBottom: 6 }}>
             هدف الحفظ
           </div>
-          <GoalLine goal={data.achievements.goal} feminine={g === "GIRLS"} />
+          <GoalLine
+            goal={data.achievements.goal}
+            feminine={g === "GIRLS"}
+            // «أيام العذر»: today paused (only ever sent to whoever may see it)
+            pausedText={goalPausedText(gregorianLabel(data.achievements.goal.deadline), self)}
+          />
         </div>
       )}
 

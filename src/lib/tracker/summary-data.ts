@@ -3,8 +3,8 @@ import { prisma } from "@/lib/db";
 import { courseTimeZone } from "@/lib/time/course-zone";
 import { addDaysISO, dateOnly, isoOf, safeTimeZone, zoneDayOf, zoneDayRange, zoneToday } from "@/lib/time/zone";
 import { excuseLens, type ExcuseLens } from "@/lib/excuse/lens";
-import { keyOf } from "@/lib/excuse/rules";
-import { loadExcuses, nowIn } from "@/lib/excuse/rafiq-data";
+import { loadExcuses, loadPauses, nowIn, pausedNow } from "@/lib/excuse/rafiq-data";
+import { keyOf, pausedDays } from "@/lib/excuse/rules";
 import { itemsForStudentWhere } from "./data";
 import { comparisonLabel, computeSummary, periodLabel, periodRange, type PeriodKind, type Summary, type SummaryItem } from "./summary";
 import { entryCount } from "@/lib/recitation/combined";
@@ -216,14 +216,20 @@ export async function rafiqSummary(
     untilDay: r.archivedAt ? zoneDayOf(tz, r.archivedAt) : null,
   }));
   const inPeriod = sessions.filter((x) => x.source === "LOGGED" && isoOf(x.day) >= cur.from && isoOf(x.day) <= cur.to);
-  const goal = goalSpec
+  // «أيام العذر»: her paused days leave the goal's count; a viewer who may
+  // not see them gets the result only, never that today is paused
+  const paused = excuse.count && goalSpec ? pausedDays(await loadPauses(userId), today) : undefined;
+  const computed = goalSpec
     ? computeGoal(
         plan,
         goalSpec,
         sessions.map((x) => ({ surahNumber: x.surahNumber, fromAyah: x.fromAyah, toAyah: x.toAyah, type: x.type, day: isoOf(x.day), prior: x.source === "PRIOR" })),
         today,
+        paused,
       )
     : null;
+  // «paused» (D6) means paused right now: after she resumes, today still counts as paused, but the goal shows its daily amount
+  const goal = computed?.state === "ACTIVE" && computed.paused && !(excuse.show && (await pausedNow(userId))) ? { ...computed, paused: false } : computed;
 
   return assemble(kind, offset, today, items, checks, {
     pages: round3(inPeriod.filter((x) => x.type === "NEW").reduce((n, x) => n + Number(x.pagesCalculated), 0)),

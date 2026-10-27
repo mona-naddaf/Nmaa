@@ -17,7 +17,8 @@ import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
 import { buildCoverage, coveredQuranPages } from "@/lib/students/progress";
 import { forPosition } from "@/lib/rafiq/position";
 import type { ScoredItem } from "@/lib/tracker/rules";
-import type { GoalSession, GoalSpec } from "@/lib/goals/goal";
+import { computeGoal, type GoalSession, type GoalSpec, type GoalView } from "@/lib/goals/goal";
+import { commitStart, computeStreak } from "@/lib/rafiq/streak";
 import type { CommitmentData } from "@/lib/rafiq/commitment";
 
 export type DashViewer = { kind: "ADULT" | "CHILD"; id: string };
@@ -71,6 +72,10 @@ export type DashRows = {
   // src/lib/excuse/rules.ts). Used here only: what leaves the server is the
   // scores without them, never the pairs or the days.
   skipped?: Record<string, string[]>;
+  // «أيام العذر» on: per woman sharing her progress, her paused days (maybe
+  // none). Her card then carries her 🔥 and goal worked out here, never the
+  // days themselves (resultsOf).
+  paused?: Record<string, string[]>;
 };
 
 // a scored row without its title (it never leaves the server)
@@ -86,6 +91,10 @@ export type DashProgress = {
   memorizedPages?: number;
   goal?: { plan: number[]; spec: GoalSpec; sessions: GoalSession[] } | null;
   streak?: CommitmentData;
+  // instead of goal / streak («أيام العذر» on, a woman): the results for each
+  // day that may be the viewer's today (the server doesn't know her zone)
+  goalBy?: Record<string, GoalView | null>;
+  streakBy?: Record<string, { current: number; best: number }>;
 };
 
 export type DashCard = {
@@ -115,7 +124,7 @@ function planOf(rows: DashRows, userId: string): number[] {
     .map((p) => p.surahNumber);
 }
 
-function progressOf(rows: DashRows, person: PersonRow, full: boolean): DashProgress {
+function progressOf(rows: DashRows, person: PersonRow, full: boolean, now: Date = new Date()): DashProgress {
   const sessions = rows.sessions.filter((s) => s.userId === person.id);
   const plan = planOf(rows, person.id);
   const reach = deriveReach(plan, forPosition(sessions, person.planChangedAt));
@@ -128,7 +137,7 @@ function progressOf(rows: DashRows, person: PersonRow, full: boolean): DashProgr
   };
   if (!full) return base;
   const g = rows.goals.find((x) => x.userId === person.id);
-  return {
+  const full$: DashProgress = {
     ...base,
     memorizedPages: coveredQuranPages(buildCoverage(sessions)),
     goal: g
@@ -148,6 +157,28 @@ function progressOf(rows: DashRows, person: PersonRow, full: boolean): DashProgr
       createdAt: person.createdAt.toISOString(),
     },
   };
+  const paused = rows.paused?.[person.id];
+  return paused ? resultsOf(full$, paused, person.createdAt, now) : full$;
+}
+
+/**
+ * «أيام العذر»: a woman's 🔥 and goal as results only, for each day that may
+ * be the viewer's today (yesterday, today and tomorrow by the server's
+ * clock). Paused days count as days off and leave the goal's count, but
+ * nothing says so: never «متأخرة» on a paused day, no reason shown.
+ */
+function resultsOf(p: DashProgress, paused: string[], createdAt: Date, now: Date = new Date()): DashProgress {
+  const { goal, streak, ...rest } = p;
+  const todays = [-1, 0, 1].map((n) => shiftDay(day(now), n));
+  const upTo = (d: string) => new Set(paused.filter((x) => x <= d));
+  const goalBy: Record<string, GoalView | null> = {};
+  const streakBy: Record<string, { current: number; best: number }> = {};
+  for (const d of todays) {
+    const v = goal ? computeGoal(goal.plan, goal.spec, goal.sessions, d, upTo(d)) : null;
+    goalBy[d] = v?.state === "ACTIVE" ? { ...v, paused: false } : v;
+    if (streak) streakBy[d] = computeStreak(streak.schedule, new Set(streak.loggedDays), d, commitStart(streak.loggedDays, day(createdAt)), upTo(d));
+  }
+  return { ...rest, goalBy, streakBy };
 }
 
 // a sibling's ticks: today only — the server doesn't know the viewer's day, so
@@ -262,7 +293,7 @@ export function buildDashboard(viewer: DashViewer, facts: DashFacts, rows: DashR
       name: a.name ?? "",
       gender: a.gender,
       isMe: viewer.kind === "ADULT" && viewer.id === a.id,
-      ...(a.shareProgress ? { progress: progressOf(rows, a, true) } : {}),
+      ...(a.shareProgress ? { progress: progressOf(rows, a, true, now) } : {}),
       ...(a.shareTracker ? { tracker: trackerOf(rows, a.id) } : {}),
     }));
   return { children, adults };

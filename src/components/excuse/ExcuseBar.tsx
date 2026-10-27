@@ -6,6 +6,8 @@ import hl from "@/components/home-log/home-log.module.css";
 import work from "@/components/student-work/work.module.css";
 import css from "./excuse.module.css";
 import { pointTo } from "@/components/nudge/nudge";
+import { SavedNote } from "@/components/nudge/SavedNote";
+import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
 import { parseClock } from "@/lib/tracker/agenda";
 import { addDays } from "@/lib/tracker/rules";
 import { checkEnd, checkStart, effectiveEnd, type Excuse, type Moment } from "@/lib/excuse/rules";
@@ -22,6 +24,10 @@ import {
   EXCUSE_WHEN,
   excuseAutoEnded,
   momentErrorText,
+  PAUSE_OPTION,
+  PAUSE_RESUME,
+  PAUSED_SUFFIX,
+  pauseHint,
   sinceLabel,
 } from "@/lib/excuse/texts";
 
@@ -31,7 +37,10 @@ import {
 // The panel mirrors the rules; the server checks them again and answers
 // with the approved message. Shown only to whoever may start and end it.
 
-export type ExcuseAction = (at: "NOW" | Moment) => Promise<{ error?: string; autoEnded?: boolean }>;
+// pause: «إيقاف الحفظ أيضًا» chosen in the start panel
+export type ExcuseAction = (at: "NOW" | Moment, pause?: boolean) => Promise<{ error?: string; autoEnded?: boolean }>;
+
+const FAIL = "تعذّر الحفظ، يُرجى المحاولة مرة أخرى";
 
 /** Her moment now (the browser's day and minute). */
 function localNow(): Moment {
@@ -47,6 +56,7 @@ export function ExcuseBar({
   onStart,
   onEnd,
   onSettle,
+  pause,
 }: {
   // hers, oldest first (the open one, if any, last)
   excuses: Excuse[];
@@ -58,10 +68,40 @@ export function ExcuseBar({
   onEnd: ExcuseAction;
   // an excuse found past its 15 days: the server ends it
   onSettle: () => Promise<{ autoEnded?: boolean }>;
+  // «رفيق الحفظ» and the family: pausing memorization too (C4, C9); paused:
+  // her open excuse has it paused now. Unset (courses): no such choice.
+  pause?: { paused: boolean; onPause: (on: boolean) => Promise<{ error?: string; autoEnded?: boolean }> };
 }) {
   const router = useRouter();
   const [panel, setPanel] = useState<"start" | "end" | null>(null);
   const [note, setNote] = useState<"ended" | "auto" | null>(null);
+  // C9: changed at once, saved in the background; put back with a message if saving fails
+  const [paused, setPaused] = useState(pause?.paused ?? false);
+  const [seenPaused, setSeenPaused] = useState(pause?.paused ?? false);
+  if ((pause?.paused ?? false) !== seenPaused) {
+    setSeenPaused(pause?.paused ?? false);
+    setPaused(pause?.paused ?? false);
+  }
+  const [pauseError, setPauseError] = useState<string | null>(null);
+  const [pauseStamp, setPauseStamp] = useState(0);
+  function togglePause() {
+    if (!pause) return;
+    const next = !paused;
+    setPaused(next);
+    setPauseError(null);
+    setPauseStamp(0);
+    trackSave(pause.onPause(next))
+      .then((r) => {
+        if (r.error) throw new Error(r.error);
+        if (r.autoEnded) setNote("auto");
+        setPauseStamp(Date.now());
+        router.refresh();
+      })
+      .catch(() => {
+        setPaused(!next);
+        setPauseError(FAIL);
+      });
+  }
   const now = localNow();
   const open = excuses.find((e) => e.end === null && !effectiveEnd(e, now)) ?? null;
   const expired = excuses.some((e) => e.end === null && effectiveEnd(e, now)?.auto);
@@ -110,10 +150,21 @@ export function ExcuseBar({
         <div className={css.bar}>
           {open ? (
             <>
-              <span className={css.since}>{sinceLabel(open.start.day, now.day)}</span>
+              <span className={css.since}>
+                {sinceLabel(open.start.day, now.day)}
+                {pause && paused && ` · ${PAUSED_SUFFIX}`}
+              </span>
               <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => (setNote(null), setPanel("end"))}>
                 {EXCUSE_END}
               </button>
+              {pause && (
+                <span>
+                  <button type="button" className={hl.linkBtn} aria-pressed={paused} onClick={togglePause}>
+                    {paused ? PAUSE_RESUME : PAUSE_OPTION}
+                  </button>
+                  <SavedNote stamp={pauseStamp} />
+                </span>
+              )}
             </>
           ) : (
             <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => (setNote(null), setPanel("start"))}>
@@ -122,16 +173,23 @@ export function ExcuseBar({
           )}
         </div>
       )}
+      {pauseError && (
+        <div className={`${hl.err} ${css.note}`} role="alert">
+          {pauseError}
+        </div>
+      )}
+      {pause && <LeaveGuard you={you} />}
       {panel && (
         <WhenPanel
           key={panel}
           what={panel}
           you={you}
+          pauseHint={pause && panel === "start" ? pauseHint(self) : undefined}
           check={(at, n) => (panel === "start" ? checkStart(at, n, lastEnd) : open ? checkEnd(at, n, open.start) : null)}
           other={panel === "start" ? lastEnd : (open?.start ?? null)}
           onCancel={() => setPanel(null)}
-          onConfirm={async (at) => {
-            const r = await (panel === "start" ? onStart : onEnd)(at);
+          onConfirm={async (at, withPause) => {
+            const r = await (panel === "start" ? onStart : onEnd)(at, withPause);
             if (r.error) return r.error;
             setPanel(null);
             if (r.autoEnded) setNote("auto");
@@ -153,17 +211,22 @@ function WhenPanel({
   other,
   onCancel,
   onConfirm,
+  pauseHint,
 }: {
   what: "start" | "end";
   you: "MALE" | "FEMALE";
+  // the start panel in «رفيق الحفظ» and the family: «إيقاف الحفظ أيضًا» (C4), with its hint
+  pauseHint?: string;
   check: (at: Moment | null, now: Moment) => ReturnType<typeof checkStart>;
   // what an earlier time must come after (the last end / this start), for the message
   other: Moment | null;
   onCancel: () => void;
   // null: done; otherwise the message to show
-  onConfirm: (at: "NOW" | Moment) => Promise<string | null>;
+  onConfirm: (at: "NOW" | Moment, pause: boolean) => Promise<string | null>;
 }) {
   const [earlier, setEarlier] = useState(false);
+  // unchecked at first
+  const [pause, setPause] = useState(false);
   const [yesterday, setYesterday] = useState(false);
   const [time, setTime] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
@@ -186,7 +249,7 @@ function WhenPanel({
     }
     setProblem(null);
     start(async () => {
-      const message = await onConfirm(at).catch(() => "تعذّر الحفظ، يُرجى المحاولة مرة أخرى");
+      const message = await onConfirm(at, pause).catch(() => "تعذّر الحفظ، يُرجى المحاولة مرة أخرى");
       if (message) {
         setProblem(message);
         if (earlier) pointTo(timeRef.current);
@@ -244,6 +307,15 @@ function WhenPanel({
               setProblem(null);
             }}
           />
+        </div>
+      )}
+      {pauseHint && (
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14, cursor: "pointer" }}>
+            <input type="checkbox" checked={pause} onChange={(e) => setPause(e.target.checked)} />
+            {PAUSE_OPTION}
+          </label>
+          <div className={css.hint}>{pauseHint}</div>
         </div>
       )}
       {problem && (

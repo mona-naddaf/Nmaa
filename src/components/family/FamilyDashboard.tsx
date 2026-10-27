@@ -114,15 +114,26 @@ function Card({ card: c, today }: { card: DashCard; today: string | null }) {
   );
 }
 
+/** The result for her today, or (a time zone further off) the nearest day's. */
+function pickDay<T>(by: Record<string, T>, today: string): T | null {
+  if (today in by) return by[today];
+  const days = Object.keys(by).sort();
+  if (days.length === 0) return null;
+  return by[today < days[0] ? days[0] : days[days.length - 1]];
+}
+
 function Progress({ card: c, today }: { card: DashCard; today: string }) {
   const p = c.progress!;
   const g = c.gender;
   const recordedToday = p.loggedDays.includes(today);
   const last = p.loggedDays[p.loggedDays.length - 1] ?? null;
-  const goal = p.goal ? computeGoal(p.goal.plan, p.goal.spec, p.goal.sessions, today) : null;
-  const streak = p.streak
-    ? computeStreak(p.streak.schedule, new Set(p.streak.loggedDays), today, commitStart(p.streak.loggedDays, dayOfInstant(p.streak.createdAt, null)))
-    : null;
+  // goalBy / streakBy («أيام العذر» on, a woman): worked out by the server for each day that may be today
+  const goal = p.goalBy ? pickDay(p.goalBy, today) : p.goal ? computeGoal(p.goal.plan, p.goal.spec, p.goal.sessions, today) : null;
+  const streak = p.streakBy
+    ? pickDay(p.streakBy, today)
+    : p.streak
+      ? computeStreak(p.streak.schedule, new Set(p.streak.loggedDays), today, commitStart(p.streak.loggedDays, dayOfInstant(p.streak.createdAt, null)))
+      : null;
   return (
     <div style={{ display: "grid", gap: 4, fontSize: 13, color: "var(--ink)" }}>
       <div>

@@ -102,3 +102,16 @@ export const EXCUSE_SKIP_TODAY = "لا يُحسب اليوم"; // D2
 export const excuseSkipNote = (isToday: boolean) => (isToday ? EXCUSE_SKIP_TODAY : ITEM_EXCUSE_OPTIONS.SKIP);
 export const EXCUSE_DAY = "يوم عذر"; // D3
 export const EXCUSE_SUMMARY_NOTE = "في أيام العذر يُحسب البديل مكان بنده، وتُرفع البنود التي لا تُحسب."; // D4
+
+// ---------- pausing memorization («رفيق الحفظ» and the family) ----------
+
+export const PAUSE_OPTION = "إيقاف الحفظ أيضًا"; // C4, C9
+/** C4's hint: to her (self), or to an adult on a girl's page. */
+export const pauseHint = (self: boolean) =>
+  `لا تنقطع سلسلة 🔥 في هذه الأيام ولا تُحسب من أيام الالتزام. يبقى موعد هدف الحفظ كما هو، ويُوزَّع الباقي على الأيام المتبقية بعد ${self ? "عودتكِ" : "عودتها"}.`;
+export const PAUSED_SUFFIX = "الحفظ متوقّف"; // C7: «معذورة منذ … · الحفظ متوقّف»
+export const PAUSE_RESUME = "استئناف الحفظ"; // C9
+export const PAUSED_DAY = "توقّف الحفظ"; // D5
+/** D6, in place of the daily amount: deadline as «12 ديسمبر 2026». */
+export const goalPausedText = (deadline: string, self: boolean) =>
+  `الحفظ متوقّف الآن. الموعد باقٍ ${deadline}، ويُوزَّع الباقي على الأيام المتبقية بعد ${self ? "عودتكِ" : "عودتها"}.`;

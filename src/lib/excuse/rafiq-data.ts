@@ -9,7 +9,7 @@ import { prayerMinutes } from "@/lib/prayer/times";
 import { rafiqPlace } from "@/lib/prayer/place-data";
 import { excuseEnabled } from "./enabled";
 import { adultExcuseApplies } from "./visibility";
-import { boundaryKeys, checkEnd, checkStart, effectiveEnd, keyOf, type Excuse, type Moment, type MomentError } from "./rules";
+import { autoEndOf, boundaryKeys, checkEnd, checkStart, effectiveEnd, keyOf, pausedDays, type Excuse, type Moment, type MomentError } from "./rules";
 import { excuseLens } from "./lens";
 import { momentErrorText } from "./texts";
 
@@ -89,10 +89,16 @@ const openOf = (userId: string) => prisma.rafiqExcuse.findFirst({ where: { userI
 
 async function close(userId: string, id: string, at: Moment, now: Moment, tz: string, by: { actor: "SELF" | "ADULT" | "AUTO"; adultId: string | null }) {
   const keepExcused = await keysAt(userId, at, now.day, tz);
-  await prisma.rafiqExcuse.updateMany({
+  const { count } = await prisma.rafiqExcuse.updateMany({
     where: { id, endDay: null },
     data: { endDay: dateOnly(at.day), endMin: at.min, keepExcused, endedBy: by.actor, endedById: by.adultId },
   });
+  // her memorization resumes with it: a pause runs to the end's day (one
+  // that would only begin after it is dropped)
+  if (count) {
+    await prisma.rafiqExcusePause.deleteMany({ where: { excuseId: id, toDay: null, fromDay: { gt: dateOnly(at.day) } } });
+    await prisma.rafiqExcusePause.updateMany({ where: { excuseId: id, toDay: null }, data: { toDay: dateOnly(at.day) } });
+  }
 }
 
 /** An open excuse past its 15 days ends at its cap. true: it just did. */
@@ -124,8 +130,11 @@ export type ExcuseResult = { error?: string; autoEnded?: boolean };
 
 const errorOf = (e: MomentError, you: G, other: Moment | null, today: string) => ({ error: momentErrorText(e, you, other, today) });
 
-/** «بدء العذر»: from now or an earlier moment (today or yesterday). you: who presses, for the wording. */
-export async function startExcuse(userId: string, input: MomentInput, tz: string, by: { you: G; adultId: string | null }): Promise<ExcuseResult> {
+/**
+ * «بدء العذر»: from now or an earlier moment (today or yesterday). you: who
+ * presses, for the wording. pause: «إيقاف الحفظ أيضًا», from the start's day.
+ */
+export async function startExcuse(userId: string, input: MomentInput, tz: string, by: { you: G; adultId: string | null }, pause = false): Promise<ExcuseResult> {
   const now = nowIn(tz);
   const autoEnded = await settleExpired(userId, now, tz);
   if (await openOf(userId)) return { autoEnded };
@@ -144,6 +153,7 @@ export async function startExcuse(userId: string, input: MomentInput, tz: string
         keepOriginal: await keysAt(userId, at, now.day, tz),
         startedBy: by.adultId ? "ADULT" : "SELF",
         startedById: by.adultId,
+        ...(pause ? { pauses: { create: { fromDay: dateOnly(at.day) } } } : {}),
       },
     });
   } catch (e) {
@@ -167,6 +177,59 @@ export async function endExcuse(userId: string, input: MomentInput, tz: string, 
   if (problem || !at) return errorOf(problem ?? "NO_TIME", by.you, start, now.day);
   await close(userId, open.id, at, now, tz, { actor: by.adultId ? "ADULT" : "SELF", adultId: by.adultId });
   return {};
+}
+
+/**
+ * «إيقاف الحفظ أيضًا» / «استئناف الحفظ» while an excuse lasts (C9). Paused
+ * days are whole days: pausing covers today, and so does resuming (today
+ * stays paused); pausing again the day she resumed carries on that stretch.
+ */
+export async function setPause(userId: string, on: boolean, tz: string): Promise<ExcuseResult> {
+  const now = nowIn(tz);
+  if (await settleExpired(userId, now, tz)) return { autoEnded: true };
+  const open = await openOf(userId);
+  // the excuse ended meanwhile: nothing to pause
+  if (!open) return {};
+  const today = dateOnly(now.day);
+  if (!on) {
+    await prisma.rafiqExcusePause.updateMany({ where: { excuseId: open.id, toDay: null }, data: { toDay: today } });
+    return {};
+  }
+  if (await prisma.rafiqExcusePause.count({ where: { excuseId: open.id, toDay: null } })) return {};
+  const resumedToday = await prisma.rafiqExcusePause.findFirst({ where: { excuseId: open.id, toDay: { gte: today } }, select: { id: true } });
+  try {
+    if (resumedToday) await prisma.rafiqExcusePause.update({ where: { id: resumedToday.id }, data: { toDay: null } });
+    else await prisma.rafiqExcusePause.create({ data: { excuseId: open.id, fromDay: today } });
+  } catch (e) {
+    // paused meanwhile (another tab): already as she wants it
+    if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+  }
+  return {};
+}
+
+/**
+ * Her paused stretches (every excuse's), oldest first: for her 🔥 and her
+ * goal (pausedDays). A pause still open on an excuse past its 15 days (not
+ * closed yet: she hasn't opened her tracker since) stops at its cap day.
+ */
+export async function loadPauses(userId: string): Promise<{ from: string; to: string | null }[]> {
+  const rows = await prisma.rafiqExcusePause.findMany({
+    where: { excuse: { userId } },
+    orderBy: { fromDay: "asc" },
+    select: { fromDay: true, toDay: true, excuse: { select: { startDay: true } } },
+  });
+  // a day of slack: whatever her time zone, the cap day has passed for her
+  const past = addDays(new Date().toISOString().slice(0, 10), -1);
+  return rows.map((r) => {
+    if (r.toDay) return { from: isoOf(r.fromDay), to: isoOf(r.toDay) };
+    const cap = autoEndOf({ day: isoOf(r.excuse.startDay), min: 0 }).day;
+    return { from: isoOf(r.fromDay), to: cap < past ? cap : null };
+  });
+}
+
+/** Whether her open excuse has memorization paused now. */
+export async function pausedNow(userId: string): Promise<boolean> {
+  return (await prisma.rafiqExcusePause.count({ where: { toDay: null, excuse: { userId, endDay: null } } })) > 0;
 }
 
 /** Turning the feature off ends an open excuse now (A4). */
@@ -212,5 +275,20 @@ export async function quietSkips(userIds: string[], fromDay: string): Promise<Re
     for (let d = fromDay; d <= addDays(now.day, 1); d = addDays(d, 1)) for (const i of skips) if (lens.skipped(i.id, d)) keys.push(keyOf(d, i.id));
     if (keys.length) out[id] = keys;
   }
+  return out;
+}
+
+/**
+ * For her family's dashboard (shared progress): per woman, her paused days
+ * up to tomorrow (time-zone slack) — every woman gets an entry, maybe empty,
+ * so whether one has a pause never shows in what leaves the server (the
+ * results are worked out from these there; dashboard-build.ts resultsOf).
+ */
+export async function quietPauses(userIds: string[]): Promise<Record<string, string[]>> {
+  if (!excuseEnabled() || userIds.length === 0) return {};
+  const women = (await prisma.rafiqUser.findMany({ where: { id: { in: userIds }, kind: "ADULT", gender: "FEMALE" }, select: { id: true } })).map((u) => u.id);
+  const tomorrow = addDays(new Date().toISOString().slice(0, 10), 1);
+  const out: Record<string, string[]> = {};
+  for (const id of women) out[id] = [...pausedDays(await loadPauses(id), tomorrow)].sort();
   return out;
 }

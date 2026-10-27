@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { resolveSubject } from "@/lib/rafiq/subject";
 import { safeTimeZone } from "@/lib/time/zone";
-import { endExcuse, nowIn, ownExcuse, settleExpired, startExcuse, type ExcuseResult, type MomentInput } from "@/lib/excuse/rafiq-data";
+import { endExcuse, nowIn, ownExcuse, setPause, settleExpired, startExcuse, type ExcuseResult, type MomentInput } from "@/lib/excuse/rafiq-data";
 
 // «أيام العذر» on her own «جدول المتابعة» («رفيق الحفظ»): «بدء العذر»,
 // «انتهى العذر», and closing one that passed its 15 days. zone: her
@@ -13,9 +13,9 @@ import { endExcuse, nowIn, ownExcuse, settleExpired, startExcuse, type ExcuseRes
 // a stale page (the switch turned off meanwhile)
 const OFF = { error: "أيام العذر غير مفعّلة — يمكن تفعيلها من الإعدادات" };
 
+// her tracker, and (a pause) her 🔥 and goal on «صفحتي»
 function refresh() {
-  revalidatePath("/rafiq/tracker");
-  revalidatePath("/rafiq/tracker/summary");
+  revalidatePath("/rafiq", "layout");
 }
 
 async function own(subjectId: unknown) {
@@ -25,10 +25,11 @@ async function own(subjectId: unknown) {
   return user;
 }
 
-export async function startExcuseAction(input: { at: MomentInput; zone: unknown; subjectId?: string }): Promise<ExcuseResult> {
+// pause: «إيقاف الحفظ أيضًا» (C4)
+export async function startExcuseAction(input: { at: MomentInput; zone: unknown; pause?: boolean; subjectId?: string }): Promise<ExcuseResult> {
   const user = await own(input?.subjectId);
   if ("error" in user) return user;
-  const r = await startExcuse(user.id, input?.at, safeTimeZone(typeof input?.zone === "string" ? input.zone : null), { you: user.gender, adultId: null });
+  const r = await startExcuse(user.id, input?.at, safeTimeZone(typeof input?.zone === "string" ? input.zone : null), { you: user.gender, adultId: null }, input?.pause === true);
   if (!r.error) refresh();
   return r;
 }
@@ -37,6 +38,15 @@ export async function endExcuseAction(input: { at: MomentInput; zone: unknown; s
   const user = await own(input?.subjectId);
   if ("error" in user) return user;
   const r = await endExcuse(user.id, input?.at, safeTimeZone(typeof input?.zone === "string" ? input.zone : null), { you: user.gender, adultId: null });
+  if (!r.error) refresh();
+  return r;
+}
+
+/** «إيقاف الحفظ أيضًا» / «استئناف الحفظ» while her excuse lasts (C9). */
+export async function setPauseAction(input: { on: boolean; zone: unknown; subjectId?: string }): Promise<ExcuseResult> {
+  const user = await own(input?.subjectId);
+  if ("error" in user) return user;
+  const r = await setPause(user.id, input?.on === true, safeTimeZone(typeof input?.zone === "string" ? input.zone : null));
   if (!r.error) refresh();
   return r;
 }

@@ -46,6 +46,9 @@ import { introsFor } from "@/lib/guide/lines";
 import { EMPTY } from "@/lib/guide/lines-texts";
 import { useGuide } from "./GuideProvider";
 import { IntroLine } from "./guide/IntroLine";
+import { pausedDays } from "@/lib/excuse/rules";
+import { goalPausedText, PAUSED_DAY } from "@/lib/excuse/texts";
+import { gregorianLabel } from "@/lib/calendar/hijri";
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
 const QUALITY_LABEL: Record<Quality, string> = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" };
@@ -68,6 +71,8 @@ export function RafiqHome({
   tajweedSummary = null,
   scope = SELF_SCOPE,
   guide,
+  paused,
+  pausedNow = false,
 }: {
   data: MemorizationView;
   gender: PersonGender;
@@ -81,6 +86,12 @@ export function RafiqHome({
   // the page's intro lines (flaggedWords: a word flagged in any session of
   // hers), and the guide's empty-page wording
   guide?: { slot: React.ReactNode; flaggedWords: boolean };
+  // «أيام العذر», for whoever may see it: her paused stretches («إيقاف الحفظ
+  // أيضًا»), days off for 🔥 and left out of the goal. Unset: none.
+  paused?: { from: string; to: string | null }[];
+  // her memorization is paused right now (the goal says so, D6); after she
+  // resumes, today still counts as paused but the goal shows its daily amount
+  pausedNow?: boolean;
 }) {
   const router = useRouter();
   const today = useToday();
@@ -185,6 +196,8 @@ export function RafiqHome({
     document.getElementById("record")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // her paused days, up to her own today
+  const pausedSet = useMemo(() => (paused && today ? pausedDays(paused, today) : undefined), [paused, today]);
   // her goal, by her own day (null until her browser's day is known)
   const goal = useMemo(
     () =>
@@ -194,9 +207,10 @@ export function RafiqHome({
             data.goal,
             data.history.map((h) => ({ ...h, prior: h.source === "PRIOR" })),
             today,
+            pausedSet,
           )
         : null,
-    [data.goal, data.plan, data.history, today],
+    [data.goal, data.plan, data.history, today, pausedSet],
   );
 
   const quranPercent = Math.min(100, Math.round((data.memorizedPages / TOTAL_PAGES) * 1000) / 10);
@@ -216,7 +230,12 @@ export function RafiqHome({
                 ? `لم ${ofChild("يبدأ", "تبدأ")} بعد — أول سورة في ${ofChild("خطته", "خطتها")}: ${SURAH_NAME[data.plan[0]]}`
                 : `لم ${p("تبدأ", "تبدئي")} بعد — أول سورة في خطتك: ${SURAH_NAME[data.plan[0]]}`}
           </div>
-          <GoalLine goal={goal} feminine={gender === "FEMALE"} invalidHint="الهدف لم يعد ضمن خطتك الحالية — يمكن تعديله من «خطتي»." />
+          <GoalLine
+            goal={goal}
+            feminine={gender === "FEMALE"}
+            invalidHint="الهدف لم يعد ضمن خطتك الحالية — يمكن تعديله من «خطتي»."
+            {...(pausedNow && goal ? { pausedText: goalPausedText(gregorianLabel(goal.deadline), true) } : {})}
+          />
         </div>
       </div>
       {guide && (
@@ -270,6 +289,7 @@ export function RafiqHome({
         <CommitCard
           commitment={commitment}
           today={today}
+          paused={pausedSet}
           settingsHref={can.ownExtras ? "/rafiq/settings#commit" : scope.settingsHref}
           {...(guide ? { noStreak: genderText(EMPTY.homeStreak, gender) } : {})}
         />
@@ -443,14 +463,27 @@ const WEEK_MARK = { done: "✓", missed: "✗", off: "—", today: "•", future
 /** Her streak of commitment days and this week, worked out on her local today. */
 // settingsHref: where the commitment days are chosen (none: the child, who doesn't choose them)
 // noStreak: the guide's wording for no streak yet (her own page, guidance on)
-function CommitCard({ commitment, today, settingsHref, noStreak }: { commitment: CommitmentData; today: string | null; settingsHref?: string; noStreak?: string }) {
+// paused: «أيام العذر», her paused days (days off, «توقّف الحفظ» on their tile), for whoever may see them
+function CommitCard({
+  commitment,
+  today,
+  settingsHref,
+  noStreak,
+  paused,
+}: {
+  commitment: CommitmentData;
+  today: string | null;
+  settingsHref?: string;
+  noStreak?: string;
+  paused?: Set<string>;
+}) {
   const t = useGuideTarget();
   if (!today) return <div className={styles.commitCard} style={{ minHeight: 70 }} aria-busy />;
   const logged = new Set(commitment.loggedDays);
   // her first day: the local day she signed up (not the UTC one)
   const start = commitStart(commitment.loggedDays, dayOfInstant(commitment.createdAt, null));
-  const { current, best } = computeStreak(commitment.schedule, logged, today, start);
-  const week = weekView(commitment.schedule, logged, today, start);
+  const { current, best } = computeStreak(commitment.schedule, logged, today, start, paused);
+  const week = weekView(commitment.schedule, logged, today, start, paused);
   return (
     <div className={styles.commitCard} {...t("home.streak")}>
       <div>
@@ -467,7 +500,7 @@ function CommitCard({ commitment, today, settingsHref, noStreak }: { commitment:
       </div>
       <div className={styles.week} aria-label="هذا الأسبوع">
         {week.map((w) => (
-          <div key={w.day} className={`${styles.weekDay} ${styles[w.state]}`} title={w.day}>
+          <div key={w.day} className={`${styles.weekDay} ${styles[w.state]}`} title={paused?.has(w.day) ? `${w.day} · ${PAUSED_DAY}` : w.day}>
             {WEEKDAY_SHORT[weekdayOf(w.day)]}
             <b>{WEEK_MARK[w.state]}</b>
           </div>

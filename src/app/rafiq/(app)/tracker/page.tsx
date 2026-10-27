@@ -8,7 +8,7 @@ import { editableChildren } from "@/lib/family/tracker-copy-data";
 import { getGuide } from "@/lib/guide/state";
 import { introsFor } from "@/lib/guide/lines";
 import { trackerIntroFacts } from "@/lib/guide/page-facts";
-import { loadExcuses, ownExcuse } from "@/lib/excuse/rafiq-data";
+import { loadExcuses, ownExcuse, pausedNow } from "@/lib/excuse/rafiq-data";
 import { addDays } from "@/lib/tracker/rules";
 
 // With guidance on: the page's intro lines, and ?add=1 («إضافة بند» in
@@ -24,7 +24,11 @@ export default async function RafiqTrackerPage({ searchParams }: PageProps<"/raf
   return (
     <RafiqTracker
       data={await getRafiqTracker(user.id, undefined, excuse.show)}
-      excuse={excuse.show ? { excuses: await loadExcuses(user.id, addDays(new Date().toISOString().slice(0, 10), -10)), on: excuse.on } : undefined}
+      excuse={
+        excuse.show
+          ? { excuses: await loadExcuses(user.id, addDays(new Date().toISOString().slice(0, 10), -10)), on: excuse.on, pausedNow: await pausedNow(user.id) }
+          : undefined
+      }
       g={user.gender === "FEMALE" ? "GIRLS" : "BOYS"}
       agenda={agendaEnabled}
       summary={summaryEnabled}

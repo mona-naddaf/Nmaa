@@ -3,6 +3,7 @@ import { juzSegments } from "@/lib/quran-data/juz";
 import { daysBetween } from "@/lib/calendar/hijri";
 import { advancesPosition, type SessionType } from "@/lib/recitation/logic";
 import { DAYS_AFTER_PREP, countLabel, type CountForms } from "@/lib/text/count";
+import { addDays } from "@/lib/tracker/rules";
 
 // An optional memorization goal with a deadline, for a course student and
 // for «رفيق الحفظ» alike: how much is left, how much per day, and whether
@@ -251,4 +252,32 @@ export const pagesTotalLabel = (n: number) => `${Math.round(n * 10) / 10} صفح
 /** «خلال 40 يومًا», «اليوم آخر يوم» */
 export function daysLeftLabel(days: number): string {
   return days === 1 ? "اليوم آخر يوم" : `خلال ${countLabel(days, DAYS_AFTER_PREP)}`;
+}
+
+/**
+ * The goal as seen by someone who may not see her excuse (a family adult
+ * without permission; in courses, parents and other teachers): on a paused
+ * day, the status and the daily amount stay as they were on her last day
+ * before the pause («متأخرة» stays «متأخرة»), and the days left are counted
+ * plainly — nothing changes because she paused. Other days: as computeGoal.
+ * Never marked paused.
+ */
+export function neutralGoal(plan: number[], spec: GoalSpec, sessions: GoalSession[], today: string, paused: Set<string> = new Set()): GoalView {
+  const now = computeGoal(plan, spec, sessions, today, paused);
+  if (now.state !== "ACTIVE") return now;
+  if (!paused.has(today)) return { ...now, paused: false };
+  let last = addDays(today, -1);
+  while (last >= spec.startDay && paused.has(last)) last = addDays(last, -1);
+  const before = last >= spec.startDay ? computeGoal(plan, spec, sessions, last, new Set([...paused].filter((d) => d <= last))) : null;
+  const daysLeft = Math.max(1, countedDays(today, spec.deadline, new Set()));
+  if (before?.state !== "ACTIVE") return { ...now, daysLeft, paused: false };
+  return {
+    ...now,
+    status: before.status,
+    dailyQuarter: before.dailyQuarter,
+    dailyAyat: before.dailyAyat,
+    daysLeft,
+    todayDone: now.doneToday >= before.dailyQuarter - EPS,
+    paused: false,
+  };
 }

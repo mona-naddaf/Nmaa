@@ -1,10 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildDashboard, type DashFacts, type DashRows } from "@/lib/family/dashboard-build";
+import { computeGoal } from "@/lib/goals/goal";
 
 // Her family's dashboard while she paused her memorization: her 🔥 isn't
-// broken and her goal isn't «متأخرة» — and nothing in what leaves the server
-// says why.
+// broken, her goal stays as it was before the pause — and nothing in what
+// leaves the server says why.
 
 const facts: DashFacts = {
   familyId: "f",
@@ -47,9 +48,16 @@ test("dashboard: a woman's paused days don't break her 🔥 or make her «متأ
     assert.notEqual(goal.status, "BEHIND");
     assert.equal(goal.paused, false);
   }
-  // on a paused day: never «متأخرة», and still nothing says it's paused
+  // on a paused day: status and daily amount as on the 13th (her last day before it), nothing says it's paused
   const onPausedDay = buildDashboard(viewer, facts, { ...rows, paused: { mona: paused } }, new Date("2026-10-19T10:00:00Z")).adults[0].progress!.goalBy!["2026-10-19"];
-  assert.ok(onPausedDay?.state === "ACTIVE" && onPausedDay.status !== "BEHIND" && onPausedDay.paused === false);
+  const on13th = buildDashboard(viewer, facts, rows, new Date("2026-10-13T10:00:00Z")).adults[0].progress!.goal!;
+  const was = computeGoal(on13th.plan, on13th.spec, on13th.sessions, "2026-10-13");
+  assert.ok(onPausedDay?.state === "ACTIVE" && was.state === "ACTIVE");
+  if (onPausedDay?.state === "ACTIVE" && was.state === "ACTIVE") {
+    assert.equal(onPausedDay.status, was.status);
+    assert.equal(onPausedDay.dailyQuarter, was.dailyQuarter);
+    assert.equal(onPausedDay.paused, false);
+  }
   // no paused day in what leaves the server (the 20th is only there as a possible «today»)
   const out = JSON.stringify(quiet);
   for (const d of paused.slice(0, -1)) assert.ok(!out.includes(d), d);

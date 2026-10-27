@@ -17,7 +17,7 @@ import { deriveCurrentPosition, deriveReach } from "@/lib/recitation/logic";
 import { buildCoverage, coveredQuranPages } from "@/lib/students/progress";
 import { forPosition } from "@/lib/rafiq/position";
 import type { ScoredItem } from "@/lib/tracker/rules";
-import { computeGoal, type GoalSession, type GoalSpec, type GoalView } from "@/lib/goals/goal";
+import { neutralGoal, type GoalSession, type GoalSpec, type GoalView } from "@/lib/goals/goal";
 import { commitStart, computeStreak } from "@/lib/rafiq/streak";
 import type { CommitmentData } from "@/lib/rafiq/commitment";
 
@@ -164,8 +164,9 @@ function progressOf(rows: DashRows, person: PersonRow, full: boolean, now: Date 
 /**
  * «أيام العذر»: a woman's 🔥 and goal as results only, for each day that may
  * be the viewer's today (yesterday, today and tomorrow by the server's
- * clock). Paused days count as days off and leave the goal's count, but
- * nothing says so: never «متأخرة» on a paused day, no reason shown.
+ * clock). Paused days count as days off for 🔥; on them her goal stays as it
+ * was before the pause (status and daily amount, neutralGoal), so nothing
+ * changes because she paused.
  */
 function resultsOf(p: DashProgress, paused: string[], createdAt: Date, now: Date = new Date()): DashProgress {
   const { goal, streak, ...rest } = p;
@@ -174,8 +175,8 @@ function resultsOf(p: DashProgress, paused: string[], createdAt: Date, now: Date
   const goalBy: Record<string, GoalView | null> = {};
   const streakBy: Record<string, { current: number; best: number }> = {};
   for (const d of todays) {
-    const v = goal ? computeGoal(goal.plan, goal.spec, goal.sessions, d, upTo(d)) : null;
-    goalBy[d] = v?.state === "ACTIVE" ? { ...v, paused: false } : v;
+    // as before her pause while it lasts (neutralGoal): «متأخرة» stays «متأخرة»
+    goalBy[d] = goal ? neutralGoal(goal.plan, goal.spec, goal.sessions, d, upTo(d)) : null;
     if (streak) streakBy[d] = computeStreak(streak.schedule, new Set(streak.loggedDays), d, commitStart(streak.loggedDays, day(createdAt)), upTo(d));
   }
   return { ...rest, goalBy, streakBy };

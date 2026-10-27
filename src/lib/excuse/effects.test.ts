@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { computeStreak as rafiqStreak, weekView } from "@/lib/rafiq/streak";
 import { computeStreak as courseStreak, weekIndex } from "@/lib/students/streak";
-import { computeGoal, type GoalSpec } from "@/lib/goals/goal";
+import { computeGoal, neutralGoal, type GoalSpec } from "@/lib/goals/goal";
 import { excusedDays, excusedWeeks } from "./attendance";
 import { pausedDays } from "./rules";
 
@@ -81,4 +81,46 @@ test("goal: the deadline stays, paused days don't count, today paused is never �
   assert.equal(after.status, "ON_TRACK");
   const plain = computeGoal(plan, spec, sessions, "2026-10-21");
   assert.equal(plain.state === "ACTIVE" && plain.status, "BEHIND");
+});
+
+// ---------- what a viewer who may not see her excuse sees of her goal ----------
+
+const paused14to20 = (today: string) => pausedDays([{ from: "2026-10-14", to: "2026-10-20" }], today);
+
+test("neutral goal: «متأخرة» before the pause stays «متأخرة» while it lasts — she herself sees «على المسار»", () => {
+  // nothing memorized: behind by the 13th
+  const before = computeGoal(plan, spec, [], "2026-10-13");
+  assert.ok(before.state === "ACTIVE" && before.status === "BEHIND");
+  const hers = computeGoal(plan, spec, [], "2026-10-16", paused14to20("2026-10-16"));
+  const theirs = neutralGoal(plan, spec, [], "2026-10-16", paused14to20("2026-10-16"));
+  assert.ok(hers.state === "ACTIVE" && hers.status !== "BEHIND" && hers.paused);
+  assert.ok(theirs.state === "ACTIVE");
+  if (theirs.state !== "ACTIVE" || before.state !== "ACTIVE") return;
+  assert.equal(theirs.status, "BEHIND");
+  // the daily amount as on the 13th, the days left counted plainly (16th–30th), never marked paused
+  assert.equal(theirs.dailyQuarter, before.dailyQuarter);
+  assert.equal(theirs.dailyAyat, before.dailyAyat);
+  assert.equal(theirs.daysLeft, 15);
+  assert.equal(theirs.paused, false);
+});
+
+test("neutral goal: «على المسار» before the pause stays so; after it, the computed values again", () => {
+  const sessions = [{ surahNumber: 67, fromAyah: 1, toAyah: 17, type: "NEW" as const, day: "2026-10-10", prior: false }];
+  const before = computeGoal(plan, spec, sessions, "2026-10-13");
+  const during = neutralGoal(plan, spec, sessions, "2026-10-18", paused14to20("2026-10-18"));
+  assert.ok(before.state === "ACTIVE" && during.state === "ACTIVE");
+  if (before.state !== "ACTIVE" || during.state !== "ACTIVE") return;
+  assert.equal(during.status, before.status);
+  assert.equal(during.dailyQuarter, before.dailyQuarter);
+  // the 21st: back to what the goal computes (the line waited during the pause)
+  const after = neutralGoal(plan, spec, sessions, "2026-10-21", paused14to20("2026-10-21"));
+  assert.deepEqual(after, computeGoal(plan, spec, sessions, "2026-10-21", paused14to20("2026-10-21")));
+  // and without any pause, exactly computeGoal
+  assert.deepEqual(neutralGoal(plan, spec, sessions, "2026-10-18"), computeGoal(plan, spec, sessions, "2026-10-18"));
+});
+
+test("neutral goal: a pause from the goal's first day has nothing to freeze — the current values, never paused", () => {
+  const p = pausedDays([{ from: "2026-10-01", to: null }], "2026-10-03");
+  const v = neutralGoal(plan, spec, [], "2026-10-03", p);
+  assert.ok(v.state === "ACTIVE" && v.paused === false && v.daysLeft === 28);
 });

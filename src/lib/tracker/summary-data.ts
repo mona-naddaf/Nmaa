@@ -9,7 +9,7 @@ import { itemsForStudentWhere } from "./data";
 import { comparisonLabel, computeSummary, periodLabel, periodRange, type PeriodKind, type Summary, type SummaryItem } from "./summary";
 import { entryCount } from "@/lib/recitation/combined";
 import { getStudentGoal } from "@/lib/goals/data";
-import { computeGoal, type GoalView } from "@/lib/goals/goal";
+import { computeGoal, neutralGoal, type GoalView } from "@/lib/goals/goal";
 import { getGoal, getPlan } from "@/lib/rafiq/memorization";
 import { PLAN_FIELDS, studentPlan } from "@/lib/students/plan";
 import { computeStreaks } from "@/lib/students/streak-data";
@@ -217,16 +217,13 @@ export async function rafiqSummary(
   }));
   const inPeriod = sessions.filter((x) => x.source === "LOGGED" && isoOf(x.day) >= cur.from && isoOf(x.day) <= cur.to);
   // «أيام العذر»: her paused days leave the goal's count; a viewer who may
-  // not see them gets the result only, never that today is paused
+  // not see them gets it as it was before the pause while it lasts (neutralGoal)
   const paused = excuse.count && goalSpec ? pausedDays(await loadPauses(userId), today) : undefined;
+  const goalSessions = sessions.map((x) => ({ surahNumber: x.surahNumber, fromAyah: x.fromAyah, toAyah: x.toAyah, type: x.type, day: isoOf(x.day), prior: x.source === "PRIOR" }));
   const computed = goalSpec
-    ? computeGoal(
-        plan,
-        goalSpec,
-        sessions.map((x) => ({ surahNumber: x.surahNumber, fromAyah: x.fromAyah, toAyah: x.toAyah, type: x.type, day: isoOf(x.day), prior: x.source === "PRIOR" })),
-        today,
-        paused,
-      )
+    ? excuse.count && !excuse.show
+      ? neutralGoal(plan, goalSpec, goalSessions, today, paused)
+      : computeGoal(plan, goalSpec, goalSessions, today, paused)
     : null;
   // «paused» (D6) means paused right now: after she resumes, today still counts as paused, but the goal shows its daily amount
   const goal = computed?.state === "ACTIVE" && computed.paused && !(excuse.show && (await pausedNow(userId))) ? { ...computed, paused: false } : computed;

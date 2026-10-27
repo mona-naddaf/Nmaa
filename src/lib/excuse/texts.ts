@@ -98,5 +98,7 @@ export const EXCUSE_OK = "حسنًا"; // C13
 /** D1: under an alternative, «بدل «صلاة العصر»». */
 export const excuseInsteadOf = (title: string) => `بدل «${title}»`;
 export const EXCUSE_SKIP_TODAY = "لا يُحسب اليوم"; // D2
+/** D2 on a day other than today: «لا يُحسب». */
+export const excuseSkipNote = (isToday: boolean) => (isToday ? EXCUSE_SKIP_TODAY : ITEM_EXCUSE_OPTIONS.SKIP);
 export const EXCUSE_DAY = "يوم عذر"; // D3
 export const EXCUSE_SUMMARY_NOTE = "في أيام العذر يُحسب البديل مكان بنده، وتُرفع البنود التي لا تُحسب."; // D4

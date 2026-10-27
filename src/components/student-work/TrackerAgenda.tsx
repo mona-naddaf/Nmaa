@@ -288,7 +288,7 @@ export function TrackerAgenda({
             {yesterdayItems.length === 0 ? (
               <div className={hl.muted}>لا بنود في هذا اليوم.</div>
             ) : (
-              <ChipStrip items={yesterdayItems} checked={checkedYesterday} onTick={(i) => tick(i, yesterday)} />
+              <ChipStrip items={yesterdayItems} checked={checkedYesterday} onTick={(i) => tick(i, yesterday)} past />
             )}
             <DayScoreBar score={dayScore(all, checkedYesterday, yesterday, skipped)} yesterday groupGender={g} />
           </div>
@@ -341,8 +341,11 @@ function ChipStrip({
   onTick,
   editButton,
   cityHref = null,
+  past = false,
 }: {
   label?: string;
+  // yesterday's strip («أيام العذر»: «لا يُحسب» rather than «… اليوم»)
+  past?: boolean;
   items: (TrackerItemView & { timing?: Timing; label?: string } & Dressed)[];
   checked: Set<string>;
   onTick: (item: TrackerItemView) => void;
@@ -362,7 +365,7 @@ function ChipStrip({
               <span className={styles.chipText} style={{ padding: "0 10px" }}>
                 {item.title}
                 <small>
-                  <SkipNote />
+                  <SkipNote today={!past} />
                 </small>
               </span>
               {editButton?.(item)}

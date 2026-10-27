@@ -12,7 +12,7 @@ import { streakText } from "@/lib/students/streak";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { inertClass, inertProps } from "@/components/nudge/nudge";
 import { useGuideTarget } from "@/components/guide/targets";
-import { EXCUSE_DAY, EXCUSE_SKIP_TODAY, EXCUSE_SUMMARY_NOTE } from "@/lib/excuse/texts";
+import { EXCUSE_DAY, EXCUSE_SUMMARY_NOTE, excuseSkipNote } from "@/lib/excuse/texts";
 import { ExcuseWas } from "@/components/excuse/ItemExcuse";
 
 // «المحصّلات»: a period's commitment as a segmented ring (one segment per
@@ -461,7 +461,7 @@ function DayDetails({ data, day }: { data: SummaryPayload; day: string }) {
               {alt && <ExcuseWas title={i.title} />}
             </span>
             {skip ? (
-              <span className={hl.muted}>{EXCUSE_SKIP_TODAY}</span>
+              <span className={hl.muted}>{excuseSkipNote(day === data.today)}</span>
             ) : ticked.has(i.id) ? (
               <span className={styles.ok}>✓</span>
             ) : (

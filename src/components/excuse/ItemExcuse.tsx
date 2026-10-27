@@ -7,7 +7,7 @@ import css from "./excuse.module.css";
 import { pointTo } from "@/components/nudge/nudge";
 import { EXCUSE_LIMITS, validateItemExcuse, type ExcuseMode } from "@/lib/excuse/rules";
 import {
-  EXCUSE_SKIP_TODAY,
+  excuseSkipNote,
   excuseInsteadOf,
   ITEM_EXCUSE_ALT_LABEL,
   ITEM_EXCUSE_ALT_PLACEHOLDER,
@@ -25,9 +25,9 @@ export function ExcuseWas({ title }: { title: string }) {
   return <small className={css.was}>{excuseInsteadOf(title)}</small>;
 }
 
-/** D2: in place of the tick of an item not counted today. */
-export function SkipNote() {
-  return <span className={css.skipNote}>{EXCUSE_SKIP_TODAY}</span>;
+/** D2: in place of the tick of an item not counted that day («لا يُحسب اليوم» today, «لا يُحسب» on another day). */
+export function SkipNote({ today = true }: { today?: boolean }) {
+  return <span className={css.skipNote}>{excuseSkipNote(today)}</span>;
 }
 
 export const excuseCss = css;

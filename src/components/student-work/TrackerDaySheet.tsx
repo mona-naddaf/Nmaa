@@ -161,7 +161,7 @@ export function TrackerDaySheet({
                   <div key={item.id} className={`${styles.tile} ${excuseCss.skipped}`}>
                     <span className={styles.tileTitle}>{item.title}</span>
                     <span className={styles.tileFoot}>
-                      <SkipNote />
+                      <SkipNote today={day === today} />
                     </span>
                   </div>
                 );

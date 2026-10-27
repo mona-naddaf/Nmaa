@@ -6,6 +6,7 @@ import { currentCommitDays } from "@/lib/rafiq/commitment";
 import { getGuide } from "@/lib/guide/state";
 import { checklistComplete } from "@/lib/guide/lines";
 import { checklistFacts } from "@/lib/guide/page-facts";
+import { ownExcuse } from "@/lib/excuse/rafiq-data";
 
 export default async function RafiqSettingsPage() {
   const user = await requireRafiqUser();
@@ -16,6 +17,9 @@ export default async function RafiqSettingsPage() {
   // guidance on, a new account: whether «إظهار الإرشادات من جديد» brings her checklist back
   const guide = await getGuide();
   const done = guide?.isNew ? checklistComplete(await checklistFacts(user.id), guide.states) : null;
+  // «أيام العذر»: a woman's own switch (EXCUSE_ENABLED); A4 shows while an excuse is open
+  const excuse = await ownExcuse(user.id);
+  const open = excuse.show && (await prisma.rafiqExcuse.count({ where: { userId: user.id, endDay: null } })) > 0;
   return (
     <SettingsView
       email={user.email}
@@ -31,6 +35,7 @@ export default async function RafiqSettingsPage() {
       place={locationOf(placeRow)}
       commitDays={await currentCommitDays(user.id)}
       {...(guide ? { guide: { checklistComplete: done ?? false } } : {})}
+      {...(excuse.show ? { excuse: { enabled: excuse.on, active: open } } : {})}
     />
   );
 }

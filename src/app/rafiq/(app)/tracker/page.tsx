@@ -8,6 +8,8 @@ import { editableChildren } from "@/lib/family/tracker-copy-data";
 import { getGuide } from "@/lib/guide/state";
 import { introsFor } from "@/lib/guide/lines";
 import { trackerIntroFacts } from "@/lib/guide/page-facts";
+import { loadExcuses, ownExcuse } from "@/lib/excuse/rafiq-data";
+import { addDays } from "@/lib/tracker/rules";
 
 // With guidance on: the page's intro lines, and ?add=1 («إضافة بند» in
 // «الخطوات الأولى») opens the new-item form straight away.
@@ -17,9 +19,12 @@ export default async function RafiqTrackerPage({ searchParams }: PageProps<"/raf
   // «العائلة»: «نسخ جدولي إلى…» — the children she may edit, in every family of hers
   const family = familyEnabled() ? (await editableChildren(user.id)).filter((f) => f.children.length > 0) : undefined;
   const guide = await getGuide();
+  // «أيام العذر»: a woman's own (EXCUSE_ENABLED); nothing of it is loaded otherwise
+  const excuse = await ownExcuse(user.id);
   return (
     <RafiqTracker
-      data={await getRafiqTracker(user.id)}
+      data={await getRafiqTracker(user.id, undefined, excuse.show)}
+      excuse={excuse.show ? { excuses: await loadExcuses(user.id, addDays(new Date().toISOString().slice(0, 10), -10)), on: excuse.on } : undefined}
       g={user.gender === "FEMALE" ? "GIRLS" : "BOYS"}
       agenda={agendaEnabled}
       summary={summaryEnabled}

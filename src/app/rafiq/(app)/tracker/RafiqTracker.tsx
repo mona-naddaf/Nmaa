@@ -32,6 +32,12 @@ import { genderText } from "@/lib/guide/help/text";
 import type { IntroId } from "@/lib/guide/keys";
 import { EMPTY } from "@/lib/guide/lines-texts";
 import { IntroLine } from "../guide/IntroLine";
+import { ExcuseBar } from "@/components/excuse/ExcuseBar";
+import { ItemExcuseField, useItemExcuse } from "@/components/excuse/ItemExcuse";
+import { excuseLens } from "@/lib/excuse/lens";
+import type { Excuse, ExcuseMode } from "@/lib/excuse/rules";
+import { itemExcuseLine } from "@/lib/excuse/texts";
+import { endExcuseAction, settleExcuseAction, startExcuseAction } from "./excuse-actions";
 
 type Item = RafiqTrackerData["active"][number];
 type Run = (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
@@ -55,6 +61,7 @@ export function RafiqTracker({
   summaryHref,
   family,
   guide,
+  excuse,
 }: {
   data: RafiqTrackerData;
   g: GroupGender;
@@ -75,6 +82,9 @@ export function RafiqTracker({
   // its intro lines, ?add=1 (the new-item form opened at once), and the
   // guide's empty-page wording
   guide?: { intros: IntroId[]; add: boolean };
+  // «أيام العذر» (her own, a woman's): her excuses; on: her switch is on (the
+  // button and each item's setting). Unset: none of it.
+  excuse?: { excuses: Excuse[]; on: boolean };
 }) {
   const can = scopeCan(scope);
   const subjectId = scope.subjectId;
@@ -130,6 +140,11 @@ export function RafiqTracker({
   const canCopy = (scope.viewer === "self" || scope.viewer === "adult-edit") && copyFamilies.length > 0;
 
   if (!today) return <div className={hl.empty}>…</div>;
+  const nowAt = new Date();
+  const lens = excuse ? excuseLens(data.sheet.items, excuse.excuses, { day: today, min: nowAt.getHours() * 60 + nowAt.getMinutes() }) : undefined;
+  // her own tracker, her switch on: the button above the tracker and each item's setting
+  const excuseOn = excuse?.on === true && scope.viewer === "self";
+  const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
   const full = data.active.length >= RAFIQ_TRACKER_MAX_ITEMS;
   const empty = data.active.length === 0 && data.sheet.items.length === 0;
   const show = (v: typeof view) => {
@@ -185,6 +200,7 @@ export function RafiqTracker({
               place={place}
               pending={pending}
               onCancel={() => setAdding(false)}
+              excuse={excuseOn ? g : undefined}
               targets={siblings.length > 1 ? siblings : undefined}
               hereId={subjectId}
               onSubmit={(fields, childIds) =>
@@ -204,7 +220,9 @@ export function RafiqTracker({
             {data.active.length === 0 ? (
               <div className={hl.empty}>{guide ? gt(EMPTY.trackerItems) : "لا بنود بعد."}</div>
             ) : (
-              data.active.map((item) => <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} scope={scope} />)
+              data.active.map((item) => (
+                <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} scope={scope} excuse={excuseOn ? g : undefined} />
+              ))
             )}
           </div>
           {data.active.length > 0 && canCopy && (
@@ -249,6 +267,17 @@ export function RafiqTracker({
               : {})}
           />
         </>
+      )}
+
+      {view === "day" && excuseOn && (
+        <ExcuseBar
+          excuses={excuse!.excuses}
+          you={g === "GIRLS" ? "FEMALE" : "MALE"}
+          self
+          onStart={(at) => startExcuseAction({ at, zone: zone() })}
+          onEnd={(at) => endExcuseAction({ at, zone: zone() })}
+          onSettle={() => settleExcuseAction({ zone: zone() })}
+        />
       )}
 
       {view === "day" &&
@@ -308,6 +337,7 @@ export function RafiqTracker({
             celebrateKey={celebrateKey}
             // the city is hers to set on her own tracker only (a child's comes from the family)
             live={{ cityHref: scope.viewer === "self" ? "/rafiq/settings#city" : null }}
+            excuse={lens}
           />
         ) : (
           <TrackerDaySheet
@@ -317,6 +347,7 @@ export function RafiqTracker({
             onTick={tick}
             celebrateKey={celebrateKey}
             readOnly={!can.record}
+            excuse={lens}
             {...(guide ? { emptyDay: gt(EMPTY.trackerDay) } : {})}
           />
         ))}
@@ -412,7 +443,7 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
   );
 }
 
-type ItemFields = { title: string; value: number; days: number; schedule?: ScheduleInput };
+type ItemFields = { title: string; value: number; days: number; schedule?: ScheduleInput; excuse?: { mode: string; alt: string } };
 
 function Report({ lines }: { lines: string[] }) {
   if (lines.length === 0) return null;
@@ -525,8 +556,9 @@ function ItemForm({
   onCancel,
   targets,
   hereId,
+  excuse,
 }: {
-  initial?: { title: string; value: number; days: number; slots: SlotRow[] };
+  initial?: { title: string; value: number; days: number; slots: SlotRow[]; excuseMode?: ExcuseMode; excuseAltTitle?: string | null };
   submitLabel: string;
   // «الجدول اليومي» on: the item's schedule too
   agenda?: boolean;
@@ -537,12 +569,15 @@ function ItemForm({
   // «العائلة»: «إضافة إلى:» — her family's children (this one checked first)
   targets?: { id: string; name: string; gender: "MALE" | "FEMALE" }[];
   hereId?: string;
+  // «أيام العذر»: her «في أيام العذر» field (her gender, for the wording); unset: no field
+  excuse?: GroupGender;
 }) {
   const [title, setTitle] = useState(initial.title);
   const to = useChecks(hereId ? [hereId] : []);
   const [value, setValue] = useState(initial.value);
   const [days, setDays] = useState(initial.days);
   const time = useTimeFields(initial.slots);
+  const excuseField = useItemExcuse(initial, excuse === "BOYS" ? "MALE" : "FEMALE");
   const [problem, setProblem] = useState<string | null>(null);
   return (
     <form
@@ -551,14 +586,18 @@ function ItemForm({
         e.preventDefault();
         const ids = targets ? [...to.checked] : undefined;
         if (ids && ids.length === 0) return setProblem("يُرجى اختيار طفل واحد على الأقل");
+        // «أيام العذر»: an alternative needs its title (the field says so and is focused)
+        const ex = excuse ? excuseField.read() : null;
+        if (excuse && !ex) return setProblem(null);
+        const withExcuse = ex ? { excuse: ex } : {};
         if (!agenda) {
           setProblem(null);
-          return onSubmit({ title, value, days }, ids);
+          return onSubmit({ title, value, days, ...withExcuse }, ids);
         }
         const t = time.read();
         if ("error" in t) return setProblem(t.error);
         setProblem(null);
-        onSubmit({ title, value, days, schedule: t.schedule }, ids);
+        onSubmit({ title, value, days, schedule: t.schedule, ...withExcuse }, ids);
       }}
     >
       <div className={styles.field}>
@@ -582,6 +621,7 @@ function ItemForm({
         <WeekdayPicker days={days} onChange={setDays} />
       </div>
       {agenda && <TimeFields fields={time} days={days} place={place} />}
+      {excuse && <ItemExcuseField field={excuseField} />}
       {targets && (
         <div className={styles.field}>
           <span className={styles.fieldLabel}>إضافة إلى:</span>
@@ -601,7 +641,24 @@ function ItemForm({
   );
 }
 
-function ItemRow({ item, run, pending, agenda, place, scope }: { item: Item; run: Run; pending: boolean; agenda: boolean; place: PrayerLocation | null; scope: RafiqScope }) {
+function ItemRow({
+  item,
+  run,
+  pending,
+  agenda,
+  place,
+  scope,
+  excuse,
+}: {
+  item: Item;
+  run: Run;
+  pending: boolean;
+  agenda: boolean;
+  place: PrayerLocation | null;
+  scope: RafiqScope;
+  // «أيام العذر»: its setting shown and edited (her gender); unset: none of it
+  excuse?: GroupGender;
+}) {
   const [mode, setMode] = useState<"view" | "edit" | "remove">("view");
   const t = useGuideTarget();
   const toggle = (m: typeof mode) => setMode(mode === m ? "view" : m);
@@ -624,6 +681,11 @@ function ItemRow({ item, run, pending, agenda, place, scope }: { item: Item; run
           {adder ? `من ${adder.name}` : "من أحد البالغين"}
         </div>
       )}
+      {excuse && item.excuseMode && itemExcuseLine(item.excuseMode, item.excuseAltTitle) && (
+        <div className={hl.muted} style={{ fontSize: 12, marginTop: 4 }}>
+          {itemExcuseLine(item.excuseMode, item.excuseAltTitle)}
+        </div>
+      )}
       {mode === "edit" && (
         <div className={itemStyles.rowPanel}>
           <ItemForm
@@ -631,6 +693,7 @@ function ItemRow({ item, run, pending, agenda, place, scope }: { item: Item; run
             agenda={agenda}
             place={place}
             submitLabel="حفظ"
+            excuse={excuse}
             pending={pending}
             onCancel={() => setMode("view")}
             onSubmit={(fields) => run(() => updateItemAction(item.id, { ...fields, subjectId: scope.subjectId }), () => setMode("view"))}

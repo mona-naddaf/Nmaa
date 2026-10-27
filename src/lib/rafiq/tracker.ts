@@ -4,6 +4,7 @@ import type { TrackerItemView, TrackerSheet } from "@/lib/tracker/data";
 import { addDays } from "@/lib/tracker/rules";
 import { placeOf } from "@/lib/tracker/agenda";
 import type { SlotRow } from "@/lib/tracker/schedule";
+import type { ExcuseMode } from "@/lib/excuse/rules";
 
 // Her own «جدول المتابعة», in the same shape as a course student's sheet so
 // the shared TrackerDaySheet shows and scores it unchanged. Scores are never
@@ -16,11 +17,26 @@ export interface RafiqTrackerData {
   // her items still in use, for managing them
   // slots: its timing rows (schedule.ts)
   // adultAdded: «العائلة», an adult added it to a child's tracker (addedBy: her id)
-  active: { id: string; title: string; value: number; days: number; slots: SlotRow[]; adultAdded: boolean; addedBy: string | null }[];
+  // excuseMode / excuseAltTitle: «أيام العذر», only for a viewer who may see the excuse
+  active: {
+    id: string;
+    title: string;
+    value: number;
+    days: number;
+    slots: SlotRow[];
+    adultAdded: boolean;
+    addedBy: string | null;
+    excuseMode?: ExcuseMode;
+    excuseAltTitle?: string | null;
+  }[];
 }
 
-/** The last `days` days (plus a day of time-zone slack). */
-export async function getRafiqTracker(userId: string, days = 9): Promise<RafiqTrackerData> {
+/**
+ * The last `days` days (plus a day of time-zone slack). excuse: also each
+ * item's «أيام العذر» setting — only for a viewer who may see her excuse
+ * (src/lib/excuse/visibility.ts); never sent otherwise.
+ */
+export async function getRafiqTracker(userId: string, days = 9, excuse = false): Promise<RafiqTrackerData> {
   const fromDay = addDays(day(new Date()), -days);
   const from = new Date(`${fromDay}T00:00:00Z`);
   const [items, checks] = await Promise.all([
@@ -38,6 +54,8 @@ export async function getRafiqTracker(userId: string, days = 9): Promise<RafiqTr
         sortOrder: true,
         adultAdded: true,
         createdById: true,
+        excuseMode: true,
+        excuseAltTitle: true,
         slots: { select: { weekdays: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true }, orderBy: { weekdays: "desc" } },
       },
     }),
@@ -61,11 +79,21 @@ export async function getRafiqTracker(userId: string, days = 9): Promise<RafiqTr
     own: false,
     sortOrder: r.sortOrder,
     slots: r.slots,
+    ...(excuse ? { excuseMode: r.excuseMode, excuseAltTitle: r.excuseAltTitle } : {}),
   }));
   return {
     sheet: { items: views, checks: byDay },
     active: items
       .filter((r) => !r.archivedAt)
-      .map(({ id, title, value, days, slots, adultAdded, createdById }) => ({ id, title, value, days, slots, adultAdded, addedBy: createdById })),
+      .map(({ id, title, value, days, slots, adultAdded, createdById, excuseMode, excuseAltTitle }) => ({
+        id,
+        title,
+        value,
+        days,
+        slots,
+        adultAdded,
+        addedBy: createdById,
+        ...(excuse ? { excuseMode, excuseAltTitle } : {}),
+      })),
   };
 }

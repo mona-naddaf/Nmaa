@@ -33,6 +33,8 @@ import { PRAYERS, PRAYER_NAME, prayerMinutes, type Prayer, type PrayerLocation }
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import type { TimingProblem } from "@/lib/tracker/timing-input";
 import { flash, pointTo } from "@/components/nudge/nudge";
+import type { ExcuseLens } from "@/lib/excuse/lens";
+import { ExcuseWas, SkipNote, excuseCss } from "@/components/excuse/ItemExcuse";
 
 // «الجدول اليومي»: the «الآن» card, the items «بلا وقت» as a compact strip,
 // today's timeline (a moving «now» line; overlapping items side by side;
@@ -48,7 +50,19 @@ import { flash, pointTo } from "@/components/nudge/nudge";
 export type ScheduleChoice = ScheduleInput | "STAFF";
 
 /** An item placed on a day: its timing that weekday and, resolved, its time (null: «بلا وقت»). */
-type Placed = TrackerItemView & { timing: Timing; time: AgendaTime | null; label: string; ownTiming: boolean };
+type Placed = TrackerItemView & { timing: Timing; time: AgendaTime | null; label: string; ownTiming: boolean } & Dressed;
+
+// «أيام العذر» on a day: excuseWas = its own title, shown under its
+// alternative (which takes the title); excuseSkip = not counted that day
+type Dressed = { excuseWas?: string; excuseSkip?: boolean };
+
+/** The item as the excuse shows it that day (unchanged without one). */
+function dress<T extends TrackerItemView>(item: T, day: string, excuse: ExcuseLens | undefined): T & Dressed {
+  const look = excuse?.view(item.id, day);
+  if (look?.state === "SKIP") return { ...item, excuseSkip: true };
+  if (look?.alt) return { ...item, title: look.alt, excuseWas: item.title };
+  return item;
+}
 
 type Result = Promise<{ error?: string }>;
 
@@ -100,10 +114,13 @@ export function TrackerAgenda({
   showYesterday = false,
   celebrateKey,
   live,
+  excuse,
 }: {
   sheet: TrackerSheet;
   today: string;
   groupGender: GroupGender;
+  // «أيام العذر», for whoever may see it (unset: as before)
+  excuse?: ExcuseLens;
   // Rafiq and «العائلة» (unset: as before): «حفظ الوقت» is never disabled and
   // points to what is wrong; cityHref (her own tracker): the «يتاح بعد تحديد
   // المدينة» note becomes a link to the city picker
@@ -142,17 +159,18 @@ export function TrackerAgenda({
   if (!now) return <div className={hl.empty}>…</div>;
 
   const all = withLocalDays(sheet.items, tz);
+  const skipped = excuse?.skipped;
   // today's (and yesterday's) prayer times, for anchors and the markers
   const yesterday = addDays(today, -1);
   const prayersToday = place ? prayerMinutes(place, today, tz) : null;
   const prayersYesterday = place ? prayerMinutes(place, yesterday, tz) : null;
-  const items = all.filter((i) => shownOn(i, today)).map((i) => placeOn(i, today, prayersToday));
+  const items = all.filter((i) => shownOn(i, today)).map((i) => dress(placeOn(i, today, prayersToday), today, excuse));
   const timed = items.filter((i): i is Placed & { time: AgendaTime } => !!i.time);
   const untimed = items.filter((i) => !i.time);
   // yesterday's items still running after midnight
   const carried = all
     .filter((i) => shownOn(i, yesterday))
-    .map((i) => placeOn(i, yesterday, prayersYesterday))
+    .map((i) => dress(placeOn(i, yesterday, prayersYesterday), yesterday, excuse))
     .filter((i): i is Placed & { time: AgendaTime } => !!i.time && endOf(i.time) > DAY_MINUTES)
     .map((i) => ({ ...i, time: { ...i.time, startMin: i.time.startMin - DAY_MINUTES } }));
   const nowMin = now.day === today ? now.min : null;
@@ -185,7 +203,7 @@ export function TrackerAgenda({
     const before = checkedOn(day);
     const on = !before.has(item.id);
     // her tick that first makes today complete: the celebration
-    if (on && day === today && !isComplete(dayScore(all, before, day)) && isComplete(dayScore(all, new Set(before).add(item.id), day))) party.celebrate();
+    if (on && day === today && !isComplete(dayScore(all, before, day, skipped)) && isComplete(dayScore(all, new Set(before).add(item.id), day, skipped))) party.celebrate();
     setError(null);
     setOverride((prev) => ({ ...prev, [key]: on }));
     startTransition(async () => {
@@ -201,7 +219,9 @@ export function TrackerAgenda({
     });
   }
 
-  const tickButton = (item: TrackerItemView) => {
+  const tickButton = (item: TrackerItemView & Dressed) => {
+    // «لا يُحسب» today: no tick, the note in its place
+    if (item.excuseSkip) return <SkipNote />;
     const on = checkedSet.has(item.id);
     return (
       <button
@@ -229,7 +249,7 @@ export function TrackerAgenda({
   );
 
   const editingItem = editing ? (items.find((i) => i.id === editing) ?? null) : null;
-  const yesterdayItems = all.filter((i) => shownOn(i, yesterday));
+  const yesterdayItems = all.filter((i) => shownOn(i, yesterday)).map((i) => dress(i, yesterday, excuse));
 
   return (
     // relative: the celebration's layer covers (and is clipped to) the day area
@@ -270,7 +290,7 @@ export function TrackerAgenda({
             ) : (
               <ChipStrip items={yesterdayItems} checked={checkedYesterday} onTick={(i) => tick(i, yesterday)} />
             )}
-            <DayScoreBar score={dayScore(all, checkedYesterday, yesterday)} yesterday groupGender={g} />
+            <DayScoreBar score={dayScore(all, checkedYesterday, yesterday, skipped)} yesterday groupGender={g} />
           </div>
         </div>
       </div>
@@ -307,8 +327,8 @@ export function TrackerAgenda({
         </div>
       )}
 
-      <DayScoreBar score={dayScore(all, checkedSet, today)} groupGender={g} />
-      <LastSevenDays items={all} checkedOn={checkedOn} today={today} />
+      <DayScoreBar score={dayScore(all, checkedSet, today, skipped)} groupGender={g} />
+      <LastSevenDays items={all} checkedOn={checkedOn} today={today} excuse={excuse} />
     </div>
   );
 }
@@ -323,7 +343,7 @@ function ChipStrip({
   cityHref = null,
 }: {
   label?: string;
-  items: (TrackerItemView & { timing?: Timing; label?: string })[];
+  items: (TrackerItemView & { timing?: Timing; label?: string } & Dressed)[];
   checked: Set<string>;
   onTick: (item: TrackerItemView) => void;
   editButton?: (item: TrackerItemView) => React.ReactNode;
@@ -335,6 +355,19 @@ function ChipStrip({
       {label && <span className={styles.chipsLabel}>{label}</span>}
       {items.map((item) => {
         const on = checked.has(item.id);
+        // «أيام العذر»: not counted today (faded, no tick)
+        if (item.excuseSkip)
+          return (
+            <span key={item.id} className={`${styles.chip} ${excuseCss.skipped}`}>
+              <span className={styles.chipText} style={{ padding: "0 10px" }}>
+                {item.title}
+                <small>
+                  <SkipNote />
+                </small>
+              </span>
+              {editButton?.(item)}
+            </span>
+          );
         return (
           <span key={item.id} className={`${styles.chip} ${on ? styles.on : ""}`}>
             <button
@@ -349,6 +382,7 @@ function ChipStrip({
               </span>
               <span className={styles.chipText}>
                 {item.title}
+                {item.excuseWas && <ExcuseWas title={item.excuseWas} />}
                 {item.own && item.status === "PENDING" && <small>بانتظار الاعتماد</small>}
                 {/* an anchor that can't be placed: no city yet */}
                 {item.timing?.kind === "PRAYER" && !cityHref && <small>{item.label} — يتاح بعد تحديد المدينة</small>}
@@ -520,7 +554,7 @@ function Timeline({
         return (
           <div
             key={item.id}
-            className={`${styles.block} ${checked.has(item.id) ? styles.done : ""} ${running ? styles.running : ""}`}
+            className={`${styles.block} ${checked.has(item.id) ? styles.done : ""} ${running ? styles.running : ""}${item.excuseSkip ? ` ${excuseCss.skipped}` : ""}`}
             style={{
               top,
               height: h,
@@ -542,7 +576,10 @@ function Timeline({
               {tickButton(item)}
               {/* title and time on one line when they fit, wrapping (never cut) when not */}
               <div className={styles.blockBody}>
-                <span className={styles.blockTitle}>{item.title}</span>
+                <span className={styles.blockTitle}>
+                  {item.title}
+                  {item.excuseWas && <ExcuseWas title={item.excuseWas} />}
+                </span>
                 <span className={styles.blockTime}>
                   {item.label}
                   {item.own && item.status === "PENDING" && " · بانتظار الاعتماد"}

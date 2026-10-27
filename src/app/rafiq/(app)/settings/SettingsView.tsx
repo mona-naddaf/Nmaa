@@ -17,6 +17,7 @@ import { CityPicker } from "@/components/prayer/CityPicker";
 import type { PrayerLocation } from "@/lib/prayer/times";
 import { useGuideTarget } from "@/components/guide/targets";
 import { GuideCard } from "./GuideCard";
+import { EXCUSE_SETTINGS_SELF, EXCUSE_SWITCH, EXCUSE_SWITCH_OFF_NOTE, EXCUSE_TITLE } from "@/lib/excuse/texts";
 import {
   changePasswordAction,
   deleteAccountAction,
@@ -27,6 +28,7 @@ import {
   setSummaryEnabledAction,
   setMutashabihatEnabledAction,
   setTajweedDetailEnabledAction,
+  setExcuseEnabledAction,
   setReviewRemindersAction,
   signOutEverywhereAction,
   updateProfileAction,
@@ -49,6 +51,8 @@ type Props = {
   place: PrayerLocation | null;
   // set only while guidance is on; checklistComplete: her «الخطوات الأولى» are all done (for «أسئلة البداية»)
   guide?: { checklistComplete: boolean };
+  // «أيام العذر» (EXCUSE_ENABLED, a woman): her switch, and whether an excuse is open now
+  excuse?: { enabled: boolean; active: boolean };
 };
 
 export function SettingsView({
@@ -64,10 +68,19 @@ export function SettingsView({
   tajweedEnabled,
   place,
   guide,
+  excuse,
 }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
   const t = useGuideTarget();
-  const tajweed = <TajweedDetail p={p} enabled={tajweedEnabled} />;
+  // «أيام العذر» goes after it, in the same slot: while off the list keeps its old shape (see below)
+  const tajweed = excuse ? (
+    <>
+      <TajweedDetail p={p} enabled={tajweedEnabled} />
+      <ExcuseSwitch enabled={excuse.enabled} active={excuse.active} />
+    </>
+  ) : (
+    <TajweedDetail p={p} enabled={tajweedEnabled} />
+  );
 
   return (
     <div className={styles.settingsGrid}>
@@ -424,6 +437,36 @@ function TajweedDetail({ p, enabled }: { p: P; enabled: boolean }) {
       {p(" وتحدّد", " وتحدّدين")} الحرف نفسه، أو الخطأ بين كلمتين (كأحكام النون والميم والوقف والابتداء). ويظهر في «صفحتي» ملخّص أخطائك
       المفصّلة. رواية حفص عن عاصم من طريق الشاطبية. عند الإيقاف تبقى الأخطاء المفصّلة المحفوظة ظاهرة بتفاصيلها.
     </FeatureSwitch>
+  );
+}
+
+/** «أيام العذر» (a woman's own): A1–A4. Off ends an open excuse now; zone: her days. */
+function ExcuseSwitch({ enabled, active }: { enabled: boolean; active: boolean }) {
+  const t = useAutoSave(enabled);
+  const toggle = (next: boolean) => {
+    t.setValue(next);
+    t.save(() => send(setExcuseEnabledAction, { on: next ? "1" : "0", zone: Intl.DateTimeFormat().resolvedOptions().timeZone }), !next);
+  };
+  return (
+    <div className={hl.section}>
+      <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
+        {EXCUSE_TITLE}
+      </div>
+      <p className={hl.muted} style={{ marginTop: 0 }}>
+        {EXCUSE_SETTINGS_SELF}
+      </p>
+      <label className={styles.confirmRow}>
+        <input type="checkbox" checked={t.value} onChange={(e) => toggle(e.target.checked)} />
+        {EXCUSE_SWITCH}
+        <SavedNote stamp={t.stamp} />
+      </label>
+      {t.value && active && (
+        <p className={hl.muted} style={{ margin: "6px 0 0" }}>
+          {EXCUSE_SWITCH_OFF_NOTE}
+        </p>
+      )}
+      {t.error && <div className={hl.err}>{t.error}</div>}
+    </div>
   );
 }
 

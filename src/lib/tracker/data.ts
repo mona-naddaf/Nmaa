@@ -6,6 +6,7 @@ import type { GroupGender } from "@/lib/text/gender";
 import { addDays, TRACKER_LIMITS, type ScoredItem } from "./rules";
 import { byAgendaOrder, placeOf } from "./agenda";
 import type { SlotRow } from "./schedule";
+import type { ExcuseMode } from "@/lib/excuse/rules";
 import { courseTimeZone } from "@/lib/time/course-zone";
 import { zoneDayOf, zoneToday } from "@/lib/time/zone";
 
@@ -33,6 +34,9 @@ export interface TrackerItemView extends ScoredItem {
   slots?: SlotRow[];
   // a course student's own rows for it, which come first on their days
   ownSlots?: SlotRow[];
+  // «أيام العذر» (src/lib/excuse): its setting, only for a viewer who may see the excuse
+  excuseMode?: ExcuseMode;
+  excuseAltTitle?: string | null;
 }
 
 export interface TrackerSheet {

@@ -67,6 +67,10 @@ export type DashRows = {
   commitDays: { userId: string; days: number; effectiveFrom: Date }[];
   trackerItems: { id: string; userId: string; value: number; days: number; createdAt: Date; archivedAt: Date | null }[];
   checks: { userId: string; itemId: string; day: Date }[];
+  // «أيام العذر»: per person, the «day:itemId» pairs not counted (keyOf,
+  // src/lib/excuse/rules.ts). Used here only: what leaves the server is the
+  // scores without them, never the pairs or the days.
+  skipped?: Record<string, string[]>;
 };
 
 // a scored row without its title (it never leaves the server)
@@ -151,9 +155,34 @@ function progressOf(rows: DashRows, person: PersonRow, full: boolean): DashProgr
 const SIBLING_DAYS = 2;
 const shiftDay = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
+/**
+ * One item as anonymous rows: itself, or — «أيام العذر», days it wasn't
+ * counted — the stretches between those days, each a row of its own (as an
+ * item removed and added again), so the scores leave them out without a
+ * sign of why. A stretch starts or ends at noon UTC of its day, which every
+ * viewer's browser reads as that day.
+ */
+function pieces(i: DashRows["trackerItems"][number], skippedDays: string[]): { from: string; until: string | null; createdAt: string; archivedAt: string | null }[] {
+  const first = { from: day(i.createdAt), createdAt: i.createdAt.toISOString() };
+  const last = { until: i.archivedAt ? day(i.archivedAt) : null, archivedAt: i.archivedAt ? i.archivedAt.toISOString() : null };
+  const out: ReturnType<typeof pieces> = [];
+  let start = first;
+  // only days within its life matter
+  const within = skippedDays.filter((d) => d >= first.from && (last.until === null || d < last.until));
+  for (const d of [...new Set(within)].sort()) {
+    if (d > start.from) out.push({ ...start, until: d, archivedAt: `${d}T12:00:00.000Z` });
+    const next = shiftDay(d, 1);
+    start = { from: next, createdAt: `${next}T12:00:00.000Z` };
+  }
+  if (last.until === null || last.until > start.from) out.push({ ...start, ...last });
+  return out;
+}
+
 /** Today's and the last days' completion only: anonymous items (t0, t1, …) and which of them were ticked on each day. */
 function trackerOf(rows: DashRows, userId: string, todayOnly = false, now: Date = new Date()): NonNullable<DashCard["tracker"]> {
   const own = rows.trackerItems.filter((i) => i.userId === userId);
+  const skipped = rows.skipped?.[userId];
+  if (skipped?.length) return quietTracker(rows, userId, own, skipped, todayOnly, now);
   const alias = new Map(own.map((i, n) => [i.id, `t${n}`]));
   const items: DashItem[] = own.map((i) => ({
     id: alias.get(i.id)!,
@@ -170,6 +199,42 @@ function trackerOf(rows: DashRows, userId: string, todayOnly = false, now: Date 
   for (const c of rows.checks) {
     const id = c.userId === userId ? alias.get(c.itemId) : undefined;
     if (id && (!todayOnly || day(c.day) >= since)) (checks[day(c.day)] ??= []).push(id);
+  }
+  return todayOnly ? { items, checks, todayOnly } : { items, checks };
+}
+
+/** trackerOf with «أيام العذر»: the items split around the days they weren't counted (pieces). */
+function quietTracker(
+  rows: DashRows,
+  userId: string,
+  own: DashRows["trackerItems"],
+  skipped: string[],
+  todayOnly: boolean,
+  now: Date,
+): NonNullable<DashCard["tracker"]> {
+  const skippedOf = new Map<string, string[]>();
+  for (const key of skipped) {
+    const at = key.indexOf(":");
+    const id = key.slice(at + 1);
+    skippedOf.set(id, [...(skippedOf.get(id) ?? []), key.slice(0, at)]);
+  }
+  const items: DashItem[] = [];
+  // item id → its rows' aliases, each with its stretch
+  const rowsOf = new Map<string, { alias: string; from: string; until: string | null }[]>();
+  for (const i of own) {
+    for (const p of pieces(i, skippedOf.get(i.id) ?? [])) {
+      const alias = `t${items.length}`;
+      items.push({ id: alias, value: i.value, status: "APPROVED", days: i.days, createdDay: p.from, archivedDay: p.until, createdAt: p.createdAt, archivedAt: p.archivedAt });
+      rowsOf.set(i.id, [...(rowsOf.get(i.id) ?? []), { alias, from: p.from, until: p.until }]);
+    }
+  }
+  const checks: Record<string, string[]> = {};
+  const since = shiftDay(day(now), -SIBLING_DAYS);
+  for (const c of rows.checks) {
+    if (c.userId !== userId) continue;
+    const d = day(c.day);
+    const row = rowsOf.get(c.itemId)?.find((r) => d >= r.from && (r.until === null || d < r.until));
+    if (row && (!todayOnly || d >= since)) (checks[d] ??= []).push(row.alias);
   }
   return todayOnly ? { items, checks, todayOnly } : { items, checks };
 }

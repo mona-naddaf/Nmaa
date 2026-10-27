@@ -13,6 +13,8 @@ import { validateDays } from "@/lib/tracker/rules";
 import { acceptLocalDay } from "@/lib/home-log/rules";
 import { validateLocation } from "@/lib/prayer/times";
 import { placeColumns } from "@/lib/prayer/location";
+import { endOnSwitchOff, ownExcuse } from "@/lib/excuse/rafiq-data";
+import { safeTimeZone } from "@/lib/time/zone";
 
 // Her own account settings. Every action resolves whose settings they are
 // (src/lib/rafiq/subject.ts): the account itself (profile, password, recovery
@@ -181,4 +183,23 @@ export async function setTajweedDetailEnabledAction(_prev: SettingsState, formDa
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { tajweedDetailEnabled: on } });
   revalidatePath("/rafiq", "layout");
   return { ok: on ? "تم تفعيل أخطاء التجويد المفصّلة ✓" : "تم إيقاف أخطاء التجويد المفصّلة ✓" };
+}
+
+/**
+ * «أيام العذر» (a woman's own, EXCUSE_ENABLED): on or off (off by default).
+ * Off ends an open excuse now (her time zone: zone); what passed stays
+ * counted as it was.
+ */
+export async function setExcuseEnabledAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
+  if (!(await ownExcuse(user.id)).show) return { error: "أيام العذر غير مفعّلة — يمكن تفعيلها من الإعدادات" };
+  const on = formData.get("on") === "1";
+  if (!on) {
+    const zone = formData.get("zone");
+    await endOnSwitchOff(user.id, safeTimeZone(typeof zone === "string" ? zone : null), { adultId: null });
+  }
+  await prisma.rafiqUser.update({ where: { id: user.id }, data: { excuseEnabled: on } });
+  revalidatePath("/rafiq", "layout");
+  return { ok: "تم الحفظ ✓" };
 }

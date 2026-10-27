@@ -10,6 +10,8 @@ import { validateSchedule } from "@/lib/tracker/schedule";
 import { rafiqPlace } from "@/lib/prayer/place-data";
 import { rafiqSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
 import { clampOffset, isPeriodKind } from "@/lib/tracker/summary";
+import { ownExcuse } from "@/lib/excuse/rafiq-data";
+import { validateItemExcuse } from "@/lib/excuse/rules";
 
 // Her own follow-up tracker: she creates, edits and removes her items (no
 // approval), and ticks today or yesterday only. Every action resolves whose
@@ -33,7 +35,14 @@ const editableBy = (user: Subject) => (childActing(user) ? { adultAdded: false }
 
 // schedule: «الجدول اليومي» only (ignored while she has it off): [{ weekdays, timing }]
 // subjectId: «العائلة», a child's id when an adult works on the child's tracker
-type ItemInput = { title: string; value: number; days: number; schedule?: ScheduleChoice; subjectId?: string };
+// excuse: «أيام العذر» — «في أيام العذر» (only read while it applies to her; ignored otherwise)
+type ItemInput = { title: string; value: number; days: number; schedule?: ScheduleChoice; subjectId?: string; excuse?: { mode: unknown; alt: unknown } };
+
+/** The item's «في أيام العذر», when it applies (her own tracker, her switch on): {} = leave as is. */
+async function readExcuse(user: Subject, input: ItemInput): Promise<{ excuseMode?: "NONE" | "SKIP" | "ALT"; excuseAltTitle?: string | null } | { error: string }> {
+  if (!input?.excuse || !user.self || !(await ownExcuse(user.id)).on) return {};
+  return validateItemExcuse(input.excuse.mode, input.excuse.alt, user.gender);
+}
 
 const AGENDA_OFF = { error: "الجدول اليومي غير مفعّل — يمكن تفعيله من الإعدادات" };
 const agendaOn = async (userId: string) =>
@@ -65,10 +74,12 @@ export async function addItemAction(input: ItemInput): Promise<TrackerResult> {
   if (active >= RAFIQ_TRACKER_MAX_ITEMS) return { error: `يمكن أن يضم الجدول ${RAFIQ_TRACKER_MAX_ITEMS} بندًا على الأكثر` };
   const timed = await readSchedule(user.id, input);
   if ("error" in timed) return { error: timed.error };
+  const excuse = await readExcuse(user, input);
+  if ("error" in excuse) return { error: excuse.error };
   // new items go last in her order
   const by = addedBy(user);
   const item = await prisma.rafiqTrackerItem.create({
-    data: { userId: user.id, ...fields, sortOrder: await nextRafiqSortOrder(user.id), adultAdded: by.byAdult, createdById: by.adultId },
+    data: { userId: user.id, ...fields, ...excuse, sortOrder: await nextRafiqSortOrder(user.id), adultAdded: by.byAdult, createdById: by.adultId },
     select: { id: true },
   });
   if (timed.schedule) await setRafiqItemSchedule(user.id, item.id, timed.schedule, timed.anchors);
@@ -84,7 +95,12 @@ export async function updateItemAction(id: string, input: ItemInput): Promise<Tr
   if ("error" in fields) return { error: fields.error };
   const timed = await readSchedule(user.id, input);
   if ("error" in timed) return { error: timed.error };
-  const { count } = await prisma.rafiqTrackerItem.updateMany({ where: { id: String(id ?? ""), userId: user.id, archivedAt: null, ...editableBy(user) }, data: fields });
+  const excuse = await readExcuse(user, input);
+  if ("error" in excuse) return { error: excuse.error };
+  const { count } = await prisma.rafiqTrackerItem.updateMany({
+    where: { id: String(id ?? ""), userId: user.id, archivedAt: null, ...editableBy(user) },
+    data: { ...fields, ...excuse },
+  });
   if (count === 0) return childActing(user) ? LOCKED : { error: "هذا البند غير موجود" };
   if (timed.schedule) await setRafiqItemSchedule(user.id, id, timed.schedule, timed.anchors);
   refresh();
@@ -98,7 +114,9 @@ export async function summaryAction(kind: unknown, offset: unknown, zone: unknow
   const { summaryEnabled } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { summaryEnabled: true } });
   if (!summaryEnabled) return { error: "المحصّلات غير مفعّلة — يمكن تفعيلها من الإعدادات" };
   if (!isPeriodKind(kind)) return { error: "فترة غير صحيحة" };
-  return rafiqSummary(user.id, kind, clampOffset(offset), zone);
+  // «أيام العذر»: a woman's own excuse counts in her scores and is hers alone to see
+  const excuse = user.kind === "ADULT" && (await ownExcuse(user.id)).show;
+  return rafiqSummary(user.id, kind, clampOffset(offset), zone, { count: excuse, show: excuse && user.self });
 }
 
 /** «الجدول اليومي»: the schedule of one of her items. */

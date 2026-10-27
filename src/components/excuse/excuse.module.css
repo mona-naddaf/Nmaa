@@ -1,0 +1,119 @@
+/* «أيام العذر»: the bar above «جدول المتابعة», its panels, and the marks
+   inside the tracker. Motion: short fades and slides (transform/opacity),
+   none with reduced motion. */
+
+.bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0 4px 12px;
+}
+
+.since {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 0 4px 12px;
+  animation: enter 180ms var(--ease-out);
+}
+
+.panelTitle {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.time {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+
+.note {
+  margin: 0 4px 12px;
+  animation: enter 180ms var(--ease-out);
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 0 4px 12px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  animation: enter 180ms var(--ease-out);
+}
+
+/* under an alternative: «بدل «…»» */
+.was {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+/* «لا يُحسب»: the item stays, faded, with no tick */
+.skipped {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.skipNote {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* the item's «في أيام العذر» field */
+.altField {
+  margin-top: 8px;
+  animation: enter 160ms var(--ease-out);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .note,
+  .notice,
+  .altField {
+    animation: none;
+  }
+}

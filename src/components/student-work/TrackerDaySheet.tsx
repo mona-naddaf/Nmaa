@@ -11,6 +11,9 @@ import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { TickMark } from "./TickMark";
 import { useDayCelebration } from "./DayCelebration";
 import { useGuideTarget } from "@/components/guide/targets";
+import type { ExcuseLens } from "@/lib/excuse/lens";
+import { EXCUSE_DAY } from "@/lib/excuse/texts";
+import { ExcuseWas, SkipNote, excuseCss } from "@/components/excuse/ItemExcuse";
 
 const pointsLabel = (n: number) => (n === 1 ? "درجة" : n === 2 ? "درجتان" : n <= 10 ? `${n} درجات` : `${n} درجة`);
 
@@ -44,6 +47,7 @@ export function TrackerDaySheet({
   celebrateKey,
   readOnly = false,
   emptyDay,
+  excuse,
 }: {
   sheet: TrackerSheet;
   groupGender: GroupGender;
@@ -55,6 +59,8 @@ export function TrackerDaySheet({
   readOnly?: boolean;
   // Rafiq's guidance: its wording for a day with no items (unset: as before)
   emptyDay?: string;
+  // «أيام العذر», for whoever may see it (unset: as before)
+  excuse?: ExcuseLens;
 }) {
   const [which, setWhich] = useState<"today" | "yesterday">("today");
   // optimistic ticks keyed "day|itemId", dropped once the server's sheet catches up
@@ -87,14 +93,15 @@ export function TrackerDaySheet({
   };
   const checked = checkedOn(day);
   const items = allItems.filter((i) => shownOn(i, day));
-  const score = dayScore(allItems, checked, day);
+  const skipped = excuse?.skipped;
+  const score = dayScore(allItems, checked, day, skipped);
 
   function toggle(item: TrackerItemView) {
     if (readOnly) return;
     const key = `${day}|${item.id}`;
     const on = !checked.has(item.id);
     // her tick that first makes today complete: the celebration
-    if (on && day === today && !isComplete(score) && isComplete(dayScore(allItems, new Set(checked).add(item.id), day))) party.celebrate();
+    if (on && day === today && !isComplete(score) && isComplete(dayScore(allItems, new Set(checked).add(item.id), day, skipped))) party.celebrate();
     setError(null);
     setOverride((o) => ({ ...o, [key]: on }));
     startTransition(async () => {
@@ -147,6 +154,39 @@ export function TrackerDaySheet({
             {items.map((item) => {
               const on = checked.has(item.id);
               const pending = item.status === "PENDING";
+              const look = excuse?.view(item.id, day);
+              // «لا يُحسب» today: shown faded, with no tick
+              if (look?.state === "SKIP")
+                return (
+                  <div key={item.id} className={`${styles.tile} ${excuseCss.skipped}`}>
+                    <span className={styles.tileTitle}>{item.title}</span>
+                    <span className={styles.tileFoot}>
+                      <SkipNote />
+                    </span>
+                  </div>
+                );
+              if (look?.alt)
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`${styles.tile} ${on ? styles.on : ""}`}
+                    onClick={() => toggle(item)}
+                    disabled={readOnly}
+                    aria-pressed={on}
+                  >
+                    <span className={styles.tileTitle}>
+                      {look.alt}
+                      <ExcuseWas title={item.title} />
+                    </span>
+                    <span className={styles.tileFoot}>
+                      <span>{pointsLabel(item.value ?? 0)}</span>
+                      <span className={styles.tileCheck} aria-hidden>
+                        <TickMark on={on} />
+                      </span>
+                    </span>
+                  </button>
+                );
               return (
                 <button
                   key={item.id}
@@ -169,7 +209,7 @@ export function TrackerDaySheet({
           </div>
         )}
 
-        <LastSevenDays items={allItems} checkedOn={checkedOn} today={today} />
+        <LastSevenDays items={allItems} checkedOn={checkedOn} today={today} excuse={excuse} />
     </div>
   );
 }
@@ -205,15 +245,27 @@ export function DayScoreBar({ score, yesterday = false, groupGender: g }: { scor
 }
 
 /** «آخر سبعة أيام»: each day's earned/possible, a star when complete. */
-export function LastSevenDays({ items, checkedOn, today }: { items: ScoredItem[]; checkedOn: (day: string) => Set<string>; today: string }) {
+export function LastSevenDays({
+  items,
+  checkedOn,
+  today,
+  excuse,
+}: {
+  items: ScoredItem[];
+  checkedOn: (day: string) => Set<string>;
+  today: string;
+  // «أيام العذر», for whoever may see it: its days say so (D3)
+  excuse?: ExcuseLens;
+}) {
   return (
     <>
       <div className={hl.sectionTitle}>آخر سبعة أيام</div>
       <div className={styles.strip}>
         {lastSevenDays(today).map((d) => {
-          const s = dayScore(items, checkedOn(d), d);
+          const s = dayScore(items, checkedOn(d), d, excuse?.skipped);
+          const title = excuse?.isExcuseDay(d) ? `${gregorianLabelWithWeekday(d)} · ${EXCUSE_DAY}` : gregorianLabelWithWeekday(d);
           return (
-            <div key={d} className={`${styles.stripDay} ${isComplete(s) ? styles.full : ""} ${d === today ? styles.today : ""}`} title={gregorianLabelWithWeekday(d)}>
+            <div key={d} className={`${styles.stripDay} ${isComplete(s) ? styles.full : ""} ${d === today ? styles.today : ""}`} title={title}>
               {WEEKDAY_SHORT[weekdayOf(d)]}
               <b>{s.possible ? `${s.earned}/${s.possible}` : "—"}</b>
               {isComplete(s) ? "🌟" : ""}

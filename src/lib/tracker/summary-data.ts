@@ -1,7 +1,10 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { courseTimeZone } from "@/lib/time/course-zone";
-import { dateOnly, isoOf, safeTimeZone, zoneDayOf, zoneDayRange, zoneToday } from "@/lib/time/zone";
+import { addDaysISO, dateOnly, isoOf, safeTimeZone, zoneDayOf, zoneDayRange, zoneToday } from "@/lib/time/zone";
+import { excuseLens, type ExcuseLens } from "@/lib/excuse/lens";
+import { keyOf } from "@/lib/excuse/rules";
+import { loadExcuses, nowIn } from "@/lib/excuse/rafiq-data";
 import { itemsForStudentWhere } from "./data";
 import { comparisonLabel, computeSummary, periodLabel, periodRange, type PeriodKind, type Summary, type SummaryItem } from "./summary";
 import { entryCount } from "@/lib/recitation/combined";
@@ -35,6 +38,10 @@ export interface SummaryPayload {
     // a course's weekly 🔥 streak (null when the course has streaks off, or for «رفيق الحفظ»)
     weeklyStreak: number | null;
   };
+  // «أيام العذر», only for a viewer who may see the excuse: the period's
+  // excuse days, and its «day:itemId» pairs not counted / shown by their
+  // alternative (title). Everyone else gets the scores without it.
+  excuse?: { days: string[]; skip: string[]; alt: Record<string, string> };
 }
 
 const later = (a: string, b: string) => (a > b ? a : b);
@@ -49,6 +56,21 @@ function split(checks: { itemId: string; day: Date }[], from: string, to: string
   return out;
 }
 
+/** The period's excuse days and changed items, up to `to` (today at the latest). */
+function excuseOfPeriod(lens: ExcuseLens, items: SummaryItem[], from: string, to: string): NonNullable<SummaryPayload["excuse"]> {
+  const out: NonNullable<SummaryPayload["excuse"]> = { days: [], skip: [], alt: {} };
+  for (let d = from; d <= to; d = addDaysISO(d, 1)) {
+    if (!lens.isExcuseDay(d)) continue;
+    out.days.push(d);
+    for (const i of items) {
+      const v = lens.view(i.id, d);
+      if (v.state === "SKIP") out.skip.push(keyOf(d, i.id));
+      else if (v.state === "ALT" && v.alt) out.alt[keyOf(d, i.id)] = v.alt;
+    }
+  }
+  return out;
+}
+
 function assemble(
   kind: PeriodKind,
   offset: number,
@@ -56,19 +78,24 @@ function assemble(
   items: SummaryItem[],
   allChecks: { itemId: string; day: Date }[],
   achievements: SummaryPayload["achievements"],
+  // «أيام العذر»: what it does to the scores; show: the viewer may see it
+  lens?: { lens: ExcuseLens; show: boolean },
 ): SummaryPayload {
   const cur = periodRange(kind, today, offset);
   const prev = periodRange(kind, today, offset - 1);
   const checks = split(allChecks, cur.from, cur.to);
-  const summary = computeSummary({ items, checks, from: cur.from, to: cur.to, today });
-  const previous = computeSummary({ items, checks: split(allChecks, prev.from, prev.to), from: prev.from, to: prev.to, today });
+  const skipped = lens?.lens.skipped;
+  const summary = computeSummary({ items, checks, from: cur.from, to: cur.to, today, skipped });
+  const previous = computeSummary({ items, checks: split(allChecks, prev.from, prev.to), from: prev.from, to: prev.to, today, skipped });
+  const shown = items.filter((i) => summary.items.some((x) => x.id === i.id));
   return {
+    ...(lens?.show ? { excuse: excuseOfPeriod(lens.lens, shown, cur.from, cur.to < today ? cur.to : today) } : {}),
     kind,
     offset,
     label: periodLabel(kind, cur.from, cur.to),
     today,
     // only what this period's page needs
-    items: items.filter((i) => summary.items.some((x) => x.id === i.id)),
+    items: shown,
     checks,
     summary,
     previousOverall: previous.overall,
@@ -145,9 +172,17 @@ export async function courseSummary(studentId: string, kind: PeriodKind, offset:
 
 /**
  * A «رفيق الحفظ» user's summary, on her own days: browserZone is her
- * browser's time zone (her days; anything unknown → Riyadh's).
+ * browser's time zone (her days; anything unknown → Riyadh's). excuse:
+ * «أيام العذر» counts in her scores (ownExcuse().show), and whether this
+ * viewer may also see it.
  */
-export async function rafiqSummary(userId: string, kind: PeriodKind, offset: number, browserZone: unknown): Promise<SummaryPayload> {
+export async function rafiqSummary(
+  userId: string,
+  kind: PeriodKind,
+  offset: number,
+  browserZone: unknown,
+  excuse: { count: boolean; show: boolean } = { count: false, show: false },
+): Promise<SummaryPayload> {
   const tz = safeTimeZone(typeof browserZone === "string" ? browserZone : null);
   const today = zoneToday(tz);
   const cur = periodRange(kind, today, offset);
@@ -158,7 +193,7 @@ export async function rafiqSummary(userId: string, kind: PeriodKind, offset: num
     prisma.rafiqTrackerItem.findMany({
       where: { userId, createdAt: { lt: window.lt }, OR: [{ archivedAt: null }, { archivedAt: { gte: window.gte } }] },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      select: { id: true, title: true, value: true, days: true, createdAt: true, archivedAt: true },
+      select: { id: true, title: true, value: true, days: true, createdAt: true, archivedAt: true, excuseMode: true, excuseAltTitle: true },
     }),
     prisma.rafiqTrackerCheck.findMany({
       where: { userId, day: { gte: dateOnly(prev.from), lte: dateOnly(cur.to) } },
@@ -195,5 +230,5 @@ export async function rafiqSummary(userId: string, kind: PeriodKind, offset: num
     sessions: inPeriod.length,
     goal,
     weeklyStreak: null,
-  });
+  }, excuse.count ? { lens: excuseLens(rows, await loadExcuses(userId, prev.from), nowIn(tz)), show: excuse.show } : undefined);
 }

@@ -12,6 +12,8 @@ import { streakText } from "@/lib/students/streak";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { inertClass, inertProps } from "@/components/nudge/nudge";
 import { useGuideTarget } from "@/components/guide/targets";
+import { EXCUSE_DAY, EXCUSE_SKIP_TODAY, EXCUSE_SUMMARY_NOTE } from "@/lib/excuse/texts";
+import { ExcuseWas } from "@/components/excuse/ItemExcuse";
 
 // «المحصّلات»: a period's commitment as a segmented ring (one segment per
 // item, filled by its commitment) and a mosaic (one tile per day, shaded by
@@ -187,6 +189,12 @@ export function TrackerSummary({
             لا بنود
           </span>
         </div>
+        {/* «أيام العذر»: only when the period had one (and only for whoever may see it) */}
+        {data.excuse && data.excuse.days.length > 0 && (
+          <p className={hl.muted} style={{ margin: "8px 0 0", fontSize: 12 }}>
+            {EXCUSE_SUMMARY_NOTE}
+          </p>
+        )}
         {selectedDay && <DayDetails data={data} day={selectedDay} />}
       </div>
 
@@ -350,6 +358,7 @@ function star(cx: number, cy: number, r: number): string {
 function Mosaic({ data, selected, onSelect }: { data: SummaryPayload; selected: string | null; onSelect: (day: string) => void }) {
   const cells = data.summary.days;
   const byDay = new Map(cells.map((c) => [c.day, c]));
+  const excuseDays = data.excuse ? new Set(data.excuse.days) : null;
   // a week is one block; longer periods are one block per month
   const blocks: { title: string | null; days: string[] }[] = [];
   if (data.kind === "week") blocks.push({ title: null, days: cells.map((c) => c.day) });
@@ -388,7 +397,7 @@ function Mosaic({ data, selected, onSelect }: { data: SummaryPayload; selected: 
                 const y = HEAD + row * (CELL + GAP);
                 const full = c.state === "scored" && c.earned >= c.possible;
                 const pct = c.state === "scored" ? Math.round((c.earned / c.possible) * 100) : null;
-                const label = `${gregorianLabelWithWeekday(day)}: ${c.state === "future" ? "يوم قادم" : c.state === "neutral" ? "لا بنود" : `${pct}٪`}${c.today ? " (اليوم)" : ""}`;
+                const label = `${gregorianLabelWithWeekday(day)}: ${c.state === "future" ? "يوم قادم" : c.state === "neutral" ? "لا بنود" : `${pct}٪`}${c.today ? " (اليوم)" : ""}${excuseDays?.has(day) ? ` · ${EXCUSE_DAY}` : ""}`;
                 return (
                   <g
                     key={day}
@@ -440,12 +449,27 @@ function DayDetails({ data, day }: { data: SummaryPayload; day: string }) {
         {cell && cell.state === "scored" && ` — ${cell.earned}/${cell.possible}`}
       </div>
       {items.length === 0 && <div className={hl.muted}>لا بنود في هذا اليوم.</div>}
-      {items.map((i) => (
-        <div key={i.id} className={styles.dayRow}>
-          <span>{i.title}</span>
-          {ticked.has(i.id) ? <span className={styles.ok}>✓</span> : <span className={styles.miss}>{day === data.today ? "لم يُعلَّم بعد" : "✗"}</span>}
-        </div>
-      ))}
+      {items.map((i) => {
+        // «أيام العذر» (whoever may see it): not counted that day, or shown by its alternative
+        const key = `${day}:${i.id}`;
+        const skip = data.excuse?.skip.includes(key) ?? false;
+        const alt = data.excuse?.alt[key];
+        return (
+          <div key={i.id} className={styles.dayRow} style={skip ? { opacity: 0.55 } : undefined}>
+            <span>
+              {alt ?? i.title}
+              {alt && <ExcuseWas title={i.title} />}
+            </span>
+            {skip ? (
+              <span className={hl.muted}>{EXCUSE_SKIP_TODAY}</span>
+            ) : ticked.has(i.id) ? (
+              <span className={styles.ok}>✓</span>
+            ) : (
+              <span className={styles.miss}>{day === data.today ? "لم يُعلَّم بعد" : "✗"}</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

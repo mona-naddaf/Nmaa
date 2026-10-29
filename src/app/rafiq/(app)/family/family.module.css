@@ -108,6 +108,16 @@
   font-size: 13px;
 }
 
+/* «أيام العذر»: a girl's list of the adults who see it, under her switch */
+.excuseViewers {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: grid;
+  gap: 6px;
+}
+
 .check {
   display: inline-flex;
   align-items: center;

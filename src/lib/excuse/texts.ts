@@ -115,3 +115,15 @@ export const PAUSED_DAY = "توقّف الحفظ"; // D5
 /** D6, in place of the daily amount: deadline as «12 ديسمبر 2026». */
 export const goalPausedText = (deadline: string, self: boolean) =>
   `الحفظ متوقّف الآن. الموعد باقٍ ${deadline}، ويُوزَّع الباقي على الأيام المتبقية بعد ${self ? "عودتكِ" : "عودتها"}.`;
+
+// ---------- «العائلة»: a girl's settings ----------
+
+/** F2: under her switch. */
+export const childExcuseWhat = (name: string) =>
+  `زرّ فوق جدول المتابعة تبدأ به ${name} العذر وتنهيه، وتختارون لكل بند: يُحسب أو لا يُحسب أو له بديل. ويمكن إيقاف الحفظ في أيامه دون أن تنقطع سلسلتها.`;
+/** F3: her list's title. */
+export const childExcuseViewersTitle = (name: string) => `من يرى أن ${name} معذورة؟`;
+export const CHILD_EXCUSE_VIEWERS_NOTE = "من حُدِّد يرى العذر ويستطيع بدأه وإنهاءه. ومن لم يُحدَّد لا يرى شيئًا: تُرفع البنود من الحساب بهدوء، دون أي إشارة."; // F4
+/** F5: «(أنتِ)» / «(أنتَ)» after the adult looking. */
+export const viewerYou = (you: G) => (you === "MALE" ? "(أنتَ)" : "(أنتِ)");
+export const CHILD_EXCUSE_LATER = "من ينضمّ لاحقًا: البالغات يُحدَّدن تلقائيًا، والرجال لا."; // F6

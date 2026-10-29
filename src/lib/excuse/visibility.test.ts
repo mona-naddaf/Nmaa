@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adultExcuseApplies, courseActs, courseSees, familyActs, familySees, staffSetsItemExcuse, type CourseStudent } from "./visibility";
+import { adultExcuseApplies, courseActs, courseSees, familyActs, familySees, familyViewerChecks, staffSetsItemExcuse, type CourseStudent } from "./visibility";
 import { actorLine, momentErrorText, momentLabel, sinceLabel } from "./texts";
 
 const girl: CourseStudent = { id: "s1", groupId: "g1", groupGender: "GIRLS", parentVisible: false };
@@ -75,4 +75,19 @@ test("approved wording", () => {
   assert.equal(momentErrorText("FUTURE", null, null, today), "هذا الوقت لم يأتِ بعد");
   assert.equal(momentErrorText("OVERLAP", "FEMALE", { day: "2026-10-26", min: 1300 }, today), "انتهى العذر السابق أمس 9:40 م، فاختاري وقتًا بعده");
   assert.equal(momentErrorText("BEFORE_START", "MALE", { day: "2026-10-26", min: 1300 }, today), "بدأ العذر أمس 9:40 م، فاختر وقتًا بعده");
+});
+
+test("family list: women checked and men not by default, her own choices win", () => {
+  const adults = [
+    { id: "mona", gender: "FEMALE" as const },
+    { id: "ahmad", gender: "MALE" as const },
+    { id: "huda", gender: "FEMALE" as const },
+    { id: "omar", gender: "MALE" as const },
+  ];
+  const list = familyViewerChecks(adults, new Map([["huda", false], ["omar", true]]));
+  assert.deepEqual(list.map((a) => [a.id, a.checked]), [["mona", true], ["ahmad", false], ["huda", false], ["omar", true]]);
+  // the list and who sees agree
+  const girl = { id: "sara", gender: "FEMALE" as const, excuseEnabled: true };
+  const overrides = new Map([["huda", false], ["omar", true]]);
+  for (const a of list) assert.equal(familySees({ kind: "ADULT", id: a.id, gender: a.gender }, girl, overrides), a.checked, a.id);
 });

@@ -4,6 +4,7 @@ import { childForAdult } from "@/lib/family/child-pages";
 import { currentCommitDays } from "@/lib/rafiq/commitment";
 import { ChildHeader } from "../ChildHeader";
 import { ChildSettings } from "./ChildSettings";
+import { childExcuseCard } from "@/lib/excuse/family-data";
 
 // «إعدادات {الاسم}»: a child's switches, commitment days and review
 // reminders — changed by adults with edit rights, shown to view-only adults.
@@ -24,6 +25,7 @@ export default async function AdultChildSettingsPage({ params }: PageProps<"/raf
         canEdit={viewer === "adult-edit"}
         flags={child.flags}
         commitDays={await currentCommitDays(child.id)}
+        excuse={await childExcuseCard(access.family.id, child, access.user)}
       />
     </>
   );

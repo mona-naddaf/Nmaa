@@ -78,5 +78,9 @@ export function familySees(
   return overrides.get(viewer.id) ?? familyDefaultSees(viewer.gender);
 }
 
+/** Her list (F3–F5): every adult of the family, checked by her rows or else by the default. */
+export const familyViewerChecks = <A extends { id: string; gender: "MALE" | "FEMALE" }>(adults: A[], overrides: Map<string, boolean>) =>
+  adults.map((a) => ({ ...a, checked: overrides.get(a.id) ?? familyDefaultSees(a.gender) }));
+
 /** Starts and ends it: the same people who see it (decision 6). */
 export const familyActs = familySees;

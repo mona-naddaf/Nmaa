@@ -13,6 +13,10 @@ import type { ChildFlags } from "@/lib/family/child-pages";
 import { setChildFeatureAction } from "../../../../actions";
 import { setCommitDaysAction, setReviewRemindersAction } from "../../../../../settings/actions";
 import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
+import { SavedNote } from "@/components/nudge/SavedNote";
+import type { ChildExcuseCard } from "@/lib/excuse/family-data";
+import { CHILD_EXCUSE_LATER, CHILD_EXCUSE_VIEWERS_NOTE, childExcuseViewersTitle, childExcuseWhat, EXCUSE_SWITCH_OFF_NOTE, EXCUSE_TITLE, viewerYou } from "@/lib/excuse/texts";
+import { setChildExcuseAction, setExcuseViewerAction } from "../../../../excuse-actions";
 
 const FAIL = "تعذّر حفظ الإعداد، يُرجى المحاولة مرة أخرى";
 
@@ -26,6 +30,8 @@ function useOptimistic(saved: boolean) {
   const [on, setOn] = useState(saved);
   const [seen, setSeen] = useState(saved);
   const [error, setError] = useState<string | null>(null);
+  // «تم الحفظ ✓» after each save (shown where a switch asks for it)
+  const [stamp, setStamp] = useState(0);
   const [, start] = useTransition();
   if (seen !== saved) {
     setSeen(saved);
@@ -35,6 +41,7 @@ function useOptimistic(saved: boolean) {
     const before = on;
     setOn(next);
     setError(null);
+    setStamp(0);
     start(async () => {
       const r = await trackSave(save(next)).catch(() => ({ error: FAIL }));
       if (r?.error) {
@@ -42,10 +49,11 @@ function useOptimistic(saved: boolean) {
         setError(FAIL);
         return;
       }
+      setStamp(Date.now());
       router.refresh();
     });
   };
-  return { on, set, error };
+  return { on, set, error, stamp };
 }
 
 type Row = { key: ChildFeature; title: string; what: string; needs?: ChildFeature };
@@ -63,6 +71,7 @@ export function ChildSettings({
   canEdit,
   flags,
   commitDays,
+  excuse,
 }: {
   childId: string;
   name: string;
@@ -72,6 +81,8 @@ export function ChildSettings({
   canEdit: boolean;
   flags: ChildFlags;
   commitDays: number;
+  // «أيام العذر»: a girl's, where it reaches her family
+  excuse: ChildExcuseCard | null;
 }) {
   const g = (m: string, fem: string) => (gender === "FEMALE" ? fem : m);
   const rows: Row[] = [
@@ -100,6 +111,7 @@ export function ChildSettings({
             <Switch key={r.key} row={r} childId={childId} saved={flags[r.key]} canEdit={canEdit} blockedBy={r.needs && !flags[r.needs] ? rows.find((x) => x.key === r.needs)?.title : undefined} />
           ))}
           <Reminders childId={childId} name={name} g={g} days={flags.reviewReminderDays} canEdit={canEdit} />
+          {excuse && <Excuse childId={childId} name={name} card={excuse} you={you} canEdit={canEdit} />}
         </div>
       </div>
       {flags.streak && <CommitDays childId={childId} name={name} g={g} initial={commitDays} canEdit={canEdit} />}
@@ -123,6 +135,57 @@ function Switch({ row, childId, saved, canEdit, blockedBy }: { row: Row; childId
       </label>
       <div className={hl.muted}>{row.what}</div>
       {blockedBy && !t.on && <div className={hl.muted}>يحتاج تفعيل «{blockedBy}» أولًا.</div>}
+      {t.error && <div className={hl.err}>{t.error}</div>}
+    </div>
+  );
+}
+
+/**
+ * «أيام العذر» (F1–F6): her 10th switch and, while it's on, the adults who
+ * see it. Off ends an open excuse now (A4: the note only reaches those who
+ * see it); zone: the adult's, for that moment.
+ */
+function Excuse({ childId, name, card, you, canEdit }: { childId: string; name: string; card: ChildExcuseCard; you: "MALE" | "FEMALE" | null; canEdit: boolean }) {
+  const t = useOptimistic(card.on);
+  return (
+    <div className={f.row}>
+      <label className={f.check} style={{ fontWeight: 700 }}>
+        <input
+          type="checkbox"
+          checked={t.on}
+          disabled={!canEdit}
+          onChange={(e) => t.set(e.target.checked, (on) => setChildExcuseAction({ childId, on, zone: Intl.DateTimeFormat().resolvedOptions().timeZone }))}
+        />
+        {EXCUSE_TITLE}
+        <SavedNote stamp={t.stamp} />
+      </label>
+      <div className={hl.muted}>{childExcuseWhat(name)}</div>
+      {t.on && card.active && <div className={hl.muted}>{EXCUSE_SWITCH_OFF_NOTE}</div>}
+      {t.error && <div className={hl.err}>{t.error}</div>}
+      {t.on && (
+        <fieldset className={f.excuseViewers}>
+          <legend style={{ fontWeight: 700 }}>{childExcuseViewersTitle(name)}</legend>
+          <div className={hl.muted}>{CHILD_EXCUSE_VIEWERS_NOTE}</div>
+          {card.viewers.map((v) => (
+            <Viewer key={v.id} childId={childId} viewer={v} you={you} canEdit={canEdit} />
+          ))}
+          <div className={hl.muted}>{CHILD_EXCUSE_LATER}</div>
+        </fieldset>
+      )}
+    </div>
+  );
+}
+
+function Viewer({ childId, viewer, you, canEdit }: { childId: string; viewer: ChildExcuseCard["viewers"][number]; you: "MALE" | "FEMALE" | null; canEdit: boolean }) {
+  const t = useOptimistic(viewer.checked);
+  return (
+    <div>
+      <label className={f.check}>
+        <input type="checkbox" checked={t.on} disabled={!canEdit} onChange={(e) => t.set(e.target.checked, (canSee) => setExcuseViewerAction({ childId, adultId: viewer.id, canSee }))} />
+        {viewer.name}
+        {viewer.you && <span className={hl.muted}> {viewerYou(you)}</span>}
+        <SavedNote stamp={t.stamp} />
+      </label>
       {t.error && <div className={hl.err}>{t.error}</div>}
     </div>
   );

@@ -181,7 +181,13 @@ function Viewer({ childId, viewer, you, canEdit }: { childId: string; viewer: Ch
   return (
     <div>
       <label className={f.check}>
-        <input type="checkbox" checked={t.on} disabled={!canEdit} onChange={(e) => t.set(e.target.checked, (canSee) => setExcuseViewerAction({ childId, adultId: viewer.id, canSee }))} />
+        <input
+          type="checkbox"
+          checked={t.on}
+          // nobody checks their own name (another adult with edit rights does); unchecking it is fine
+          disabled={!canEdit || (viewer.you && !t.on)}
+          onChange={(e) => t.set(e.target.checked, (canSee) => setExcuseViewerAction({ childId, adultId: viewer.id, canSee }))}
+        />
         {viewer.name}
         {viewer.you && <span className={hl.muted}> {viewerYou(you)}</span>}
         <SavedNote stamp={t.stamp} />

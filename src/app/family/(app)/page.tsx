@@ -6,6 +6,8 @@ import hl from "@/components/home-log/home-log.module.css";
 import { ChildWelcome } from "@/components/family/ChildWelcome";
 import { WELCOME_SEEN_COOKIE } from "@/lib/family/rules";
 import { cookies } from "next/headers";
+import { resolveSubject } from "@/lib/rafiq/subject";
+import { homeExcuse, subjectExcuse } from "@/lib/excuse/subject";
 
 // «صفحتي» of a child («العائلة»): the Rafiq page, as herself — her position
 // (and goal, with its switch), recording her own sessions (no word marks:
@@ -17,6 +19,9 @@ export default async function ChildHomePage() {
   const flags = await childFlags(child.id);
   const { data, commitment, tajweedSummary } = await childHomeData(child.id, flags);
   const p = (m: string, f: string) => pickByPerson(child.gender, { m, f });
+  // «أيام العذر»: a girl's own paused days, where it reaches her family
+  const me = await resolveSubject(null, "view");
+  const excuse = data && !("error" in me) ? await homeExcuse(child.id, await subjectExcuse(me), data, commitment) : {};
   return (
     <>
       <div className={hl.sectionTitle} style={{ margin: "0 4px 12px" }}>
@@ -33,6 +38,7 @@ export default async function ChildHomePage() {
           similar={flags.mutashabihat}
           tajweedSummary={tajweedSummary}
           scope={{ viewer: "child", adults: await familyAdults(child.familyId), streak: flags.streak }}
+          {...excuse}
         />
       ) : (
         // every child gets a plan when added; kept for safety

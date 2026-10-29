@@ -1,7 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { excuseAllowed, excuseEnabled } from "./enabled";
-import { familySees, familyViewerChecks, type FamilyViewer } from "./visibility";
+import { skipKeys } from "./rafiq-data";
+import { familySees, familyViewerChecks } from "./visibility";
 
 // «أيام العذر» in «العائلة»: a girl's 10th switch and her list of the adults
 // who see it. Who sees is decided here, on the server, before anything about
@@ -55,9 +56,12 @@ export async function childExcuseCard(familyId: string, child: { id: string; gen
   };
 }
 
-/** Whether this viewer sees this girl's excuse (and may start and end it). */
-export async function familyViewerSees(familyId: string, viewer: FamilyViewer, childId: string): Promise<boolean> {
-  if (!(await familyExcuseAllowed(familyId))) return false;
-  const child = await prisma.rafiqUser.findFirst({ where: { id: childId, familyId, kind: "CHILD" }, select: { id: true, gender: true, excuseEnabled: true } });
-  return !!child && familySees(viewer, child, await viewerOverrides(childId));
+/**
+ * The family's dashboard: per girl shown there, the «day:itemId» pairs not
+ * due — for every viewer, who sees completion only (no text of it there).
+ */
+export async function quietGirlSkips(familyId: string, childIds: string[], fromDay: string): Promise<Record<string, string[]>> {
+  if (childIds.length === 0 || !(await familyExcuseAllowed(familyId))) return {};
+  const girls = await prisma.rafiqUser.findMany({ where: { id: { in: childIds }, familyId, kind: "CHILD", gender: "FEMALE" }, select: { id: true } });
+  return skipKeys(girls.map((g) => g.id), fromDay);
 }

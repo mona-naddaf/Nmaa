@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { addDays } from "@/lib/tracker/rules";
 import { quietPauses, quietSkips } from "@/lib/excuse/rafiq-data";
+import { quietGirlSkips } from "@/lib/excuse/family-data";
 import { buildDashboard, dashboardSections, type DashboardData, type DashFacts, type DashRows, type DashViewer } from "./dashboard-build";
 
 // «عائلتي»: the family dashboard, loaded in one batch for the whole family
@@ -61,7 +62,8 @@ async function loadRows(viewer: DashViewer, facts: DashFacts): Promise<DashRows>
     s.trackerSubjects.length ? prisma.rafiqTrackerCheck.findMany({ where: { userId: { in: s.trackerSubjects }, day: { gte: from } }, select: { userId: true, itemId: true, day: true } }) : none,
   ]);
   // «أيام العذر»: a woman sharing her tracker — her excuse stays hers; the scores just leave those items out
-  const skipped = await quietSkips(s.trackerAdultIds, day(from));
+  // and a girl's («العائلة»): the same, for every viewer of the dashboard
+  const skipped = { ...(await quietSkips(s.trackerAdultIds, day(from))), ...(await quietGirlSkips(facts.familyId, s.childIds, day(from))) };
   // and her paused days: her 🔥 and goal leave as results only
   const paused = await quietPauses(s.progressAdultIds);
   return {

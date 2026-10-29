@@ -10,7 +10,7 @@ import { validateSchedule } from "@/lib/tracker/schedule";
 import { rafiqPlace } from "@/lib/prayer/place-data";
 import { rafiqSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
 import { clampOffset, isPeriodKind } from "@/lib/tracker/summary";
-import { ownExcuse } from "@/lib/excuse/rafiq-data";
+import { subjectExcuse } from "@/lib/excuse/subject";
 import { validateItemExcuse } from "@/lib/excuse/rules";
 
 // Her own follow-up tracker: she creates, edits and removes her items (no
@@ -38,10 +38,17 @@ const editableBy = (user: Subject) => (childActing(user) ? { adultAdded: false }
 // excuse: «أيام العذر» — «في أيام العذر» (only read while it applies to her; ignored otherwise)
 type ItemInput = { title: string; value: number; days: number; schedule?: ScheduleChoice; subjectId?: string; excuse?: { mode: unknown; alt: unknown } };
 
-/** The item's «في أيام العذر», when it applies (her own tracker, her switch on): {} = leave as is. */
+/**
+ * The item's «في أيام العذر», when it applies (her switch on, and the one
+ * acting sees her excuse: she herself, or an adult checked in a girl's
+ * list): {} = leave as is. Which items she may change is the action's own
+ * check (an adult's item stays the adults').
+ */
 async function readExcuse(user: Subject, input: ItemInput): Promise<{ excuseMode?: "NONE" | "SKIP" | "ALT"; excuseAltTitle?: string | null } | { error: string }> {
-  if (!input?.excuse || !user.self || !(await ownExcuse(user.id)).on) return {};
-  return validateItemExcuse(input.excuse.mode, input.excuse.alt, user.gender);
+  if (!input?.excuse) return {};
+  const ex = await subjectExcuse(user);
+  if (!ex.on) return {};
+  return validateItemExcuse(input.excuse.mode, input.excuse.alt, ex.you);
 }
 
 const AGENDA_OFF = { error: "الجدول اليومي غير مفعّل — يمكن تفعيله من الإعدادات" };
@@ -114,9 +121,9 @@ export async function summaryAction(kind: unknown, offset: unknown, zone: unknow
   const { summaryEnabled } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { summaryEnabled: true } });
   if (!summaryEnabled) return { error: "المحصّلات غير مفعّلة — يمكن تفعيلها من الإعدادات" };
   if (!isPeriodKind(kind)) return { error: "فترة غير صحيحة" };
-  // «أيام العذر»: a woman's own excuse counts in her scores and is hers alone to see
-  const excuse = user.kind === "ADULT" && (await ownExcuse(user.id)).show;
-  return rafiqSummary(user.id, kind, clampOffset(offset), zone, { count: excuse, show: excuse && user.self });
+  // «أيام العذر»: her excuses count in her scores; shown only to whoever may see them
+  const excuse = await subjectExcuse(user);
+  return rafiqSummary(user.id, kind, clampOffset(offset), zone, { count: excuse.count, show: excuse.show });
 }
 
 /** «الجدول اليومي»: the schedule of one of her items. */

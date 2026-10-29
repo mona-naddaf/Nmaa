@@ -1,4 +1,4 @@
-import { effectiveEnd, excuseDays, itemStateOn, type Excuse, type ExcuseMode, type ItemState, type Moment } from "./rules";
+import { effectiveEnd, excuseDays, itemStateOn, keyOf, type Excuse, type ExcuseMode, type ItemState, type Moment } from "./rules";
 
 // «أيام العذر» as a viewer who may see it sees the tracker: which items are
 // as usual, «لا يُحسب» or shown by their alternative on a day, and which
@@ -12,6 +12,26 @@ export interface ExcuseLens {
   skipped: (itemId: string, day: string) => boolean;
   /** An excuse touched that day («يوم عذر» on the day tiles). */
   isExcuseDay: (day: string) => boolean;
+  /** A viewer who may not see it (quietLens): a skipped item simply isn't there that day. */
+  quiet?: boolean;
+}
+
+/** Whether the item is left out of that day altogether (only ever for a quiet viewer). */
+export const hiddenOn = (lens: ExcuseLens | undefined, itemId: string, day: string) => !!lens?.quiet && lens.skipped(itemId, day);
+
+/**
+ * For a viewer who may not see her excuse: only the «day|itemId» pairs not
+ * due (sent by the server, nothing else). No text, no alternative (it
+ * looks like its item), no excuse day.
+ */
+export function quietLens(notDue: string[]): ExcuseLens {
+  const off = new Set(notDue);
+  return {
+    view: () => ({ state: "ORIGINAL", alt: null }),
+    skipped: (itemId, day) => off.has(keyOf(day, itemId)),
+    isExcuseDay: () => false,
+    quiet: true,
+  };
 }
 
 export type ExcuseItem = { id: string; excuseMode?: ExcuseMode; excuseAltTitle?: string | null };

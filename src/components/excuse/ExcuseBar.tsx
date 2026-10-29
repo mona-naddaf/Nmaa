@@ -29,6 +29,8 @@ import {
   PAUSED_SUFFIX,
   pauseHint,
   sinceLabel,
+  actorLine,
+  type Actor,
 } from "@/lib/excuse/texts";
 
 // «أيام العذر» above «جدول المتابعة»: «بدء العذر», or while it lasts the
@@ -53,6 +55,8 @@ export function ExcuseBar({
   excuses,
   you,
   self,
+  name,
+  startedBy,
   onStart,
   onEnd,
   onSettle,
@@ -64,6 +68,10 @@ export function ExcuseBar({
   you: "MALE" | "FEMALE";
   // she herself (C13's wording)
   self: boolean;
+  // C8: her name, for an adult on a girl's page («سارة معذورة منذ…»)
+  name?: string;
+  // C14: who started the open one («العائلة»), under the line
+  startedBy?: Actor | null;
   onStart: ExcuseAction;
   onEnd: ExcuseAction;
   // an excuse found past its 15 days: the server ends it
@@ -151,7 +159,7 @@ export function ExcuseBar({
           {open ? (
             <>
               <span className={css.since}>
-                {sinceLabel(open.start.day, now.day)}
+                {sinceLabel(open.start.day, now.day, name)}
                 {pause && paused && ` · ${PAUSED_SUFFIX}`}
               </span>
               <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => (setNote(null), setPanel("end"))}>
@@ -173,6 +181,7 @@ export function ExcuseBar({
           )}
         </div>
       )}
+      {panel === null && open && startedBy && <div className={css.log}>{actorLine("start", startedBy, open.start, now.day)}</div>}
       {pauseError && (
         <div className={`${hl.err} ${css.note}`} role="alert">
           {pauseError}

@@ -16,6 +16,13 @@
   color: var(--ink);
 }
 
+/* C14: who started it, small under the line */
+.log {
+  margin: -6px 4px 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .panel {
   background: var(--paper);
   border: 1px solid var(--line);

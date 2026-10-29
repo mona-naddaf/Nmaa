@@ -6,6 +6,7 @@ import { resolveSubject } from "@/lib/rafiq/subject";
 import { safeTimeZone } from "@/lib/time/zone";
 import { endOnSwitchOff } from "@/lib/excuse/rafiq-data";
 import { familyExcuseAllowed } from "@/lib/excuse/family-data";
+import { mayChangeViewer } from "@/lib/excuse/visibility";
 import { NOT_AVAILABLE } from "@/lib/family/data";
 
 // «أيام العذر» on a girl's settings page («العائلة»): her 10th switch and
@@ -42,7 +43,7 @@ export async function setChildExcuseAction(input: { childId: string; on: boolean
   return {};
 }
 
-/** F5: whether one adult of her family sees her excuse (and may start and end it). */
+/** F5: whether one adult of her family sees her excuse (and may start and end it). Never checking oneself. */
 export async function setExcuseViewerAction(input: { childId: string; adultId: string; canSee: boolean }): Promise<State> {
   const child = await girl(input?.childId);
   if ("error" in child) return child;
@@ -50,6 +51,7 @@ export async function setExcuseViewerAction(input: { childId: string; adultId: s
   const member = await prisma.familyMember.findUnique({ where: { familyId_userId: { familyId: child.familyId, userId: adultId } }, select: { userId: true } });
   if (!member) return OFF;
   const canSee = input.canSee === true;
+  if (!mayChangeViewer(child.actorId, adultId, canSee)) return OFF;
   await prisma.familyExcuseViewer.upsert({
     where: { childId_adultId: { childId: child.id, adultId } },
     create: { childId: child.id, adultId, canSee },

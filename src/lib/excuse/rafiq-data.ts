@@ -258,6 +258,19 @@ export async function quietSkips(userIds: string[], fromDay: string): Promise<Re
   const women = (await prisma.rafiqUser.findMany({ where: { id: { in: userIds }, kind: "ADULT", gender: "FEMALE" }, select: { id: true, email: true } }))
     .filter((u) => excuseAllowed(u.email))
     .map((u) => u.id);
+  return skipKeys(women, fromDay);
+}
+
+/**
+ * For a viewer who may not see a girl's excuse («العائلة»): the «day:itemId»
+ * pairs not due from fromDay to tomorrow — nothing else of it.
+ */
+export async function notDue(userId: string, fromDay: string): Promise<string[]> {
+  return (await skipKeys([userId], fromDay))[userId] ?? [];
+}
+
+/** Per woman or girl, the «day:itemId» pairs not due from fromDay to tomorrow (only those with any). */
+export async function skipKeys(women: string[], fromDay: string): Promise<Record<string, string[]>> {
   if (women.length === 0) return {};
   const [excuses, items] = await Promise.all([
     prisma.rafiqExcuse.findMany({

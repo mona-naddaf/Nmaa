@@ -42,6 +42,9 @@ export interface SummaryPayload {
   // excuse days, and its «day:itemId» pairs not counted / shown by their
   // alternative (title). Everyone else gets the scores without it.
   excuse?: { days: string[]; skip: string[]; alt: Record<string, string> };
+  // «أيام العذر» for a viewer who may not see it: the «day:itemId» pairs not
+  // due in the period, left out of the day's list quietly (nothing else of it)
+  notDue?: string[];
 }
 
 const later = (a: string, b: string) => (a > b ? a : b);
@@ -71,6 +74,12 @@ function excuseOfPeriod(lens: ExcuseLens, items: SummaryItem[], from: string, to
   return out;
 }
 
+function notDueOfPeriod(lens: ExcuseLens, items: SummaryItem[], from: string, to: string): string[] {
+  const out: string[] = [];
+  for (let d = from; d <= to; d = addDaysISO(d, 1)) for (const i of items) if (lens.skipped(i.id, d)) out.push(keyOf(d, i.id));
+  return out;
+}
+
 function assemble(
   kind: PeriodKind,
   offset: number,
@@ -90,6 +99,7 @@ function assemble(
   const shown = items.filter((i) => summary.items.some((x) => x.id === i.id));
   return {
     ...(lens?.show ? { excuse: excuseOfPeriod(lens.lens, shown, cur.from, cur.to < today ? cur.to : today) } : {}),
+    ...(lens && !lens.show ? { notDue: notDueOfPeriod(lens.lens, shown, cur.from, cur.to < today ? cur.to : today) } : {}),
     kind,
     offset,
     label: periodLabel(kind, cur.from, cur.to),

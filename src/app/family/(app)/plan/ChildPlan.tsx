@@ -9,6 +9,10 @@ import { GoalLine } from "@/components/goal/GoalLine";
 import type { MemorizationView } from "@/lib/rafiq/memorization";
 import { pickByPerson } from "@/lib/text/gender";
 import f from "@/app/rafiq/(app)/family/family.module.css";
+import { pausedDays } from "@/lib/excuse/rules";
+import { goalPausedText } from "@/lib/excuse/texts";
+import type { QuietHome } from "@/lib/excuse/home-quiet";
+import { gregorianLabel } from "@/lib/calendar/hijri";
 
 type Template = "MUSHAF_ORDER" | "MUSHAF_REVERSE" | "JUZ_AMMA_REVERSE" | "CUSTOM";
 const TEMPLATE_LABEL: Record<Template, string> = {
@@ -26,7 +30,24 @@ const SHOWN_AHEAD = 12;
  * switch). Nothing here changes it.
  */
 // about: the child's name when a view-only adult reads it (third person); the child herself otherwise
-export function ChildPlan({ data, template, gender, about }: { data: MemorizationView; template: Template | null; gender: "MALE" | "FEMALE"; about?: string }) {
+// paused / pausedNow / quiet: «أيام العذر», as on her «صفحتي» (src/lib/excuse/subject.ts homeExcuse)
+export function ChildPlan({
+  data,
+  template,
+  gender,
+  about,
+  paused,
+  pausedNow = false,
+  quiet,
+}: {
+  data: MemorizationView;
+  template: Template | null;
+  gender: "MALE" | "FEMALE";
+  about?: string;
+  paused?: { from: string; to: string | null }[];
+  pausedNow?: boolean;
+  quiet?: QuietHome;
+}) {
   const today = useToday();
   const p = (m: string, fem: string) => pickByPerson(gender, { m, f: fem });
   // you (the child) / he, she (the child, for an adult)
@@ -38,8 +59,13 @@ export function ChildPlan({ data, template, gender, about }: { data: Memorizatio
   const done = Math.max(0, current);
   const ahead = plan.slice(current + 1);
   const goal = useMemo(
-    () => (data.goal && today ? computeGoal(plan, data.goal, data.history.map((h) => ({ ...h, prior: h.source === "PRIOR" })), today) : null),
-    [data.goal, data.history, plan, today],
+    () =>
+      data.goal && today
+        ? quiet && today in quiet.goalBy
+          ? quiet.goalBy[today]
+          : computeGoal(plan, data.goal, data.history.map((h) => ({ ...h, prior: h.source === "PRIOR" })), today, paused ? pausedDays(paused, today) : undefined)
+        : null,
+    [data.goal, data.history, plan, today, paused, quiet],
   );
 
   return (
@@ -71,7 +97,12 @@ export function ChildPlan({ data, template, gender, about }: { data: Memorizatio
             {w(["أتممتَ", "أتممتِ"], ["أتمّ", "أتمّت"])} {done} من {plan.length} سورة في {w(["خطتك", "خطتك"], ["خطته", "خطتها"])}
           </div>
         )}
-        <GoalLine goal={goal} feminine={gender === "FEMALE"} invalidHint="الهدف لم يعد ضمن خطتك الحالية." />
+        <GoalLine
+          goal={goal}
+          feminine={gender === "FEMALE"}
+          invalidHint="الهدف لم يعد ضمن خطتك الحالية."
+          {...(pausedNow && goal ? { pausedText: goalPausedText(gregorianLabel(goal.deadline), !about) } : {})}
+        />
       </div>
 
       {ahead.length > 0 && (

@@ -11,7 +11,7 @@ import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { TickMark } from "./TickMark";
 import { useDayCelebration } from "./DayCelebration";
 import { useGuideTarget } from "@/components/guide/targets";
-import type { ExcuseLens } from "@/lib/excuse/lens";
+import { hiddenOn, type ExcuseLens } from "@/lib/excuse/lens";
 import { EXCUSE_DAY } from "@/lib/excuse/texts";
 import { ExcuseWas, SkipNote, excuseCss } from "@/components/excuse/ItemExcuse";
 
@@ -92,7 +92,7 @@ export function TrackerDaySheet({
     return set;
   };
   const checked = checkedOn(day);
-  const items = allItems.filter((i) => shownOn(i, day));
+  const items = allItems.filter((i) => shownOn(i, day) && !hiddenOn(excuse, i.id, day));
   const skipped = excuse?.skipped;
   const score = dayScore(allItems, checked, day, skipped);
 

@@ -48,6 +48,7 @@ import { useGuide } from "./GuideProvider";
 import { IntroLine } from "./guide/IntroLine";
 import { pausedDays } from "@/lib/excuse/rules";
 import { goalPausedText, PAUSED_DAY } from "@/lib/excuse/texts";
+import type { QuietHome } from "@/lib/excuse/home-quiet";
 import { gregorianLabel } from "@/lib/calendar/hijri";
 
 type Quality = "EXCELLENT" | "GOOD" | "NEEDS_REPEAT";
@@ -73,6 +74,7 @@ export function RafiqHome({
   guide,
   paused,
   pausedNow = false,
+  quiet,
 }: {
   data: MemorizationView;
   gender: PersonGender;
@@ -92,6 +94,9 @@ export function RafiqHome({
   // her memorization is paused right now (the goal says so, D6); after she
   // resumes, today still counts as paused but the goal shows its daily amount
   pausedNow?: boolean;
+  // «أيام العذر», for an adult who may not see a girl's excuse: her 🔥, week
+  // and goal as results only, by the viewer's possible todays (no paused day)
+  quiet?: QuietHome;
 }) {
   const router = useRouter();
   const today = useToday();
@@ -202,7 +207,9 @@ export function RafiqHome({
   const goal = useMemo(
     () =>
       data.goal && today
-        ? computeGoal(
+        ? quiet && today in quiet.goalBy
+          ? quiet.goalBy[today]
+          : computeGoal(
             data.plan,
             data.goal,
             data.history.map((h) => ({ ...h, prior: h.source === "PRIOR" })),
@@ -210,7 +217,7 @@ export function RafiqHome({
             pausedSet,
           )
         : null,
-    [data.goal, data.plan, data.history, today, pausedSet],
+    [data.goal, data.plan, data.history, today, pausedSet, quiet],
   );
 
   const quranPercent = Math.min(100, Math.round((data.memorizedPages / TOTAL_PAGES) * 1000) / 10);
@@ -234,7 +241,7 @@ export function RafiqHome({
             goal={goal}
             feminine={gender === "FEMALE"}
             invalidHint="الهدف لم يعد ضمن خطتك الحالية — يمكن تعديله من «خطتي»."
-            {...(pausedNow && goal ? { pausedText: goalPausedText(gregorianLabel(goal.deadline), true) } : {})}
+            {...(pausedNow && goal ? { pausedText: goalPausedText(gregorianLabel(goal.deadline), !child) } : {})}
           />
         </div>
       </div>
@@ -290,6 +297,7 @@ export function RafiqHome({
           commitment={commitment}
           today={today}
           paused={pausedSet}
+          quiet={quiet && today ? quiet.streakBy[today] : undefined}
           settingsHref={can.ownExtras ? "/rafiq/settings#commit" : scope.settingsHref}
           {...(guide ? { noStreak: genderText(EMPTY.homeStreak, gender) } : {})}
         />
@@ -470,20 +478,23 @@ function CommitCard({
   settingsHref,
   noStreak,
   paused,
+  quiet,
 }: {
   commitment: CommitmentData;
   today: string | null;
   settingsHref?: string;
   noStreak?: string;
   paused?: Set<string>;
+  // results only (an adult who may not see a girl's excuse)
+  quiet?: QuietHome["streakBy"][string];
 }) {
   const t = useGuideTarget();
   if (!today) return <div className={styles.commitCard} style={{ minHeight: 70 }} aria-busy />;
   const logged = new Set(commitment.loggedDays);
   // her first day: the local day she signed up (not the UTC one)
   const start = commitStart(commitment.loggedDays, dayOfInstant(commitment.createdAt, null));
-  const { current, best } = computeStreak(commitment.schedule, logged, today, start, paused);
-  const week = weekView(commitment.schedule, logged, today, start, paused);
+  const { current, best } = quiet ?? computeStreak(commitment.schedule, logged, today, start, paused);
+  const week = quiet?.week ?? weekView(commitment.schedule, logged, today, start, paused);
   return (
     <div className={styles.commitCard} {...t("home.streak")}>
       <div>

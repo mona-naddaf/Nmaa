@@ -82,5 +82,13 @@ export function familySees(
 export const familyViewerChecks = <A extends { id: string; gender: "MALE" | "FEMALE" }>(adults: A[], overrides: Map<string, boolean>) =>
   adults.map((a) => ({ ...a, checked: overrides.get(a.id) ?? familyDefaultSees(a.gender) }));
 
+/**
+ * A change to her list by one adult (actorId) of another's line (adultId):
+ * nobody checks their own name — someone else with edit rights does that;
+ * unchecking oneself is fine (Mona, 2026-10-29). The defaults by gender
+ * still apply without anyone checking.
+ */
+export const mayChangeViewer = (actorId: string, adultId: string, canSee: boolean) => !(canSee && actorId === adultId);
+
 /** Starts and ends it: the same people who see it (decision 6). */
 export const familyActs = familySees;

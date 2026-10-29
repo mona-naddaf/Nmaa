@@ -446,7 +446,8 @@ function daysBetween(a: string, b: string): number {
 function DayDetails({ data, day }: { data: SummaryPayload; day: string }) {
   const cell = data.summary.days.find((c) => c.day === day);
   const ticked = new Set(data.checks[day] ?? []);
-  const items = data.items.filter((i) => scheduledOn(i, day));
+  // «أيام العذر», a viewer who may not see it: what wasn't due that day simply isn't listed
+  const items = data.items.filter((i) => scheduledOn(i, day) && !data.notDue?.includes(`${day}:${i.id}`));
   return (
     <div className={styles.dayPanel} aria-live="polite">
       <div className={styles.dayTitle}>

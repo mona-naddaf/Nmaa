@@ -4,6 +4,8 @@ import { childForAdult, childHomeData, familyAdults } from "@/lib/family/child-p
 import { RafiqHome } from "../../../../RafiqHome";
 import hl from "@/components/home-log/home-log.module.css";
 import { ChildHeader } from "./ChildHeader";
+import { resolveSubject } from "@/lib/rafiq/subject";
+import { homeExcuse, subjectExcuse } from "@/lib/excuse/subject";
 
 // A child's page for an adult of her family: view only, or — with edit
 // rights — reciting with her using the full form (word-by-word mistakes, and
@@ -18,6 +20,9 @@ export default async function AdultChildPage({ params }: PageProps<"/rafiq/famil
   const { access, child, viewer } = found;
   const { data, commitment, tajweedSummary } = await childHomeData(child.id, child.flags);
   const base = `/rafiq/family/${access.family.id}/child/${child.id}`;
+  // «أيام العذر»: her paused days for an adult checked in her list; results only for the others
+  const subject = await resolveSubject(child.id, "view");
+  const excuse = data && !("error" in subject) ? await homeExcuse(child.id, await subjectExcuse(subject), data, commitment) : {};
   return (
     <>
       <ChildHeader familyId={access.family.id} child={child} canEdit={viewer === "adult-edit"} on="page" you={access.user.gender} homeLog={child.flags.homeLog} />
@@ -38,6 +43,7 @@ export default async function AdultChildPage({ params }: PageProps<"/rafiq/famil
             streak: child.flags.streak,
             settingsHref: viewer === "adult-edit" ? `${base}/settings#commit` : undefined,
           }}
+          {...excuse}
         />
       ) : (
         <div className={hl.section}>

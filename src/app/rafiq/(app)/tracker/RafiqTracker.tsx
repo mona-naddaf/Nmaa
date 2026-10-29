@@ -34,9 +34,10 @@ import { EMPTY } from "@/lib/guide/lines-texts";
 import { IntroLine } from "../guide/IntroLine";
 import { ExcuseBar } from "@/components/excuse/ExcuseBar";
 import { ItemExcuseField, useItemExcuse } from "@/components/excuse/ItemExcuse";
-import { excuseLens } from "@/lib/excuse/lens";
-import type { Excuse, ExcuseMode } from "@/lib/excuse/rules";
-import { itemExcuseLine } from "@/lib/excuse/texts";
+import { excuseLens, quietLens } from "@/lib/excuse/lens";
+import type { ExcuseMode } from "@/lib/excuse/rules";
+import type { TrackerExcuse } from "@/lib/excuse/subject";
+import { ITEM_EXCUSE_LOCKED, itemExcuseLine } from "@/lib/excuse/texts";
 import { endExcuseAction, setPauseAction, settleExcuseAction, startExcuseAction } from "./excuse-actions";
 
 type Item = RafiqTrackerData["active"][number];
@@ -62,6 +63,7 @@ export function RafiqTracker({
   family,
   guide,
   excuse,
+  quiet,
 }: {
   data: RafiqTrackerData;
   g: GroupGender;
@@ -82,10 +84,14 @@ export function RafiqTracker({
   // its intro lines, ?add=1 (the new-item form opened at once), and the
   // guide's empty-page wording
   guide?: { intros: IntroId[]; add: boolean };
-  // «أيام العذر» (her own, a woman's): her excuses; on: her switch is on (the
-  // button and each item's setting); pausedNow: her memorization is paused
-  // now («إيقاف الحفظ أيضًا»). Unset: none of it.
-  excuse?: { excuses: Excuse[]; on: boolean; pausedNow: boolean };
+  // «أيام العذر» (a woman's own, or a girl's for herself and the adults
+  // checked in her list): her excuses; on: her switch is on (the button and
+  // each item's setting); pausedNow: her memorization is paused now
+  // («إيقاف الحفظ أيضًا»). Unset: none of it.
+  excuse?: TrackerExcuse;
+  // «أيام العذر» for an adult who may not see a girl's excuse: the «day:itemId»
+  // pairs not due, left out quietly (no text anywhere)
+  quiet?: string[];
 }) {
   const can = scopeCan(scope);
   const subjectId = scope.subjectId;
@@ -142,9 +148,15 @@ export function RafiqTracker({
 
   if (!today) return <div className={hl.empty}>…</div>;
   const nowAt = new Date();
-  const lens = excuse ? excuseLens(data.sheet.items, excuse.excuses, { day: today, min: nowAt.getHours() * 60 + nowAt.getMinutes() }) : undefined;
-  // her own tracker, her switch on: the button above the tracker and each item's setting
-  const excuseOn = excuse?.on === true && scope.viewer === "self";
+  const lens = excuse
+    ? excuseLens(data.sheet.items, excuse.excuses, { day: today, min: nowAt.getHours() * 60 + nowAt.getMinutes() })
+    : quiet
+      ? quietLens(quiet)
+      : undefined;
+  // her switch on, for whoever sees it: the button above the tracker and each item's setting
+  const excuseOn = excuse?.on === true;
+  // the item setting's wording follows the one acting (B6)
+  const excuseG: GroupGender | undefined = excuseOn ? (excuse!.you === "MALE" ? "BOYS" : "GIRLS") : undefined;
   const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
   const full = data.active.length >= RAFIQ_TRACKER_MAX_ITEMS;
   const empty = data.active.length === 0 && data.sheet.items.length === 0;
@@ -201,7 +213,7 @@ export function RafiqTracker({
               place={place}
               pending={pending}
               onCancel={() => setAdding(false)}
-              excuse={excuseOn ? g : undefined}
+              excuse={excuseG}
               targets={siblings.length > 1 ? siblings : undefined}
               hereId={subjectId}
               onSubmit={(fields, childIds) =>
@@ -222,7 +234,7 @@ export function RafiqTracker({
               <div className={hl.empty}>{guide ? gt(EMPTY.trackerItems) : "لا بنود بعد."}</div>
             ) : (
               data.active.map((item) => (
-                <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} scope={scope} excuse={excuseOn ? g : undefined} />
+                <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} scope={scope} excuse={excuseG} />
               ))
             )}
           </div>
@@ -273,12 +285,14 @@ export function RafiqTracker({
       {view === "day" && excuseOn && (
         <ExcuseBar
           excuses={excuse!.excuses}
-          you={g === "GIRLS" ? "FEMALE" : "MALE"}
-          self
-          onStart={(at, pause) => startExcuseAction({ at, zone: zone(), pause })}
-          onEnd={(at) => endExcuseAction({ at, zone: zone() })}
-          onSettle={() => settleExcuseAction({ zone: zone() })}
-          pause={{ paused: excuse!.pausedNow, onPause: (on) => setPauseAction({ on, zone: zone() }) }}
+          you={excuse!.you}
+          self={scope.viewer === "self" || scope.viewer === "child"}
+          name={excuse!.name}
+          startedBy={excuse!.startedBy}
+          onStart={(at, pause) => startExcuseAction({ at, zone: zone(), pause, subjectId })}
+          onEnd={(at) => endExcuseAction({ at, zone: zone(), subjectId })}
+          onSettle={() => settleExcuseAction({ zone: zone(), subjectId })}
+          pause={{ paused: excuse!.pausedNow, onPause: (on) => setPauseAction({ on, zone: zone(), subjectId }) }}
         />
       )}
 
@@ -684,7 +698,9 @@ function ItemRow({
         </div>
       )}
       {excuse && item.excuseMode && itemExcuseLine(item.excuseMode, item.excuseAltTitle) && (
-        <div className={hl.muted} style={{ fontSize: 12, marginTop: 4 }}>
+        // B8; on an adult's item the girl sees it locked (B9)
+        <div className={hl.muted} style={{ fontSize: 12, marginTop: 4 }} title={scope.viewer === "child" && item.adultAdded ? ITEM_EXCUSE_LOCKED : undefined}>
+          {scope.viewer === "child" && item.adultAdded ? "🔒 " : ""}
           {itemExcuseLine(item.excuseMode, item.excuseAltTitle)}
         </div>
       )}

@@ -33,7 +33,7 @@ import { PRAYERS, PRAYER_NAME, prayerMinutes, type Prayer, type PrayerLocation }
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import type { TimingProblem } from "@/lib/tracker/timing-input";
 import { flash, pointTo } from "@/components/nudge/nudge";
-import type { ExcuseLens } from "@/lib/excuse/lens";
+import { hiddenOn, type ExcuseLens } from "@/lib/excuse/lens";
 import { ExcuseWas, SkipNote, excuseCss } from "@/components/excuse/ItemExcuse";
 
 // «الجدول اليومي»: the «الآن» card, the items «بلا وقت» as a compact strip,
@@ -164,12 +164,12 @@ export function TrackerAgenda({
   const yesterday = addDays(today, -1);
   const prayersToday = place ? prayerMinutes(place, today, tz) : null;
   const prayersYesterday = place ? prayerMinutes(place, yesterday, tz) : null;
-  const items = all.filter((i) => shownOn(i, today)).map((i) => dress(placeOn(i, today, prayersToday), today, excuse));
+  const items = all.filter((i) => shownOn(i, today) && !hiddenOn(excuse, i.id, today)).map((i) => dress(placeOn(i, today, prayersToday), today, excuse));
   const timed = items.filter((i): i is Placed & { time: AgendaTime } => !!i.time);
   const untimed = items.filter((i) => !i.time);
   // yesterday's items still running after midnight
   const carried = all
-    .filter((i) => shownOn(i, yesterday))
+    .filter((i) => shownOn(i, yesterday) && !hiddenOn(excuse, i.id, yesterday))
     .map((i) => dress(placeOn(i, yesterday, prayersYesterday), yesterday, excuse))
     .filter((i): i is Placed & { time: AgendaTime } => !!i.time && endOf(i.time) > DAY_MINUTES)
     .map((i) => ({ ...i, time: { ...i.time, startMin: i.time.startMin - DAY_MINUTES } }));
@@ -249,7 +249,7 @@ export function TrackerAgenda({
   );
 
   const editingItem = editing ? (items.find((i) => i.id === editing) ?? null) : null;
-  const yesterdayItems = all.filter((i) => shownOn(i, yesterday)).map((i) => dress(i, yesterday, excuse));
+  const yesterdayItems = all.filter((i) => shownOn(i, yesterday) && !hiddenOn(excuse, i.id, yesterday)).map((i) => dress(i, yesterday, excuse));
 
   return (
     // relative: the celebration's layer covers (and is clipped to) the day area

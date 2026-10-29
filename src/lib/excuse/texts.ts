@@ -75,6 +75,7 @@ export const ITEM_EXCUSE_HINT = {
 } as const;
 export const ITEM_EXCUSE_ALT_LABEL = "البديل"; // B5
 export const ITEM_EXCUSE_ALT_PLACEHOLDER = "مثال: 100 تسبيحة"; // B5
+export const ITEM_EXCUSE_LOCKED = "يحدّد هذا من أضاف البند."; // B9: 🔒's hint, to the girl on an adult's item
 /** B8: «في أيام العذر: لا يُحسب» / «في أيام العذر: 100 تسبيحة». null: as usual (no line). */
 export const itemExcuseLine = (mode: "NONE" | "SKIP" | "ALT", alt: string | null | undefined): string | null =>
   mode === "SKIP" ? `${ITEM_EXCUSE_FIELD}: ${ITEM_EXCUSE_OPTIONS.SKIP}` : mode === "ALT" && alt ? `${ITEM_EXCUSE_FIELD}: ${alt}` : null;

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adultExcuseApplies, courseActs, courseSees, familyActs, familySees, familyViewerChecks, staffSetsItemExcuse, type CourseStudent } from "./visibility";
+import { adultExcuseApplies, courseActs, courseSees, familyActs, familySees, familyViewerChecks, mayChangeViewer, staffSetsItemExcuse, type CourseStudent } from "./visibility";
 import { actorLine, momentErrorText, momentLabel, sinceLabel } from "./texts";
 
 const girl: CourseStudent = { id: "s1", groupId: "g1", groupGender: "GIRLS", parentVisible: false };
@@ -90,4 +90,11 @@ test("family list: women checked and men not by default, her own choices win", (
   const girl = { id: "sara", gender: "FEMALE" as const, excuseEnabled: true };
   const overrides = new Map([["huda", false], ["omar", true]]);
   for (const a of list) assert.equal(familySees({ kind: "ADULT", id: a.id, gender: a.gender }, girl, overrides), a.checked, a.id);
+});
+
+test("family list: nobody checks their own name; unchecking oneself and changing others is fine", () => {
+  assert.equal(mayChangeViewer("ahmad", "ahmad", true), false);
+  assert.equal(mayChangeViewer("mona", "mona", false), true);
+  assert.equal(mayChangeViewer("mona", "ahmad", true), true);
+  assert.equal(mayChangeViewer("mona", "ahmad", false), true);
 });

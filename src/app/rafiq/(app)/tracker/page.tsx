@@ -26,7 +26,7 @@ export default async function RafiqTrackerPage({ searchParams }: PageProps<"/raf
       data={await getRafiqTracker(user.id, undefined, excuse.show)}
       excuse={
         excuse.show
-          ? { excuses: await loadExcuses(user.id, addDays(new Date().toISOString().slice(0, 10), -10)), on: excuse.on, pausedNow: await pausedNow(user.id) }
+          ? { excuses: await loadExcuses(user.id, addDays(new Date().toISOString().slice(0, 10), -10)), on: excuse.on, pausedNow: await pausedNow(user.id), you: user.gender }
           : undefined
       }
       g={user.gender === "FEMALE" ? "GIRLS" : "BOYS"}

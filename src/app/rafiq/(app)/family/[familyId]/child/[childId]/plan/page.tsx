@@ -6,6 +6,9 @@ import { TEMPLATE_KEY_PLAN, type TemplateKey } from "@/lib/students/new-student"
 import { PlanView } from "../../../../../plan/PlanView";
 import { ChildPlan } from "@/app/family/(app)/plan/ChildPlan";
 import { ChildHeader } from "../ChildHeader";
+import { resolveSubject } from "@/lib/rafiq/subject";
+import { homeExcuse, subjectExcuse } from "@/lib/excuse/subject";
+import { getCommitment } from "@/lib/rafiq/commitment";
 
 const KEY_OF = Object.fromEntries(Object.entries(TEMPLATE_KEY_PLAN).map(([k, v]) => [v, k])) as Record<string, TemplateKey>;
 
@@ -24,10 +27,13 @@ export default async function AdultChildPlanPage({ params }: PageProps<"/rafiq/f
   const { planTemplate, plan } = await getPlan(child.id);
   if (viewer === "adult-view") {
     const { data } = await childHomeData(child.id, child.flags);
+    // «أيام العذر»: her goal as on her «صفحتي» (paused days for an adult checked in her list; results only otherwise)
+    const subject = await resolveSubject(child.id, "view");
+    const excuse = data && !("error" in subject) ? await homeExcuse(child.id, await subjectExcuse(subject), data, await getCommitment(child.id)) : {};
     return (
       <>
         {header}
-        {data && <ChildPlan data={data} template={planTemplate} gender={child.gender} about={child.name} />}
+        {data && <ChildPlan data={data} template={planTemplate} gender={child.gender} about={child.name} {...excuse} />}
       </>
     );
   }

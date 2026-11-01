@@ -15,7 +15,7 @@ import { setCommitDaysAction, setReviewRemindersAction } from "../../../../../se
 import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
 import { SavedNote } from "@/components/nudge/SavedNote";
 import type { ChildExcuseCard } from "@/lib/excuse/family-data";
-import { CHILD_EXCUSE_LATER, CHILD_EXCUSE_VIEWERS_NOTE, childExcuseViewersTitle, childExcuseWhat, EXCUSE_SWITCH_OFF_NOTE, EXCUSE_TITLE, viewerYou } from "@/lib/excuse/texts";
+import { CHILD_EXCUSE_LATER, CHILD_EXCUSE_VIEWERS_NOTE, childExcuseViewersTitle, childExcuseWhat, EXCUSE_SWITCH_OFF_NOTE, EXCUSE_TITLE, selfViewerHint, viewerYou } from "@/lib/excuse/texts";
 import { setChildExcuseAction, setExcuseViewerAction } from "../../../../excuse-actions";
 
 const FAIL = "تعذّر حفظ الإعداد، يُرجى المحاولة مرة أخرى";
@@ -192,6 +192,7 @@ function Viewer({ childId, viewer, you, canEdit }: { childId: string; viewer: Ch
         {viewer.you && <span className={hl.muted}> {viewerYou(you)}</span>}
         <SavedNote stamp={t.stamp} />
       </label>
+      {canEdit && viewer.you && !t.on && <div className={hl.muted}>{selfViewerHint(you)}</div>}
       {t.error && <div className={hl.err}>{t.error}</div>}
     </div>
   );

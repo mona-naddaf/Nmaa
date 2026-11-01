@@ -128,3 +128,6 @@ export const CHILD_EXCUSE_VIEWERS_NOTE = "من حُدِّد يرى العذر و
 /** F5: «(أنتِ)» / «(أنتَ)» after the adult looking. */
 export const viewerYou = (you: G) => (you === "MALE" ? "(أنتَ)" : "(أنتِ)");
 export const CHILD_EXCUSE_LATER = "من ينضمّ لاحقًا: البالغات يُحدَّدن تلقائيًا، والرجال لا."; // F6
+/** F7: under her own line once unchecked (nobody checks their own name). */
+export const selfViewerHint = (you: G) =>
+  you === "MALE" ? "لا يمكنكَ تحديد نفسكَ؛ يحدّدكَ بالغٌ آخر له صلاحية التعديل." : "لا يمكنكِ تحديد نفسكِ؛ يحدّدكِ بالغٌ آخر له صلاحية التعديل.";

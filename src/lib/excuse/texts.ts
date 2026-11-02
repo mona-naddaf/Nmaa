@@ -66,6 +66,15 @@ export const EXCUSE_SWITCH = "تفعيل أيام العذر"; // A2, G2
 export const EXCUSE_SETTINGS_SELF = "يظهر زرّ فوق جدول المتابعة تبدئين به العذر وتنهينه. ولا يرى أحدٌ أنكِ معذورة."; // A3
 export const EXCUSE_SWITCH_OFF_NOTE = "إيقاف هذا المفتاح يُنهي العذر الحالي الآن، ويبقى ما مضى محسوبًا كما كان."; // A4
 
+// G — courses
+export const COURSE_EXCUSE_GIRLS_ONLY = "لمجموعات البنات"; // G1
+/** G3: by the supervisor's recorded gender (feminine when none is recorded). */
+export const courseExcuseDesc = (admin: G) => {
+  const m = admin === "MALE";
+  return `تُضاف «معذورة» إلى أزرار الحضور، وزرّ للعذر فوق جدول المتابعة. يرى العذرَ معلماتُ مجموعتها و${m ? "المشرف" : "المشرفة"} فقط، ولا يراه وليّ الأمر إلا إن ${m ? "فعّلتَ" : "فعّلتِ"} ذلك لطالبة بعينها.`;
+};
+export const COURSE_EXCUSE_NO_TRACKER = "حالة «معذورة» في الحضور تعمل الآن؛ أما زرّ العذر فيظهر بعد تفعيل جدول المتابعة."; // G4
+
 // B — an item's setting
 export const ITEM_EXCUSE_FIELD = "في أيام العذر"; // B1
 export const ITEM_EXCUSE_OPTIONS = { NONE: "يُحسب كالمعتاد", SKIP: "لا يُحسب", ALT: "له بديل" } as const; // B2

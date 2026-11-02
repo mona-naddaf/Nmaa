@@ -30,6 +30,9 @@ function similarTag(teachers: boolean, students: boolean): { tag: string; tagTon
 }
 import { ACTIVITIES, GROUPS, countLabel } from "@/lib/text/count";
 import { TimeZoneCard } from "./TimeZoneCard";
+import { ExcuseCard } from "./ExcuseCard";
+import { excuseAllowed } from "@/lib/excuse/enabled";
+import { COURSE_EXCUSE_GIRLS_ONLY, EXCUSE_TITLE } from "@/lib/excuse/texts";
 import { safeTimeZone } from "@/lib/time/zone";
 import { COMMON_ZONES, zoneLabel } from "@/lib/time/zones";
 import { zoneOffsetLabel } from "@/lib/time/zone";
@@ -52,7 +55,7 @@ export default async function SettingsPage() {
         },
       },
     }),
-    prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true } }),
+    prisma.admin.findUnique({ where: { id: session.adminId }, select: { gender: true, email: true } }),
     requestOrigin(),
   ]);
   // built-in rows normally exist from the moment the feature was turned on;
@@ -131,6 +134,12 @@ export default async function SettingsPage() {
           place={locationOf(course)}
         />
       </Collapsible>
+
+      {excuseAllowed(admin?.email) && (
+        <Collapsible title={`${EXCUSE_TITLE} · ${COURSE_EXCUSE_GIRLS_ONLY}`} {...onOffTag(course.excuseEnabled)}>
+          <ExcuseCard enabled={course.excuseEnabled} trackerEnabled={course.trackerEnabled} adminGender={admin?.gender ?? null} />
+        </Collapsible>
+      )}
 
       <Collapsible title="تذكير المراجعة" {...onOffTag(course.reviewReminderDays !== null)}>
         <ReviewReminderCard days={course.reviewReminderDays} />

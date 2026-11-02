@@ -18,6 +18,7 @@ import {
   infoLabelKey,
 } from "@/lib/students/extra-info-rules";
 import { FIXED_HEADERS, nameHeader } from "@/lib/students/import-template";
+import { courseExcuseAllowed } from "@/lib/excuse/course-data";
 
 async function currentCourseId() {
   return (await requireAdmin()).courseId;
@@ -58,6 +59,15 @@ export async function setOnlineRecitationEnabledAction(value: boolean) {
   const cid = await currentCourseId();
   await prisma.course.update({ where: { id: cid }, data: { onlineRecitationEnabled: value } });
   revalidatePath("/settings");
+}
+
+/** «أيام العذر» (G2): the course's switch, only where the feature reaches it. */
+export async function setCourseExcuseAction(on: boolean): Promise<{ error?: string }> {
+  const cid = await currentCourseId();
+  if (!(await courseExcuseAllowed(cid))) return { error: "هذه الميزة غير متاحة" };
+  await prisma.course.update({ where: { id: cid }, data: { excuseEnabled: on === true } });
+  revalidatePath("/", "layout");
+  return {};
 }
 
 const PROGRESS_BAR_FIELDS = ["showSurahProgress", "showJuzProgress", "showQuranProgress", "showPlanProgress"] as const;

@@ -159,6 +159,11 @@
   background: var(--lavender);
 }
 
+.dot.excused {
+  background: var(--lavender);
+  outline: 1px solid var(--ink-soft);
+}
+
 .pointsBadge {
   font-family: var(--font-markazi), serif;
   font-weight: 700;
@@ -317,6 +322,10 @@
 
 .edge_pending {
   border-inline-start-color: var(--lavender);
+}
+
+.edge_excused {
+  border-inline-start-color: var(--ink-soft);
 }
 
 .selectedCard {

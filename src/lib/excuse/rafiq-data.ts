@@ -116,7 +116,7 @@ export async function settleExpired(userId: string, now: Moment, tz: string): Pr
 export type MomentInput = "NOW" | { day?: unknown; min?: unknown } | null | undefined;
 
 /** The submitted moment (today or yesterday), or the reason it can't be used. */
-function readMoment(input: MomentInput, now: Moment): Moment | null | "TOO_EARLY" {
+export function readMoment(input: MomentInput, now: Moment): Moment | null | "TOO_EARLY" {
   if (input === "NOW") return now;
   if (!input || typeof input !== "object") return null;
   const { day, min } = input;

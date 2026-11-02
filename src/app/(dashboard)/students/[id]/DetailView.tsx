@@ -36,6 +36,7 @@ import type { GoalView } from "@/lib/goals/goal";
 import { SimilarScope } from "./SimilarScope";
 import type { AttendanceStatus } from "@/lib/attendance";
 import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
+import { courseGoalPausedText, EXCUSED_HINT, EXCUSED_WORD } from "@/lib/excuse/texts";
 import {
   presentWord,
   absentWord,
@@ -125,7 +126,13 @@ export function DetailView({
   canManagePrior = false,
   expandAll = false,
   today: serverToday,
+  markExcused = false,
+  excuseSlot,
 }: {
+  // «أيام العذر»: the third attendance button (G6), for staff who may record it
+  markExcused?: boolean;
+  // «العذر» under today's attendance (G9)
+  excuseSlot?: React.ReactNode;
   // today in the course's time zone, as the server saw it (lib/time/zone.ts)
   today: string;
   student: { id: string; name: string; age: number; grade: string | null; attendance: Attendance };
@@ -241,7 +248,19 @@ export function DetailView({
     setTimeout(() => setToast(null), 3500);
   }
 
-  function toggleAttendance(next: "IN" | "OUT") {
+  // G7: its hint the first time she uses it (this browser)
+  const [excusedHint, setExcusedHint] = useState(false);
+  function toggleAttendance(next: "IN" | "OUT" | "EXCUSED") {
+    if (next === "EXCUSED") {
+      try {
+        if (!window.localStorage.getItem("excuse.attendanceHint")) {
+          window.localStorage.setItem("excuse.attendanceHint", "1");
+          setExcusedHint(true);
+        }
+      } catch {
+        // no storage (a private window): no hint, nothing else changes
+      }
+    }
     const previous = attendance;
     setAttendanceState(next);
     startAttendanceTransition(async () => {
@@ -386,8 +405,20 @@ export function DetailView({
           >
             {absentWord(groupGender)}
           </button>
+          {markExcused && (
+            <button
+              className={attendance === "EXCUSED" ? styles.activeExcused : ""}
+              onClick={() => toggleAttendance("EXCUSED")}
+              disabled={attendancePending}
+              type="button"
+            >
+              {EXCUSED_WORD}
+            </button>
+          )}
         </div>
       </div>
+      {excusedHint && <div className={styles.girlMeta} style={{ marginBottom: 12 }}>{EXCUSED_HINT}</div>}
+      {excuseSlot}
 
       <div className={canManagePrior ? `${styles.lastPos} ${styles.withPrior}` : styles.lastPos}>
         <div className={styles.icon}>📖</div>
@@ -403,7 +434,7 @@ export function DetailView({
               المسار الثاني ({secondTrack.title}): <b>{secondTrack.positionText}</b>
             </div>
           )}
-          <GoalLine goal={goal} feminine={groupGender === "GIRLS"} invalidHint="الهدف لم يعد ضمن الخطة الحالية — يُرجى تعديله من «خطة الحفظ»." />
+          <GoalLine goal={goal} feminine={groupGender === "GIRLS"} pausedText={courseGoalPausedText(false)} invalidHint="الهدف لم يعد ضمن الخطة الحالية — يُرجى تعديله من «خطة الحفظ»." />
           <div className={styles.sub}>
             {cumPages} صفحة تراكميًا · {onlineCount} تسميع أونلاين
           </div>

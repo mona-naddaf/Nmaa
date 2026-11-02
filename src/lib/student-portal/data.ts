@@ -13,6 +13,7 @@ import { studentTimeZone } from "@/lib/time/course-zone";
 import type { GoalView } from "@/lib/goals/goal";
 import { tajweedSummaryFor } from "@/lib/tajweed/summary-data";
 import type { TajweedSummary } from "@/lib/tajweed/summary";
+import { excuseFor, goalExcuse } from "@/lib/excuse/course-data";
 
 // The ONLY data source for the student's own page. Every query is keyed on
 // the single studentId from the student session, with explicit selects:
@@ -118,7 +119,7 @@ export async function getStudentHomeData(studentId: string): Promise<StudentHome
     position,
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
     secondTrack: second ? { title: second.title, positionText: second.positionText } : null,
-    goal: (await getStudentGoal(studentId, plan, sessions, await studentTimeZone(studentId)))?.view ?? null,
+    goal: (await getStudentGoal(studentId, plan, sessions, await studentTimeZone(studentId), undefined, await goalExcuse(studentId, await excuseFor(studentId, { kind: "STUDENT", studentId }))))?.view ?? null,
     progressBars,
     mistakes: await getActiveMistakes(studentId, plan),
     tajweedSummary: await tajweedSummaryFor(studentId),

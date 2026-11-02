@@ -66,11 +66,15 @@ const itemSelect = {
   reviewedAt: true,
   createdByStudentId: true,
   sortOrder: true,
+  excuseMode: true,
+  excuseAltTitle: true,
 } as const;
 
 type ItemRow = Prisma.TrackerItemGetPayload<{ select: typeof itemSelect }>;
 
-const toView = (r: ItemRow, studentId: string | null, tz: string): TrackerItemView => ({
+// excuse: the viewer may see «أيام العذر» — otherwise its setting never leaves the server
+const toView = (r: ItemRow, studentId: string | null, tz: string, excuse = false): TrackerItemView => ({
+  ...(excuse ? { excuseMode: r.excuseMode, excuseAltTitle: r.excuseAltTitle } : {}),
   id: r.id,
   title: r.title,
   value: r.value,
@@ -123,7 +127,7 @@ function windowWhere(fromDay: string): Prisma.TrackerItemWhereInput {
 }
 
 /** One student's sheet for the last `days` days (plus a day of time-zone slack). */
-export async function getStudentTracker(studentId: string, days = 16): Promise<TrackerSheet> {
+export async function getStudentTracker(studentId: string, days = 16, opts: { excuse?: boolean } = {}): Promise<TrackerSheet> {
   const s = await prisma.student.findUniqueOrThrow({ where: { id: studentId }, select: { id: true, courseId: true, groupId: true } });
   const tz = await courseTimeZone(s.courseId);
   const fromDay = windowStart(days, tz);
@@ -140,7 +144,7 @@ export async function getStudentTracker(studentId: string, days = 16): Promise<T
   ]);
   const byDay: Record<string, string[]> = {};
   for (const c of checks) (byDay[day(c.day)] ??= []).push(c.itemId);
-  return { items: await withAgenda(rows.map((r) => toView(r, studentId, tz)), studentId), checks: byDay };
+  return { items: await withAgenda(rows.map((r) => toView(r, studentId, tz, opts.excuse)), studentId), checks: byDay };
 }
 
 // ---------- Staff ----------
@@ -152,6 +156,10 @@ export interface GroupTracker {
   itemIds: Record<string, string[]>;
   // student → day → ticked item ids
   checks: Record<string, Record<string, string[]>>;
+  // «أيام العذر»: student → the «day:itemId» pairs not due (scores leave them out quietly)
+  skip?: Record<string, string[]>;
+  // students excused now, only for a viewer who may see it (G10)
+  excused?: string[];
 }
 
 /** The overview table's data: every active student of the group, two weeks back. */
@@ -216,6 +224,9 @@ export interface StaffTrackerItem {
   // «الجدول اليومي»: staff's timing rows (schedule.ts) and its place in staff's order
   slots: SlotRow[];
   sortOrder: number;
+  // «أيام العذر»: its setting, only for staff who set it (B)
+  excuseMode?: ExcuseMode;
+  excuseAltTitle?: string | null;
 }
 
 const staffSelect = {
@@ -235,12 +246,14 @@ const staffSelect = {
     select: { student: { select: { id: true, name: true, groupId: true } } },
   },
   sortOrder: true,
+  excuseMode: true,
+  excuseAltTitle: true,
   slots: { select: { weekdays: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true }, orderBy: { weekdays: "desc" } },
 } as const;
 
 type StaffRow = Prisma.TrackerItemGetPayload<{ select: typeof staffSelect }>;
 
-function toStaff(scope: StaffScope, r: StaffRow, tz: string): StaffTrackerItem {
+function toStaff(scope: StaffScope, r: StaffRow, tz: string, excuse: boolean): StaffTrackerItem {
   let target: StaffTrackerItem["target"];
   let canEdit: boolean;
   if (r.createdByStudent) {
@@ -256,6 +269,7 @@ function toStaff(scope: StaffScope, r: StaffRow, tz: string): StaffTrackerItem {
     canEdit = ownsRecord(scope, r.createdByTeacherId);
   }
   return {
+    ...(excuse ? { excuseMode: r.excuseMode, excuseAltTitle: r.excuseAltTitle } : {}),
     id: r.id,
     title: r.title,
     value: r.value,
@@ -272,7 +286,7 @@ function toStaff(scope: StaffScope, r: StaffRow, tz: string): StaffTrackerItem {
 }
 
 /** Approved items reaching this group (whole group, picked students in it, its students' own). Archived last. */
-export async function getStaffTrackerItems(scope: StaffScope, groupId: string): Promise<StaffTrackerItem[]> {
+export async function getStaffTrackerItems(scope: StaffScope, groupId: string, excuse = false): Promise<StaffTrackerItem[]> {
   if (!inScope(scope, groupId)) return [];
   const rows = await prisma.trackerItem.findMany({
     where: {
@@ -290,7 +304,7 @@ export async function getStaffTrackerItems(scope: StaffScope, groupId: string): 
   });
   const tz = await courseTimeZone(scope.courseId);
   // the group's order («الجدول اليومي»; unplaced items last), archived ones at the end
-  const items = rows.map((r) => toStaff(scope, r, tz));
+  const items = rows.map((r) => toStaff(scope, r, tz, excuse));
   return [...items].sort((a, b) => Number(a.archived) - Number(b.archived) || placeOf(a.sortOrder) - placeOf(b.sortOrder));
 }
 

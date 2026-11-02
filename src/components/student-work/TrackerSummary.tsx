@@ -12,7 +12,7 @@ import { streakText } from "@/lib/students/streak";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { inertClass, inertProps } from "@/components/nudge/nudge";
 import { useGuideTarget } from "@/components/guide/targets";
-import { EXCUSE_DAY, EXCUSE_SUMMARY_NOTE, excuseSkipNote, goalPausedText } from "@/lib/excuse/texts";
+import { courseGoalPausedText, EXCUSE_DAY, EXCUSE_SUMMARY_NOTE, excuseSkipNote, goalPausedText } from "@/lib/excuse/texts";
 import { ExcuseWas } from "@/components/excuse/ItemExcuse";
 
 // «المحصّلات»: a period's commitment as a segmented ring (one segment per
@@ -213,7 +213,7 @@ export function TrackerSummary({
             goal={data.achievements.goal}
             feminine={g === "GIRLS"}
             // «أيام العذر»: today paused (only ever sent to whoever may see it)
-            pausedText={goalPausedText(gregorianLabel(data.achievements.goal.deadline), self)}
+            pausedText={data.coursePause ? courseGoalPausedText(self) : goalPausedText(gregorianLabel(data.achievements.goal.deadline), self)}
           />
         </div>
       )}

@@ -13,7 +13,7 @@ export default async function StudentSummaryPage() {
   const { studentId, trackerEnabled, trackerSummaryEnabled } = await requireStudentAccess();
   if (!trackerEnabled || !trackerSummaryEnabled) redirect("/student/tracker");
   const [initial, { group }] = await Promise.all([
-    courseSummary(studentId, "month", 0),
+    courseSummary(studentId, "month", 0, { kind: "STUDENT", studentId }),
     prisma.student.findUniqueOrThrow({ where: { id: studentId }, select: { group: { select: { gender: true } } } }),
   ]);
   return (

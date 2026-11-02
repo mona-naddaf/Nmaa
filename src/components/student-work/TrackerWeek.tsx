@@ -8,13 +8,17 @@ import { useTimeZone } from "@/lib/time/TimeZoneProvider";
 import { gregorianLabel } from "@/lib/calendar/hijri";
 import { addDays, countsOn, dayScore, isComplete, shownOn, weekdayOf, weekDays, WEEKDAY_SHORT, withLocalDays } from "@/lib/tracker/rules";
 import type { TrackerSheet } from "@/lib/tracker/data";
+import { nowKey } from "@/lib/tracker/agenda";
+import { hiddenOn, viewerLens } from "@/lib/excuse/lens";
+import type { Excuse } from "@/lib/excuse/rules";
+import { EXCUSE_DAY, ITEM_EXCUSE_OPTIONS } from "@/lib/excuse/texts";
 
 /**
  * One student's week (Sunday–Saturday), read-only: a row per item, a ✓ per
  * ticked day, each day's score and the week's total. For staff and parents.
  * Weeks are the course's (its time zone), or «رفيق الحفظ»'s local ones; scores are calculated (D6).
  */
-export function TrackerWeek({ sheet }: { sheet: TrackerSheet }) {
+export function TrackerWeek({ sheet, excuses, quiet }: { sheet: TrackerSheet; excuses?: Excuse[]; quiet?: string[] }) {
   const today = useToday();
   const tz = useTimeZone();
   const [offset, setOffset] = useState(0);
@@ -22,7 +26,10 @@ export function TrackerWeek({ sheet }: { sheet: TrackerSheet }) {
 
   const items = withLocalDays(sheet.items, tz);
   const days = weekDays(addDays(today, offset * 7));
-  const scores = days.map((d) => (d > today ? null : dayScore(items, new Set(sheet.checks[d] ?? []), d)));
+  // «أيام العذر»: excuses for a viewer who may see it; otherwise only what isn't due (quiet)
+  const [nowDay, nowMin] = nowKey(tz).split("|");
+  const lens = viewerLens(sheet.items, excuses, quiet, { day: nowDay, min: Number(nowMin) });
+  const scores = days.map((d) => (d > today ? null : dayScore(items, new Set(sheet.checks[d] ?? []), d, lens?.skipped)));
   const earned = scores.reduce((n, s) => n + (s?.earned ?? 0), 0);
   const possible = scores.reduce((n, s) => n + (s?.possible ?? 0), 0);
   const fullDays = scores.filter((s) => s && isComplete(s)).length;
@@ -53,7 +60,7 @@ export function TrackerWeek({ sheet }: { sheet: TrackerSheet }) {
               <tr>
                 <th>البند</th>
                 {days.map((d) => (
-                  <th key={d} title={gregorianLabel(d)}>
+                  <th key={d} title={lens?.isExcuseDay(d) ? `${gregorianLabel(d)} · ${EXCUSE_DAY}` : gregorianLabel(d)}>
                     {WEEKDAY_SHORT[weekdayOf(d)]}
                   </th>
                 ))}
@@ -69,7 +76,8 @@ export function TrackerWeek({ sheet }: { sheet: TrackerSheet }) {
                     </span>
                   </td>
                   {days.map((d) => {
-                    if (!shownOn(item, d)) return <td key={d} className={styles.cellNone}>—</td>;
+                    if (!shownOn(item, d) || hiddenOn(lens, item.id, d)) return <td key={d} className={styles.cellNone}>—</td>;
+                    if (lens?.skipped(item.id, d)) return <td key={d} className={styles.cellNone} title={ITEM_EXCUSE_OPTIONS.SKIP}>—</td>;
                     const ticked = (sheet.checks[d] ?? []).includes(item.id);
                     return (
                       <td key={d} className={ticked && countsOn(item, d) ? styles.cellFull : undefined}>

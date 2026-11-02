@@ -105,5 +105,5 @@ export async function parentSummaryAction(kind: unknown, offset: unknown): Promi
   const c = student?.course;
   if (!c || !c.studentLoginEnabled || !c.trackerEnabled || !c.trackerSummaryEnabled) return { error: "المحصّلات غير متاحة حاليًا" };
   if (!isPeriodKind(kind)) return { error: "فترة غير صحيحة" };
-  return courseSummary(studentId, kind, clampOffset(offset));
+  return courseSummary(studentId, kind, clampOffset(offset), { kind: "PARENT", studentId });
 }

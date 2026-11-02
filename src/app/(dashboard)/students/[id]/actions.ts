@@ -8,6 +8,8 @@ import { advancesPosition, calculatePageRange, type RecitationSituation, type Se
 
 const SESSION_TYPES: SessionType[] = ["NEW", "REVIEW", "LINK"];
 import { parseDateOnlyInput } from "@/lib/attendance";
+import { excuseFor, staffViewer } from "@/lib/excuse/course-data";
+import { EXCUSED_NOT_AVAILABLE } from "@/lib/excuse/texts";
 import { courseTimeZone } from "@/lib/time/course-zone";
 import { backdatedAt, zoneDateOnly } from "@/lib/time/zone";
 import { resolveTeacherId } from "@/lib/auth/teacher-identity";
@@ -367,11 +369,13 @@ export async function setStudentTajweedDetailedAction(studentId: string, on: boo
   return {};
 }
 
-export async function setAttendanceAction(studentId: string, status: "IN" | "OUT"): Promise<{ error?: string }> {
+export async function setAttendanceAction(studentId: string, status: "IN" | "OUT" | "EXCUSED"): Promise<{ error?: string }> {
   const session = await requireSession();
   const student = await loadStudentForCourse(studentId, session.courseId);
   const denied = await studentAccessError(session, student);
   if (denied) return { error: denied };
+  if (status !== "IN" && status !== "OUT" && status !== "EXCUSED") return { error: "حالة الحضور غير صحيحة" };
+  if (status === "EXCUSED" && !(await excuseFor(studentId, await staffViewer(session))).mark) return { error: EXCUSED_NOT_AVAILABLE };
   const teacherId = await resolveTeacherId(session);
   // the course's today, as the students list and the bulk bar read it
   const day = zoneDateOnly(await courseTimeZone(session.courseId));
@@ -382,6 +386,7 @@ export async function setAttendanceAction(studentId: string, status: "IN" | "OUT
     create: { studentId, day, status, teacherId },
   });
   revalidatePath(`/students/${studentId}`);
+  revalidatePath("/students");
   return {};
 }
 

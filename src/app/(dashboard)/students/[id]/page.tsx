@@ -47,6 +47,9 @@ import { onOffTag } from "@/components/collapsible/tags";
 import { TajweedDetailToggle } from "./TajweedDetailToggle";
 import { getTajweedSummary } from "@/lib/tajweed/summary-data";
 import { TajweedSummaryBlock } from "@/components/mistakes/TajweedSummaryBlock";
+import { excuseFor, goalExcuse, lastExcuseRecord, staffViewer, studentTrackerExcuse, studentTrackerQuiet } from "@/lib/excuse/course-data";
+import { attendanceSeen } from "@/lib/excuse/attendance";
+import { ParentExcuseToggle, StudentExcusePanel } from "./StudentExcusePanel";
 
 async function loginUrl(path: "/parent/login" | "/student/login") {
   const origin = await requestOrigin();
@@ -78,6 +81,9 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       groups: { orderBy: { sortOrder: "asc" }, select: { id: true, name: true, gender: true } },
     },
   });
+  // «أيام العذر»: what this viewer gets of it, decided before anything of it is loaded
+  const excuseViewer = await staffViewer(session);
+  const excuse = await excuseFor(student.id, excuseViewer);
   const groupLimit = await teacherGroupLimit(session, course);
   const canEdit = !archived && canEditStudents(session, course);
   const canArchive = !archived && canArchiveStudents(session, course);
@@ -131,7 +137,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   const overdueSurahs = computeOverdueSurahs(sessions, course.reviewReminderDays, today, (s) => dayOf(s.occurredAt));
   const mistakes = await getActiveMistakes(student.id, plan);
   // her memorization goal, if any (lib/goals/goal.ts)
-  const goal = await getStudentGoal(student.id, plan, sessions, timeZone);
+  const goal = await getStudentGoal(student.id, plan, sessions, timeZone, undefined, await goalExcuse(student.id, excuse));
   // the whole group is needed: a week with no class for the group is neutral
   const streak = course.streakMode
     ? {
@@ -172,15 +178,24 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       byParent: infoStored[f.id].updatedBy === "PARENT",
     }));
 
+  const excuseSheet = await studentTrackerExcuse(student.id, excuse);
+  const excuseQuiet = await studentTrackerQuiet(student.id, excuse);
+
   const view = (
       <DetailView
+        markExcused={excuse.mark && !archived}
+        excuseSlot={
+          excuse.on && !archived && excuseSheet ? (
+            <StudentExcusePanel key="excuse" studentId={student.id} excuse={excuseSheet} last={await lastExcuseRecord(student.id)} />
+          ) : null
+        }
         today={today}
         student={{
           id: student.id,
           name: student.name,
           age: student.age,
           grade: student.grade,
-          attendance: attendanceStatusForDay(todayAttendance, attendanceToday),
+          attendance: attendanceSeen(attendanceStatusForDay(todayAttendance, attendanceToday), excuse.show),
         }}
         groupGender={student.group.gender}
         viewerGender={viewer?.gender ?? null}
@@ -317,11 +332,11 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
   // (the page already sends teachers outside their groups away)
   const homeLog = course.homeLogEnabled && course.studentLoginEnabled ? await getHomeLog(student.id) : null;
   const assignments = course.assignmentsEnabled && course.studentLoginEnabled ? await getStudentAssignments(student.id) : null;
-  const tracker = course.trackerEnabled && course.studentLoginEnabled ? await getStudentTracker(student.id) : null;
+  const tracker = course.trackerEnabled && course.studentLoginEnabled ? await getStudentTracker(student.id, 16, { excuse: excuse.show }) : null;
   // «ملخّص أخطاء التجويد»: only while the course has detailed tajweed on and she is held to it
   const tajweedSummary = course.tajweedDetailEnabled && student.tajweedDetailed ? await getTajweedSummary(student.id) : null;
   // «المحصّلات» (course setting, with the tracker)
-  const summary = tracker && course.trackerSummaryEnabled ? await courseSummary(student.id, "month", 0) : null;
+  const summary = tracker && course.trackerSummaryEnabled ? await courseSummary(student.id, "month", 0, excuseViewer) : null;
 
   return (
     <>
@@ -381,7 +396,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       )}
       {tracker && (
         <Collapsible title="✅ جدول المتابعة" persistKey="student.tracker">
-          <StaffStudentTracker sheet={tracker} groupId={student.groupId} />
+          <StaffStudentTracker sheet={tracker} groupId={student.groupId} excuses={excuseSheet?.excuses} quiet={excuseQuiet} />
         </Collapsible>
       )}
       {summary && (
@@ -399,6 +414,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
             initialCreatedAt={student.parentCodeCreatedAt?.toISOString() ?? null}
             loginUrl={await loginUrl("/parent/login")}
           />
+          {excuse.mark && <ParentExcuseToggle studentId={student.id} initial={student.excuseParentVisible} />}
         </Collapsible>
       )}
       {/* student login on, and the viewer may issue codes for this group */}

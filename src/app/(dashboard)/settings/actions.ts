@@ -18,7 +18,8 @@ import {
   infoLabelKey,
 } from "@/lib/students/extra-info-rules";
 import { FIXED_HEADERS, nameHeader } from "@/lib/students/import-template";
-import { courseExcuseAllowed } from "@/lib/excuse/course-data";
+import { courseExcuseAllowed, endAllOnCourseOff } from "@/lib/excuse/course-data";
+import { resolveTeacherId } from "@/lib/auth/teacher-identity";
 
 async function currentCourseId() {
   return (await requireAdmin()).courseId;
@@ -63,8 +64,10 @@ export async function setOnlineRecitationEnabledAction(value: boolean) {
 
 /** «أيام العذر» (G2): the course's switch, only where the feature reaches it. */
 export async function setCourseExcuseAction(on: boolean): Promise<{ error?: string }> {
-  const cid = await currentCourseId();
+  const session = await requireAdmin();
+  const cid = session.courseId;
   if (!(await courseExcuseAllowed(cid))) return { error: "هذه الميزة غير متاحة" };
+  if (on !== true) await endAllOnCourseOff(cid, await resolveTeacherId(session));
   await prisma.course.update({ where: { id: cid }, data: { excuseEnabled: on === true } });
   revalidatePath("/", "layout");
   return {};

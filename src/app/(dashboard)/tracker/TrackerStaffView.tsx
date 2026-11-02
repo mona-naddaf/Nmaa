@@ -24,6 +24,9 @@ import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields"
 import agendaStyles from "@/components/student-work/agenda.module.css";
 import { scheduleLabel } from "@/lib/tracker/schedule";
 import type { PrayerLocation } from "@/lib/prayer/times";
+import { ItemExcuseField, useItemExcuse } from "@/components/excuse/ItemExcuse";
+import { keyOf } from "@/lib/excuse/rules";
+import { EXCUSED_WORD, itemExcuseLine } from "@/lib/excuse/texts";
 
 export interface TrackerGroup {
   id: string;
@@ -41,7 +44,10 @@ export function TrackerStaffView({
   students,
   agenda = false,
   place = null,
+  excuseItems = false,
 }: {
+  // «في أيام العذر» on the items (B)
+  excuseItems?: boolean;
   groups: TrackerGroup[];
   group: TrackerGroup;
   queue: PendingItem[];
@@ -121,12 +127,12 @@ export function TrackerStaffView({
           onSave={(ids) => order.run(() => reorderTrackerItemsAction(group.id, ids), () => setOrdering(false))}
         />
       )}
-      {adding && <NewItem group={group} students={students} agenda={agenda} place={place} onDone={() => setAdding(false)} />}
+      {adding && <NewItem group={group} students={students} agenda={agenda} place={place} excuseItems={excuseItems} onDone={() => setAdding(false)} />}
       <div className={hl.section}>
         {active.length === 0 ? (
           <div className={hl.empty}>لا توجد بنود بعد — {p("أضف", "أضيفي")} بندًا مثل «الورد اليومي» أو «أذكار الصباح».</div>
         ) : (
-          active.map((item) => <ItemRow key={item.id} item={item} gender={g} agenda={agenda} place={place} />)
+          active.map((item) => <ItemRow key={item.id} item={item} gender={g} agenda={agenda} place={place} excuseItems={excuseItems} />)
         )}
       </div>
 
@@ -137,7 +143,7 @@ export function TrackerStaffView({
           </summary>
           <div className={hl.section}>
             {archived.map((item) => (
-              <ItemRow key={item.id} item={item} gender={g} agenda={agenda} place={place} />
+              <ItemRow key={item.id} item={item} gender={g} agenda={agenda} place={place} excuseItems={excuseItems} />
             ))}
           </div>
         </details>
@@ -233,7 +239,8 @@ function GroupOverview({ data, gender: g }: { data: GroupTracker; gender: GroupG
           <tbody>
             {data.students.map((s) => {
               const items = (data.itemIds[s.id] ?? []).map((id) => itemsById.get(id)!).filter(Boolean);
-              const scores = days.map((d) => (d > today ? null : dayScore(items, new Set(data.checks[s.id]?.[d] ?? []), d)));
+              const off = new Set(data.skip?.[s.id] ?? []);
+              const scores = days.map((d) => (d > today ? null : dayScore(items, new Set(data.checks[s.id]?.[d] ?? []), d, (id, day) => off.has(keyOf(day, id)))));
               const earned = scores.reduce((n, x) => n + (x?.earned ?? 0), 0);
               const possible = scores.reduce((n, x) => n + (x?.possible ?? 0), 0);
               return (
@@ -242,6 +249,12 @@ function GroupOverview({ data, gender: g }: { data: GroupTracker; gender: GroupG
                     <Link href={`/students/${s.id}`} style={{ color: "var(--ink)", fontWeight: 700 }}>
                       {s.name}
                     </Link>
+                    {data.excused?.includes(s.id) && (
+                      <>
+                        {" "}
+                        <span className={`${styles.tag} ${styles.grey}`}>{EXCUSED_WORD}</span>
+                      </>
+                    )}
                   </td>
                   {scores.map((x, i) => (
                     <td key={days[i]} className={x && isComplete(x) ? styles.cellFull : x && x.possible === 0 ? styles.cellNone : undefined}>
@@ -268,14 +281,17 @@ function NewItem({
   students,
   agenda,
   place,
+  excuseItems,
   onDone,
 }: {
   group: TrackerGroup;
   students: { id: string; name: string }[];
   agenda: boolean;
   place: PrayerLocation | null;
+  excuseItems: boolean;
   onDone: () => void;
 }) {
+  const excuseField = useItemExcuse(undefined, "FEMALE");
   const [title, setTitle] = useState("");
   const [value, setValue] = useState(1);
   const [days, setDays] = useState(EVERY_DAY);
@@ -291,10 +307,12 @@ function NewItem({
     const t = agenda ? time.read() : { schedule: undefined };
     if ("error" in t) return setProblem(t.error);
     setProblem(null);
+    const ex = excuseItems ? excuseField.read() : null;
+    if (excuseItems && !ex) return;
     run(
       () =>
         createTrackerItemAction(
-          { title, value, days, ...(agenda ? { schedule: t.schedule } : {}) },
+          { title, value, days, ...(agenda ? { schedule: t.schedule } : {}), ...(ex ? { excuse: ex } : {}) },
           kind === "GROUP" ? { kind: "GROUP", groupId: group.id } : { kind: "STUDENTS", studentIds: [...picked] },
         ),
       onDone,
@@ -362,6 +380,7 @@ function NewItem({
         </div>
       )}
       {agenda && <TimeFields fields={time} days={days} place={place} />}
+      {excuseItems && <ItemExcuseField field={excuseField} />}
       {(problem || error) && <div className={hl.err}>{problem ?? error}</div>}
       <div className={hl.actionsRow}>
         <button type="submit" className={hl.primaryBtn} disabled={pending}>
@@ -375,7 +394,9 @@ function NewItem({
   );
 }
 
-function ItemRow({ item, gender: g, agenda, place }: { item: StaffTrackerItem; gender: GroupGender; agenda: boolean; place: PrayerLocation | null }) {
+function ItemRow({ item, gender: g, agenda, place, excuseItems }: { item: StaffTrackerItem; gender: GroupGender; agenda: boolean; place: PrayerLocation | null; excuseItems: boolean }) {
+  const excuseField = useItemExcuse(item, "FEMALE");
+  const excuseLine = excuseItems && item.excuseMode ? itemExcuseLine(item.excuseMode, item.excuseAltTitle) : null;
   const [mode, setMode] = useState<"view" | "edit" | "archive">("view");
   const [title, setTitle] = useState(item.title);
   const [value, setValue] = useState(item.value ?? 1);
@@ -388,7 +409,9 @@ function ItemRow({ item, gender: g, agenda, place }: { item: StaffTrackerItem; g
     const t = agenda ? time.read() : { schedule: undefined };
     if ("error" in t) return setProblem(t.error);
     setProblem(null);
-    run(() => updateTrackerItemAction(item.id, { title, value, days, ...(agenda ? { schedule: t.schedule } : {}) }), () => setMode("view"));
+    const ex = excuseItems ? excuseField.read() : null;
+    if (excuseItems && !ex) return;
+    run(() => updateTrackerItemAction(item.id, { title, value, days, ...(agenda ? { schedule: t.schedule } : {}), ...(ex ? { excuse: ex } : {}) }), () => setMode("view"));
   }
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
 
@@ -409,6 +432,7 @@ function ItemRow({ item, gender: g, agenda, place }: { item: StaffTrackerItem; g
             {item.target.kind !== "OWN" && <span>أنشأه: {item.creatorName ?? "الإشراف"}</span>}
             {agenda && !item.archived && <span className={agendaStyles.timeChip}>{scheduleLabel(item.slots)}</span>}
             {item.archived && <span className={`${styles.tag} ${styles.grey}`}>مؤرشف</span>}
+            {excuseLine && <span>{excuseLine}</span>}
           </div>
         </div>
       </div>
@@ -428,6 +452,7 @@ function ItemRow({ item, gender: g, agenda, place }: { item: StaffTrackerItem; g
             <WeekdayPicker days={days} onChange={setDays} />
           </div>
           {agenda && <TimeFields fields={time} days={days} place={place} />}
+          {excuseItems && <ItemExcuseField field={excuseField} />}
           <div className={styles.hint}>
             تُحسب الدرجات دائمًا بالقيم الحالية للبند، بما فيها الأيام السابقة.
             {agenda && ` ويستطيع ${p("كل طالب", "كل طالبة")} تغيير الوقت لنفسه.`}

@@ -2,6 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { zoneDateOnly, zoneDateOnlyOf } from "@/lib/time/zone";
 import { computeStreak, weekIndex, type StreakMode } from "@/lib/students/streak";
+import { excuseEnabled } from "@/lib/excuse/enabled";
+import { excusedWeeks } from "@/lib/excuse/attendance";
 
 /**
  * Current streak for each of `students`, which must include every member of
@@ -46,11 +48,25 @@ export async function computeStreaks(
     groupWeeks.get(group)!.add(w);
   }
 
+  // «معذورة» (lib/excuse/attendance.ts): a week holding one and no absence is neutral for her
+  const excused = new Map<string, Set<number>>();
+  if (excuseEnabled()) {
+    const marked = await prisma.attendanceLog.findMany({ where: { studentId: { in: ids }, status: "EXCUSED" }, select: { studentId: true } });
+    const who = [...new Set(marked.map((m) => m.studentId))];
+    if (who.length > 0) {
+      const logs = await prisma.attendanceLog.findMany({
+        where: { studentId: { in: who }, status: { in: ["EXCUSED", "OUT"] } },
+        select: { studentId: true, day: true, status: true },
+      });
+      for (const id of who) excused.set(id, excusedWeeks(logs.filter((l) => l.studentId === id)));
+    }
+  }
+
   const currentWeek = weekIndex(zoneDateOnly(timeZone, now));
   return new Map(
     students.map((s) => [
       s.id,
-      computeStreak(studentWeeks.get(s.id) ?? new Set(), groupWeeks.get(s.groupId) ?? new Set(), currentWeek),
+      computeStreak(studentWeeks.get(s.id) ?? new Set(), groupWeeks.get(s.groupId) ?? new Set(), currentWeek, excused.get(s.id)),
     ]),
   );
 }

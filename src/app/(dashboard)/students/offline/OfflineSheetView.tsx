@@ -10,6 +10,7 @@ import { confirmOfflineSheetAction, previewOfflineSheetAction, type ConfirmResul
 import type { PreviewEntry, PreviewRow } from "@/lib/offline-sheet/validate";
 import { partsLabel } from "@/lib/recitation/combined";
 import { countLabel, REASONS, ROWS, SESSIONS } from "@/lib/text/count";
+import { EXCUSED_WORD } from "@/lib/excuse/texts";
 
 const TYPE_LABEL = { NEW: "حفظ جديد", REVIEW: "مراجعة", LINK: "ربط" } as const;
 const QUALITY_LABEL = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" } as const;
@@ -271,7 +272,7 @@ function StudentPreview({
   setReasons: (fn: (prev: Record<string, string>) => Record<string, string>) => void;
 }) {
   const g = r.groupGender;
-  const word = (v: "IN" | "OUT") => (v === "IN" ? presentWord(g) : absentWord(g));
+  const word = (v: "IN" | "OUT" | "EXCUSED") => (v === "IN" ? presentWord(g) : v === "OUT" ? absentWord(g) : EXCUSED_WORD);
   return (
     <div className={o.studentRow}>
       <div className={o.studentHead}>

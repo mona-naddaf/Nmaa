@@ -17,6 +17,13 @@ import itemStyles from "@/components/student-work/items.module.css";
 import { scheduleLabel } from "@/lib/tracker/schedule";
 import { TimeFields, useTimeFields } from "@/components/student-work/TimeFields";
 import type { PrayerLocation } from "@/lib/prayer/times";
+import { nowKey } from "@/lib/tracker/agenda";
+import { ExcuseBar } from "@/components/excuse/ExcuseBar";
+import { ItemExcuseField, useItemExcuse } from "@/components/excuse/ItemExcuse";
+import { excuseLens } from "@/lib/excuse/lens";
+import type { TrackerExcuse } from "@/lib/excuse/subject";
+import { ITEM_EXCUSE_FIELD, ITEM_EXCUSE_LOCKED, itemExcuseLine } from "@/lib/excuse/texts";
+import { endMyExcuseAction, setOwnItemExcuseAction, settleMyExcuseAction, startMyExcuseAction } from "./excuse-actions";
 import {
   addOwnTrackerItemAction,
   deleteOwnTrackerItemAction,
@@ -33,7 +40,13 @@ export function StudentTracker({
   summary = false,
   place = null,
   celebrateKey,
+  excuse,
+  itemExcuse = false,
 }: {
+  // «أيام العذر» (a girls group of a course that has it): her excuses; on: the button
+  excuse?: TrackerExcuse;
+  // the switch is on: «في أيام العذر» on her own items
+  itemExcuse?: boolean;
   sheet: TrackerSheet;
   groupGender: GroupGender;
   agenda?: boolean;
@@ -52,6 +65,8 @@ export function StudentTracker({
 
   // items exist from the course's day they were created (not the UTC one)
   const allItems = withLocalDays(sheet.items, tz);
+  const [nowDay, nowMin] = nowKey(tz).split("|");
+  const lens = excuse ? excuseLens(sheet.items, excuse.excuses, { day: nowDay, min: Number(nowMin) }) : undefined;
 
   // D8: «لم يُعتمد» shows for a week after the decision, then disappears
   const recentlyRejected = (i: TrackerItemView) =>
@@ -80,7 +95,7 @@ export function StudentTracker({
         menu={menu}
       />
 
-      {view === "items" && <ManageItems items={current} g={g} agenda={agenda} place={place} onBack={() => show("day")} />}
+      {view === "items" && <ManageItems items={current} g={g} agenda={agenda} place={place} itemExcuse={itemExcuse} onBack={() => show("day")} />}
 
       {view === "order" && (
         <>
@@ -91,6 +106,16 @@ export function StudentTracker({
 
       {view === "day" && (
         <>
+          {excuse?.on && (
+            <ExcuseBar
+              excuses={excuse.excuses}
+              you="FEMALE"
+              self
+              onStart={(at) => startMyExcuseAction({ at })}
+              onEnd={(at) => endMyExcuseAction({ at })}
+              onSettle={settleMyExcuseAction}
+            />
+          )}
           {waiting.length > 0 && <WaitingNotice items={waiting} g={g} onOpen={() => show("items")} />}
           {/* «الجدول اليومي» (course setting): the agenda is the only place to tick */}
           {agenda ? (
@@ -104,9 +129,10 @@ export function StudentTracker({
               place={place}
               onRemoveOwn={deleteOwnTrackerItemAction}
               showYesterday={yesterday} celebrateKey={celebrateKey}
+              excuse={lens}
             />
           ) : (
-            <TrackerDaySheet sheet={sheet} groupGender={g} today={today} onTick={setTrackerCheckAction} celebrateKey={celebrateKey} />
+            <TrackerDaySheet sheet={sheet} groupGender={g} today={today} onTick={setTrackerCheckAction} celebrateKey={celebrateKey} excuse={lens} />
           )}
         </>
       )}
@@ -146,14 +172,17 @@ function ManageItems({
   g,
   agenda,
   place,
+  itemExcuse,
   onBack,
 }: {
   items: TrackerItemView[];
   g: GroupGender;
   agenda: boolean;
   place: PrayerLocation | null;
+  itemExcuse: boolean;
   onBack: () => void;
 }) {
+  const excuseField = useItemExcuse(undefined, "FEMALE");
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [days, setDays] = useState(EVERY_DAY);
@@ -192,8 +221,10 @@ function ManageItems({
             e.preventDefault();
             const t = agenda ? time.read() : { schedule: undefined };
             if ("error" in t) return setError(t.error);
+            const ex = itemExcuse ? excuseField.read() : null;
+            if (itemExcuse && !ex) return;
             run(
-              () => addOwnTrackerItemAction({ title, days, ...(agenda ? { schedule: t.schedule } : {}) }),
+              () => addOwnTrackerItemAction({ title, days, ...(agenda ? { schedule: t.schedule } : {}), ...(ex ? { excuse: ex } : {}) }),
               () => {
                 setAdding(false);
                 setTitle("");
@@ -220,6 +251,7 @@ function ManageItems({
             <WeekdayPicker days={days} onChange={setDays} />
           </div>
           {agenda && <TimeFields fields={time} days={days} place={place} />}
+          {itemExcuse && <ItemExcuseField field={excuseField} />}
           <div className={styles.hint} style={{ marginBottom: 8 }}>
             {p("يعتمده المعلم ويحدّد درجته، ويمكنك تعليمه قبل ذلك لكنه لا يُحتسب حتى يُعتمد.", "تعتمده المعلمة وتحدّد درجته، ويمكنكِ تعليمه قبل ذلك لكنه لا يُحتسب حتى يُعتمد.")}
           </div>
@@ -245,7 +277,15 @@ function ManageItems({
         {staffItems.length === 0 ? (
           <div className={hl.empty}>لا بنود بعد.</div>
         ) : (
-          staffItems.map((i) => <CompactRow key={i.id} title={i.title} points={i.value} days={i.days} time={timeOf(i)} />)
+          staffItems.map((i) => {
+            // B8, B9: what it is on her excuse days, set by whoever added it
+            const line = i.excuseMode ? itemExcuseLine(i.excuseMode, i.excuseAltTitle) : null;
+            return (
+              <CompactRow key={i.id} title={i.title} points={i.value} days={i.days} time={timeOf(i)}>
+                {line && <div className={hl.muted} style={{ fontSize: 12.5 }} title={ITEM_EXCUSE_LOCKED}>🔒 {line}</div>}
+              </CompactRow>
+            );
+          })
         )}
       </div>
 
@@ -254,7 +294,7 @@ function ManageItems({
         {ownItems.length === 0 ? (
           <div className={hl.empty}>{p("لم تُضف", "لم تُضيفي")} بنودًا خاصة بعد.</div>
         ) : (
-          ownItems.map((i) => <OwnRow key={i.id} item={i} time={timeOf(i)} run={run} pending={pending} />)
+          ownItems.map((i) => <OwnRow key={i.id} item={i} time={timeOf(i)} run={run} pending={pending} itemExcuse={itemExcuse} />)
         )}
       </div>
     </>
@@ -266,13 +306,17 @@ function OwnRow({
   time,
   run,
   pending,
+  itemExcuse,
 }: {
   item: TrackerItemView;
   time?: string;
   run: (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
   pending: boolean;
+  itemExcuse: boolean;
 }) {
-  const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
+  const [mode, setMode] = useState<"view" | "edit" | "delete" | "excuse">("view");
+  const excuseField = useItemExcuse(item, "FEMALE");
+  const excuseLine = item.excuseMode ? itemExcuseLine(item.excuseMode, item.excuseAltTitle) : null;
   const [title, setTitle] = useState(item.title);
   const toggle = (m: typeof mode) => setMode(mode === m ? "view" : m);
   const waiting = item.status === "PENDING";
@@ -291,6 +335,37 @@ function OwnRow({
       editLabel="تعديل الاسم"
       onDelete={() => toggle("delete")}
     >
+      {mode === "view" && (excuseLine || itemExcuse) && (
+        <div style={{ fontSize: 12.5 }}>
+          {excuseLine && <span className={hl.muted}>{excuseLine} </span>}
+          {itemExcuse && (
+            <button type="button" className={hl.linkBtn} onClick={() => setMode("excuse")}>
+              {ITEM_EXCUSE_FIELD}
+            </button>
+          )}
+        </div>
+      )}
+      {mode === "excuse" && (
+        <div style={{ width: "100%" }}>
+          <ItemExcuseField field={excuseField} />
+          <div className={hl.actionsRow}>
+            <button
+              type="button"
+              className={`${hl.primaryBtn} pressable`}
+              disabled={pending}
+              onClick={() => {
+                const ex = excuseField.read();
+                if (ex) run(() => setOwnItemExcuseAction(item.id, ex), () => setMode("view"));
+              }}
+            >
+              حفظ
+            </button>
+            <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setMode("view")}>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
       {mode === "edit" && (
         <div className={itemStyles.confirm}>
           <input className={styles.input} style={{ flex: "1 1 200px" }} value={title} maxLength={TRACKER_LIMITS.titleMax} onChange={(e) => setTitle(e.target.value)} aria-label="اسم البند" autoFocus />

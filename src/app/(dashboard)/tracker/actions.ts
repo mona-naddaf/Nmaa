@@ -17,6 +17,9 @@ import {
 import { setStaffItemSchedule, setStaffOrder, type ScheduleChoice } from "@/lib/tracker/agenda-data";
 import { validateSchedule } from "@/lib/tracker/schedule";
 import { coursePlace } from "@/lib/prayer/place-data";
+import { courseExcuseAllowed, staffViewer } from "@/lib/excuse/course-data";
+import { validateItemExcuse, type ExcuseMode } from "@/lib/excuse/rules";
+import { staffSetsItemExcuse } from "@/lib/excuse/visibility";
 
 // Staff side of the daily tracker. Every action re-checks: the feature is
 // on, the group / every picked student is within her groups, and who may
@@ -25,7 +28,8 @@ import { coursePlace } from "@/lib/prayer/place-data";
 // Items are archived, never deleted (D6: they stop counting from that day).
 
 // schedule: «الجدول اليومي» only (ignored while it's off): [{ weekdays, timing }] (lib/tracker/schedule.ts)
-export type TrackerItemInput = { title: string; value: number; days: number; schedule?: ScheduleChoice };
+// excuse: «في أيام العذر» (only read while it applies; ignored otherwise, so an item stays as it was)
+export type TrackerItemInput = { title: string; value: number; days: number; schedule?: ScheduleChoice; excuse?: { mode: unknown; alt: unknown } };
 export type TrackerTargetInput = { kind: "GROUP"; groupId: string } | { kind: "STUDENTS"; studentIds: string[] };
 export type TrackerResult = { error?: string };
 
@@ -40,6 +44,15 @@ async function readSchedule(scope: StaffScope, input: Partial<TrackerItemInput> 
   if (!scope.trackerAgendaEnabled || !Array.isArray(input?.schedule)) return { anchors: false };
   const anchors = (await coursePlace(scope.courseId)) !== null;
   return validateSchedule(input.schedule, anchors) ? { schedule: input.schedule, anchors } : BAD_TIME;
+}
+
+/** B: never for staff recorded as male; only with the feature on in this course. */
+async function readExcuse(scope: StaffScope, input: Partial<TrackerItemInput> | null | undefined): Promise<{ excuseMode?: ExcuseMode; excuseAltTitle?: string | null } | { error: string }> {
+  if (!input?.excuse || !(await courseExcuseAllowed(scope.courseId))) return {};
+  const viewer = await staffViewer(scope.session);
+  const course = await prisma.course.findUniqueOrThrow({ where: { id: scope.courseId }, select: { excuseEnabled: true } });
+  if (!course.excuseEnabled || viewer.kind === "STUDENT" || viewer.kind === "PARENT" || !staffSetsItemExcuse(viewer.gender)) return {};
+  return validateItemExcuse(input.excuse.mode, input.excuse.alt, viewer.gender);
 }
 
 function refresh() {
@@ -66,6 +79,8 @@ export async function createTrackerItemAction(input: TrackerItemInput, target: T
   if ("error" in fields) return { error: fields.error };
   const timed = await readSchedule(scope, input);
   if ("error" in timed) return { error: timed.error };
+  const excuse = await readExcuse(scope, input);
+  if ("error" in excuse) return { error: excuse.error };
   let created: { id: string };
 
   if (target?.kind === "GROUP") {
@@ -76,7 +91,7 @@ export async function createTrackerItemAction(input: TrackerItemInput, target: T
       return { error: `للمجموعة ${TRACKER_LIMITS.activeItemsPerGroup} بندًا نشطًا على الأكثر — يُرجى أرشفة بند أولًا` };
     }
     created = await prisma.trackerItem.create({
-      data: { ...fields, courseId: scope.courseId, targetGroupId: group.id, createdByTeacherId: creatorId(scope) },
+      data: { ...fields, ...excuse, courseId: scope.courseId, targetGroupId: group.id, createdByTeacherId: creatorId(scope) },
       select: { id: true },
     });
   } else if (target?.kind === "STUDENTS") {
@@ -93,6 +108,7 @@ export async function createTrackerItemAction(input: TrackerItemInput, target: T
     created = await prisma.trackerItem.create({
       data: {
         ...fields,
+        ...excuse,
         courseId: scope.courseId,
         createdByTeacherId: creatorId(scope),
         students: { create: students.map((s) => ({ studentId: s.id })) },
@@ -138,7 +154,9 @@ export async function updateTrackerItemAction(id: string, input: TrackerItemInpu
   if ("error" in fields) return { error: fields.error };
   const timed = await readSchedule(scope, input);
   if ("error" in timed) return { error: timed.error };
-  await prisma.trackerItem.update({ where: { id: found.item.id }, data: fields });
+  const excuse = await readExcuse(scope, input);
+  if ("error" in excuse) return { error: excuse.error };
+  await prisma.trackerItem.update({ where: { id: found.item.id }, data: { ...fields, ...excuse } });
   if (timed.schedule) await setStaffItemSchedule(found.item.id, timed.schedule, timed.anchors);
   refresh();
   return {};

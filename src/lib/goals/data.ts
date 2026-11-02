@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { computeGoal, type GoalSession, type GoalSpec, type GoalView } from "./goal";
+import { computeGoal, neutralGoal, type GoalSession, type GoalSpec, type GoalView } from "./goal";
 import type { SessionType } from "@/lib/recitation/logic";
 import { zoneDayOf, zoneToday } from "@/lib/time/zone";
 
@@ -43,9 +43,12 @@ export async function getStudentGoal(
   sessions: Parameters<typeof courseGoalSessions>[0],
   timeZone: string,
   now: Date = new Date(),
+  // «أيام العذر»: her days marked «معذورة»; show: this viewer may know (lib/excuse/course-data.ts goalExcuse)
+  excuse?: { paused: Set<string>; show: boolean },
 ): Promise<{ spec: GoalSpec; view: GoalView } | null> {
   const row = await prisma.studentGoal.findUnique({ where: { studentId } });
   if (!row) return null;
   const spec = goalSpecOf(row);
-  return { spec, view: computeGoal(plan, spec, courseGoalSessions(sessions, timeZone), zoneToday(timeZone, now)) };
+  const count = excuse?.show === false ? neutralGoal : computeGoal;
+  return { spec, view: count(plan, spec, courseGoalSessions(sessions, timeZone), zoneToday(timeZone, now), excuse?.paused) };
 }

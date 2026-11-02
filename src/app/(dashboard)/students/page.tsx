@@ -6,6 +6,7 @@ import { getCalendarData } from "@/lib/calendar/data";
 import { CalendarBanner } from "@/components/calendar/CalendarBanner";
 import { studentCodeAccess } from "@/lib/students/student-codes";
 import { canAddStudents, canUseOfflineSheet } from "@/lib/students/manage";
+import { courseExcuseAllowed, groupSees, staffViewer } from "@/lib/excuse/course-data";
 
 export default async function StudentsPage() {
   const session = await requireSession();
@@ -34,8 +35,12 @@ export default async function StudentsPage() {
     ? course.groups.filter((g) => visibleGroupIds!.includes(g.id))
     : course.groups;
 
+  // «أيام العذر»: the groups whose «معذورة» this viewer sees, and may record (the switch on)
+  const excuseViewer = await staffViewer(session);
+  const excuseSees = (await courseExcuseAllowed(course.id)) ? visibleGroups.filter((g) => groupSees(excuseViewer, g.id, g.gender)).map((g) => g.id) : [];
+
   const [students, calendar, archivedCount, codeAccess] = await Promise.all([
-    getStudentSummaries(course.id, visibleGroupIds),
+    getStudentSummaries(course.id, visibleGroupIds, excuseSees),
     getCalendarData(session),
     session.role === "admin"
       ? prisma.student.count({ where: { courseId: course.id, archivedAt: { not: null } } })
@@ -69,6 +74,7 @@ export default async function StudentsPage() {
         canIssueStudentCodes={codeAccess.allowed}
         canUseOfflineSheet={canUseOfflineSheet(session, course)}
         pointsActivities={course.pointsActivities}
+        excuseMarks={course.excuseEnabled ? excuseSees : []}
       />
     </>
   );

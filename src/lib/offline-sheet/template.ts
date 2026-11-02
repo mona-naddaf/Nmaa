@@ -2,6 +2,7 @@ import "server-only";
 import ExcelJS from "exceljs";
 import { SURAHS, SURAH_NAME } from "@/lib/quran-data";
 import { surahLabel } from "@/lib/students/import-template";
+import { EXCUSED_WORD } from "@/lib/excuse/texts";
 import {
   absentWord,
   imperative,
@@ -51,6 +52,8 @@ export interface SheetGroup {
   id: string;
   name: string;
   gender: GroupGender;
+  // «أيام العذر»: «معذورة» is offered in its attendance list (G8)
+  excused?: boolean;
   students: {
     id: string;
     name: string;
@@ -252,7 +255,7 @@ export async function buildOfflineSheet({
     });
     // range-level validations exist at runtime but aren't in exceljs's typings
     const validations = (ws as unknown as { dataValidations: { add(range: string, v: ExcelJS.DataValidation): void } }).dataValidations;
-    validations.add(range(ATTENDANCE_COL), list(`"${presentWord(g)},${absentWord(g)}"`));
+    validations.add(range(ATTENDANCE_COL), list(`"${presentWord(g)},${absentWord(g)}${group.excused ? `,${EXCUSED_WORD}` : ""}"`));
     for (const type of BLOCK_TYPES) {
       const start = BLOCK_START[type];
       for (const col of [start + FROM_SURAH, start + 2]) validations.add(range(col), list(`${LISTS_SHEET_NAME}!$A$1:$A$${SURAHS.length}`));

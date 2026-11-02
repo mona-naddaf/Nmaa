@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { getStaffScope, inScope, NO_GROUP_ACCESS } from "@/lib/staff-scope";
 import { courseSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
+import { staffViewer } from "@/lib/excuse/course-data";
 import { clampOffset, isPeriodKind } from "@/lib/tracker/summary";
 
 /**
@@ -18,5 +19,5 @@ export async function studentSummaryAction(studentId: string, kind: unknown, off
   if (!isPeriodKind(kind)) return { error: "فترة غير صحيحة" };
   const student = await prisma.student.findFirst({ where: { id: String(studentId ?? ""), courseId: scope.courseId }, select: { id: true, groupId: true } });
   if (!student || !inScope(scope, student.groupId)) return { error: NO_GROUP_ACCESS };
-  return courseSummary(student.id, kind, clampOffset(offset));
+  return courseSummary(student.id, kind, clampOffset(offset), await staffViewer(scope.session));
 }

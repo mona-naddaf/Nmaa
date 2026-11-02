@@ -21,6 +21,7 @@ import { TrackerSummary } from "@/components/student-work/TrackerSummary";
 import { parentSummaryAction } from "./actions";
 import { ParentStudentInfo } from "./ParentStudentInfo";
 import { partsLabel } from "@/lib/recitation/combined";
+import { courseGoalPausedText, EXCUSED_WORD } from "@/lib/excuse/texts";
 
 const QUALITY_LABEL = { EXCELLENT: "متقن (بدون أخطاء)", GOOD: "جيد", NEEDS_REPEAT: "يحتاج إعادة" } as const;
 const QUALITY_BADGE = { EXCELLENT: "qGood", GOOD: "qMid", NEEDS_REPEAT: "qLow" } as const;
@@ -60,6 +61,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
       pages: Math.round(pages * 10) / 10,
       present: attendance.filter((a) => a.status === "IN").length,
       absent: attendance.filter((a) => a.status === "OUT").length,
+      excused: attendance.filter((a) => a.status === "EXCUSED").length,
       points: points.reduce((sum, p) => sum + p.value, 0),
       byActivity: [...byActivity.entries()].sort((a, b) => b[1] - a[1]),
     };
@@ -115,7 +117,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
                 المسار الثاني ({data.secondTrack.title}): <b>{data.secondTrack.positionText}</b>
               </div>
             )}
-            <GoalLine goal={data.goal} feminine={data.groupGender === "GIRLS"} />
+            <GoalLine goal={data.goal} feminine={data.groupGender === "GIRLS"} pausedText={courseGoalPausedText(false)} />
             <div className={styles.sub}>{data.quranPercent}٪ من إنجاز القرآن كامل</div>
           </div>
         </div>
@@ -170,7 +172,8 @@ export function ParentView({ data }: { data: ParentViewData }) {
               <span className={styles.dot} /> ✅ جدول المتابعة
             </div>
             <div className={styles.card}>
-              <TrackerWeek sheet={data.tracker} />
+              {data.excuse.line && <div className={styles.sub} style={{ marginBottom: 8 }}>{data.excuse.line}</div>}
+              <TrackerWeek sheet={data.tracker} excuses={data.excuse.tracker?.excuses} quiet={data.excuse.quiet} />
             </div>
           </>
         )}
@@ -204,6 +207,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
                 </div>
                 <div className={styles.lbl}>
                   أيام {presentWord(g)} · {view.absent} {absentWord(g)}
+                  {view.excused > 0 && ` · ${view.excused} ${EXCUSED_WORD}`}
                 </div>
               </div>
               <div className={`${styles.counter} ${styles.gold}`}>

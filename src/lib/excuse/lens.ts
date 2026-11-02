@@ -34,6 +34,12 @@ export function quietLens(notDue: string[]): ExcuseLens {
   };
 }
 
+/** The lens a viewer gets: the real one for who sees it, the quiet one otherwise, none without an excuse in play. */
+export function viewerLens(items: ExcuseItem[], excuses: Excuse[] | undefined, quiet: string[] | undefined, now: Moment): ExcuseLens | undefined {
+  if (excuses) return excuseLens(items, excuses, now);
+  return quiet ? quietLens(quiet) : undefined;
+}
+
 export type ExcuseItem = { id: string; excuseMode?: ExcuseMode; excuseAltTitle?: string | null };
 
 /**

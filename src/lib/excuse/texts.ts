@@ -39,6 +39,19 @@ function actorWords(a: Actor): { name: string; male: boolean } {
   return { name: a.name, male: a.gender === "MALE" };
 }
 
+/** G9: «آخر عذر: 10 – 16 أكتوبر · أنهته الطالبة». actor null: the one who ended it is gone. */
+export function lastExcuseLine(from: string, to: string, actor: Actor | "AUTO" | null): string {
+  const part = (iso: string, month: boolean) => {
+    const [, m, d] = iso.split("-").map(Number);
+    return month ? `${d} ${GREGORIAN_MONTHS[m - 1]}` : String(d);
+  };
+  const days = from === to ? part(to, true) : `${part(from, from.slice(0, 7) !== to.slice(0, 7))} – ${part(to, true)}`;
+  if (actor === null) return `آخر عذر: ${days}`;
+  if (actor === "AUTO") return `آخر عذر: ${days} · انتهى تلقائيًا`;
+  const { name, male } = actorWords(actor);
+  return `آخر عذر: ${days} · ${male ? "أنهاه" : "أنهته"} ${name}`;
+}
+
 /** «بدأته سارة · أمس 9:40 م»، «بدأه أحمد · …»، «أنهته المعلمة نورة · …»؛ an automatic end: «انتهى تلقائيًا بعد 15 يومًا». */
 export function actorLine(what: "start" | "end", actor: Actor | "AUTO", at: Moment, today: string): string {
   if (actor === "AUTO") return `انتهى تلقائيًا بعد ${EXCUSE_LIMITS.maxDays} يومًا`;
@@ -74,6 +87,14 @@ export const courseExcuseDesc = (admin: G) => {
   return `تُضاف «معذورة» إلى أزرار الحضور، وزرّ للعذر فوق جدول المتابعة. يرى العذرَ معلماتُ مجموعتها و${m ? "المشرف" : "المشرفة"} فقط، ولا يراه وليّ الأمر إلا إن ${m ? "فعّلتَ" : "فعّلتِ"} ذلك لطالبة بعينها.`;
 };
 export const COURSE_EXCUSE_NO_TRACKER = "حالة «معذورة» في الحضور تعمل الآن؛ أما زرّ العذر فيظهر بعد تفعيل جدول المتابعة."; // G4
+export const EXCUSE_PARENT_SWITCH = "إظهار العذر لوليّ الأمر"; // G5
+export const EXCUSE_PARENT_HINT = "يرى من يدخل برمز وليّ الأمر أنها معذورة. الرمز واحد للأبوين، فيراه كلاهما. ومن غير ذلك لا يرى شيئًا."; // G5
+export const EXCUSED_WORD = "معذورة"; // G6, G10, G11
+export const EXCUSED_HINT = "لا تقطع السلسلة ولا تُحسب غيابًا، ولا يُحسب اليوم في هدف الحفظ. وإن سمّعت فتسميعها يُحسب كالمعتاد."; // G7
+export const EXCUSED_NOT_AVAILABLE = "«معذورة» متاحة لطالبات مجموعات البنات فقط بعد تفعيل أيام العذر"; // G8
+export const EXCUSE_SECTION = "العذر"; // G9
+/** D6: a course student's goal on a day marked «معذورة»: to her (self), or to staff or a parent who see it. */
+export const courseGoalPausedText = (self: boolean) => `لا يُحسب اليوم في ${self ? "هدفكِ" : "هدفها"}، والموعد باقٍ كما هو.`;
 
 // B — an item's setting
 export const ITEM_EXCUSE_FIELD = "في أيام العذر"; // B1

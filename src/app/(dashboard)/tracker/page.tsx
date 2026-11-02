@@ -4,6 +4,8 @@ import { getApprovalQueue, getGroupTracker, getStaffTrackerItems } from "@/lib/t
 import { getStaffScope, scopedGroups } from "@/lib/staff-scope";
 import { TrackerStaffView } from "./TrackerStaffView";
 import { coursePlace } from "@/lib/prayer/place-data";
+import { courseExcuseAllowed, groupSees, groupTrackerExcuse, staffViewer } from "@/lib/excuse/course-data";
+import { staffSetsItemExcuse } from "@/lib/excuse/visibility";
 
 // Staff: per group — the approval queue for students' own items, the week
 // overview table and the group's items. Refused (not just hidden) while the
@@ -21,11 +23,22 @@ export default async function TrackerPage({
   if (groups.length === 0) redirect("/students");
   const group = groups.find((g) => g.id === params.group) ?? groups[0];
 
-  const [queue, overview, items, students] = await Promise.all([
+  // «أيام العذر»: the overview's scores for everyone; «معذورة» and the item setting only for who may
+  const viewer = await staffViewer(scope.session);
+  const { excuseEnabled } = await prisma.course.findUniqueOrThrow({ where: { id: scope.courseId }, select: { excuseEnabled: true } });
+  const excuseItems =
+    excuseEnabled &&
+    (await courseExcuseAllowed(scope.courseId)) &&
+    groupSees(viewer, group.id, group.gender) &&
+    (viewer.kind === "SUPERVISOR" || viewer.kind === "TEACHER") &&
+    staffSetsItemExcuse(viewer.gender);
+
+  const [queue, overview, items, students, groupExcuse] = await Promise.all([
     getApprovalQueue(scope),
     getGroupTracker(group.id),
-    getStaffTrackerItems(scope, group.id),
+    getStaffTrackerItems(scope, group.id, excuseItems),
     prisma.student.findMany({ where: { groupId: group.id, archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    groupTrackerExcuse(group.id, viewer),
   ]);
 
   const pendingByGroup = new Map<string, number>();
@@ -40,7 +53,8 @@ export default async function TrackerPage({
       groups={withCounts}
       group={withCounts.find((g) => g.id === group.id)!}
       queue={queue}
-      overview={overview}
+      overview={{ ...overview, ...groupExcuse }}
+      excuseItems={excuseItems}
       items={items}
       students={students}
       agenda={scope.trackerAgendaEnabled}

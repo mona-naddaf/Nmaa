@@ -12,6 +12,8 @@ import { validateSchedule } from "@/lib/tracker/schedule";
 import { coursePlace } from "@/lib/prayer/place-data";
 import { courseSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
 import { clampOffset, isPeriodKind } from "@/lib/tracker/summary";
+import { excuseFor } from "@/lib/excuse/course-data";
+import { validateItemExcuse, type ExcuseMode } from "@/lib/excuse/rules";
 
 // The student's side of the daily tracker. Every action re-checks her
 // session, that the course has the tracker on, and that the item reaches
@@ -77,7 +79,7 @@ export async function setTrackerCheckAction(input: { itemId: string; day: string
  * «+ بند خاص»: waits for approval; staff set its score (D7: at most 10 of
  * her own). With «الجدول اليومي» on she may give it a schedule straight away.
  */
-export async function addOwnTrackerItemAction(input: { title: string; days: number; schedule?: ScheduleChoice }): Promise<TrackerStudentResult> {
+export async function addOwnTrackerItemAction(input: { title: string; days: number; schedule?: ScheduleChoice; excuse?: { mode: unknown; alt: unknown } }): Promise<TrackerStudentResult> {
   const access = await trackerStudent();
   if (!access) return OFF;
   const t = validateTitle(input?.title);
@@ -94,8 +96,15 @@ export async function addOwnTrackerItemAction(input: { title: string; days: numb
   const schedule = access.trackerAgendaEnabled && Array.isArray(input?.schedule) ? input.schedule : null;
   const anchors = schedule ? (await coursePlace(access.courseId)) !== null : false;
   if (schedule && !validateSchedule(schedule, anchors)) return { error: "الوقت غير صحيح" };
+  // «في أيام العذر» on her own item (B), only where it reaches her
+  let excuse: { excuseMode?: ExcuseMode; excuseAltTitle?: string | null } = {};
+  if (input?.excuse && (await excuseFor(access.studentId, { kind: "STUDENT", studentId: access.studentId })).act) {
+    const v = validateItemExcuse(input.excuse.mode, input.excuse.alt, "FEMALE");
+    if ("error" in v) return { error: v.error };
+    excuse = v;
+  }
   const item = await prisma.trackerItem.create({
-    data: { courseId: access.courseId, title: t.title, days, status: "PENDING", value: null, createdByStudentId: access.studentId },
+    data: { courseId: access.courseId, title: t.title, days, status: "PENDING", value: null, createdByStudentId: access.studentId, ...excuse },
     select: { id: true },
   });
   if (schedule) await setStudentItemSchedule(ref(access), item.id, schedule, anchors);
@@ -148,7 +157,7 @@ export async function mySummaryAction(kind: unknown, offset: unknown): Promise<S
   const access = await trackerStudent();
   if (!access || !access.trackerSummaryEnabled) return { error: "المحصّلات غير متاحة حاليًا" };
   if (!isPeriodKind(kind)) return { error: "فترة غير صحيحة" };
-  return courseSummary(access.studentId, kind, clampOffset(offset));
+  return courseSummary(access.studentId, kind, clampOffset(offset), { kind: "STUDENT", studentId: access.studentId });
 }
 
 // ---------- «الجدول اليومي» ----------

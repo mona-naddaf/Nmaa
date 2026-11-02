@@ -16,6 +16,7 @@ import { zoneDayRange } from "@/lib/time/zone";
 import { BLOCK_TITLE, BLOCK_TYPES, MAX_POINTS, POINTS_NOTE, QUALITY_LABEL, SECOND_TITLE } from "./layout";
 import { planEntryInTrack, trackContext, trackOrder } from "@/lib/recitation/tracks";
 import type { RawBlock, RawRow, RawSheet } from "./parse";
+import { EXCUSED_NOT_AVAILABLE, EXCUSED_WORD } from "@/lib/excuse/texts";
 
 // Everything an upload would save, checked on the server: the preview (step
 // 1) and the save (step 2) both run validateSheet on the file itself — the
@@ -26,7 +27,7 @@ import type { RawBlock, RawRow, RawSheet } from "./parse";
 // Recitations are classified and stored exactly as the recitation form
 // does (lib/recitation/record.ts), in order, each seeing the ones before it.
 
-export type AttendanceValue = "IN" | "OUT";
+export type AttendanceValue = "IN" | "OUT" | "EXCUSED";
 
 export interface PreviewEntry {
   // stable across both steps: "studentId:TYPE:n" (the n-th session of that block)
@@ -83,6 +84,7 @@ function readAttendance(text: string): AttendanceValue | null | "bad" {
   if (!text) return null;
   if (text === "حاضر" || text === "حاضرة") return "IN";
   if (text === "غائب" || text === "غائبة") return "OUT";
+  if (text === EXCUSED_WORD) return "EXCUSED";
   return "bad";
 }
 
@@ -241,6 +243,8 @@ export async function validateSheet(
   const sessionsOf = new Map<string, typeof allSessions>();
   for (const s of allSessions) sessionsOf.set(s.studentId, [...(sessionsOf.get(s.studentId) ?? []), s]);
   const attendanceOf = new Map(attendance.map((a) => [a.studentId, a.status as AttendanceValue]));
+  // «معذورة» recorded on the site: nothing of it to anyone who may not see it (G6)
+  for (const [id, status] of attendanceOf) if (status === "EXCUSED" && !access.excuseSees.includes(byId.get(id)?.groupId ?? "")) attendanceOf.delete(id);
   const pointsOf = new Map(points.map((p) => [p.studentId, p._count._all]));
 
   const seen = new Map<string, string>();
@@ -287,6 +291,7 @@ export async function validateSheet(
     // attendance
     const att = readAttendance(raw.attendance);
     if (att === "bad") errors.push(`الحضور «${raw.attendance}» غير معروف (${presentWord(g)} أو ${absentWord(g)})`);
+    else if (att === "EXCUSED" && !access.excuseMarks.includes(s.groupId)) errors.push(EXCUSED_NOT_AVAILABLE);
     else if (att) base.attendance = { value: att, previous: attendanceOf.get(s.id) ?? null };
 
     // blocks: an untouched new-memorization block (only its pre-filled

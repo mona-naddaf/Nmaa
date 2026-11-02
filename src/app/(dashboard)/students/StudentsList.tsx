@@ -8,6 +8,7 @@ import styles from "./students.module.css";
 import type { StudentSummary } from "@/lib/students/summary";
 import { streakText } from "@/lib/students/streak";
 import { MenuButton, type MenuItem } from "@/components/menu-button/MenuButton";
+import { EXCUSED_WORD } from "@/lib/excuse/texts";
 import {
   presentWord,
   absentWord,
@@ -21,7 +22,7 @@ import {
   type PersonGender,
 } from "@/lib/text/gender";
 
-const ATTENDANCE_CLASS: Record<string, string> = { IN: "present", OUT: "absent", PENDING: "pending" };
+const ATTENDANCE_CLASS: Record<string, string> = { IN: "present", OUT: "absent", PENDING: "pending", EXCUSED: "excused" };
 
 export function StudentsList({
   groups,
@@ -33,7 +34,10 @@ export function StudentsList({
   canIssueStudentCodes = false,
   canUseOfflineSheet = false,
   pointsActivities = [],
+  excuseMarks = [],
 }: {
+  // «أيام العذر»: the groups where she may record «معذورة» (G6)
+  excuseMarks?: string[];
   groups: { id: string; name: string; gender: GroupGender }[];
   students: StudentSummary[];
   canAddStudents: boolean;
@@ -55,7 +59,7 @@ export function StudentsList({
   const activeGender: GroupGender = groups.find((g) => g.id === activeGroup)?.gender ?? "MIXED";
 
   const attendanceLabel = (status: string) =>
-    status === "IN" ? presentWord(activeGender) : status === "OUT" ? absentWord(activeGender) : "قيد الانتظار";
+    status === "IN" ? presentWord(activeGender) : status === "OUT" ? absentWord(activeGender) : status === "EXCUSED" ? EXCUSED_WORD : "قيد الانتظار";
 
   // Only what the viewer may use (the pages behind them check again): parent
   // codes are supervisor-only; adding by hand or from Excel follows the
@@ -150,10 +154,10 @@ export function StudentsList({
     });
   }
   const ids = () => [...selected];
-  const markAttendance = (status: "IN" | "OUT") =>
+  const markAttendance = (status: "IN" | "OUT" | "EXCUSED") =>
     run(
       () => bulkAttendanceAction(ids(), status),
-      (n) => `✓ سُجِّل ${status === "IN" ? "الحضور" : "الغياب"} لـ ${n}`,
+      (n) => `✓ سُجِّل ${status === "IN" ? "الحضور" : status === "OUT" ? "الغياب" : `«${EXCUSED_WORD}»`} لـ ${n}`,
     );
   const addPoint = (activity: { id: string; name: string } | null) =>
     run(
@@ -347,6 +351,11 @@ export function StudentsList({
             <button type="button" className={`${styles.bulkBtn} ${styles.bulkOut}`} disabled={pending} onClick={() => markAttendance("OUT")}>
               {oneGender ? absentWord(oneGender) : "تسجيل الغياب"}
             </button>
+            {excuseMarks.includes(activeGroup) && (
+              <button type="button" className={styles.bulkBtn} disabled={pending} onClick={() => markAttendance("EXCUSED")}>
+                {EXCUSED_WORD}
+              </button>
+            )}
             <button
               type="button"
               className={`${styles.bulkBtn} ${pointsOpen ? styles.bulkBtnOn : ""}`}

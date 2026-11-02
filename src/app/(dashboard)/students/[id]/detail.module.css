@@ -93,6 +93,11 @@
   color: #fff;
 }
 
+.attendanceToggle button.activeExcused {
+  background: var(--lavender);
+  color: var(--ink);
+}
+
 .secTitle {
   font-size: 14px;
   font-weight: 800;

@@ -21,6 +21,11 @@ import { getStudentInfoValues, parentInfoAccess, plainValues, visibleInfoFields 
 import { tajweedSummaryFor } from "@/lib/tajweed/summary-data";
 import type { TajweedSummary } from "@/lib/tajweed/summary";
 import type { InfoField } from "@/lib/students/extra-info-rules";
+import { excuseFor, goalExcuse, studentTrackerExcuse, studentTrackerQuiet } from "@/lib/excuse/course-data";
+import { nowIn } from "@/lib/excuse/rafiq-data";
+import { isActive } from "@/lib/excuse/rules";
+import type { TrackerExcuse } from "@/lib/excuse/subject";
+import { sinceLabel } from "@/lib/excuse/texts";
 
 // The ONLY data source for the parent view. Every query here is keyed on the
 // single studentId from the parent session — never a courseId or groupId —
@@ -59,7 +64,7 @@ export interface ParentViewData {
   // never her private home marks; null when off for her or nothing to count
   tajweedSummary: TajweedSummary | null;
   history: ParentHistoryEntry[];
-  attendance: { date: string; status: "IN" | "OUT" }[];
+  attendance: { date: string; status: "IN" | "OUT" | "EXCUSED" }[];
   points: { date: string; activityName: string; value: number }[];
   // read-only home memorization log (D4); null when the course has it off
   homeLog: HomeLogView | null;
@@ -67,6 +72,9 @@ export interface ParentViewData {
   assignments: StudentAssignment[] | null;
   // read-only daily tracker (D1); null when the course has it off
   tracker: TrackerSheet | null;
+  // «أيام العذر»: with «إظهار العذر لوليّ الأمر», her excuses and the line above her tracker (G11);
+  // without it, only the «day:itemId» pairs not due (quiet), nothing else of it
+  excuse: { tracker?: TrackerExcuse; quiet?: string[]; line: string | null };
   // «المحصّلات» (course setting, with the tracker): this month's, to start with
   summary: SummaryPayload | null;
   // «معلومات الطالب/ة», which the parent may fill/edit: only the fields
@@ -100,6 +108,10 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
   if (!student) return null;
   // dates are the course's days (lib/time/zone.ts)
   const timeZone = await courseTimeZone(student.course.id);
+  const excuse = await excuseFor(studentId, { kind: "PARENT", studentId });
+  const excuseSheet = await studentTrackerExcuse(studentId, { ...excuse, on: false }, false);
+  const now = nowIn(timeZone);
+  const openExcuse = excuseSheet?.excuses.find((e) => isActive(e, now));
 
   const [sessions, attendanceLogs, pointsLogs] = await Promise.all([
     prisma.recitationSession.findMany({
@@ -124,7 +136,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
       },
     }),
     prisma.attendanceLog.findMany({
-      where: { studentId, status: { in: ["IN", "OUT"] } },
+      where: { studentId, status: { in: excuse.show ? ["IN", "OUT", "EXCUSED"] : ["IN", "OUT"] } },
       select: { day: true, status: true },
     }),
     prisma.pointsLog.findMany({
@@ -149,7 +161,7 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     // as the staff page and the student portal read it (a manual plan change, a second track's approvals)
     position: deriveCurrentPosition(plan, deriveReach(plan, forPlanPosition(sessions, sp.planChangedAt))),
     secondTrack: second ? { title: second.title, positionText: second.positionText } : null,
-    goal: (await getStudentGoal(studentId, plan, sessions, timeZone))?.view ?? null,
+    goal: (await getStudentGoal(studentId, plan, sessions, timeZone, undefined, await goalExcuse(studentId, excuse)))?.view ?? null,
     mistakes: await getActiveMistakes(studentId, plan),
     tajweedSummary: await tajweedSummaryFor(studentId),
     quranPercent: Math.min(100, Math.round((coveredQuranPages(coverage) / TOTAL_PAGES) * 1000) / 10),
@@ -168,14 +180,15 @@ export async function getParentViewData(studentId: string): Promise<ParentViewDa
     })),
     attendance: attendanceLogs.map((a) => ({
       date: a.day.toISOString().slice(0, 10),
-      status: a.status as "IN" | "OUT",
+      status: a.status as "IN" | "OUT" | "EXCUSED",
     })),
     homeLog: student.course.homeLogEnabled && student.course.studentLoginEnabled ? await getHomeLog(studentId) : null,
     assignments: student.course.assignmentsEnabled && student.course.studentLoginEnabled ? await getStudentAssignments(studentId) : null,
-    tracker: student.course.trackerEnabled && student.course.studentLoginEnabled ? await getStudentTracker(studentId) : null,
+    tracker: student.course.trackerEnabled && student.course.studentLoginEnabled ? await getStudentTracker(studentId, 16, { excuse: excuse.show }) : null,
+    excuse: { tracker: excuseSheet, quiet: await studentTrackerQuiet(studentId, excuse), line: openExcuse ? sinceLabel(openExcuse.start.day, now.day) : null },
     summary:
       student.course.trackerEnabled && student.course.studentLoginEnabled && student.course.trackerSummaryEnabled
-        ? await courseSummary(studentId, "month", 0)
+        ? await courseSummary(studentId, "month", 0, { kind: "PARENT", studentId })
         : null,
     info:
       infoFields.length > 0

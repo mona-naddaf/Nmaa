@@ -10,6 +10,7 @@ import { pickByGroup } from "@/lib/text/gender";
 import { computeOverdueSurahs } from "@/lib/students/review";
 import { computeStreaks } from "@/lib/students/streak-data";
 import { entryCount } from "@/lib/recitation/combined";
+import { attendanceSeen } from "@/lib/excuse/attendance";
 
 export interface StudentSummary {
   id: string;
@@ -29,7 +30,8 @@ export interface StudentSummary {
   streak: number | null;
 }
 
-export async function getStudentSummaries(courseId: string, groupIds?: string[]): Promise<StudentSummary[]> {
+// seesExcused: the groups whose «معذورة» this viewer may see (for anyone else that day has no status, G6)
+export async function getStudentSummaries(courseId: string, groupIds?: string[], seesExcused: string[] = []): Promise<StudentSummary[]> {
   const students = await prisma.student.findMany({
     where: { courseId, archivedAt: null, ...(groupIds ? { groupId: { in: groupIds } } : {}) },
     include: { ...PLAN_INCLUDE, group: { select: { gender: true } } },
@@ -120,7 +122,7 @@ export async function getStudentSummaries(courseId: string, groupIds?: string[])
       name: student.name,
       age: student.age,
       groupId: student.groupId,
-      attendance: attendanceStatusForDay(attendanceByStudent.get(student.id) ?? [], attendanceToday),
+      attendance: attendanceSeen(attendanceStatusForDay(attendanceByStudent.get(student.id) ?? [], attendanceToday), seesExcused.includes(student.groupId)),
       cumPages: Math.round(cumPages * 1000) / 1000,
       cumPoints: pointsByStudent.get(student.id) ?? 0,
       onlineCount,

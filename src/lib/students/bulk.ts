@@ -7,6 +7,8 @@ import { createScopedToken } from "@/lib/auth/scoped-token";
 import { courseTimeZone } from "@/lib/time/course-zone";
 import { zoneDateOnly } from "@/lib/time/zone";
 import { BONUS_NOTE_MAX_LENGTH } from "@/lib/points/bonus";
+import { mayMarkExcused, staffViewer } from "@/lib/excuse/course-data";
+import { EXCUSED_NOT_AVAILABLE } from "@/lib/excuse/texts";
 
 // The students page's «تحديد» bar (students/bulk-actions.ts): today's
 // attendance or a point for many students at once. Exactly what recording
@@ -50,7 +52,7 @@ async function selectedStudents(session: Session, rawIds: unknown): Promise<Deni
 // ---------- «تراجع» ----------
 
 type UndoData =
-  | { kind: "attendance"; day: string; status: "IN" | "OUT"; teacherId: string; prev: [string, "IN" | "OUT" | "EXCUSED" | null, string | null][] }
+  | { kind: "attendance"; day: string; status: "IN" | "OUT" | "EXCUSED"; teacherId: string; prev: [string, "IN" | "OUT" | "EXCUSED" | null, string | null][] }
   | { kind: "points"; ids: string[] };
 
 const undoTokens = createScopedToken<{ u: string; c: string; d: string }>({
@@ -68,9 +70,10 @@ export type BulkResult = Denied | { ok: true; done: number; skipped: number; und
 
 /** Today's attendance (the course's day) for every selected student; an existing record is overwritten. */
 export async function bulkAttendance(session: Session, studentIds: unknown, status: unknown): Promise<BulkResult> {
-  if (status !== "IN" && status !== "OUT") return { error: "حالة الحضور غير صحيحة" };
+  if (status !== "IN" && status !== "OUT" && status !== "EXCUSED") return { error: "حالة الحضور غير صحيحة" };
   const picked = await selectedStudents(session, studentIds);
   if ("error" in picked) return picked;
+  if (status === "EXCUSED" && !(await mayMarkExcused(picked.ids, await staffViewer(session)))) return { error: EXCUSED_NOT_AVAILABLE };
   const teacherId = await resolveTeacherId(session);
   const day = zoneDateOnly(await courseTimeZone(session.courseId));
 

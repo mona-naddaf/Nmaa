@@ -21,6 +21,9 @@ export function excusedWeeks(logs: { day: Date; status: AttendanceWithExcuse }[]
   return excused;
 }
 
+/** Attendance as a viewer gets it: who may not see «معذورة» sees that day with no status (G6). */
+export const attendanceSeen = <S extends AttendanceWithExcuse>(status: S, sees: boolean): S | "PENDING" => (status === "EXCUSED" && !sees ? "PENDING" : status);
+
 /** Her paused days for the memorization goal: the days marked «معذورة» ("YYYY-MM-DD"). */
 export const excusedDays = (logs: { day: Date; status: AttendanceWithExcuse }[]): Set<string> =>
   new Set(logs.filter((l) => l.status === "EXCUSED").map((l) => l.day.toISOString().slice(0, 10)));

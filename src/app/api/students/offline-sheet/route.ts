@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const sheetGroups = await sheetGroupsFor(access.courseId, groups);
 
   const dateISO = zoneToday(await courseTimeZone(access.courseId));
-  const buffer = await buildOfflineSheet({ groups: sheetGroups, dateISO, viewerGender: access.viewerGender });
+  const buffer = await buildOfflineSheet({ groups: sheetGroups.map((g) => ({ ...g, excused: access.excuseMarks.includes(g.id) })), dateISO, viewerGender: access.viewerGender });
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

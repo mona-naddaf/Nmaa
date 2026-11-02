@@ -13,6 +13,8 @@ import { computeGoal, neutralGoal, type GoalView } from "@/lib/goals/goal";
 import { getGoal, getPlan } from "@/lib/rafiq/memorization";
 import { PLAN_FIELDS, studentPlan } from "@/lib/students/plan";
 import { computeStreaks } from "@/lib/students/streak-data";
+import { excuseFor, goalExcuse, loadStudentExcuses } from "@/lib/excuse/course-data";
+import type { CourseViewer } from "@/lib/excuse/visibility";
 
 // Loading «المحصّلات» (summary.ts): for one period and the one before it, a
 // fixed handful of queries over the student's (or Rafiq user's) day range —
@@ -45,6 +47,8 @@ export interface SummaryPayload {
   // «أيام العذر» for a viewer who may not see it: the «day:itemId» pairs not
   // due in the period, left out of the day's list quietly (nothing else of it)
   notDue?: string[];
+  // a course student's: her goal's wording on a day marked «معذورة» (D6)
+  coursePause?: boolean;
 }
 
 const later = (a: string, b: string) => (a > b ? a : b);
@@ -114,8 +118,8 @@ function assemble(
   };
 }
 
-/** A course student's summary for a period (offset 0 = the current one, −1 the one before, …). */
-export async function courseSummary(studentId: string, kind: PeriodKind, offset: number): Promise<SummaryPayload> {
+/** A course student's summary for a period (offset 0 = the current one, −1 the one before, …), as this viewer may get it. */
+export async function courseSummary(studentId: string, kind: PeriodKind, offset: number, viewer: CourseViewer): Promise<SummaryPayload> {
   const s = await prisma.student.findUniqueOrThrow({
     where: { id: studentId },
     select: { id: true, courseId: true, groupId: true, createdAt: true, course: { select: { streakMode: true } }, ...PLAN_FIELDS },
@@ -138,7 +142,7 @@ export async function courseSummary(studentId: string, kind: PeriodKind, offset:
         ],
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      select: { id: true, title: true, value: true, days: true, createdAt: true, reviewedAt: true, archivedAt: true, createdByStudentId: true },
+      select: { id: true, title: true, value: true, days: true, createdAt: true, reviewedAt: true, archivedAt: true, createdByStudentId: true, excuseMode: true, excuseAltTitle: true },
     }),
     prisma.trackerCheck.findMany({
       where: { studentId, day: { gte: dateOnly(prev.from), lte: dateOnly(cur.to) } },
@@ -165,19 +169,21 @@ export async function courseSummary(studentId: string, kind: PeriodKind, offset:
   }));
 
   const sp = studentPlan(s);
-  const goal = (await getStudentGoal(studentId, sp.plan, allSessions, tz))?.view ?? null;
+  const excuse = await excuseFor(studentId, viewer);
+  const goal = (await getStudentGoal(studentId, sp.plan, allSessions, tz, undefined, await goalExcuse(studentId, excuse)))?.view ?? null;
   let weeklyStreak: number | null = null;
   if (s.course.streakMode) {
     const group = await prisma.student.findMany({ where: { groupId: s.groupId, archivedAt: null }, select: { id: true, groupId: true } });
     weeklyStreak = (await computeStreaks(s.course.streakMode, group, tz)).get(s.id) ?? 0;
   }
 
-  return assemble(kind, offset, today, items, checks, {
+  const payload = assemble(kind, offset, today, items, checks, {
     pages: round3(inPeriod.filter((x) => x.type === "NEW").reduce((n, x) => n + Number(x.pagesCalculated), 0)),
     sessions: entryCount(inPeriod),
     goal,
     weeklyStreak,
-  });
+  }, excuse.count ? { lens: excuseLens(rows, await loadStudentExcuses(studentId, prev.from), nowIn(tz)), show: excuse.show } : undefined);
+  return { ...payload, coursePause: true };
 }
 
 /**

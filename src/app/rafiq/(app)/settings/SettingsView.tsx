@@ -380,6 +380,12 @@ function ReviewReminders({ p, days }: { p: P; days: number | null }) {
 function FeatureSwitch({ title, label, enabled, action, children }: { title: string; label: string; enabled: boolean; action: FormAction; children: ReactNode }) {
   const t = useAutoSave(enabled);
   const guide = useGuideTarget();
+  // turned on from the help panel on this page: the switch follows
+  const [seen, setSeen] = useState(enabled);
+  if (seen !== enabled) {
+    setSeen(enabled);
+    t.setValue(enabled);
+  }
   const toggle = (next: boolean) => {
     t.setValue(next);
     t.save(() => send(action, { on: next ? "1" : "0" }), !next);
@@ -443,12 +449,13 @@ function TajweedDetail({ p, enabled }: { p: P; enabled: boolean }) {
 /** «أيام العذر» (a woman's own): A1–A4. Off ends an open excuse now; zone: her days. */
 function ExcuseSwitch({ enabled, active }: { enabled: boolean; active: boolean }) {
   const t = useAutoSave(enabled);
+  const guide = useGuideTarget();
   const toggle = (next: boolean) => {
     t.setValue(next);
     t.save(() => send(setExcuseEnabledAction, { on: next ? "1" : "0", zone: Intl.DateTimeFormat().resolvedOptions().timeZone }), !next);
   };
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...guide("settings.excuse")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         {EXCUSE_TITLE}
       </div>

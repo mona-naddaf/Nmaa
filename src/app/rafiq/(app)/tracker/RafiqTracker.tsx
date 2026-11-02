@@ -177,7 +177,7 @@ export function RafiqTracker({
 
   return (
     <div>
-      {guide && <IntroLine candidates={guide.intros} here={["agenda", "summary", "city"]} />}
+      {guide && <IntroLine candidates={guide.intros} here={["agenda", "summary", "city", "excuse"]} />}
       <TrackerHeader
         // «أمس» on the agenda; the tile sheet keeps its own today/yesterday tabs
         yesterday={yesterday}
@@ -293,6 +293,7 @@ export function RafiqTracker({
           onEnd={(at) => endExcuseAction({ at, zone: zone(), subjectId })}
           onSettle={() => settleExcuseAction({ zone: zone(), subjectId })}
           pause={{ paused: excuse!.pausedNow, onPause: (on) => setPauseAction({ on, zone: zone(), subjectId }) }}
+          target={t("tracker.excuse")}
         />
       )}
 
@@ -594,6 +595,7 @@ function ItemForm({
   const [days, setDays] = useState(initial.days);
   const time = useTimeFields(initial.slots);
   const excuseField = useItemExcuse(initial, excuse === "BOYS" ? "MALE" : "FEMALE");
+  const guideTarget = useGuideTarget();
   const [problem, setProblem] = useState<string | null>(null);
   return (
     <form
@@ -637,7 +639,7 @@ function ItemForm({
         <WeekdayPicker days={days} onChange={setDays} />
       </div>
       {agenda && <TimeFields fields={time} days={days} place={place} />}
-      {excuse && <ItemExcuseField field={excuseField} />}
+      {excuse && <ItemExcuseField field={excuseField} target={guideTarget("tracker.excuseField")} />}
       {targets && (
         <div className={styles.field}>
           <span className={styles.fieldLabel}>إضافة إلى:</span>

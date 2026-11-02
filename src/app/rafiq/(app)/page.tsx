@@ -6,7 +6,8 @@ import { getCommitment } from "@/lib/rafiq/commitment";
 import { prisma } from "@/lib/db";
 import { rafiqTajweedSummary } from "@/lib/rafiq/tajweed";
 import { getGuide } from "@/lib/guide/state";
-import { checklistFacts, hasFlaggedWords } from "@/lib/guide/page-facts";
+import { checklistFacts, hasCommitDays, hasFlaggedWords } from "@/lib/guide/page-facts";
+import { commitmentChosen } from "@/lib/guide/lines";
 import { ResumeCard } from "./ResumeCard";
 import { Checklist } from "./guide/Checklist";
 import { loadPauses, ownExcuse, pausedNow } from "@/lib/excuse/rafiq-data";
@@ -46,6 +47,8 @@ export default async function RafiqHomePage({ searchParams }: PageProps<"/rafiq"
                 </>
               ),
               flaggedWords: await hasFlaggedWords(user.id),
+              // read only while its «أيام العذر» line could show
+              commitSet: guide.facts.excuse === false && commitmentChosen({ savedDays: await hasCommitDays(user.id), loggedSessions: data.loggedSessions }),
             }
           : undefined
       }

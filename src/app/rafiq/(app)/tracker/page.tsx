@@ -38,7 +38,7 @@ export default async function RafiqTrackerPage({ searchParams }: PageProps<"/raf
       guide={
         guide
           ? {
-              intros: introsFor("tracker", { features: guide.facts.features, city: guide.facts.city, ...(await trackerIntroFacts(user.id)) }),
+              intros: introsFor("tracker", { features: guide.facts.features, city: guide.facts.city, excuse: guide.facts.excuse, ...(await trackerIntroFacts(user.id)) }),
               add: (await searchParams).add === "1",
             }
           : undefined

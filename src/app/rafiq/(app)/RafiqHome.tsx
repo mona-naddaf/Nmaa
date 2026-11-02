@@ -87,7 +87,7 @@ export function RafiqHome({
   // (the resume card, «الخطوات الأولى») shown under where she stands, then
   // the page's intro lines (flaggedWords: a word flagged in any session of
   // hers), and the guide's empty-page wording
-  guide?: { slot: React.ReactNode; flaggedWords: boolean };
+  guide?: { slot: React.ReactNode; flaggedWords: boolean; commitSet: boolean };
   // «أيام العذر», for whoever may see it: her paused stretches («إيقاف الحفظ
   // أيضًا»), days off for 🔥 and left out of the goal. Unset: none.
   paused?: { from: string; to: string | null }[];
@@ -114,6 +114,8 @@ export function RafiqHome({
           completedSurah: Object.entries(data.memorizedRanges).some(([s, ranges]) => ranges.some(([a, b]) => a === 1 && b === AYAH_COUNT[Number(s)])),
           sessions: data.loggedSessions,
           goal: data.goal !== null,
+          excuse: guided.facts.excuse,
+          commitSet: guide.commitSet,
         })
       : [];
   // surahs overdue for review, on her own today
@@ -302,6 +304,7 @@ export function RafiqHome({
           {...(guide ? { noStreak: genderText(EMPTY.homeStreak, gender) } : {})}
         />
       )}
+      {guide && <IntroLine candidates={intros} here={["excuse"]} excuseAt="home" />}
 
       {/* recording a session */}
       {can.record && (

@@ -56,9 +56,10 @@ export function useItemExcuse(initial: { excuseMode?: ExcuseMode; excuseAltTitle
 export type ItemExcuseState = ReturnType<typeof useItemExcuse>;
 
 /** B1–B7: «في أيام العذر»: يُحسب كالمعتاد · لا يُحسب · له بديل (+ the alternative). */
-export function ItemExcuseField({ field }: { field: ItemExcuseState }) {
+// target: the guide's name for the field (her own tracker only)
+export function ItemExcuseField({ field, target }: { field: ItemExcuseState; target?: { "data-guide": string } }) {
   return (
-    <div className={work.field}>
+    <div className={work.field} {...target}>
       <span className={work.fieldLabel}>{ITEM_EXCUSE_FIELD}</span>
       <div className={work.pills} role="group" aria-label={ITEM_EXCUSE_FIELD}>
         {(["NONE", "SKIP", "ALT"] as const).map((m) => (

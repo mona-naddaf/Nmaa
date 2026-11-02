@@ -61,6 +61,7 @@ export function ExcuseBar({
   onEnd,
   onSettle,
   pause,
+  target,
 }: {
   // hers, oldest first (the open one, if any, last)
   excuses: Excuse[];
@@ -79,6 +80,8 @@ export function ExcuseBar({
   // «رفيق الحفظ» and the family: pausing memorization too (C4, C9); paused:
   // her open excuse has it paused now. Unset (courses): no such choice.
   pause?: { paused: boolean; onPause: (on: boolean) => Promise<{ error?: string; autoEnded?: boolean }> };
+  // her own tracker: the guide's name for this place, on the bar and on the panel that replaces it
+  target?: { "data-guide": string };
 }) {
   const router = useRouter();
   const [panel, setPanel] = useState<"start" | "end" | null>(null);
@@ -155,7 +158,7 @@ export function ExcuseBar({
         </div>
       )}
       {panel === null && (
-        <div className={css.bar}>
+        <div className={css.bar} {...target}>
           {open ? (
             <>
               <span className={css.since}>
@@ -194,6 +197,7 @@ export function ExcuseBar({
           what={panel}
           you={you}
           pauseHint={pause && panel === "start" ? pauseHint(self) : undefined}
+          target={target}
           check={(at, n) => (panel === "start" ? checkStart(at, n, lastEnd) : open ? checkEnd(at, n, open.start) : null)}
           other={panel === "start" ? lastEnd : (open?.start ?? null)}
           onCancel={() => setPanel(null)}
@@ -221,6 +225,7 @@ function WhenPanel({
   onCancel,
   onConfirm,
   pauseHint,
+  target,
 }: {
   what: "start" | "end";
   you: "MALE" | "FEMALE";
@@ -232,6 +237,7 @@ function WhenPanel({
   onCancel: () => void;
   // null: done; otherwise the message to show
   onConfirm: (at: "NOW" | Moment, pause: boolean) => Promise<string | null>;
+  target?: { "data-guide": string };
 }) {
   const [earlier, setEarlier] = useState(false);
   // unchecked at first
@@ -267,7 +273,7 @@ function WhenPanel({
   }
 
   return (
-    <div className={css.panel} role="group" aria-label={title}>
+    <div className={css.panel} role="group" aria-label={title} {...target}>
       <div className={css.panelTitle}>{title}</div>
       <div className={work.pills} role="radiogroup" aria-label={title} style={{ marginBottom: 10 }}>
         {([false, true] as const).map((e) => (

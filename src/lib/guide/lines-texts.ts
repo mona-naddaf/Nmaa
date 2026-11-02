@@ -70,7 +70,8 @@ export const CHECKLIST = {
   celebrate: "[أحسنتِ|أحسنتَ]، [بدأتِ|بدأتَ] على مُكث 🌿",
 };
 
-export const INTRO: Record<IntroId, { text: string; button: string; close: boolean }> = {
+// (not «أيام العذر»: its lines stay on the server, help/rafiq/excuse.ts)
+export const INTRO: Record<Exclude<IntroId, "excuse">, { text: string; button: string; close: boolean }> = {
   mutashabihat: { text: "[يمكنكِ|يمكنك] إظهار علامة ≈ بعد الآيات التي لها آيات متشابهة في القرآن.", button: "تفعيل", close: true },
   tajweed: { text: "[تدرسين|تدرس] التجويد؟ [يمكنكِ|يمكنك] تحديد خطأ التجويد على الحرف نفسه، أو بين كلمتين.", button: "تفعيل", close: true },
   agenda: { text: "[يمكنكِ|يمكنك] إعطاء كل بند وقتًا، فـ[ترين|ترى] ما [عليكِ|عليك] الآن وما بعده.", button: "تفعيل", close: true },

@@ -369,6 +369,13 @@ export function Tour<T extends string, P extends string>({
         <p id={textId} className={styles.bubbleText}>
           {t(step.text)}
         </p>
+        {step.options && (
+          <ul className={styles.options}>
+            {step.options.map((o) => (
+              <li key={o}>{t(o)}</li>
+            ))}
+          </ul>
+        )}
         {view === "show" && geo.press && geo.step === `${index}:${leaving}` && <p className={styles.bubbleHint}>{t(host.texts.pressOrNext)}</p>}
         {!leaving && <p className={styles.count}>{progress}</p>}
       </>

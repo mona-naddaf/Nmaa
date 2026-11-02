@@ -55,6 +55,8 @@ export const GUIDE_TARGETS = [
   "tracker.summary",
   "tracker.back",
   "tracker.publish",
+  "tracker.excuse",
+  "tracker.excuseField",
   "agenda.timeBtn",
   "summary.periods",
   "summary.nav",
@@ -88,6 +90,7 @@ export const GUIDE_TARGETS = [
   // «الإعدادات»
   "settings.features",
   "settings.commit",
+  "settings.excuse",
   "settings.review",
   "settings.city",
   "settings.restart",

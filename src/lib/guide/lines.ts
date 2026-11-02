@@ -7,7 +7,7 @@
 
 import { INTRO_IDS, type GuidePage, type IntroId, type WelcomeId } from "./keys";
 import type { GuideStates } from "./rules";
-import type { HelpFeature } from "./help/types";
+import type { EnableFeature, HelpFeature } from "./help/types";
 
 const has = (states: GuideStates, key: keyof GuideStates) => Object.hasOwn(states, key);
 
@@ -89,15 +89,23 @@ export type IntroFacts = {
   // «جدول المتابعة»: current items, and whole days since the oldest of them was added
   trackerItems?: number;
   trackerDays?: number;
+  // «أيام العذر» on or off; unset: not hers to have (help/rafiq/excuse.ts)
+  excuse?: boolean;
+  // «صفحتي»: commitmentChosen
+  commitSet?: boolean;
 };
 
+/** Every account has commitment days (every day by default): hers count as set once she saved them or logged a session. */
+export const commitmentChosen = ({ savedDays, loggedSessions }: { savedDays: boolean; loggedSessions: number }) => savedDays || loggedSessions > 0;
+
 /** The feature each intro line switches on («تفعيل»); the others link somewhere or are a tip. */
-export const INTRO_FEATURE: Partial<Record<IntroId, HelpFeature>> = {
+export const INTRO_FEATURE: Partial<Record<IntroId, EnableFeature>> = {
   mutashabihat: "similar",
   tajweed: "tajweed",
   agenda: "agenda",
   summary: "summary",
   review: "review",
+  excuse: "excuse",
 };
 
 /**
@@ -113,6 +121,7 @@ export function introsFor(page: GuidePage, f: IntroFacts): IntroId[] {
     on.tajweed = f.flaggerOpen === true && !f.features.tajweed && f.flaggedWords === true;
     on.review = !f.features.review && f.completedSurah === true;
     on.goal = (f.sessions ?? 0) >= 3 && f.goal === false;
+    on.excuse = f.excuse === false && f.commitSet === true;
   } else if (page === "segment") {
     on.mutashabihat = !f.features.similar;
     on.verseNotes = true;
@@ -121,6 +130,7 @@ export function introsFor(page: GuidePage, f: IntroFacts): IntroId[] {
     on.agenda = !f.features.agenda && items >= 2;
     on.summary = !f.features.summary && items > 0 && (f.trackerDays ?? 0) >= 7;
     on.city = f.features.agenda && !f.city;
+    on.excuse = f.excuse === false && items > 0;
   }
   return INTRO_IDS.filter((id) => on[id] === true);
 }

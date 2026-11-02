@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { genderText } from "@/lib/guide/help/text";
-import { isTap, splitQuestions, stepsFor, tourFor } from "@/lib/guide/help/run";
-import type { HelpQuestion, HelpStep } from "@/lib/guide/help/types";
+import { isTap, panelShows, splitQuestions, stepsFor, tourFor } from "@/lib/guide/help/run";
+import type { EnableFeature, HelpQuestion, HelpStep } from "@/lib/guide/help/types";
 import type { HelpHost } from "./host";
 import { useHelpAvoidState, type HelpAvoid } from "./help-avoid";
 import { focusables } from "./focus";
@@ -173,6 +173,22 @@ function Panel<T extends string, P extends string>({
   const [folded, setFolded] = useState(false);
   const collapsed = preview && phone && folded;
   const moveFocus = useRef(false);
+  // «تفعيل الآن» in a question: on its way, failed, and done (the steps show
+  // at once; the fresh facts follow from the server)
+  const [enabling, setEnabling] = useState(false);
+  const [enableFailed, setEnableFailed] = useState<number | null>(null);
+  const [enabledHere, setEnabledHere] = useState<EnableFeature | null>(null);
+
+  async function enable(feature: EnableFeature, n: number) {
+    setEnabling(true);
+    setEnableFailed(null);
+    const r = await host.enable(feature).catch(() => ({ error: "failed" }));
+    setEnabling(false);
+    if (r.error) return setEnableFailed(n);
+    setEnabledHere(feature);
+    // the button she pressed is gone: the focus goes to its question
+    document.getElementById(`${titleId}-btn${n}`)?.focus({ preventScroll: true });
+  }
 
   // focus into the panel, once
   useEffect(() => {
@@ -251,7 +267,8 @@ function Panel<T extends string, P extends string>({
     const isOpen = openQ === n;
     const bodyId = `${titleId}-q${n}`;
     const steps = stepsFor(q, host.facts);
-    const showMe = q.showMe && (
+    const offer = q.offer && q.offer.feature !== enabledHere && panelShows(q, host.facts) === "offer" ? q.offer : null;
+    const showMe = q.showMe && !offer && (
       <button type="button" className={styles.primary} style={preview ? { marginBottom: 10 } : undefined} onClick={() => onShowMe(q)}>
         {host.texts.showMe}
       </button>
@@ -271,16 +288,41 @@ function Panel<T extends string, P extends string>({
         </button>
         <div id={bodyId} className={styles.qBody} hidden={!isOpen}>
           {preview && showMe}
-          <ol className={styles.steps}>
-            {steps.map((s, i) => (
-              <li key={i}>{t(s.text)}</li>
-            ))}
-          </ol>
-          {q.notes?.map((note, i) => (
-            <p key={i} className={styles.note}>
-              {t(note)}
-            </p>
-          ))}
+          {offer ? (
+            <>
+              <p className={styles.offerText}>{t(offer.text)}</p>
+              <button type="button" className={styles.primary} disabled={enabling} onClick={() => enable(offer.feature, n)}>
+                {host.texts.enableNow}
+              </button>
+              {enableFailed === n && (
+                <p className={styles.err} role="alert">
+                  {host.texts.enableFailed}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <ol className={styles.steps}>
+                {steps.map((s, i) => (
+                  <li key={i}>
+                    {t(s.text)}
+                    {s.options && (
+                      <ul className={styles.options}>
+                        {s.options.map((o) => (
+                          <li key={o}>{t(o)}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ol>
+              {q.notes?.map((note, i) => (
+                <p key={i} className={styles.note}>
+                  {t(note)}
+                </p>
+              ))}
+            </>
+          )}
           {!preview && showMe}
         </div>
       </li>

@@ -17,6 +17,8 @@
 //                      for existing accounts too (set by the reset)
 //   welcome.<page>     «فهمت» on that page's welcome line
 //   intro.<feature>    «تفعيل» or «×» on that feature's intro line
+//   intro.excuse       one key for both of «أيام العذر»'s lines; also set when
+//                      she turns it on in the settings, so it's never offered again
 
 /** The pages that have help, a welcome line or both («العائلة» pages have none). */
 export const GUIDE_PAGES = [
@@ -42,7 +44,7 @@ export const WELCOME_IDS = [...GUIDE_PAGES, "plan-setup", "plan-custom"] as cons
 export type WelcomeId = (typeof WELCOME_IDS)[number];
 
 /** Feature intro lines (review page ٥), in the order a page offers them. */
-export const INTRO_IDS = ["mutashabihat", "tajweed", "agenda", "summary", "review", "city", "verseNotes", "goal"] as const;
+export const INTRO_IDS = ["mutashabihat", "tajweed", "agenda", "summary", "review", "city", "verseNotes", "goal", "excuse"] as const;
 export type IntroId = (typeof INTRO_IDS)[number];
 
 /** Setup questions: 1 plan, 2 prior, 3 commitment days, 4 tracker (4a–4c), 5 review. */

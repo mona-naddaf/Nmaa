@@ -1,7 +1,8 @@
-import type { HelpFeature } from "@/lib/guide/help/types";
+import type { EnableFeature } from "@/lib/guide/help/types";
 import { REVIEW_DAYS_ON_ENABLE } from "@/lib/guide/help/rafiq/ui";
 import {
   setAgendaEnabledAction,
+  setExcuseEnabledAction,
   setMutashabihatEnabledAction,
   setReviewRemindersAction,
   setSummaryEnabledAction,
@@ -14,15 +15,17 @@ import {
 
 type SettingsAction = (prev: null, formData: FormData) => Promise<{ error?: string } | null>;
 
-const SWITCH: Record<HelpFeature, [SettingsAction, Record<string, string>]> = {
+const SWITCH: Record<EnableFeature, [SettingsAction, Record<string, string>]> = {
   agenda: [setAgendaEnabledAction, { on: "1" }],
   summary: [setSummaryEnabledAction, { on: "1" }],
   similar: [setMutashabihatEnabledAction, { on: "1" }],
   tajweed: [setTajweedDetailEnabledAction, { on: "1" }],
   review: [setReviewRemindersAction, { on: "1", days: String(REVIEW_DAYS_ON_ENABLE) }],
+  // refused on the server for anyone it isn't for
+  excuse: [setExcuseEnabledAction, { on: "1" }],
 };
 
-export async function enableFeature(feature: HelpFeature): Promise<{ error?: string }> {
+export async function enableFeature(feature: EnableFeature): Promise<{ error?: string }> {
   const [action, fields] = SWITCH[feature];
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);

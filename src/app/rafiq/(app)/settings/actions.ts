@@ -200,6 +200,15 @@ export async function setExcuseEnabledAction(_prev: SettingsState, formData: For
     await endOnSwitchOff(user.id, safeTimeZone(typeof zone === "string" ? zone : null), { adultId: null });
   }
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { excuseEnabled: on } });
+  // turned on, from anywhere: its intro lines are never offered again, even if she turns it off later
+  if (on) {
+    const key = "intro.excuse";
+    await prisma.guideState.upsert({
+      where: { rafiqUserId_key: { rafiqUserId: user.id, key } },
+      create: { rafiqUserId: user.id, key },
+      update: {},
+    });
+  }
   revalidatePath("/rafiq", "layout");
   return { ok: "تم الحفظ ✓" };
 }

@@ -21,6 +21,9 @@ export type StepKind = "look" | "press" | "save" | "leave";
 /** Features «تفعيل الآن» can turn on from inside a tour. */
 export type HelpFeature = "agenda" | "summary" | "similar" | "tajweed" | "review";
 
+/** What «تفعيل» can turn on: those, and «أيام العذر», which only some accounts have. */
+export type EnableFeature = HelpFeature | "excuse";
+
 /** What she has, as far as a tour needs to know. */
 export type HelpFacts = {
   features: Record<HelpFeature, boolean>;
@@ -30,6 +33,8 @@ export type HelpFacts = {
   plan: boolean;
   // founds a family («العائلة» on)
   founder: boolean;
+  // «أيام العذر» on or off; left out for anyone it isn't for (never false for them)
+  excuse?: boolean;
 };
 
 /** A condition on her facts: a step shows only when it holds, or an alternative replaces it. */
@@ -53,6 +58,8 @@ export type HelpStep<T extends string = string, P extends string = string> = {
   via?: T[];
   // the element shows only sometimes («إلغاء التغييرات»): without it, the sentence alone
   optional?: true;
+  // choices under the step, not steps of their own
+  options?: string[];
   // only when this holds
   when?: HelpCond;
   // in place of the text and target when this holds
@@ -70,6 +77,8 @@ export type HelpQuestion<T extends string = string, P extends string = string> =
   notes?: string[];
   // under «أسئلة أخرى»
   more?: boolean;
+  // with this feature off: this sentence and «تفعيل الآن» in place of the steps
+  offer?: { feature: EnableFeature; text: string };
 };
 
 export type HelpPage<T extends string = string, P extends string = string> = {

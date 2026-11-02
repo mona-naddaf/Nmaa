@@ -9,6 +9,7 @@ import type { GuideKey, GuidePage, GuideValue } from "@/lib/guide/keys";
 import { decideGuide, resetFor, type GuideDecision, type GuideInput, type GuideReset, type GuideStates } from "@/lib/guide/rules";
 import type { GuideSnapshot } from "@/lib/guide/state";
 import type { HelpFacts } from "@/lib/guide/help/types";
+import type { ExcuseGuide } from "@/lib/guide/help/rafiq/excuse-types";
 import { helpPageFor } from "@/lib/guide/help/rafiq/pages";
 import { welcomeFor } from "@/lib/guide/lines";
 import type { PersonGender } from "@/lib/text/gender";
@@ -35,6 +36,8 @@ type GuideContext = {
   states: GuideStates;
   gender: PersonGender;
   facts: HelpFacts | null;
+  // her «أيام العذر» guide, only if she may have it
+  excuse: ExcuseGuide | null;
   // the guide's page here, if any
   page: GuidePage | null;
   /** What to show here; the page passes its own facts (intro lines that apply…); page and welcome line default to here's. */
@@ -49,6 +52,7 @@ const OFF: GuideContext = {
   states: {},
   gender: "FEMALE",
   facts: null,
+  excuse: null,
   page: null,
   decide: (facts) => decideGuide({ ...facts, on: false, kind: "ADULT", isNew: false, states: {} }),
   mark: async () => ({}),
@@ -132,6 +136,7 @@ export function GuideProvider({ snapshot, children }: { snapshot: GuideSnapshot;
         states,
         gender: snapshot.gender,
         facts: snapshot.facts,
+        excuse: snapshot.excuse ?? null,
         page,
         decide: (facts) => decideGuide({ page, welcome, ...facts, on: true, kind: "ADULT", isNew: snapshot.isNew, states }),
         mark,
@@ -143,7 +148,7 @@ export function GuideProvider({ snapshot, children }: { snapshot: GuideSnapshot;
         {page && page !== "plan" && <WelcomeLine />}
         {children}
       </GuideTargets>
-      <RafiqHelp gender={snapshot.gender} facts={snapshot.facts} {...(snapshot.preview ? { preview: true } : {})} />
+      <RafiqHelp gender={snapshot.gender} facts={snapshot.facts} {...(snapshot.preview ? { preview: true } : {})} {...(snapshot.excuse ? { excuse: snapshot.excuse } : {})} />
     </Ctx.Provider>
   );
 }

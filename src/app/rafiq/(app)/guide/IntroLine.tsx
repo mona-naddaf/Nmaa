@@ -22,13 +22,14 @@ import styles from "./lines.module.css";
 // where a line's button goes, when it isn't «تفعيل»
 const HREF: Partial<Record<IntroId, string>> = { city: "/rafiq/settings#city", goal: "/rafiq/plan?to=goal" };
 
-export function IntroLine({ candidates, here }: { candidates: IntroId[]; here: IntroId[] }) {
+// excuseAt: which page's «أيام العذر» line this place shows (its words come from the server, with her snapshot)
+export function IntroLine({ candidates, here, excuseAt = "tracker" }: { candidates: IntroId[]; here: IntroId[]; excuseAt?: "tracker" | "home" }) {
   const guide = useGuide();
   const router = useRouter();
   const box = useRef<HTMLDivElement>(null);
   const noteRef = useRef<HTMLParagraphElement>(null);
   const [busy, setBusy] = useState<IntroId | null>(null);
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState<string | null>(null);
   const [failed, setFailed] = useState<{ id: IntroId; text: string } | null>(null);
   const t = (s: string) => genderText(s, guide.gender);
   const id = guide.decide({ intros: candidates }).intro;
@@ -41,13 +42,14 @@ export function IntroLine({ candidates, here }: { candidates: IntroId[]; here: I
     return (
       <div className={`${styles.line} ${styles.intro}`} role="status">
         <p ref={noteRef} tabIndex={-1} className={styles.lineText}>
-          {t(INTRO_UI.enabled)}
+          {t(enabled)}
         </p>
       </div>
     );
   }
   if (!id || !here.includes(id) || busy === id) return null;
-  const line = INTRO[id];
+  const line = id !== "excuse" ? INTRO[id] : guide.excuse && { text: guide.excuse.line[excuseAt], button: guide.excuse.line.button, close: true };
+  if (!line) return null;
   const feature = INTRO_FEATURE[id];
 
   // the next thing she can reach after the line, for the focus when it goes
@@ -78,7 +80,7 @@ export function IntroLine({ candidates, here }: { candidates: IntroId[]; here: I
       setFailed({ id: id!, text: INTRO_UI.failed });
       return;
     }
-    setEnabled(true);
+    setEnabled(id === "excuse" && guide.excuse ? guide.excuse.enabled[excuseAt] : INTRO_UI.enabled);
     setBusy(null);
     void guide.mark(`intro.${id!}`);
     router.refresh();

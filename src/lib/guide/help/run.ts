@@ -1,4 +1,4 @@
-import type { HelpCond, HelpFacts, HelpQuestion, HelpStep } from "./types";
+import type { EnableFeature, HelpCond, HelpFacts, HelpQuestion, HelpStep } from "./types";
 
 // The rules of the help panel and of «أرِني», apart from the page: which
 // questions show, which steps a tour has for her, what a step shows when its
@@ -25,6 +25,13 @@ export function holds(cond: HelpCond, facts: HelpFacts): boolean {
     case "noPlan":
       return !facts.plan;
   }
+}
+
+const featureOn = (f: EnableFeature, facts: HelpFacts) => (f === "excuse" ? facts.excuse === true : facts.features[f]);
+
+/** What a question's body shows in the panel: its steps, or the offer while its feature is off. */
+export function panelShows(q: Pick<HelpQuestion, "offer">, facts: HelpFacts): "steps" | "offer" {
+  return q.offer && !featureOn(q.offer.feature, facts) ? "offer" : "steps";
 }
 
 /** Her steps for a question: the ones that don't apply left out, alternatives in their place. */

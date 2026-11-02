@@ -24,6 +24,11 @@ export async function hasFlaggedWords(userId: string): Promise<boolean> {
   return (await prisma.rafiqMistake.count({ where: { userId }, take: 1 })) > 0;
 }
 
+/** She saved her own commitment days (the settings or the setup questions). */
+export async function hasCommitDays(userId: string): Promise<boolean> {
+  return (await prisma.rafiqCommitDays.count({ where: { userId }, take: 1 })) > 0;
+}
+
 /** Her current items, and whole days since the oldest of them was added. */
 export async function trackerIntroFacts(userId: string): Promise<{ trackerItems: number; trackerDays: number }> {
   const [trackerItems, oldest] = await Promise.all([

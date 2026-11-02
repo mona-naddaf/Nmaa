@@ -250,11 +250,24 @@
   line-height: 1.85;
 }
 
+.options {
+  margin: 4px 0 0;
+  padding-inline-start: 1.2em;
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+
 .note {
   margin: 4px 0 8px;
   font-size: 13px;
   line-height: 1.8;
   color: var(--ink-soft);
+}
+
+.offerText {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.85;
 }
 
 .primary,

@@ -18,7 +18,8 @@ function all(): string[] {
 
 test("guide lines: a welcome line for every welcome id, an intro line for every feature", () => {
   for (const w of WELCOME_IDS) assert.ok(WELCOME[w], w);
-  for (const i of INTRO_IDS) assert.ok(INTRO[i]?.text, i);
+  for (const i of INTRO_IDS) if (i !== "excuse") assert.ok(INTRO[i]?.text, i);
+  assert.equal(Object.hasOwn(INTRO, "excuse"), false);
 });
 
 test("guide lines: every text well formed, and nothing left of the notation in either gender", () => {

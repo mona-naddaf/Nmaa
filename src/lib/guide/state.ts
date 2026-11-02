@@ -5,7 +5,10 @@ import { getRafiqUser } from "@/lib/rafiq/session";
 import { familyEnabled } from "@/lib/family/enabled";
 import type { PersonGender } from "@/lib/text/gender";
 import { guideEnabled, guidePreviewAllowed } from "./enabled";
+import { excuseAllowed } from "@/lib/excuse/enabled";
 import { checkGuideValue, isGuideKey } from "./keys";
+import { excuseSnapshotParts } from "./help/rafiq/excuse";
+import type { ExcuseGuide } from "./help/rafiq/excuse-types";
 import type { GuideStates } from "./rules";
 import type { HelpFacts } from "./help/types";
 
@@ -17,8 +20,9 @@ import type { HelpFacts } from "./help/types";
 // key or value the code no longer knows are left out, so a renamed key can't
 // break a page.
 
-// preview: GUIDE_PREVIEW_EMAILS lets her see what's being tried; left out otherwise
-export type GuideSnapshot = { isNew: boolean; states: GuideStates; gender: PersonGender; facts: HelpFacts; preview?: true };
+// preview: GUIDE_PREVIEW_EMAILS lets her see what's being tried; excuse: her
+// guide of «أيام العذر». Both left out, not empty, for anyone they aren't for
+export type GuideSnapshot = { isNew: boolean; states: GuideStates; gender: PersonGender; facts: HelpFacts; preview?: true; excuse?: ExcuseGuide };
 
 export const getGuide = cache(async (): Promise<GuideSnapshot | null> => {
   if (!guideEnabled()) return null;
@@ -31,6 +35,7 @@ export const getGuide = cache(async (): Promise<GuideSnapshot | null> => {
       email: true,
       gender: true,
       guideNewAt: true,
+      excuseEnabled: true,
       guideStates: { select: { key: true, value: true } },
       agendaEnabled: true,
       summaryEnabled: true,
@@ -45,10 +50,20 @@ export const getGuide = cache(async (): Promise<GuideSnapshot | null> => {
   });
   // getRafiqUser only returns adults; checked again here
   if (!row || row.kind !== "ADULT") return null;
-  return {
-    ...(guidePreviewAllowed(row.email) ? { preview: true as const } : {}),
-    isNew: row.guideNewAt !== null,
+  const preview = guidePreviewAllowed(row.email);
+  const parts = excuseSnapshotParts({
+    kind: row.kind,
+    gender: row.gender,
+    excuseAllowed: excuseAllowed(row.email),
+    previewAllowed: preview,
+    on: row.excuseEnabled,
     states: toStates(row.guideStates),
+  });
+  return {
+    ...(preview ? { preview: true as const } : {}),
+    ...(parts.excuse ? { excuse: parts.excuse } : {}),
+    isNew: row.guideNewAt !== null,
+    states: parts.states,
     gender: row.gender,
     facts: {
       features: {
@@ -61,6 +76,7 @@ export const getGuide = cache(async (): Promise<GuideSnapshot | null> => {
       city: row.prayerLat !== null,
       plan: row.planTemplate !== null,
       founder: ((row as { _count?: { foundedFamilies: number } })._count?.foundedFamilies ?? 0) > 0,
+      ...parts.facts,
     },
   };
 });

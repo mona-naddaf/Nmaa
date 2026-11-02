@@ -1,10 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { genderText, pairsAreWellFormed } from "./text";
-import { MAX_VISIBLE, catchUp, nextPresses, onPress, progressLabel, splitQuestions, stepView, stepsFor, tourFor, type StepContext } from "./run";
+import { MAX_VISIBLE, catchUp, isTap, nextPresses, onPress, progressLabel, splitQuestions, stepView, stepsFor, tourFor, type StepContext } from "./run";
 import type { HelpFacts, HelpQuestion, HelpStep, StepKind } from "./types";
 import { GUIDE_TARGETS, isGuideTarget, targetAttr } from "./targets";
 import { helpPageFor, hrefOf, tourPageFor } from "./rafiq/pages";
+import { guidePreviewAllowed } from "../enabled";
 
 const facts = (over: Partial<HelpFacts> = {}, features: Partial<HelpFacts["features"]> = {}): HelpFacts => ({
   features: { agenda: false, summary: false, similar: false, tajweed: false, review: false, ...features },
@@ -219,4 +220,30 @@ test("tourFor: the tour carries its question's own text, to name the bubble for 
   const named: HelpQuestion = { ...q, q: "كيف [أضيفُ|أضيفُ] [سورتكِ|سورتك]؟" };
   assert.equal(genderText(tourFor(named, facts()).title, "FEMALE"), "كيف أضيفُ سورتكِ؟");
   assert.equal(genderText(tourFor(named, facts()).title, "MALE"), "كيف أضيفُ سورتك؟");
+});
+
+test("the panel's tap: a press that stayed put counts; a scroll or a drag doesn't", () => {
+  assert.equal(isTap({ x: 100, y: 100 }, { x: 100, y: 100 }), true);
+  assert.equal(isTap({ x: 100, y: 100 }, { x: 106, y: 106 }), true);
+  assert.equal(isTap({ x: 100, y: 100 }, { x: 100, y: 111 }), false);
+  assert.equal(isTap({ x: 100, y: 100 }, { x: 40, y: 100 }), false);
+});
+
+test("the preview list: unset and empty are nobody, a listed email matches, «*» is everyone", () => {
+  const was = process.env.GUIDE_PREVIEW_EMAILS;
+  try {
+    delete process.env.GUIDE_PREVIEW_EMAILS;
+    assert.equal(guidePreviewAllowed("a@b.c"), false);
+    process.env.GUIDE_PREVIEW_EMAILS = "";
+    assert.equal(guidePreviewAllowed("a@b.c"), false);
+    process.env.GUIDE_PREVIEW_EMAILS = "A@b.c, x@y.z";
+    assert.equal(guidePreviewAllowed(" a@B.c "), true);
+    assert.equal(guidePreviewAllowed("other@b.c"), false);
+    assert.equal(guidePreviewAllowed(null), false);
+    process.env.GUIDE_PREVIEW_EMAILS = "*";
+    assert.equal(guidePreviewAllowed("other@b.c"), true);
+  } finally {
+    if (was === undefined) delete process.env.GUIDE_PREVIEW_EMAILS;
+    else process.env.GUIDE_PREVIEW_EMAILS = was;
+  }
 });

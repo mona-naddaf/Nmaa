@@ -5,6 +5,9 @@ import type { HelpCond, HelpFacts, HelpQuestion, HelpStep } from "./types";
 // element is or isn't there, and what pressing does. Pure; the panel and the
 // tour (src/components/guide) only follow these answers.
 
+/** A press on the page that didn't move: a scroll or a drag is no tap. */
+export const isTap = (down: { x: number; y: number }, up: { x: number; y: number }) => Math.hypot(up.x - down.x, up.y - down.y) <= 10;
+
 /** At most this many questions are listed; the rest go under «أسئلة أخرى». */
 export const MAX_VISIBLE = 5;
 

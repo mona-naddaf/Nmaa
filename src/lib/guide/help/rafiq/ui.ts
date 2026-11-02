@@ -13,6 +13,8 @@ export const HELP_UI = {
   lead: "[اختاري|اختر] ما [تريدين|تريد] فعله، ثم [اضغطي|اضغط] «أرِني» لنري[كِ|ك] مكانه على الصفحة.",
   showMe: "أرِني",
   close: "إغلاق",
+  // the collapsed bar on a phone, for screen readers
+  expand: "عرض الخطوات",
   more: "أسئلة أخرى",
   // the bubble
   prev: "السابق",

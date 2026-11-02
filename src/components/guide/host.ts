@@ -11,6 +11,10 @@ export type HelpTexts = typeof HELP_UI;
 
 export type HelpHost<T extends string = string, P extends string = string> = {
   gender: PersonGender;
+  // the path she is on: a new one closes the panel
+  path: string;
+  // the new panel (GUIDE_PREVIEW_EMAILS): stays open while she uses the page
+  preview?: boolean;
   // the page she is on, as far as a tour knows it (null: none of the guide's pages)
   here: P | null;
   // its help: null where the button doesn't show

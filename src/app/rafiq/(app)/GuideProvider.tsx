@@ -143,7 +143,7 @@ export function GuideProvider({ snapshot, children }: { snapshot: GuideSnapshot;
         {page && page !== "plan" && <WelcomeLine />}
         {children}
       </GuideTargets>
-      <RafiqHelp gender={snapshot.gender} facts={snapshot.facts} />
+      <RafiqHelp gender={snapshot.gender} facts={snapshot.facts} {...(snapshot.preview ? { preview: true } : {})} />
     </Ctx.Provider>
   );
 }

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getRafiqUser } from "@/lib/rafiq/session";
 import { familyEnabled } from "@/lib/family/enabled";
 import type { PersonGender } from "@/lib/text/gender";
-import { guideEnabled } from "./enabled";
+import { guideEnabled, guidePreviewAllowed } from "./enabled";
 import { checkGuideValue, isGuideKey } from "./keys";
 import type { GuideStates } from "./rules";
 import type { HelpFacts } from "./help/types";
@@ -17,7 +17,8 @@ import type { HelpFacts } from "./help/types";
 // key or value the code no longer knows are left out, so a renamed key can't
 // break a page.
 
-export type GuideSnapshot = { isNew: boolean; states: GuideStates; gender: PersonGender; facts: HelpFacts };
+// preview: GUIDE_PREVIEW_EMAILS lets her see what's being tried; left out otherwise
+export type GuideSnapshot = { isNew: boolean; states: GuideStates; gender: PersonGender; facts: HelpFacts; preview?: true };
 
 export const getGuide = cache(async (): Promise<GuideSnapshot | null> => {
   if (!guideEnabled()) return null;
@@ -27,6 +28,7 @@ export const getGuide = cache(async (): Promise<GuideSnapshot | null> => {
     where: { id: user.id },
     select: {
       kind: true,
+      email: true,
       gender: true,
       guideNewAt: true,
       guideStates: { select: { key: true, value: true } },
@@ -44,6 +46,7 @@ export const getGuide = cache(async (): Promise<GuideSnapshot | null> => {
   // getRafiqUser only returns adults; checked again here
   if (!row || row.kind !== "ADULT") return null;
   return {
+    ...(guidePreviewAllowed(row.email) ? { preview: true as const } : {}),
     isNew: row.guideNewAt !== null,
     states: toStates(row.guideStates),
     gender: row.gender,

@@ -17,7 +17,7 @@ import { enableFeature } from "../guide/enable";
 // same switches as in «الإعدادات» (../guide/enable). Loaded by the guide's
 // provider only while the guidance is on.
 
-export default function RafiqHelp({ gender, facts }: { gender: PersonGender; facts: HelpFacts }) {
+export default function RafiqHelp({ gender, facts, preview }: { gender: PersonGender; facts: HelpFacts; preview?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const helpPage = helpPageFor(pathname);
@@ -25,6 +25,8 @@ export default function RafiqHelp({ gender, facts }: { gender: PersonGender; fac
   const host: HelpHost<GuideTarget, TourPage> = useMemo(
     () => ({
       gender,
+      path: pathname,
+      ...(preview ? { preview } : {}),
       here: tourPageFor(pathname),
       page: (helpPage && RAFIQ_HELP[helpPage]) ?? null,
       helpOf: (p) => (p === "family" ? null : (RAFIQ_HELP[p] ?? null)),
@@ -41,7 +43,7 @@ export default function RafiqHelp({ gender, facts }: { gender: PersonGender; fac
       texts: HELP_UI,
       offers: FEATURE_OFFER,
     }),
-    [gender, pathname, helpPage, facts, router],
+    [gender, pathname, helpPage, facts, router, preview],
   );
 
   return <HelpUI host={host} />;

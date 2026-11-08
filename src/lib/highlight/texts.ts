@@ -44,11 +44,9 @@ export function highlightTexts(g: G) {
     namePlaceholder: "اسم اللون (اختياري)",
     nameAria: (label: string) => `اسم اللون ${label}`,
     nameTooLong: `الاسم حتى ${MAX_COLOR_NAME} حرفًا.`,
-    renameAria: (name: string) => `تسمية اللون ${name}`,
     removeColor: "إزالة اللون",
     removeColorAria: (name: string) => `إزالة اللون ${name}`,
     defaultNote: "اللون الأساسي لا يُزال.",
-    saved: "تم الحفظ ✓",
   };
 }
 

@@ -48,7 +48,7 @@ export function MushafPages(props: MushafPagesProps) {
         </Fragment>
       ))}
       <div className={styles.attribution}>
-        خطوط المصحف وبيانات صفحاته من مجمّع الملك فهد لطباعة المصحف الشريف، عن طريق مؤسسة القرآن (Quran Foundation).
+        المصحف وخطوطه من مجمّع الملك فهد لطباعة المصحف الشريف؛ تُحمَّل الخطوط عن طريق مؤسسة القرآن (Quran Foundation)، وبيانات الصفحات والأسطر من مكتبة QUL (Tarteel).
       </div>
     </div>
   );

@@ -327,25 +327,21 @@ export function SegmentPractice({
                     <button type="button" className={mushafStyles.endBtn} onClick={() => toRow(a)} aria-label={`عدّادات الآية ${a}`}>
                       {glyph}
                     </button>
-                    {!marking && (
-                      <span className={mushafStyles.srOnly}>
-                        {ayahOnly(s.surahNumber, a, ayahs[a - 1] ?? "")} ﴿{a}﴾
-                      </span>
-                    )}
-                    <span className={mushafStyles.endBadges}>
-                      <SimilarAfter surah={s.surahNumber} ayah={a} />
-                      {afterAyah?.(a)}
-                    </span>
                     {marking && ayahParts(ayahProps(a, ayahs)).pageEndGap}
                   </span>
                 )}
                 fallback={(a1, a2) => ayat(a1, a2, false)}
               />
             </div>
+            {/* every ayah in full (its real text for screen readers too), its «≈» and note marker beside it, its counters below */}
             <div className={mushafStyles.rows}>
               {Array.from({ length: s.toAyah - s.fromAyah + 1 }, (_, i) => s.fromAyah + i).map((a) => (
                 <div key={a} id={rowId(a)} tabIndex={-1} className={mushafStyles.row}>
-                  <span className={mushafStyles.rowNum}>الآية {a}</span>
+                  <div className={`${styles.ayahText} ${quranFont.className}`} lang="ar">
+                    {ayahOnly(s.surahNumber, a, ayahs[a - 1] ?? "")} <span className={styles.ayahNum}>﴿{a}﴾</span>
+                    <SimilarAfter surah={s.surahNumber} ayah={a} />
+                    {afterAyah?.(a)}
+                  </div>
                   {ayahCounters(a)}
                 </div>
               ))}

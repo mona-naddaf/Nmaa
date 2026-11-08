@@ -69,6 +69,30 @@ export function VerseNoteMarker({ surah, ayah }: { surah: number; ayah: number }
   );
 }
 
+/**
+ * «صفحة المصحف»: nothing may sit on the page, so under it, the range's
+ * verses that have her notes, each with its marker. Adding a note to another
+ * verse is in «نص كبير» (or the practice page's rows). Nothing when none has one.
+ */
+export function VerseNotesStrip({ surah, fromAyah, toAyah }: { surah: number; fromAyah: number; toAyah: number }) {
+  const ctx = useContext(NotesCtx);
+  if (!ctx) return null;
+  const noted: number[] = [];
+  for (let a = fromAyah; a <= toAyah; a++) if (ctx.summary[verseKey(surah, a)]) noted.push(a);
+  if (noted.length === 0) return null;
+  return (
+    <div className={styles.strip}>
+      <span className={styles.stripLabel}>ملاحظاتي على هذه الآيات:</span>
+      {noted.map((a) => (
+        <span key={a} className={styles.stripItem}>
+          الآية {a}
+          <VerseNoteMarker surah={surah} ayah={a} />
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function VerseNotesDialog({ surah, ayah, g, onClose }: { surah: number; ayah: number; g: GroupGender; onClose: () => void }) {
   const raw = useSurahText(surah)?.[ayah - 1];
   const text = raw && ayahOnly(surah, ayah, raw);

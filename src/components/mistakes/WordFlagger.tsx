@@ -1,6 +1,6 @@
 "use client";
 
-import { SimilarAfter } from "@/components/quran/Similar";
+import { SimilarAfter, SimilarEnd } from "@/components/quran/Similar";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import styles from "./mistakes.module.css";
 import { useGuideTarget } from "@/components/guide/targets";
@@ -78,6 +78,7 @@ export function WordFlagger({
   inside,
   mushaf,
   mushafFeminine = false,
+  belowPage,
 }: {
   surahNumber: number;
   fromAyah: number;
@@ -111,6 +112,8 @@ export function WordFlagger({
   // whom the toggle's hint speaks to; unset: the text view only, as before
   mushaf?: MushafConfig;
   mushafFeminine?: boolean;
+  // under the Mushaf page (nothing may sit on it): e.g. her noted verses
+  belowPage?: ReactNode;
 }) {
   const view = useMushafView();
   const [ayahs, setAyahs] = useState<{ surah: number; text: string[] } | null>(null);
@@ -267,18 +270,18 @@ export function WordFlagger({
                   const w = parts.split.words[word - 1];
                   return w ? parts.renderWord(w, { node: glyph, span }) : glyph;
                 }}
+                // nothing on the page: a verse with similar verses has its number tinted and tappable
                 end={(ayah, glyph) => (
                   <span className={mushafStyles.endWrap}>
-                    {glyph}
-                    <span className={mushafStyles.endBadges}>
-                      <SimilarAfter surah={surahNumber} ayah={ayah} />
-                      {afterAyah?.(ayah)}
-                    </span>
+                    <SimilarEnd surah={surahNumber} ayah={ayah}>
+                      {glyph}
+                    </SimilarEnd>
                     {partsOf(ayah, loaded).pageEndGap}
                   </span>
                 )}
                 fallback={(a1, a2) => textView(a1, a2, loaded)}
               />
+              {belowPage}
             </div>
           ) : (
             textView(fromAyah, toAyah, loaded)

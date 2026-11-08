@@ -210,3 +210,38 @@
     transform: none;
   }
 }
+
+/* «صفحة المصحف»: the ayah-end number itself, tinted copper. Its 44px tap
+   area sits under the page's words (they are above it), so it only ever
+   takes taps on the space around the number. */
+.endMark {
+  position: relative;
+  font: inherit;
+  line-height: inherit;
+  color: var(--gold-deep);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.endMark::before {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.endMark[aria-expanded="true"] {
+  background: rgba(168, 92, 54, 0.14);
+  border-radius: 50%;
+}
+
+.endMark:focus-visible {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 1px;
+  border-radius: 50%;
+}

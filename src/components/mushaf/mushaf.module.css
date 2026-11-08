@@ -187,24 +187,6 @@
   text-align: center;
 }
 
-/* small marks on an ayah's end glyph (the «≈» marker, a note), never widening the line */
-.endWrap {
-  position: relative;
-  display: inline-block;
-}
-
-.endBadges {
-  position: absolute;
-  inset: auto 50% 78% auto;
-  transform: translateX(50%);
-  display: flex;
-  gap: 2px;
-  font-family: system-ui, sans-serif;
-  font-size: 11px;
-  line-height: 1;
-  white-space: nowrap;
-  z-index: 2;
-}
 
 /* the real text, for screen readers only */
 .srOnly {
@@ -257,9 +239,8 @@
 
 .row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
+  flex-direction: column;
+  gap: 2px;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -272,9 +253,45 @@
   outline-offset: 1px;
 }
 
-.rowNum {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--rose-deep);
-  min-width: 4.5em;
+
+/* the page's words sit above the tap areas around an ayah-end number, so
+   those areas only take taps on the space around it */
+.w,
+.out {
+  position: relative;
+  z-index: 1;
+}
+
+.endBtn {
+  position: relative;
+}
+
+.endBtn::before {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+/* the page's words sit above the tap areas around an ayah-end number, so
+   those areas only take taps on the space around it */
+.w,
+.out {
+  position: relative;
+  z-index: 1;
+}
+
+.endBtn {
+  position: relative;
+}
+
+.endBtn::before {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
 }

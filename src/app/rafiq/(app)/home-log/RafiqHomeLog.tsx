@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import styles from "@/components/home-log/home-log.module.css";
 import { NewSegment } from "@/components/home-log/NewSegment";
 import type { MushafConfig } from "@/lib/mushaf/enabled";
-import { VerseNoteMarker } from "../notes/NotesProvider";
+import { VerseNoteMarker, VerseNotesStrip } from "../notes/NotesProvider";
 import { SegmentCard } from "@/components/home-log/SegmentCard";
 import { TargetsEditor } from "@/components/home-log/TargetsEditor";
 import { HOME_LIMITS, type HomeTargets } from "@/lib/home-log/rules";
@@ -126,6 +126,7 @@ export function RafiqHomeLog({
           practiceBase={base}
           onCancel={() => setAdding(false)}
           afterAyah={viewer === "self" ? (a, s) => <VerseNoteMarker surah={s} ayah={a} /> : undefined}
+          belowPage={viewer === "self" ? (s, from, to) => <VerseNotesStrip surah={s} fromAyah={from} toAyah={to} /> : undefined}
           mushaf={mushaf}
           mushafFeminine={adult ? you === "FEMALE" : g === "GIRLS"}
         />

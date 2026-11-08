@@ -92,6 +92,31 @@ export function SimilarAfter({ surah, ayah }: { surah: number; ayah: number }) {
   return <SimilarMark surah={surah} ayah={ayah} groups={mine} ctx={ctx} />;
 }
 
+/**
+ * «صفحة المصحف»: nothing may sit on the page, so a verse with similar verses
+ * has its ayah-end number itself tinted copper and tappable (the same
+ * popup); any other verse's number is shown as it is.
+ */
+export function SimilarEnd({ surah, ayah, children }: { surah: number; ayah: number; children: ReactNode }) {
+  const ctx = useContext(SimilarContext);
+  const [groups, setGroups] = useState<Record<number, SimilarGroup[]> | null>(null);
+  useEffect(() => {
+    if (!ctx) return;
+    let alive = true;
+    ctx.surah(surah).then((g) => alive && setGroups(g));
+    return () => {
+      alive = false;
+    };
+  }, [ctx, surah]);
+  const mine = groups?.[ayah];
+  if (!ctx || !mine?.length) return <>{children}</>;
+  return (
+    <SimilarMark surah={surah} ayah={ayah} groups={mine} ctx={ctx} onPage>
+      {children}
+    </SimilarMark>
+  );
+}
+
 interface Place {
   top: number;
   left: number;
@@ -118,19 +143,34 @@ function placeFor(mark: HTMLElement): Place {
   return { top, left: left + window.scrollX, width, maxHeight, origin: `${r.left + r.width / 2 - left}px ${down ? "0" : "100%"}` };
 }
 
-function SimilarMark({ surah, ayah, groups, ctx }: { surah: number; ayah: number; groups: SimilarGroup[]; ctx: Ctx }) {
+function SimilarMark({
+  surah,
+  ayah,
+  groups,
+  ctx,
+  onPage = false,
+  children,
+}: {
+  surah: number;
+  ayah: number;
+  groups: SimilarGroup[];
+  ctx: Ctx;
+  // on a Mushaf page: the ayah-end number (children) is the button
+  onPage?: boolean;
+  children?: ReactNode;
+}) {
   const button = useRef<HTMLButtonElement>(null);
   const [place, setPlace] = useState<Place | null>(null);
   const t = useGuideTarget();
   const count = new Set(groups.flatMap((g) => g.others.map((o) => o.key))).size;
   return (
     <>
-      {" "}
+      {!onPage && " "}
       <button
         ref={button}
         type="button"
-        className={`${styles.mark} pressable`}
-        aria-label={`آيات متشابهة بالآية ${ayah} (${count})`}
+        className={onPage ? styles.endMark : `${styles.mark} pressable`}
+        aria-label={onPage ? `آيات متشابهة للآية ${toArabicDigits(ayah)}` : `آيات متشابهة بالآية ${ayah} (${count})`}
         aria-haspopup="dialog"
         aria-expanded={place !== null}
         {...t("verse.similar")}
@@ -140,9 +180,13 @@ function SimilarMark({ surah, ayah, groups, ctx }: { surah: number; ayah: number
           setPlace(place ? null : placeFor(e.currentTarget));
         }}
       >
-        <span className={styles.glyph} aria-hidden>
-          ≈
-        </span>
+        {onPage ? (
+          children
+        ) : (
+          <span className={styles.glyph} aria-hidden>
+            ≈
+          </span>
+        )}
       </button>
       {place && <SimilarPopup surah={surah} ayah={ayah} groups={groups} ctx={ctx} place={place} anchor={button} onClose={() => setPlace(null)} />}
     </>

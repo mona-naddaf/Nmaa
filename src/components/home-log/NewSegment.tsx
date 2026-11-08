@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { SimilarAfter } from "@/components/quran/Similar";
+import { SimilarAfter, SimilarEnd } from "@/components/quran/Similar";
 import { useRouter } from "next/navigation";
 import styles from "./home-log.module.css";
 import { useSurahText } from "./useSurahText";
@@ -36,6 +36,7 @@ export function NewSegment({
   rangeHint,
   mushaf,
   mushafFeminine = g === "GIRLS",
+  belowPage,
 }: {
   g: GroupGender;
   plan: number[];
@@ -52,6 +53,8 @@ export function NewSegment({
   mushaf?: MushafConfig;
   // whom the toggle's hint speaks to (default: by g)
   mushafFeminine?: boolean;
+  // under the Mushaf page (nothing may sit on it): e.g. her noted verses
+  belowPage?: (surah: number, fromAyah: number, toAyah: number) => React.ReactNode;
 }) {
   const router = useRouter();
   const [surah, setSurah] = useState(suggestion.surahNumber);
@@ -157,25 +160,27 @@ export function NewSegment({
       </div>
       {mushaf && <MushafToggle feminine={mushafFeminine} />}
       {mushaf && view === "page" && ayahs ? (
-        <MushafPages
-          config={mushaf}
-          surah={surah}
-          fromAyah={from}
-          toAyah={to}
-          end={(a, glyph) => (
-            <span className={mushafStyles.endWrap}>
-              {glyph}
-              <span className={mushafStyles.srOnly}>
-                {ayahOnly(surah, a, ayahs[a - 1] ?? "")} ﴿{a}﴾
+        <>
+          <MushafPages
+            config={mushaf}
+            surah={surah}
+            fromAyah={from}
+            toAyah={to}
+            // nothing on the page: a verse with similar verses has its number tinted and tappable
+            end={(a, glyph) => (
+              <span className={mushafStyles.endWrap}>
+                <SimilarEnd surah={surah} ayah={a}>
+                  {glyph}
+                </SimilarEnd>
+                <span className={mushafStyles.srOnly}>
+                  {ayahOnly(surah, a, ayahs[a - 1] ?? "")} ﴿{a}﴾
+                </span>
               </span>
-              <span className={mushafStyles.endBadges}>
-                <SimilarAfter surah={surah} ayah={a} />
-                {afterAyah?.(a, surah)}
-              </span>
-            </span>
-          )}
-          fallback={preview}
-        />
+            )}
+            fallback={preview}
+          />
+          {belowPage?.(surah, from, to)}
+        </>
       ) : (
         preview(from, to)
       )}

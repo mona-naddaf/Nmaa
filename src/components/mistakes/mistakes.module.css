@@ -833,6 +833,8 @@
 
 /* «صفحة المصحف»: a word is its glyph; nothing may widen the printed line */
 .word.pageWord {
+  position: relative;
+  z-index: 1;
   padding: 0;
   border-radius: 4px;
 }

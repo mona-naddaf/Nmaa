@@ -24,7 +24,7 @@ import type { MushafConfig } from "@/lib/mushaf/enabled";
 import { TajweedSummaryBlock } from "@/components/mistakes/TajweedSummaryBlock";
 import { mistakeWordCount } from "@/lib/students/mistake-types";
 import type { TajweedSummary } from "@/lib/tajweed/summary";
-import { VerseNoteMarker } from "./notes/NotesProvider";
+import { VerseNoteMarker, VerseNotesStrip } from "./notes/NotesProvider";
 import { SimilarScope } from "./SimilarScope";
 import {
   EntryStatus,
@@ -370,6 +370,7 @@ export function RafiqHome({
               onChange={entry.setWordFlags}
               subject={subject}
               afterAyah={can.ownExtras ? (a) => <VerseNoteMarker surah={surahNumber} ayah={a} /> : undefined}
+              belowPage={can.ownExtras ? <VerseNotesStrip surah={surahNumber} fromAyah={fromAyah} toAyah={toAyah} /> : undefined}
               detail={tajweed ? { enabled: true, flags: entry.detailFlags, onChange: entry.setDetailFlags } : undefined}
               {...(guide ? { onOpenChange: setFlaggerOpen, inside: <IntroLine candidates={intros} here={["mutashabihat", "tajweed"]} /> } : {})}
               mushaf={mushaf}

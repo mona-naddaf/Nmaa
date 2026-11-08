@@ -82,6 +82,9 @@ type Live<T extends string, P extends string> = {
   labels: Partial<Record<T, PressLabel>>;
   // the tour's last step (or the page a «leave» step opened)
   last: boolean;
+  // the new «التالي» rule (nextMove) and what goes with it: GUIDE_PREVIEW_EMAILS
+  // only, like the new panel; everyone else keeps the tour as it was
+  fresh: boolean;
   // which step (index and «leaving»), for scrolling to it once
   key: string;
   // until when a missing element may still be on its way
@@ -129,7 +132,7 @@ export function Tour<T extends string, P extends string>({
   const last = leaving || index === steps.length - 1;
 
   // what the measuring, the keys and the clicks work from (brought up to date after each render)
-  const live = useRef<Live<T, P>>({ step, home, here: host.here, facts: host.facts, hrefOf: host.hrefOf, labels: host.labels, last, key: "", waitUntil: 0 });
+  const live = useRef<Live<T, P>>({ step, home, here: host.here, facts: host.facts, hrefOf: host.hrefOf, labels: host.labels, last, fresh: host.preview === true, key: "", waitUntil: 0 });
   const rootRef = useRef<HTMLDivElement>(null);
   const litRef = useRef<HTMLElement | null>(null);
   const lastLit = useRef<HTMLElement | null>(null);
@@ -163,7 +166,7 @@ export function Tour<T extends string, P extends string>({
     // shown, then closed again without her pressing it (a menu closed by a tap
     // elsewhere): its openers are lit again, so the step never runs dry
     if (el) ownSeen.current = true;
-    else if (onPage && ownSeen.current && !ownPressed.current) {
+    else if (s.fresh && onPage && ownSeen.current && !ownPressed.current) {
       ownSeen.current = false;
       viaPressed.current.clear();
     }
@@ -242,7 +245,12 @@ export function Tour<T extends string, P extends string>({
     let label = "";
     if (view === "show" && el) {
       const control = pressable(el);
-      move = nextMove(s.step, { last: s.last, opener: via !== null, open: isOpen(el), pressable: control !== null });
+      move = s.fresh
+        ? nextMove(s.step, { last: s.last, opener: via !== null, open: isOpen(el), pressable: control !== null })
+        : // as before: «التالي» presses an opener or a «press» button for her
+          (via !== null || s.step.kind === "press") && control !== null
+          ? "press"
+          : "next";
       if (move === "wait") {
         const named = s.labels[(via ?? s.step.target) as T];
         label = pressWhat(named ?? ((control ?? el).textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 40));
@@ -255,7 +263,7 @@ export function Tour<T extends string, P extends string>({
   // after every render: what measuring uses is brought up to date, and it measures again
   useEffect(() => {
     const was = live.current;
-    live.current = { ...was, step, home, here: host.here, facts: host.facts, hrefOf: host.hrefOf, labels: host.labels, last, key: `${index}:${leaving}` };
+    live.current = { ...was, step, home, here: host.here, facts: host.facts, hrefOf: host.hrefOf, labels: host.labels, last, fresh: host.preview === true, key: `${index}:${leaving}` };
     if (was.key !== live.current.key) {
       ownSeen.current = false;
       ownPressed.current = false;
@@ -275,7 +283,7 @@ export function Tour<T extends string, P extends string>({
   // lit button with it). The help panel listens before this, so it still folds
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    if (!root || host.preview !== true) return;
     const stop = (e: Event) => e.stopPropagation();
     root.addEventListener("pointerdown", stop);
     root.addEventListener("mousedown", stop);
@@ -283,7 +291,7 @@ export function Tour<T extends string, P extends string>({
       root.removeEventListener("pointerdown", stop);
       root.removeEventListener("mousedown", stop);
     };
-  }, []);
+  }, [host.preview]);
 
   // the page moving or changing: measure again (not for the tour's own parts)
   useEffect(() => {
@@ -567,7 +575,7 @@ export function Tour<T extends string, P extends string>({
       ) : (
         // while a step waits for its element (no bubble yet), taps go through:
         // a page that is slow to come never holds her
-        <div className={styles.block} style={view === "wait" ? { inset: 0, pointerEvents: "none" } : { inset: 0 }} />
+        <div className={styles.block} style={view === "wait" && host.preview === true ? { inset: 0, pointerEvents: "none" } : { inset: 0 }} />
       )}
       <p className={styles.srOnly} role="status">
         {counted ? host.texts.step(progress, t(step.text)) : ""}

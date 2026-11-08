@@ -154,6 +154,7 @@ export function CompactRow({
   onDelete,
   muted = false,
   target,
+  editTarget,
   children,
 }: {
   title: string;
@@ -169,6 +170,8 @@ export function CompactRow({
   muted?: boolean;
   // the guide's name for the row (src/components/guide/targets.tsx): undefined adds nothing
   target?: { "data-guide": string };
+  // the same for its ✎
+  editTarget?: { "data-guide": string };
   children?: React.ReactNode;
 }) {
   return (
@@ -183,7 +186,7 @@ export function CompactRow({
           </div>
         </div>
         {onEdit && (
-          <button type="button" className={styles.iconBtn} aria-label={`${editLabel} «${title}»`} title={editLabel} onClick={onEdit}>
+          <button type="button" className={styles.iconBtn} aria-label={`${editLabel} «${title}»`} title={editLabel} onClick={onEdit} {...editTarget}>
             ✎
           </button>
         )}

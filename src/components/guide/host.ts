@@ -1,5 +1,6 @@
 import type { PersonGender } from "@/lib/text/gender";
 import type { EnableFeature, HelpFacts, HelpFeature, HelpPage } from "@/lib/guide/help/types";
+import type { PressLabel } from "@/lib/guide/help/run";
 import type { HELP_UI } from "@/lib/guide/help/rafiq/ui";
 
 // What a site gives the help engine (the button, its panel and «أرِني»):
@@ -31,4 +32,6 @@ export type HelpHost<T extends string = string, P extends string = string> = {
   cityHref: string;
   texts: HelpTexts;
   offers: Record<HelpFeature, string>;
+  // the name of each button a tour waits on («اضغطي «…» للمتابعة»)
+  labels: Partial<Record<T, PressLabel>>;
 };

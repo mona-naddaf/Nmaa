@@ -1,3 +1,5 @@
+import type { PressLabel } from "../run";
+import type { GuideTarget } from "../targets";
 import type { HelpFeature } from "../types";
 
 // The words of the help button, its panel and the «أرِني» bubble (review
@@ -23,6 +25,10 @@ export const HELP_UI = {
   end: "إنهاء",
   step: (n: string, text: string) => `الخطوة ${n}: ${text}`,
   pressOrNext: "[اضغطي|اضغط] عليه، أو [اضغطي|اضغط] «التالي».",
+  // a button the next step depends on (run.ts nextMove "wait"): she presses it herself
+  pressToGo: (what: string) => `[اضغطي|اضغط] ${what} للمتابعة`,
+  // «التالي» pressed there instead
+  pressFirst: (what: string) => `[اضغطي|اضغط] ${what} أولًا`,
   // a step on another page
   away: (page: string) => `هذه الخطوة في صفحة «${page}». ننتقل إليها ونكمل هناك.`,
   go: (page: string) => `الذهاب إلى «${page}»`,
@@ -51,3 +57,43 @@ export const FEATURE_OFFER: Record<HelpFeature, string> = {
 
 /** Review reminders turned on from a tour start at 14 days, as on the review page. */
 export const REVIEW_DAYS_ON_ENABLE = 14;
+
+/**
+ * The name of each button «التالي» waits on (run.ts nextMove "wait"), as the
+ * steps write it: «اضغطي «{label}» للمتابعة». A step's own «press» element
+ * that isn't last, and every opener in a `via`. One that isn't listed takes
+ * the text the button shows; content.test.ts checks that all are listed.
+ */
+export const PRESS_LABELS: Partial<Record<GuideTarget, PressLabel>> = {
+  // «صفحتي» and «خطتي»
+  "record.flagger": "🔖 تحديد الأخطاء على مستوى الكلمة (اختياري)",
+  "mistakes.section": "🔖 كلمات تحتاج مراجعة",
+  "review.section": "🔁 سور تحتاج مراجعة",
+  "history.section": "سجل الجلسات",
+  "plan.goal": "+ هدف للحفظ",
+  // «حفظي في البيت»
+  "homeLog.new": "+ مقطع جديد",
+  "homeLog.active": { plain: "على بطاقة المقطع" },
+  "homeLog.targets": "تعديل",
+  // «جدول المتابعة»
+  "tracker.menu": "⚙ البنود",
+  "tracker.menu.items": "إدارة البنود",
+  "tracker.menu.order": "ترتيب البنود",
+  "tracker.menu.bank": "بنك الجداول",
+  "tracker.newItem": "+ بند جديد",
+  "tracker.itemEdit": "✎",
+  "tracker.back": "→ العودة إلى الجدول",
+  "tracker.publish": "نشر في بنك الجداول",
+  "agenda.timeBtn": "⏱",
+  // «بنك جداول المتابعة»، «التقويم»، «ملاحظاتي» and a verse's page
+  "templates.card": "عرض البنود",
+  "calendar.add": "+ إضافة يوم خاص",
+  "calendar.grid": { plain: "على اليوم في التقويم" },
+  "notes.pickVerse": "+ ملاحظة على آية",
+  "notes.open": "فتح الآية ←",
+  "notes.newTag": "+ وسم جديد",
+  "verse.newNote": "+ ملاحظة جديدة",
+  "verse.similar": "≈",
+  // «الإعدادات»: opens the confirmation, never deletes by itself
+  "settings.delete": "حذف حسابي",
+};

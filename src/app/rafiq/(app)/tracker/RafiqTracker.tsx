@@ -692,6 +692,7 @@ function ItemRow({
       onEdit={editable ? () => toggle("edit") : undefined}
       onDelete={editable ? () => toggle("remove") : undefined}
       target={t("tracker.itemRow")}
+      editTarget={t("tracker.itemEdit")}
     >
       {scope.viewer !== "self" && item.adultAdded && (
         <div className={hl.muted} style={{ fontSize: 12, marginTop: 4 }}>

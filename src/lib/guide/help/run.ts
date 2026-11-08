@@ -108,10 +108,61 @@ export function onPress(step: Pick<HelpStep, "kind">): "next" | "then" | "stay" 
   return kind === "press" ? "next" : kind === "leave" ? "then" : "stay";
 }
 
-/** Whether «التالي» presses the lit element for her: only one that opens something, never one that saves. */
-export function nextPresses(step: Pick<HelpStep, "kind">): boolean {
-  return (step.kind ?? "look") === "press";
+
+/**
+ * What «التالي» does while a step's element is lit (Mona, 2026-11-08):
+ * - wait: the lit button opens what the tour goes on with (a menu, a view, a
+ *   form, a page). «التالي» doesn't move: the same button stays lit and the
+ *   bubble says to press it first. Pressing it herself moves the tour on.
+ *   This is every opener lit in the step's place, and the step's own «press»
+ *   element unless it is already open or it is the last step.
+ * - press: the last step's button that opens something: «تمّ» presses it, as before.
+ * - next: everything else (a field, a section, a save button): on to the next step.
+ * «التالي» never presses a button that the next step depends on: a tap
+ * outside a menu closes it before such a press could land.
+ */
+export type NextMove = "wait" | "press" | "next";
+
+export function nextMove(
+  step: Pick<HelpStep, "kind">,
+  at: {
+    // the last step of the tour
+    last: boolean;
+    // the lit element is an opener of the step's own (a `via` entry)
+    opener: boolean;
+    // what the lit element opens is open already (a section, the ≈ list)
+    open: boolean;
+    // there is a control to press in it
+    pressable: boolean;
+  },
+): NextMove {
+  if (at.opener) return "wait";
+  if ((step.kind ?? "look") !== "press" || at.open) return "next";
+  if (at.last) return at.pressable ? "press" : "next";
+  return "wait";
 }
+
+/**
+ * The buttons a page's tours wait on (nextMove "wait"), by name: every opener
+ * in a `via`, and each «press» step's own button but the last step's. Each one
+ * needs its name for the bubble (the site's labels).
+ */
+export function waitsOn<T extends string>(questions: Pick<HelpQuestion<T>, "showMe" | "steps">[]): T[] {
+  const names = new Set<T>();
+  for (const q of questions) {
+    if (!q.showMe) continue;
+    q.steps.forEach((s, i) => {
+      for (const v of s.via ?? []) names.add(v);
+      if (s.kind === "press" && s.target && i < q.steps.length - 1) names.add(s.target);
+    });
+  }
+  return [...names];
+}
+
+/** The button named in «اضغطي «…» للمتابعة»: its name in «», or a phrase of its own («على بطاقة المقطع»). */
+export type PressLabel = string | { plain: string };
+
+export const pressWhat = (label: PressLabel) => (typeof label === "string" ? `«${label}»` : label.plain);
 
 /** «2 من 4» */
 export const progressLabel = (index: number, count: number) => `${index + 1} من ${count}`;

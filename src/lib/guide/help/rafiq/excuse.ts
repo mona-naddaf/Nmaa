@@ -56,7 +56,8 @@ const HELP: ExcuseGuide["help"] = {
       offer: { feature: "excuse", text: "يظهر حقل «في أيام العذر» في كل بند بعد تفعيل «أيام العذر». هل تريدين تفعيلها الآن؟" },
       steps: [
         { text: "اضغطي «⚙ البنود»، ثم «إدارة البنود».", target: "tracker.menu.items", kind: "press", via: ["tracker.menu"] },
-        { text: "اضغطي ✎ بجانب البند.", target: "tracker.itemRow" },
+        // ✎ opens the form with «في أيام العذر»: the tour waits for it
+        { text: "اضغطي ✎ بجانب البند.", target: "tracker.itemEdit", kind: "press" },
         {
           text: "عند «في أيام العذر» اختاري واحدًا من ثلاثة:",
           target: "tracker.excuseField",

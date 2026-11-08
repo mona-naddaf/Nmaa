@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { genderText, pairsAreWellFormed } from "./text";
-import { MAX_VISIBLE, catchUp, isTap, nextPresses, onPress, progressLabel, splitQuestions, stepView, stepsFor, tourFor, type StepContext } from "./run";
+import { MAX_VISIBLE, catchUp, isTap, nextMove, onPress, pressWhat, progressLabel, splitQuestions, stepView, stepsFor, tourFor, type StepContext } from "./run";
+import { HELP_UI } from "./rafiq/ui";
 import type { HelpFacts, HelpQuestion, HelpStep, StepKind } from "./types";
 import { GUIDE_TARGETS, isGuideTarget, targetAttr } from "./targets";
 import { helpPageFor, hrefOf, tourPageFor } from "./rafiq/pages";
@@ -157,9 +158,52 @@ test("A: pressing the lit element moves the tour only for a button that opens so
   assert.equal(press("leave"), "then");
 });
 
-test("«التالي» presses the lit element for her only when it opens something, never a save", () => {
-  assert.equal(nextPresses({ kind: "press" }), true);
-  for (const kind of ["look", "save", "leave", undefined] as const) assert.equal(nextPresses({ kind }), false);
+// ---------- «التالي» on a lit button (Mona, 2026-11-08) ----------
+
+const at = (over: Partial<Parameters<typeof nextMove>[1]> = {}) => ({ last: false, opener: false, open: false, pressable: true, ...over });
+
+test("nextMove: a button that opens what comes next waits for her press", () => {
+  // «إدارة البنود» lit, ✎ next: «التالي» doesn't move
+  assert.equal(nextMove({ kind: "press" }, at()), "wait");
+  // a lit section with no control «التالي» could press waits the same (a day in the calendar)
+  assert.equal(nextMove({ kind: "press" }, at({ pressable: false })), "wait");
+});
+
+test("nextMove: an opener lit in the step's place always waits, whatever the step", () => {
+  for (const kind of ["press", "look", "save", "leave", undefined] as const) {
+    assert.equal(nextMove({ kind }, at({ opener: true })), "wait", String(kind));
+    // on the last step too: what it opens is the step itself
+    assert.equal(nextMove({ kind }, at({ opener: true, last: true })), "wait", String(kind));
+  }
+});
+
+test("nextMove: steps that only point move on with «التالي», as before", () => {
+  for (const kind of ["look", "save", "leave", undefined] as const) {
+    assert.equal(nextMove({ kind }, at()), "next", String(kind));
+    assert.equal(nextMove({ kind }, at({ last: true })), "next", String(kind));
+  }
+});
+
+test("nextMove: a section that is open already doesn't wait (pressing it would close it)", () => {
+  assert.equal(nextMove({ kind: "press" }, at({ open: true })), "next");
+  assert.equal(nextMove({ kind: "press" }, at({ open: true, last: true })), "next");
+});
+
+test("nextMove: on the last step «تمّ» presses a button that opens something, as before; never a save", () => {
+  assert.equal(nextMove({ kind: "press" }, at({ last: true })), "press");
+  // nothing to press: «تمّ» ends
+  assert.equal(nextMove({ kind: "press" }, at({ last: true, pressable: false })), "next");
+  assert.equal(nextMove({ kind: "save" }, at({ last: true })), "next");
+});
+
+test("pressWhat and the bubble's lines, in her gender", () => {
+  assert.equal(pressWhat("إدارة البنود"), "«إدارة البنود»");
+  assert.equal(pressWhat({ plain: "على بطاقة المقطع" }), "على بطاقة المقطع");
+  assert.equal(genderText(HELP_UI.pressToGo(pressWhat("إدارة البنود")), "FEMALE"), "اضغطي «إدارة البنود» للمتابعة");
+  assert.equal(genderText(HELP_UI.pressToGo(pressWhat("إدارة البنود")), "MALE"), "اضغط «إدارة البنود» للمتابعة");
+  assert.equal(genderText(HELP_UI.pressFirst(pressWhat("✎")), "FEMALE"), "اضغطي «✎» أولًا");
+  assert.equal(genderText(HELP_UI.pressFirst(pressWhat("✎")), "MALE"), "اضغط «✎» أولًا");
+  assert.equal(genderText(HELP_UI.pressToGo(pressWhat({ plain: "على اليوم في التقويم" })), "MALE"), "اضغط على اليوم في التقويم للمتابعة");
 });
 
 test("progressLabel: «2 من 4», Western digits", () => {

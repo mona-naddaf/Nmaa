@@ -51,6 +51,7 @@ export const GUIDE_TARGETS = [
   "tracker.newItem",
   "tracker.limit",
   "tracker.itemRow",
+  "tracker.itemEdit",
   "tracker.sheet",
   "tracker.summary",
   "tracker.back",

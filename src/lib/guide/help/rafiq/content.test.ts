@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { GUIDE_PAGES } from "../../keys";
 import { isGuideTarget } from "../targets";
 import { genderText, pairsAreWellFormed } from "../text";
-import { MAX_VISIBLE, nextPresses, splitQuestions } from "../run";
+import { MAX_VISIBLE, nextMove, splitQuestions, waitsOn } from "../run";
+import type { GuideTarget } from "../targets";
 import { RAFIQ_HELP } from "./index";
 import { isTourPage } from "./pages";
-import { FEATURE_OFFER, HELP_UI } from "./ui";
+import { FEATURE_OFFER, HELP_UI, PRESS_LABELS } from "./ui";
 
 // The help content as data: every page there, every text well formed in both
 // genders, every element named in the allowlist, and no step that would let
@@ -70,7 +71,8 @@ test("help content: a step on a button that saves or deletes is never pressed by
   for (const p of pages)
     for (const q of p.questions)
       for (const s of q.steps)
-        if (s.target && saving.test(s.target) && s.target !== "settings.delete") assert.equal(nextPresses(s), false, `${p.id}: ${s.target}`);
+        if (s.target && saving.test(s.target) && s.target !== "settings.delete")
+          for (const last of [false, true]) assert.equal(nextMove(s, { last, opener: false, open: false, pressable: true }), "next", `${p.id}: ${s.target}`);
 });
 
 test("help content: a question without «أرِني» has nothing to light", () => {
@@ -93,4 +95,12 @@ test("help content: «كيف أعطي كل بند وقتًا؟» — ⏱ with it
     "يظهر ⏱ بجانب كل بند من بنود اليوم، ولا بنود لليوم في جدولك الآن. أضف بندًا من «⚙ البنود» ← «إدارة البنود»، ثم اضغط ⏱ بجانبه.",
   );
   assert.equal(q.notes?.[0], "يظهر ⏱ بجانب بنود اليوم فقط.");
+});
+
+test("help content: every button a tour waits on has its name for «اضغطي «…» للمتابعة»", () => {
+  for (const p of pages) for (const name of waitsOn(p.questions)) assert.ok(PRESS_LABELS[name as GuideTarget], `${p.id}: ${name}`);
+  for (const [name, label] of Object.entries(PRESS_LABELS)) {
+    assert.ok(isGuideTarget(name), name);
+    assert.ok(pairsAreWellFormed(typeof label === "string" ? label : label!.plain), name);
+  }
 });

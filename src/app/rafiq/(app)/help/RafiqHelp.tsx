@@ -11,7 +11,7 @@ import type { PersonGender } from "@/lib/text/gender";
 import { RAFIQ_HELP } from "@/lib/guide/help/rafiq";
 import { withExcuseHelp, type ExcuseGuide } from "@/lib/guide/help/rafiq/excuse-types";
 import { PAGE_TITLE, helpPageFor, hrefOf, tourPageFor, type TourPage } from "@/lib/guide/help/rafiq/pages";
-import { FEATURE_OFFER, HELP_UI } from "@/lib/guide/help/rafiq/ui";
+import { FEATURE_OFFER, HELP_UI, PRESS_LABELS } from "@/lib/guide/help/rafiq/ui";
 import { enableFeature } from "../guide/enable";
 
 // «رفيق الحفظ»'s help (the engine is src/components/guide): her pages' help,
@@ -49,6 +49,7 @@ export default function RafiqHelp({ gender, facts, preview, excuse }: { gender: 
       cityHref: "/rafiq/settings#city",
       texts: HELP_UI,
       offers: FEATURE_OFFER,
+      labels: PRESS_LABELS,
     };
   }, [gender, pathname, helpPage, facts, router, preview, excuse]);
 

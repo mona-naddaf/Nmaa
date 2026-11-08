@@ -10,7 +10,9 @@
  * - look: shows it (a field, a section, a number). She may use it freely and
  *   moves on with «التالي»; a click on it doesn't move the tour.
  * - press: a button that opens a menu, a section, a dialog or a page.
- *   Pressing it moves to the next step; «التالي» presses it for her.
+ *   Pressing it moves to the next step. «التالي» waits for her to press it
+ *   («اضغطي «…» أولًا»), unless it is open already or the step is the last
+ *   (run.ts nextMove).
  * - save: a button that saves or deletes. The guide only points at it:
  *   «التالي» never presses it, and pressing it doesn't move the tour.
  * - leave: a link to a page outside the guide («عائلتي»). «التالي» moves on

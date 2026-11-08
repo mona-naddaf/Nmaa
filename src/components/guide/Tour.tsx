@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { genderText } from "@/lib/guide/help/text";
-import { catchUp, nextPresses, onPress, progressLabel, stepView, type StepView } from "@/lib/guide/help/run";
+import { catchUp, nextMove, onPress, pressWhat, progressLabel, stepView, type NextMove, type PressLabel, type StepView } from "@/lib/guide/help/run";
 import type { HelpFacts, HelpStep } from "@/lib/guide/help/types";
 import type { HelpHost } from "./host";
 import { focusables } from "./focus";
@@ -12,7 +12,8 @@ import styles from "./help.module.css";
 // stays usable; a bubble beside it says the step. A step with no element of
 // its own (filling in the form a button opened, pressing «نعم») leaves the
 // whole page usable, with the last element still ringed. A button that opens
-// something moves the tour on when pressed (and «التالي» presses it); a field
+// something moves the tour on when she presses it; «التالي» waits for that
+// press («اضغطي «…» أولًا», run.ts nextMove), except on the last step; a field
 // or a section stays hers to use until she presses «التالي»; a save button is
 // only pointed at. A step on another page continues there, and an element
 // that isn't there says why: a feature to switch on («تفعيل الآن»), a city
@@ -31,9 +32,10 @@ const PHONE = 640;
 type Rect = { top: number; left: number; width: number; height: number };
 type View = StepView | "wait";
 // via: the lit element is an opener of the step's element (a menu, a view);
-// press: «التالي» presses something there (and the bubble says so)
+// move: what «التالي» does there (run.ts nextMove; null: nothing lit), and
+// label: the button it waits on, as the bubble names it
 // step: which step it was measured for (a hint is never shown for the step before)
-type Geo = { view: View; rect: Rect | null; pos: { top: number; left: number } | null; vw: number; vh: number; via: boolean; press: boolean; step: string };
+type Geo = { view: View; rect: Rect | null; pos: { top: number; left: number } | null; vw: number; vh: number; via: boolean; move: NextMove | null; label: string; step: string };
 
 /** Shown on the screen: laid out, not hidden, not inside something closed (a menu fading out is inert). */
 function visible(el: HTMLElement): boolean {
@@ -61,8 +63,15 @@ function pressable(el: HTMLElement): HTMLElement | null {
   return el.querySelector<HTMLElement>('[aria-expanded="false"]') ?? el.querySelector<HTMLElement>("a[href]");
 }
 
+/** What the lit element opens is open already: its toggle says so (a section, the ≈ list), or it is an open <details>. */
+function isOpen(el: HTMLElement): boolean {
+  const toggle = el.matches("[aria-expanded]") ? el : el.querySelector("[aria-expanded]");
+  if (toggle) return toggle.getAttribute("aria-expanded") === "true";
+  return el instanceof HTMLDetailsElement && el.open;
+}
+
 const sameGeo = (a: Geo, b: Geo) =>
-  a.view === b.view && a.step === b.step && a.vw === b.vw && a.vh === b.vh && a.via === b.via && a.press === b.press && JSON.stringify([a.rect, a.pos]) === JSON.stringify([b.rect, b.pos]);
+  a.view === b.view && a.step === b.step && a.vw === b.vw && a.vh === b.vh && a.via === b.via && a.move === b.move && a.label === b.label && JSON.stringify([a.rect, a.pos]) === JSON.stringify([b.rect, b.pos]);
 
 type Live<T extends string, P extends string> = {
   step: HelpStep<T, P>;
@@ -70,6 +79,9 @@ type Live<T extends string, P extends string> = {
   here: P | null;
   facts: HelpFacts;
   hrefOf: (page: P) => string | null;
+  labels: Partial<Record<T, PressLabel>>;
+  // the tour's last step (or the page a «leave» step opened)
+  last: boolean;
   // which step (index and «leaving»), for scrolling to it once
   key: string;
   // until when a missing element may still be on its way
@@ -93,9 +105,12 @@ export function Tour<T extends string, P extends string>({
   const [index, setIndex] = useState(0);
   // after a «leave» step was pressed: its page, with `then` lit; the tour ends there
   const [leaving, setLeaving] = useState(false);
-  const [note, setNote] = useState<"enabled" | "failed" | null>(null);
+  // «press»: «التالي» was pressed where the lit button must be pressed first
+  const [note, setNote] = useState<"enabled" | "failed" | "press" | null>(null);
+  // each «التالي» there says it again (a screen reader hears it each time)
+  const [pressTries, setPressTries] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [geo, setGeo] = useState<Geo>({ view: "wait", rect: null, pos: null, vw: 0, vh: 0, via: false, press: false, step: "" });
+  const [geo, setGeo] = useState<Geo>({ view: "wait", rect: null, pos: null, vw: 0, vh: 0, via: false, move: null, label: "", step: "" });
   const textId = useId();
   const t = (s: string) => genderText(s, host.gender);
 
@@ -114,7 +129,8 @@ export function Tour<T extends string, P extends string>({
   const last = leaving || index === steps.length - 1;
 
   // what the measuring, the keys and the clicks work from (brought up to date after each render)
-  const live = useRef<Live<T, P>>({ step, home, here: host.here, facts: host.facts, hrefOf: host.hrefOf, key: "", waitUntil: 0 });
+  const live = useRef<Live<T, P>>({ step, home, here: host.here, facts: host.facts, hrefOf: host.hrefOf, labels: host.labels, last, key: "", waitUntil: 0 });
+  const rootRef = useRef<HTMLDivElement>(null);
   const litRef = useRef<HTMLElement | null>(null);
   const lastLit = useRef<HTMLElement | null>(null);
   const scrolledFor = useRef<string | null>(null);
@@ -124,6 +140,9 @@ export function Tour<T extends string, P extends string>({
   // the openers pressed in this step, and whether the lit element is one
   const viaPressed = useRef(new Set<string>());
   const viaLit = useRef<string | null>(null);
+  // the step's own element has shown in this step, and she pressed it (the tour moves on)
+  const ownSeen = useRef(false);
+  const ownPressed = useRef(false);
   const frame = useRef(0);
   const timer = useRef(0);
   const act = useRef<{ next: (link: boolean) => void; end: () => void; leave: () => void }>({ next: () => {}, end: onEnd, leave: () => {} });
@@ -141,6 +160,13 @@ export function Tour<T extends string, P extends string>({
     let el = onPage && s.step.target ? findTarget(s.step.target) : null;
     const blockedEl = onPage && s.step.blocked ? findTarget(s.step.blocked.target) : null;
     let view: View = stepView(s.step, { here: s.here, home: s.home, found: !!el, blocked: !!blockedEl, facts: s.facts, hrefOf: s.hrefOf });
+    // shown, then closed again without her pressing it (a menu closed by a tap
+    // elsewhere): its openers are lit again, so the step never runs dry
+    if (el) ownSeen.current = true;
+    else if (onPage && ownSeen.current && !ownPressed.current) {
+      ownSeen.current = false;
+      viaPressed.current.clear();
+    }
     // its element is inside something closed: the innermost opener showing, not pressed yet in this step
     let via: string | null = null;
     if (onPage && !el && view !== "blocked" && s.step.via) {
@@ -211,15 +237,29 @@ export function Tour<T extends string, P extends string>({
         pos = { left: x, top: below + bh <= vh - GUTTER ? below : above >= GUTTER ? above : vh - bh - GUTTER };
       }
     }
-    const press = view === "show" && el !== null && (via !== null || nextPresses(s.step)) && pressable(el) !== null;
-    const next: Geo = { view, rect, pos, vw, vh, via: via !== null, press, step: s.key };
+    // what «التالي» does on it, and the name of the button it waits on
+    let move: NextMove | null = null;
+    let label = "";
+    if (view === "show" && el) {
+      const control = pressable(el);
+      move = nextMove(s.step, { last: s.last, opener: via !== null, open: isOpen(el), pressable: control !== null });
+      if (move === "wait") {
+        const named = s.labels[(via ?? s.step.target) as T];
+        label = pressWhat(named ?? ((control ?? el).textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 40));
+      }
+    }
+    const next: Geo = { view, rect, pos, vw, vh, via: via !== null, move, label, step: s.key };
     setGeo((g) => (sameGeo(g, next) ? g : next));
   }
 
   // after every render: what measuring uses is brought up to date, and it measures again
   useEffect(() => {
     const was = live.current;
-    live.current = { ...was, step, home, here: host.here, facts: host.facts, hrefOf: host.hrefOf, key: `${index}:${leaving}` };
+    live.current = { ...was, step, home, here: host.here, facts: host.facts, hrefOf: host.hrefOf, labels: host.labels, last, key: `${index}:${leaving}` };
+    if (was.key !== live.current.key) {
+      ownSeen.current = false;
+      ownPressed.current = false;
+    }
     // arrived on another page, or her settings came back changed: what is
     // awaited is there now or very soon
     if (was.here !== host.here || was.facts !== host.facts) {
@@ -229,6 +269,21 @@ export function Tour<T extends string, P extends string>({
     act.current = { next: (link: boolean) => next(link ? "link" : "press"), end: onEnd, leave };
     schedule();
   });
+
+  // a press on the bubble or the dimmed page isn't a tap outside the page's
+  // menus and popups: they stay open (a menu closing under «التالي» took the
+  // lit button with it). The help panel listens before this, so it still folds
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const stop = (e: Event) => e.stopPropagation();
+    root.addEventListener("pointerdown", stop);
+    root.addEventListener("mousedown", stop);
+    return () => {
+      root.removeEventListener("pointerdown", stop);
+      root.removeEventListener("mousedown", stop);
+    };
+  }, []);
 
   // the page moving or changing: measure again (not for the tour's own parts)
   useEffect(() => {
@@ -268,10 +323,19 @@ export function Tour<T extends string, P extends string>({
   }
 
   function pressNext() {
-    // «التالي» presses only a button that opens something, never one that saves;
-    // the press itself then moves the tour on
-    // an opener lit in its place is pressed too: it only opens a menu or a view
-    const control = geo.press && litRef.current ? pressable(litRef.current) : null;
+    // a button the next step depends on: she presses it herself. The tour
+    // stays, the same button stays lit (brought into view again) and the
+    // bubble says to press it first
+    if (geo.move === "wait") {
+      setNote("press");
+      setPressTries((n) => n + 1);
+      scrolledFor.current = null;
+      schedule();
+      return;
+    }
+    // the last step's button that opens something: «تمّ» presses it, and the
+    // press ends the tour (never one that saves: that is a «save» step)
+    const control = geo.move === "press" && litRef.current ? pressable(litRef.current) : null;
     if (control) {
       control.click();
       return;
@@ -313,6 +377,8 @@ export function Tour<T extends string, P extends string>({
       // a press on a control in the lit area (the element itself, or a toggle or link in it)
       const control = (e.target as Element).closest(CONTROL);
       if (!control || !(el.contains(control) || control.contains(el))) return;
+      // she pressed it: «اضغطي … أولًا» has done its work
+      setNote((n) => (n === "press" ? null : n));
       // an opener: the step's own element shows next (or the next opener)
       if (viaLit.current) {
         viaPressed.current.add(viaLit.current);
@@ -321,6 +387,7 @@ export function Tour<T extends string, P extends string>({
         return;
       }
       const what = onPress(live.current.step);
+      if (what !== "stay") ownPressed.current = true;
       // after the page has handled the press
       if (what === "next") window.setTimeout(() => act.current.next(control.matches("a[href]")));
       else if (what === "then") window.setTimeout(() => act.current.leave());
@@ -376,7 +443,14 @@ export function Tour<T extends string, P extends string>({
             ))}
           </ul>
         )}
-        {view === "show" && geo.press && geo.step === `${index}:${leaving}` && <p className={styles.bubbleHint}>{t(host.texts.pressOrNext)}</p>}
+        {view === "show" && geo.move && geo.move !== "next" && geo.step === `${index}:${leaving}` && (
+          <p className={styles.bubbleHint}>{t(geo.move === "wait" ? host.texts.pressToGo(geo.label) : host.texts.pressOrNext)}</p>
+        )}
+        {view === "show" && geo.move === "wait" && note === "press" && (
+          <p key={pressTries} className={styles.err} role="alert">
+            {t(host.texts.pressFirst(geo.label))}
+          </p>
+        )}
         {!leaving && <p className={styles.count}>{progress}</p>}
       </>
     );
@@ -475,7 +549,7 @@ export function Tour<T extends string, P extends string>({
   };
 
   return (
-    <div className={styles.tour} data-guide-root="">
+    <div ref={rootRef} className={styles.tour} data-guide-root="">
       {/* everything but the lit element is dimmed and can't be pressed */}
       {open ? (
         rect && <div className={styles.ring} style={{ width: rect.width, height: rect.height, transform: `translate(${rect.left}px, ${rect.top}px)` }} aria-hidden />
@@ -491,7 +565,9 @@ export function Tour<T extends string, P extends string>({
           <div className={styles.ring} style={{ width: rect.width, height: rect.height, transform: `translate(${rect.left}px, ${rect.top}px)` }} aria-hidden />
         </>
       ) : (
-        <div className={styles.block} style={{ inset: 0 }} />
+        // while a step waits for its element (no bubble yet), taps go through:
+        // a page that is slow to come never holds her
+        <div className={styles.block} style={view === "wait" ? { inset: 0, pointerEvents: "none" } : { inset: 0 }} />
       )}
       <p className={styles.srOnly} role="status">
         {counted ? host.texts.step(progress, t(step.text)) : ""}

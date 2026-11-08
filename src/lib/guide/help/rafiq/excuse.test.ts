@@ -4,12 +4,12 @@ import { decideGuide } from "../../rules";
 import { commitmentChosen, introsFor, type IntroFacts } from "../../lines";
 import { isGuideTarget } from "../targets";
 import { pairsAreWellFormed } from "../text";
-import { MAX_VISIBLE, panelShows, splitQuestions, stepsFor } from "../run";
+import { MAX_VISIBLE, panelShows, splitQuestions, stepsFor, waitsOn } from "../run";
 import type { HelpFacts } from "../types";
 import { excuseGuideEligible, excuseGuideFor, excuseSnapshotParts, type ExcuseGuideInput } from "./excuse";
 import { withExcuseHelp } from "./excuse-types";
 import { RAFIQ_HELP } from "./index";
-import { FEATURE_OFFER, HELP_UI } from "./ui";
+import { FEATURE_OFFER, HELP_UI, PRESS_LABELS } from "./ui";
 
 const woman: ExcuseGuideInput = { kind: "ADULT", gender: "FEMALE", excuseAllowed: true, previewAllowed: true };
 const others: [string, ExcuseGuideInput][] = [
@@ -140,4 +140,11 @@ test("excuse lines: one line at a time: after the welcome and after the other in
   const welcomed = decideGuide({ ...base, isNew: true, states: { "intro.agenda": null }, intros });
   assert.equal(welcomed.welcome, "tracker");
   assert.equal(welcomed.intro, null);
+});
+
+test("excuse help: H2 waits for «إدارة البنود» and then ✎ (Mona, 2026-11-08); every button waited on has its name", () => {
+  const h2 = guide.help.tracker!.find((q) => q.q === "كيف أحدّد ما يُحسب من البنود في أيام العذر؟")!;
+  assert.deepEqual(waitsOn([h2]).sort(), ["tracker.itemEdit", "tracker.menu", "tracker.menu.items"]);
+  assert.equal(h2.steps[1].target, "tracker.itemEdit");
+  for (const name of waitsOn(all)) assert.ok(PRESS_LABELS[name], name);
 });

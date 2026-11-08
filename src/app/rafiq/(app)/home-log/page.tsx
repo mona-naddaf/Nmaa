@@ -7,6 +7,7 @@ import { RafiqHomeLog } from "./RafiqHomeLog";
 import { prisma } from "@/lib/db";
 import { SimilarScope } from "../SimilarScope";
 import { guideEnabled } from "@/lib/guide/enabled";
+import { mushafViewFor } from "@/lib/mushaf/enabled";
 
 export default async function RafiqHomeLogPage() {
   const user = await requireRafiqUser();
@@ -28,6 +29,7 @@ export default async function RafiqHomeLogPage() {
         suggestion={nextExpectedEntry(memorization.plan, memorization.position)}
         targets={targets}
         {...(guideEnabled() ? { guided: true } : {})}
+        mushaf={mushafViewFor(user.email)}
       />
     </SimilarScope>
   );

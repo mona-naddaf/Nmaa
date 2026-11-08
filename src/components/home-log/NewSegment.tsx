@@ -9,6 +9,12 @@ import { quranFont } from "@/components/mistakes/quran-font";
 import { AYAH_COUNT, SURAHS } from "@/lib/quran-data";
 import { HOME_LIMITS } from "@/lib/home-log/rules";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
+import type { MushafConfig } from "@/lib/mushaf/enabled";
+import { ayahOnly } from "@/lib/quran-data/words";
+import { MushafToggle } from "@/components/mushaf/MushafToggle";
+import { MushafPages } from "@/components/mushaf/MushafPages";
+import { useMushafView } from "@/components/mushaf/useMushafView";
+import mushafStyles from "@/components/mushaf/mushaf.module.css";
 
 /**
  * Picking a new segment: her plan's surahs first, the text as a preview.
@@ -28,6 +34,8 @@ export function NewSegment({
   onCancel,
   afterAyah,
   rangeHint,
+  mushaf,
+  mushafFeminine = g === "GIRLS",
 }: {
   g: GroupGender;
   plan: number[];
@@ -40,6 +48,10 @@ export function NewSegment({
   // anything to show right after each ayah number in the preview (e.g. a note marker)
   afterAyah?: (ayah: number, surah: number) => React.ReactNode;
   rangeHint?: string;
+  // «صفحة المصحف» offered (Rafiq and «العائلة», MUSHAF_VIEW_EMAILS); unset: the plain preview, as before
+  mushaf?: MushafConfig;
+  // whom the toggle's hint speaks to (default: by g)
+  mushafFeminine?: boolean;
 }) {
   const router = useRouter();
   const [surah, setSurah] = useState(suggestion.surahNumber);
@@ -50,6 +62,21 @@ export function NewSegment({
   const ayahs = useSurahText(surah);
   const count = AYAH_COUNT[surah] ?? 1;
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
+  const view = useMushafView();
+  // the ayat as plain text: the old preview, and a Mushaf page's fallback
+  const preview = (a1: number, a2: number) => (
+    <div className={`${styles.preview} ${quranFont.className}`} lang="ar">
+      {ayahs
+        ? ayahs.slice(a1 - 1, a2).map((t, i) => (
+            <span key={a1 + i}>
+              {t} <span className={styles.ayahNum}>﴿{a1 + i}﴾</span>
+              <SimilarAfter surah={surah} ayah={a1 + i} />
+              {afterAyah?.(a1 + i, surah)}{" "}
+            </span>
+          ))
+        : "…"}
+    </div>
+  );
 
   // her plan's surahs first, then the rest of the Quran
   const planSet = new Set(plan);
@@ -128,17 +155,30 @@ export function NewSegment({
       <div className={styles.muted} style={{ marginBottom: 6 }}>
         {planMark} · {suggestionNote}
       </div>
-      <div className={`${styles.preview} ${quranFont.className}`} lang="ar">
-        {ayahs
-          ? ayahs.slice(from - 1, to).map((t, i) => (
-              <span key={from + i}>
-                {t} <span className={styles.ayahNum}>﴿{from + i}﴾</span>
-                <SimilarAfter surah={surah} ayah={from + i} />
-                {afterAyah?.(from + i, surah)}{" "}
+      {mushaf && <MushafToggle feminine={mushafFeminine} />}
+      {mushaf && view === "page" && ayahs ? (
+        <MushafPages
+          config={mushaf}
+          surah={surah}
+          fromAyah={from}
+          toAyah={to}
+          end={(a, glyph) => (
+            <span className={mushafStyles.endWrap}>
+              {glyph}
+              <span className={mushafStyles.srOnly}>
+                {ayahOnly(surah, a, ayahs[a - 1] ?? "")} ﴿{a}﴾
               </span>
-            ))
-          : "…"}
-      </div>
+              <span className={mushafStyles.endBadges}>
+                <SimilarAfter surah={surah} ayah={a} />
+                {afterAyah?.(a, surah)}
+              </span>
+            </span>
+          )}
+          fallback={preview}
+        />
+      ) : (
+        preview(from, to)
+      )}
       {error && <div className={styles.err}>{error}</div>}
       <div className={styles.actionsRow}>
         <button type="button" className={styles.primaryBtn} onClick={save} disabled={pending}>

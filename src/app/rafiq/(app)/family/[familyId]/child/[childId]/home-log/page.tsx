@@ -7,6 +7,7 @@ import { nextExpectedEntry } from "@/lib/recitation/logic";
 import { RafiqHomeLog } from "../../../../../home-log/RafiqHomeLog";
 import { SimilarScope } from "../../../../../SimilarScope";
 import { ChildHeader } from "../ChildHeader";
+import { mushafForRafiqUser } from "@/lib/mushaf/server";
 
 // A child's «حفظي في البيت» for an adult of her family, while her switch is
 // on: with edit rights, adding passages for her, practising with her and
@@ -37,6 +38,7 @@ export default async function AdultChildHomeLogPage({ params }: PageProps<"/rafi
           base={`${base}/home-log`}
           childName={child.name}
           you={access.user.gender}
+          mushaf={await mushafForRafiqUser()}
         />
       </SimilarScope>
     </>

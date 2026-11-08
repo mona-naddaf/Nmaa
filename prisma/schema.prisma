@@ -1064,6 +1064,10 @@ model RafiqUser {
   // per-child feature. Off by default; turning it off ends an open excuse.
   // Ignored for anyone it doesn't apply to (a man, a boy).
   excuseEnabled       Boolean     @default(false)
+  // «التظليل» (src/lib/highlight): a child's 11th per-child feature. Off by
+  // default; off = her highlights are hidden, never deleted. Ignored for an
+  // adult, who has no switch.
+  highlightEnabled    Boolean     @default(false)
 
   // ---- ADULT only («العائلة») ----
   foundedFamilies   Family[]           @relation("FamilyFounder")
@@ -1073,6 +1077,7 @@ model RafiqUser {
   // who recorded a session or added a tracker item on someone else's page
   recordedSessions  RafiqSession[]     @relation("SessionRecordedBy")
   addedTrackerItems RafiqTrackerItem[] @relation("TrackerItemCreatedBy")
+  addedHighlights   RafiqHighlight[]   @relation("HighlightBy")
 
   // her memorization plan (src/lib/rafiq/memorization.ts). null template =
   // she hasn't set up a plan yet. Unlike a course, she may change it any
@@ -1100,6 +1105,8 @@ model RafiqUser {
   homeMistakes        RafiqHomeMistake[]
   notes               RafiqNote[]
   noteTags            RafiqNoteTag[]
+  highlights          RafiqHighlight[]          @relation("HighlightOwner")
+  highlightColors     RafiqHighlightColor[]
   commitDays          RafiqCommitDays[]
   trackerItems        RafiqTrackerItem[]        @relation("TrackerItemOwner")
   trackerChecks       RafiqTrackerCheck[]
@@ -1394,6 +1401,52 @@ model RafiqNoteTagLink {
 
   @@id([noteId, tagId])
   @@index([tagId])
+}
+
+// «التظليل» (src/lib/highlight): a stretch of words she wants to watch while
+// memorizing. Not a mistake, not a note. Stored by words.ts positions; the
+// server checks: one surah, at most 3 ayat, one Mushaf page (KFGQPC V2), no
+// overlap with another of hers, at most 1,000 per owner.
+model RafiqHighlight {
+  id          String     @id @default(cuid())
+  // the owner: an adult, or the child on a child's pages
+  userId      String
+  user        RafiqUser  @relation("HighlightOwner", fields: [userId], references: [id], onDelete: Cascade)
+  surahNumber Int
+  fromAyah    Int
+  fromWord    Int
+  toAyah      Int
+  toWord      Int
+  // a key of the fixed palette (HIGHLIGHT_COLORS), never a raw colour value
+  color       String
+  // made by an adult of the family on a child's page; stays true after that
+  // adult's account is deleted (byId null → «أحد البالغين»)
+  byAdult     Boolean    @default(false)
+  byId        String?
+  by          RafiqUser? @relation("HighlightBy", fields: [byId], references: [id], onDelete: SetNull)
+  // «إزالة التظليل» sets it (so «تراجع» can bring it back, as it was); a
+  // removed highlight is never shown and is deleted for good on her next removal
+  removedAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([userId, surahNumber])
+  @@index([byId])
+}
+
+// Her highlight colours from the fixed palette (up to 5, each once), with an
+// optional name (at most 30 characters). No rows = only the default colour,
+// unnamed. The default colour is never removed.
+model RafiqHighlightColor {
+  id        String    @id @default(cuid())
+  userId    String
+  user      RafiqUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  color     String
+  name      String?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, color])
 }
 
 // One "+" tap (same meaning as HomeTap): ayah null = a whole-passage counter.

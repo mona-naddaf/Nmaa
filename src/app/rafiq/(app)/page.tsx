@@ -9,6 +9,7 @@ import { getGuide } from "@/lib/guide/state";
 import { checklistFacts, hasCommitDays, hasFlaggedWords } from "@/lib/guide/page-facts";
 import { commitmentChosen } from "@/lib/guide/lines";
 import { ResumeCard } from "./ResumeCard";
+import { mushafViewFor } from "@/lib/mushaf/enabled";
 import { Checklist } from "./guide/Checklist";
 import { loadPauses, ownExcuse, pausedNow } from "@/lib/excuse/rafiq-data";
 
@@ -32,6 +33,7 @@ export default async function RafiqHomePage({ searchParams }: PageProps<"/rafiq"
     <RafiqHome
       data={data}
       gender={user.gender}
+      mushaf={mushafViewFor(user.email)}
       commitment={await getCommitment(user.id)}
       similar={mutashabihatEnabled}
       tajweed={tajweedDetailEnabled}

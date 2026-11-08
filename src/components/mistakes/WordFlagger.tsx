@@ -7,7 +7,13 @@ import { useGuideTarget } from "@/components/guide/targets";
 import { quranFont } from "./quran-font";
 import { MISTAKE_TYPES, mistakeTypeLabel, type MistakeType } from "@/lib/students/mistake-types";
 import type { RecitationSubject } from "@/lib/recitation/logic";
-import { FlaggableAyah, TYPE_CLASS, useWordMenu, type WordFlags } from "./FlaggableAyah";
+import { ayahParts, FlaggableAyah, TYPE_CLASS, useWordMenu, type WordFlags } from "./FlaggableAyah";
+import type { MushafConfig } from "@/lib/mushaf/enabled";
+import { parseKey } from "@/lib/mushaf/page";
+import { MushafPages } from "@/components/mushaf/MushafPages";
+import { MushafToggle } from "@/components/mushaf/MushafToggle";
+import { useMushafView } from "@/components/mushaf/useMushafView";
+import mushafStyles from "@/components/mushaf/mushaf.module.css";
 import { TajweedSheet, type SheetTarget } from "./TajweedSheet";
 import { splitAyah } from "@/lib/quran-data/words";
 import type { DetailError, DetailFlags } from "@/lib/tajweed/spots";
@@ -70,6 +76,8 @@ export function WordFlagger({
   detail,
   onOpenChange,
   inside,
+  mushaf,
+  mushafFeminine = false,
 }: {
   surahNumber: number;
   fromAyah: number;
@@ -99,7 +107,12 @@ export function WordFlagger({
   // Rafiq's guidance only: told when it opens or closes, and a line shown inside it while open
   onOpenChange?: (open: boolean) => void;
   inside?: ReactNode;
+  // «صفحة المصحف» offered (Rafiq and «العائلة», MUSHAF_VIEW_EMAILS), with
+  // whom the toggle's hint speaks to; unset: the text view only, as before
+  mushaf?: MushafConfig;
+  mushafFeminine?: boolean;
 }) {
+  const view = useMushafView();
   const [ayahs, setAyahs] = useState<{ surah: number; text: string[] } | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [expanded, setExpanded] = useState<boolean | null>(null); // null = automatic
@@ -169,6 +182,54 @@ export function WordFlagger({
     onChange(next);
   }
 
+  // one ayah's props, the same in both views
+  const ayahProps = (ayah: number, text: string[]) => ({
+    surahNumber,
+    ayah,
+    text: text[ayah - 1] ?? "",
+    flags,
+    menu,
+    onFlag: setFlag,
+    subject,
+    previous,
+    mastered,
+    onToggleMastered,
+    detail: showDetail
+      ? {
+          enabled: detail!.enabled,
+          flags: detail!.flags,
+          previous: detail!.previous,
+          mastered,
+          lastGap: ayah < toAyah,
+          nextAyahWord: ayah < toAyah ? (splitAyah(surahNumber, ayah + 1, text[ayah] ?? "").words[0]?.text ?? null) : null,
+          prevAyahLast: ayah > fromAyah ? lastWordOf(ayah - 1) : null,
+          open: setSheet,
+        }
+      : undefined,
+  });
+
+  // the Mushaf page asks for each word: its ayah's pieces (one split of one ayah, cheap)
+  const partsOf = (ayah: number, text: string[]) => ayahParts(ayahProps(ayah, text));
+
+  /** The old view («نص كبير», and a Mushaf page that couldn't be drawn). */
+  const textView = (from: number, to: number, text: string[]) => (
+    <div className={`${quranFont.className} ${styles.quranText} ${showDetail ? styles.detailMode : ""}`} dir="rtl" lang="ar">
+      {Array.from({ length: to - from + 1 }, (_, i) => from + i).map((ayah) => (
+        <Fragment key={ayah}>
+          <FlaggableAyah
+            {...ayahProps(ayah, text)}
+            after={
+              <>
+                <SimilarAfter surah={surahNumber} ayah={ayah} />
+                {afterAyah?.(ayah)}
+              </>
+            }
+          />
+        </Fragment>
+      ))}
+    </div>
+  );
+
   return (
     <div className={styles.flagger} {...t("record.flagger")}>
       <button type="button" className={styles.flaggerHead} onClick={() => setExpanded(!open)} aria-expanded={open}>
@@ -184,49 +245,43 @@ export function WordFlagger({
 
       {open && (
         <>
+          {mushaf && !loadError && (
+            <div className={mushafStyles.flaggerToggle}>
+              <MushafToggle feminine={mushafFeminine} />
+            </div>
+          )}
           {loadError ? (
             <div className={styles.flaggerNote}>تعذّر تحميل نص السورة — يمكن حفظ التسميع بدون تحديد الكلمات.</div>
           ) : !loaded ? (
             <div className={styles.flaggerNote}>جارٍ تحميل النص...</div>
-          ) : (
-            <div className={`${quranFont.className} ${styles.quranText} ${showDetail ? styles.detailMode : ""}`} dir="rtl" lang="ar">
-              {Array.from({ length: toAyah - fromAyah + 1 }, (_, i) => fromAyah + i).map((ayah) => (
-                <Fragment key={ayah}>
-                  <FlaggableAyah
-                    surahNumber={surahNumber}
-                    ayah={ayah}
-                    text={loaded[ayah - 1] ?? ""}
-                    flags={flags}
-                    menu={menu}
-                    onFlag={setFlag}
-                    subject={subject}
-                    after={
-                      <>
-                        <SimilarAfter surah={surahNumber} ayah={ayah} />
-                        {afterAyah?.(ayah)}
-                      </>
-                    }
-                    previous={previous}
-                    mastered={mastered}
-                    onToggleMastered={onToggleMastered}
-                    detail={
-                      showDetail
-                        ? {
-                            enabled: detail!.enabled,
-                            flags: detail!.flags,
-                            previous: detail!.previous,
-                            mastered,
-                            lastGap: ayah < toAyah,
-                            nextAyahWord: ayah < toAyah ? (splitAyah(surahNumber, ayah + 1, loaded[ayah] ?? "").words[0]?.text ?? null) : null,
-                            prevAyahLast: ayah > fromAyah ? lastWordOf(ayah - 1) : null,
-                            open: setSheet,
-                          }
-                        : undefined
-                    }
-                  />
-                </Fragment>
-              ))}
+          ) : mushaf && view === "page" ? (
+            <div className={`${mushafStyles.flaggerPages} ${showDetail ? styles.detailMode : ""}`}>
+              <MushafPages
+                config={mushaf}
+                surah={surahNumber}
+                fromAyah={fromAyah}
+                toAyah={toAyah}
+                word={(key, glyph, span) => {
+                  const { ayah, word } = parseKey(key);
+                  const parts = partsOf(ayah, loaded);
+                  const w = parts.split.words[word - 1];
+                  return w ? parts.renderWord(w, { node: glyph, span }) : glyph;
+                }}
+                end={(ayah, glyph) => (
+                  <span className={mushafStyles.endWrap}>
+                    {glyph}
+                    <span className={mushafStyles.endBadges}>
+                      <SimilarAfter surah={surahNumber} ayah={ayah} />
+                      {afterAyah?.(ayah)}
+                    </span>
+                    {partsOf(ayah, loaded).pageEndGap}
+                  </span>
+                )}
+                fallback={(a1, a2) => textView(a1, a2, loaded)}
+              />
             </div>
+          ) : (
+            textView(fromAyah, toAyah, loaded)
           )}
           <div className={styles.legend}>
             {MISTAKE_TYPES.map((t) => (

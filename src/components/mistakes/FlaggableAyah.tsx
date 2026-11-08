@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import styles from "./mistakes.module.css";
 import { hasBasmalaPrefix, splitAyah } from "@/lib/quran-data/words";
 import { MISTAKE_TYPES, mistakeTypeLabel, type MistakeType } from "@/lib/students/mistake-types";
@@ -69,21 +69,7 @@ export function useWordMenu() {
   return { openWord, setOpenWord };
 }
 
-export function FlaggableAyah({
-  surahNumber,
-  ayah,
-  text,
-  flags,
-  menu,
-  onFlag,
-  subject,
-  showNumber = true,
-  after,
-  previous,
-  mastered,
-  onToggleMastered,
-  detail,
-}: {
+type FlaggableAyahProps = {
   surahNumber: number;
   ayah: number;
   // the ayah's full text as bundled
@@ -104,7 +90,52 @@ export function FlaggableAyah({
   mastered?: Record<string, true>;
   onToggleMastered?: (key: string) => void;
   detail?: AyahDetail;
-}) {
+};
+
+/** A word's Mushaf glyph (from MushafPages); span 2: one glyph for this word and the next. */
+export type WordGlyph = { node: ReactNode; span?: 2 };
+
+export function FlaggableAyah(props: FlaggableAyahProps) {
+  const { split, basmala, leading, renderWord, number, endGap } = ayahParts(props);
+  const showNumber = props.showNumber ?? true;
+  return (
+    <>
+      {basmala}
+      {leading}
+      {split.words.map((w) => (
+        <Fragment key={w.position}>{renderWord(w)}</Fragment>
+      ))}
+      {showNumber && number}
+      {props.after}
+      {endGap}
+      {showNumber && " "}
+    </>
+  );
+}
+
+/**
+ * One ayah's pieces, shared by the old view (FlaggableAyah) and «صفحة
+ * المصحف» (MushafPages, through WordFlagger and SegmentPractice): each word
+ * with its menu, its marks and the gap after it. renderWord(w) is the old
+ * view's word, exactly as before; renderWord(w, glyph) the Mushaf page's: the
+ * glyph instead of the text (the real word stays its label for screen
+ * readers), no space or marks of its own (the glyph has them, the line is
+ * justified), a gap that takes no width, and «بين هذه الكلمة والتالية» in
+ * its menu with detailed tajweed (the gaps are small on a page).
+ */
+export function ayahParts({
+  surahNumber,
+  ayah,
+  text,
+  flags,
+  menu,
+  onFlag,
+  subject,
+  previous,
+  mastered,
+  onToggleMastered,
+  detail,
+}: FlaggableAyahProps) {
   const { openWord, setOpenWord } = menu;
   const split = splitAyah(surahNumber, ayah, text);
   const lastPosition = split.words.length;
@@ -149,7 +180,7 @@ export function FlaggableAyah({
     });
   };
   /** The tap target for the gap after a word (detail only). */
-  const gapButton = (w: (typeof split.words)[number]) => {
+  const gapButton = (w: (typeof split.words)[number], onPage = false) => {
     if (!detail) return null;
     if (w.position === lastPosition && !detail.lastGap) return null;
     const key = spotKey(surahNumber, ayah, w.position, GAP);
@@ -160,7 +191,7 @@ export function FlaggableAyah({
     return (
       <button
         type="button"
-        className={`${styles.gap} ${state}`}
+        className={`${styles.gap}${onPage ? ` ${styles.pageGap}` : ""} ${state}`}
         onClick={() => openSheet(w, { target: "GAP" })}
         aria-label={has ? "بين كلمتين — عليه خطأ" : before ? "بين كلمتين — عليه خطأ سابق" : "بين كلمتين"}
       />
@@ -172,20 +203,26 @@ export function FlaggableAyah({
     if (!before) return "";
     return mastered?.[key] ? styles.mastered : `${styles.previous} ${TYPE_CLASS[before]}`;
   };
-  return (
-    <>
-      {split.basmala && hasBasmalaPrefix(surahNumber, ayah) && <div className={styles.basmala}>{split.basmala}</div>}
-      {split.leadingMarks && <span className={styles.mark}>{split.leadingMarks} </span>}
-      {split.words.map((w) => {
+  const renderWord = (w: (typeof split.words)[number], glyph?: WordGlyph) => {
         const key = flagKey(surahNumber, ayah, w.position);
         const type = flags[key];
         const before = previous?.[key];
         const isMastered = !!(before && mastered?.[key]);
+        // one glyph for two words (span 2): it acts as the first; the second's marks still show on it
+        const second = glyph?.span === 2 ? split.words[w.position] : undefined;
+        const secondKey = second ? flagKey(surahNumber, ayah, second.position) : null;
+        const pageClass = glyph
+          ? ` ${styles.pageWord}${secondKey && !type && !before ? ` ${wordClass(secondKey, flags[secondKey])} ${detailWordClass(secondKey)}` : ""}`
+          : "";
+        // the word whose gap follows this glyph, and whether it is offered in the menu
+        const gapWord = second ?? w;
+        const gapInMenu = !!glyph && !!detail?.enabled && (gapWord.position !== lastPosition || detail.lastGap);
         return (
-          <span key={w.position} className={styles.wordWrap} data-word={key}>
+          <span className={styles.wordWrap} data-word={key}>
             <button
               type="button"
-              className={`${styles.word} ${wordClass(key, type)} ${detailWordClass(key)}`}
+              className={`${styles.word} ${wordClass(key, type)} ${detailWordClass(key)}${pageClass}`}
+              aria-label={glyph ? (second ? `${w.text} ${second.text}` : w.text) : undefined}
               onClick={() => setOpenWord(openWord === key ? null : key)}
               aria-haspopup="menu"
               aria-expanded={openWord === key}
@@ -199,10 +236,16 @@ export function FlaggableAyah({
                     : undefined
               }
             >
-              {w.text}
+              {glyph ? glyph.node : w.text}
             </button>
-            {w.marks && <span className={styles.mark}>{w.marks}</span>}
-            {w.position !== lastPosition && gapButton(w)}{" "}
+            {glyph ? (
+              gapWord.position !== lastPosition && gapButton(gapWord, true)
+            ) : (
+              <>
+                {w.marks && <span className={styles.mark}>{w.marks}</span>}
+                {w.position !== lastPosition && gapButton(w)}{" "}
+              </>
+            )}
             {openWord === key && (
               <span className={styles.menu} role="menu">
                 {before && (
@@ -259,6 +302,19 @@ export function FlaggableAyah({
                         </button>
                       ))}
                     </span>
+                    {gapInMenu && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={`${styles.menuItem} ${styles.menuGap}`}
+                        onClick={() => {
+                          setOpenWord(null);
+                          openSheet(gapWord, { target: "GAP" });
+                        }}
+                      >
+                        بين هذه الكلمة والتالية
+                      </button>
+                    )}
                   </span>
                 )}
                 {detail && !detail.enabled && lettersOf(detail.previous, key).length > 0 && (
@@ -291,11 +347,17 @@ export function FlaggableAyah({
             )}
           </span>
         );
-      })}
-      {showNumber && <span className={styles.ayahNum}>﴿{toArabicDigits(ayah)}﴾</span>}
-      {after}
-      {detail && split.words.length > 0 && gapButton(split.words[lastPosition - 1])}
-      {showNumber && " "}
-    </>
-  );
+  };
+  const last = split.words[lastPosition - 1];
+  return {
+    split,
+    basmala: split.basmala && hasBasmalaPrefix(surahNumber, ayah) ? <div className={styles.basmala}>{split.basmala}</div> : null,
+    leading: split.leadingMarks ? <span className={styles.mark}>{split.leadingMarks} </span> : null,
+    renderWord,
+    number: <span className={styles.ayahNum}>﴿{toArabicDigits(ayah)}﴾</span>,
+    /** the gap after the ayah's last word (when the next ayah is recited too) */
+    endGap: detail && last ? gapButton(last) : null,
+    /** …on a Mushaf page: one that takes no width */
+    pageEndGap: detail && last ? gapButton(last, true) : null,
+  };
 }

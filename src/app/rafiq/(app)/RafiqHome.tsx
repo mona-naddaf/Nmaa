@@ -20,6 +20,7 @@ import { GoalLine } from "@/components/goal/GoalLine";
 import { computeGoal } from "@/lib/goals/goal";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { WordFlagger } from "@/components/mistakes/WordFlagger";
+import type { MushafConfig } from "@/lib/mushaf/enabled";
 import { TajweedSummaryBlock } from "@/components/mistakes/TajweedSummaryBlock";
 import { mistakeWordCount } from "@/lib/students/mistake-types";
 import type { TajweedSummary } from "@/lib/tajweed/summary";
@@ -75,6 +76,7 @@ export function RafiqHome({
   paused,
   pausedNow = false,
   quiet,
+  mushaf,
 }: {
   data: MemorizationView;
   gender: PersonGender;
@@ -97,6 +99,8 @@ export function RafiqHome({
   // «أيام العذر», for an adult who may not see a girl's excuse: her 🔥, week
   // and goal as results only, by the viewer's possible todays (no paused day)
   quiet?: QuietHome;
+  // «صفحة المصحف» in the word picker (MUSHAF_VIEW_EMAILS); unset: as before
+  mushaf?: MushafConfig;
 }) {
   const router = useRouter();
   const today = useToday();
@@ -368,6 +372,8 @@ export function RafiqHome({
               afterAyah={can.ownExtras ? (a) => <VerseNoteMarker surah={surahNumber} ayah={a} /> : undefined}
               detail={tajweed ? { enabled: true, flags: entry.detailFlags, onChange: entry.setDetailFlags } : undefined}
               {...(guide ? { onOpenChange: setFlaggerOpen, inside: <IntroLine candidates={intros} here={["mutashabihat", "tajweed"]} /> } : {})}
+              mushaf={mushaf}
+              mushafFeminine={gender === "FEMALE"}
             />
           </SimilarScope>
         )}

@@ -218,3 +218,14 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* inside the mistake picker («صفحتي») */
+.flaggerToggle {
+  padding: 2px 16px 0;
+}
+
+.flaggerPages {
+  padding: 4px 8px 10px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}

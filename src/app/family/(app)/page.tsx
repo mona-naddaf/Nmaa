@@ -8,6 +8,7 @@ import { WELCOME_SEEN_COOKIE } from "@/lib/family/rules";
 import { cookies } from "next/headers";
 import { resolveSubject } from "@/lib/rafiq/subject";
 import { homeExcuse, subjectExcuse } from "@/lib/excuse/subject";
+import { mushafForFamily } from "@/lib/mushaf/server";
 
 // «صفحتي» of a child («العائلة»): the Rafiq page, as herself — her position
 // (and goal, with its switch), recording her own sessions (no word marks:
@@ -34,6 +35,7 @@ export default async function ChildHomePage() {
         <RafiqHome
           data={data}
           gender={child.gender}
+          mushaf={await mushafForFamily(child.familyId)}
           commitment={commitment}
           similar={flags.mutashabihat}
           tajweedSummary={tajweedSummary}

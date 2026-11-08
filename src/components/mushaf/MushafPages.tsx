@@ -91,9 +91,9 @@ function PageView({ page, config, surah, fromAyah, toAyah, word, end, fallback }
   useEffect(() => {
     const el = box.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    // the lines' width: the box without its padding
+    const ro = new ResizeObserver((entries) => setWidth(entries[0]?.contentRect.width ?? 0));
     ro.observe(el);
-    setWidth(el.clientWidth);
     return () => ro.disconnect();
   }, []);
 

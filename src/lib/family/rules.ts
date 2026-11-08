@@ -72,6 +72,8 @@ export const CHILD_FEATURES = {
   agenda: "agendaEnabled",
   summary: "summaryEnabled",
   streak: "streakEnabled",
+  // «التظليل» (src/lib/highlight): shown only where HIGHLIGHT_EMAILS reaches the family
+  highlight: "highlightEnabled",
 } as const;
 
 export type ChildFeature = keyof typeof CHILD_FEATURES;

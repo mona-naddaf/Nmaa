@@ -13,6 +13,8 @@ import { SimilarAfter } from "@/components/quran/Similar";
 import { SimilarScope } from "../../../SimilarScope";
 import { targetAttr } from "@/lib/guide/help/targets";
 import { guideEnabled } from "@/lib/guide/enabled";
+import { highlightOn, highlightsIn } from "@/lib/highlight/server";
+import { BandedVerse } from "@/components/highlight/HighlightUI";
 
 // One verse with the verses around it and her notes on it (where «ملاحظاتي»
 // links to).
@@ -25,7 +27,9 @@ export default async function RafiqVersePage({ params }: PageProps<"/rafiq/verse
   const text = count && Number.isInteger(ayah) && ayah >= 1 && ayah <= count ? surahText(surah) : null;
   const { mutashabihatEnabled } = await prisma.rafiqUser.findUniqueOrThrow({ where: { id: user.id }, select: { mutashabihatEnabled: true } });
   if (!count || !text) notFound();
-  const verse = (a: number) => ayahOnly(surah, a, text[a - 1]);
+  // «التظليل» (HIGHLIGHT_EMAILS): her highlights shown, display only
+  const marks = (await highlightOn()) ? await highlightsIn(user.id, surah) : null;
+  const verse = (a: number) => (marks ? <BandedVerse surah={surah} ayah={a} text={ayahOnly(surah, a, text[a - 1])} rows={marks} /> : ayahOnly(surah, a, text[a - 1]));
   const basmala = hasBasmalaPrefix(surah, 1) && ayah <= 2 ? text[0].split(" ").slice(0, 4).join(" ") : null;
 
   return (

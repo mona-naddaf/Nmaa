@@ -15,6 +15,7 @@ import {
   rangeProblem,
   snapToGlyphs,
   type HighlightRange,
+  type HighlightRow,
   type HighlightViewer,
   type PaletteEntry,
   type QuranFacts,
@@ -34,7 +35,6 @@ export const QURAN_FACTS: QuranFacts = {
   pageOf: (s, a) => getAyahPageEntries(s)?.[a - 1]?.[1] ?? null,
 };
 
-export type HighlightRow = HighlightRange & { id: string; color: HighlightColor; byAdult: boolean; byName: string | null };
 
 export type HighlightGate = { subject: Subject; viewer: HighlightViewer };
 
@@ -214,4 +214,11 @@ export async function restoreColor(g: HighlightGate, raw: unknown): Promise<Resu
   const ids = u.ids.filter((i): i is string => typeof i === "string").slice(0, 1000);
   await prisma.rafiqHighlight.updateMany({ where: { userId: g.subject.id, id: { in: ids }, color: DEFAULT_HIGHLIGHT_COLOR }, data: { color } });
   return { ok: true };
+}
+
+/** HIGHLIGHT_EMAILS reaches this family (its founder's email): the child's «التظليل» switch is offered. */
+export async function familyHighlightAllowed(familyId: string): Promise<boolean> {
+  if (!process.env.HIGHLIGHT_EMAILS?.trim()) return false;
+  const f = await prisma.family.findUnique({ where: { id: familyId }, select: { founder: { select: { email: true } } } });
+  return !!f && highlightAllowed(f.founder.email);
 }

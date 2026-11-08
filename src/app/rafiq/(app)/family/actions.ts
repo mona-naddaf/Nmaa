@@ -15,6 +15,7 @@ import { resolveSubject } from "@/lib/rafiq/subject";
 import { validateLocation } from "@/lib/prayer/times";
 import { placeColumns } from "@/lib/prayer/location";
 import { CHILD_FEATURES, isChildFeature, type ChildFeature } from "@/lib/family/rules";
+import { familyHighlightAllowed } from "@/lib/highlight/server";
 import { cleanFamilyName, FAMILY_LIMITS, inviteExpiry, inviteState } from "@/lib/family/rules";
 import { joinLimited, JOIN_TOO_MANY, recordJoinFailure } from "@/lib/family/limits";
 
@@ -318,6 +319,11 @@ export async function setChildFeatureAction(childId: string, feature: ChildFeatu
   if ("error" in user) return user;
   if (user.self || user.kind !== "CHILD") return { error: NOT_AVAILABLE };
   if (!isChildFeature(feature)) return { error: "إعداد غير معروف" };
+  // «التظليل»: only where HIGHLIGHT_EMAILS reaches the family
+  if (feature === "highlight") {
+    const child = await prisma.rafiqUser.findUnique({ where: { id: user.id }, select: { familyId: true } });
+    if (!child?.familyId || !(await familyHighlightAllowed(child.familyId))) return { error: "إعداد غير معروف" };
+  }
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { [CHILD_FEATURES[feature]]: on === true } });
   refresh();
   return {};

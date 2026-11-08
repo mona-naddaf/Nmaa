@@ -8,6 +8,8 @@ import type { RecitationSubject } from "@/lib/recitation/logic";
 import { GAP, spotKey, type DetailFlags } from "@/lib/tajweed/spots";
 import { KIND_LABEL, TAJWEED_KINDS } from "@/lib/tajweed/taxonomy";
 import type { SheetTarget } from "./TajweedSheet";
+import { bandProps } from "@/components/highlight/HighlightUI";
+import type { Band } from "@/components/highlight/useHighlights";
 
 // One ayah, word by word, each word a button that opens a small menu of the
 // 4 mistake types. Shared by the recording form's WordFlagger and the home
@@ -90,6 +92,8 @@ type FlaggableAyahProps = {
   mastered?: Record<string, true>;
   onToggleMastered?: (key: string) => void;
   detail?: AyahDetail;
+  // «التظليل»: the highlight each word is in (drawn behind it); unset: none, as before
+  bands?: (position: number) => Band | null;
 };
 
 /** A word's Mushaf glyph (from MushafPages); span 2: one glyph for this word and the next. */
@@ -135,6 +139,7 @@ export function ayahParts({
   mastered,
   onToggleMastered,
   detail,
+  bands,
 }: FlaggableAyahProps) {
   const { openWord, setOpenWord } = menu;
   const split = splitAyah(surahNumber, ayah, text);
@@ -217,8 +222,11 @@ export function ayahParts({
         // the word whose gap follows this glyph, and whether it is offered in the menu
         const gapWord = second ?? w;
         const gapInMenu = !!glyph && !!detail?.enabled && (gapWord.position !== lastPosition || detail.lastGap);
-        return (
-          <span className={styles.wordWrap} data-word={key}>
+        // «التظليل»: the band behind the word (and the space after it, unless the highlight ends here)
+        const band = bands?.(w.position) ?? null;
+        const bandWrap = band ? bandProps(band) : null;
+        const node = (
+          <span className={bandWrap ? `${styles.wordWrap} ${bandWrap.className}` : styles.wordWrap} style={bandWrap?.style} data-word={key}>
             <button
               type="button"
               className={`${styles.word} ${wordClass(key, type)} ${detailWordClass(key)}${pageClass}`}
@@ -243,7 +251,8 @@ export function ayahParts({
             ) : (
               <>
                 {w.marks && <span className={styles.mark}>{w.marks}</span>}
-                {w.position !== lastPosition && gapButton(w)}{" "}
+                {w.position !== lastPosition && gapButton(w)}
+                {!(band?.end) && " "}
               </>
             )}
             {openWord === key && (
@@ -346,6 +355,14 @@ export function ayahParts({
               </span>
             )}
           </span>
+        );
+        // a highlight ending here: the space after the word stays outside the band
+        return band?.end && !glyph ? (
+          <>
+            {node}{" "}
+          </>
+        ) : (
+          node
         );
   };
   const last = split.words[lastPosition - 1];

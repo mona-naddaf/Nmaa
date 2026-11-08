@@ -7,6 +7,7 @@ import { ChildHeader } from "./ChildHeader";
 import { resolveSubject } from "@/lib/rafiq/subject";
 import { homeExcuse, subjectExcuse } from "@/lib/excuse/subject";
 import { mushafForRafiqUser } from "@/lib/mushaf/server";
+import { highlightOn } from "@/lib/highlight/server";
 
 // A child's page for an adult of her family: view only, or — with edit
 // rights — reciting with her using the full form (word-by-word mistakes, and
@@ -32,6 +33,7 @@ export default async function AdultChildPage({ params }: PageProps<"/rafiq/famil
           data={data}
           gender={access.user.gender}
           mushaf={await mushafForRafiqUser()}
+          highlight={(await highlightOn(child.id)) ? { gender: access.user.gender, subjectId: child.id } : undefined}
           commitment={commitment}
           similar={child.flags.mutashabihat}
           tajweed={child.flags.tajweed}

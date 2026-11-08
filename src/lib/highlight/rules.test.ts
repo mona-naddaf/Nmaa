@@ -147,3 +147,33 @@ test("texts: both genders differ where they address the reader, and every proble
   for (const k of ["invalid", "ayat", "page", "overlap", "cap"] as const) assert.ok(f.problem[k] && m.problem[k]);
   assert.equal(f.lockedBy(null), "🔒 من أحد البالغين");
 });
+
+test("privacy: nothing that builds what others see (the family dashboard, sharing) reads highlights", async () => {
+  const { readdirSync } = await import("node:fs");
+  const dir = join(process.cwd(), "src", "lib", "family");
+  for (const f of readdirSync(dir).filter((n) => n.endsWith(".ts") && !n.endsWith(".test.ts"))) {
+    const src = readFileSync(join(dir, f), "utf8");
+    assert.ok(!/rafiqHighlight\b|RafiqHighlight\b|highlightsIn|loadHighlights/.test(src), `${f} reads highlights`);
+  }
+});
+
+test("HIGHLIGHT_EMAILS: unset or empty = nobody, «*» = everyone, else the listed emails (any case)", async () => {
+  const { highlightAllowed } = await import("./enabled");
+  const before = process.env.HIGHLIGHT_EMAILS;
+  try {
+    delete process.env.HIGHLIGHT_EMAILS;
+    assert.equal(highlightAllowed("a@b.c"), false);
+    process.env.HIGHLIGHT_EMAILS = "";
+    assert.equal(highlightAllowed("a@b.c"), false);
+    process.env.HIGHLIGHT_EMAILS = "Mona@Example.com, x@y.z";
+    assert.equal(highlightAllowed("mona@example.com"), true);
+    assert.equal(highlightAllowed(" MONA@example.com "), true);
+    assert.equal(highlightAllowed("other@example.com"), false);
+    assert.equal(highlightAllowed(null), false);
+    process.env.HIGHLIGHT_EMAILS = "*";
+    assert.equal(highlightAllowed("anyone@example.com"), true);
+  } finally {
+    if (before === undefined) delete process.env.HIGHLIGHT_EMAILS;
+    else process.env.HIGHLIGHT_EMAILS = before;
+  }
+});

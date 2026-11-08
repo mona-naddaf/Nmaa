@@ -13,6 +13,8 @@ import { parseKey } from "@/lib/mushaf/page";
 import { MushafPages } from "@/components/mushaf/MushafPages";
 import { MushafToggle } from "@/components/mushaf/MushafToggle";
 import { useMushafView } from "@/components/mushaf/useMushafView";
+import { pageHighlight, useHighlights, wordCounter, type HighlightConfig } from "@/components/highlight/useHighlights";
+import { HighlightBar, HighlightModeText } from "@/components/highlight/HighlightUI";
 import mushafStyles from "@/components/mushaf/mushaf.module.css";
 import { TajweedSheet, type SheetTarget } from "./TajweedSheet";
 import { splitAyah } from "@/lib/quran-data/words";
@@ -79,6 +81,7 @@ export function WordFlagger({
   mushaf,
   mushafFeminine = false,
   belowPage,
+  highlight,
 }: {
   surahNumber: number;
   fromAyah: number;
@@ -114,6 +117,8 @@ export function WordFlagger({
   mushafFeminine?: boolean;
   // under the Mushaf page (nothing may sit on it): e.g. her noted verses
   belowPage?: ReactNode;
+  // «التظليل» (Rafiq and «العائلة», HIGHLIGHT_EMAILS); unset: none, as before
+  highlight?: HighlightConfig;
 }) {
   const view = useMushafView();
   const [ayahs, setAyahs] = useState<{ surah: number; text: string[] } | null>(null);
@@ -135,6 +140,8 @@ export function WordFlagger({
   const previousHere = previousWords.size;
   const open = expanded ?? (!startCollapsed || previousHere > 0);
   const loaded = ayahs?.surah === surahNumber ? ayahs.text : null;
+  // «التظليل»: her highlights in this surah (nothing at all without the prop)
+  const hl = useHighlights(highlight, surahNumber, wordCounter(surahNumber, loaded));
   useEffect(() => {
     onOpenChange?.(open);
   }, [open, onOpenChange]);
@@ -197,6 +204,7 @@ export function WordFlagger({
     previous,
     mastered,
     onToggleMastered,
+    ...(hl.on ? { bands: (position: number) => hl.bandOf(ayah, position) } : {}),
     detail: showDetail
       ? {
           enabled: detail!.enabled,
@@ -215,7 +223,10 @@ export function WordFlagger({
   const partsOf = (ayah: number, text: string[]) => ayahParts(ayahProps(ayah, text));
 
   /** The old view («نص كبير», and a Mushaf page that couldn't be drawn). */
-  const textView = (from: number, to: number, text: string[]) => (
+  const textView = (from: number, to: number, text: string[]) =>
+    hl.mode ? (
+      <HighlightModeText hl={hl} surah={surahNumber} fromAyah={from} toAyah={to} text={text} className={`${quranFont.className} ${styles.quranText}`} />
+    ) : (
     <div className={`${quranFont.className} ${styles.quranText} ${showDetail ? styles.detailMode : ""}`} dir="rtl" lang="ar">
       {Array.from({ length: to - from + 1 }, (_, i) => from + i).map((ayah) => (
         <Fragment key={ayah}>
@@ -253,6 +264,11 @@ export function WordFlagger({
               <MushafToggle feminine={mushafFeminine} />
             </div>
           )}
+          {hl.on && loaded && (
+            <div className={mushafStyles.flaggerToggle}>
+              <HighlightBar hl={hl} />
+            </div>
+          )}
           {loadError ? (
             <div className={styles.flaggerNote}>تعذّر تحميل نص السورة — يمكن حفظ التسميع بدون تحديد الكلمات.</div>
           ) : !loaded ? (
@@ -276,10 +292,11 @@ export function WordFlagger({
                     <SimilarEnd surah={surahNumber} ayah={ayah}>
                       {glyph}
                     </SimilarEnd>
-                    {partsOf(ayah, loaded).pageEndGap}
+                    {!hl.mode && partsOf(ayah, loaded).pageEndGap}
                   </span>
                 )}
                 fallback={(a1, a2) => textView(a1, a2, loaded)}
+                {...pageHighlight(hl, surahNumber, loaded)}
               />
               {belowPage}
             </div>

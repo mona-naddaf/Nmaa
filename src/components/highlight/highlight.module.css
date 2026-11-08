@@ -1,0 +1,300 @@
+/* «التظليل»: a highlighter band behind the words, the bar above the verses,
+   its colour panel, a highlight's menu and the undo toast. */
+
+/* the band: a soft stroke through the middle of the line, behind the words
+   and the spaces between them; the text keeps its own colour */
+.band {
+  background-image: linear-gradient(to bottom, transparent 16%, var(--hl) 16%, var(--hl) 88%, transparent 88%);
+}
+
+.bandStart {
+  border-start-start-radius: 6px;
+  border-end-start-radius: 6px;
+}
+
+.bandEnd {
+  border-start-end-radius: 6px;
+  border-end-end-radius: 6px;
+}
+
+/* highlight mode: the words become plain buttons; the first tapped word */
+.modeWord {
+  font: inherit;
+  color: inherit;
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  line-height: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.modeWord:focus-visible {
+  outline: 2px solid var(--rose-deep);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+.pendingWord {
+  outline: 2px dashed var(--ink);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+/* ---- the bar ---- */
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0 0 8px;
+}
+
+.btn {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+
+.btn[aria-pressed="true"] {
+  color: #fff;
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.btn:focus-visible,
+.chip:focus-visible {
+  outline: 2px solid var(--rose-deep);
+  outline-offset: 2px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px 4px 12px;
+  cursor: pointer;
+}
+
+.chipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dot {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(49, 46, 39, 0.25);
+}
+
+.hint,
+.message {
+  flex-basis: 100%;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.hint {
+  color: var(--ink-soft);
+}
+
+.message {
+  color: var(--sage-deep);
+  font-weight: 700;
+}
+
+/* ---- the colour panel and a highlight's menu ---- */
+.panel {
+  flex-basis: 100%;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 18px rgba(49, 46, 39, 0.1);
+  animation: rise 150ms var(--ease-out, ease-out);
+}
+
+.panelTitle {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.colorRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.pickBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.pickBtn[aria-checked="true"] .dot,
+.pickBtn[aria-pressed="true"] .dot {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.pickBtn .dot {
+  width: 22px;
+  height: 22px;
+}
+
+.nameField {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--cream);
+}
+
+.small {
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.note {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.fieldError {
+  font-size: 11.5px;
+  color: var(--sage-deep);
+}
+
+.menu {
+  position: fixed;
+  z-index: 40;
+  min-width: 200px;
+  max-width: calc(100vw - 24px);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(49, 46, 39, 0.16);
+  font-family: var(--font-tajawal), "Tajawal", sans-serif;
+  font-size: 13.5px;
+  line-height: 1.5;
+  animation: rise 150ms var(--ease-out, ease-out);
+}
+
+.menuHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  padding: 2px 4px 6px;
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: right;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: var(--cream);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 0 4px 4px;
+}
+
+/* ---- the undo toast ---- */
+.toast {
+  position: fixed;
+  z-index: 45;
+  inset-inline: 16px;
+  bottom: 16px;
+  max-width: 480px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  animation: rise 160ms var(--ease-out, ease-out);
+}
+
+.toastText {
+  flex: 1;
+}
+
+.toastUndo {
+  font: inherit;
+  font-weight: 700;
+  color: var(--paper);
+  background: rgba(255, 255, 255, 0.14);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .menu,
+  .toast {
+    animation: none;
+  }
+}

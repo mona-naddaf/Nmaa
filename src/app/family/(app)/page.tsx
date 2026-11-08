@@ -9,6 +9,7 @@ import { cookies } from "next/headers";
 import { resolveSubject } from "@/lib/rafiq/subject";
 import { homeExcuse, subjectExcuse } from "@/lib/excuse/subject";
 import { mushafForFamily } from "@/lib/mushaf/server";
+import { highlightOn } from "@/lib/highlight/server";
 
 // «صفحتي» of a child («العائلة»): the Rafiq page, as herself — her position
 // (and goal, with its switch), recording her own sessions (no word marks:
@@ -36,6 +37,7 @@ export default async function ChildHomePage() {
           data={data}
           gender={child.gender}
           mushaf={await mushafForFamily(child.familyId)}
+          highlight={(await highlightOn()) ? { gender: child.gender } : undefined}
           commitment={commitment}
           similar={flags.mutashabihat}
           tajweedSummary={tajweedSummary}

@@ -6,6 +6,7 @@ import type { WordFlags } from "@/components/mistakes/FlaggableAyah";
 import type { HomeSegmentView } from "@/lib/home-log/data";
 import type { DetailFlags } from "@/lib/tajweed/spots";
 import type { MushafConfig } from "@/lib/mushaf/enabled";
+import type { HighlightConfig } from "@/components/highlight/useHighlights";
 import type { GroupGender } from "@/lib/text/gender";
 import { deleteSegmentAction, finishSegmentAction, markSpotAction, markWordAction, resolveSpotAction, tapAction, undoTapAction } from "../actions";
 
@@ -26,6 +27,7 @@ export function FamilyPractice({
   initialFlags,
   detailInitial = null,
   mushaf,
+  highlight,
 }: {
   segment: HomeSegmentView;
   // the child's
@@ -42,6 +44,8 @@ export function FamilyPractice({
   detailInitial?: DetailFlags | null;
   // «صفحة المصحف» (MUSHAF_VIEW_EMAILS); unset: as before
   mushaf?: MushafConfig;
+  // «التظليل» (HIGHLIGHT_EMAILS); unset: none, as before
+  highlight?: HighlightConfig;
 }) {
   const actions: SegmentActions = {
     tap: (input) => tapAction({ ...input, subjectId }),
@@ -53,7 +57,7 @@ export function FamilyPractice({
   // the toggle's hint speaks to whoever is looking
   const mushafFeminine = adult ? you === "FEMALE" : g === "GIRLS";
   if (!marks)
-    return <SegmentPractice segment={segment} groupGender={g} actions={actions} listHref={listHref} liveUndo mushaf={mushaf} mushafFeminine={mushafFeminine} />;
+    return <SegmentPractice segment={segment} groupGender={g} actions={actions} listHref={listHref} liveUndo mushaf={mushaf} mushafFeminine={mushafFeminine} highlight={highlight} />;
 
   const c = (m: string, f: string) => (g === "GIRLS" ? f : m);
   const y = (m: string, f: string) => (you === "FEMALE" ? f : m);
@@ -65,6 +69,7 @@ export function FamilyPractice({
       listHref={listHref}
       liveUndo
       mushaf={mushaf}
+      highlight={highlight}
       mushafFeminine={mushafFeminine}
       initialFlags={initialFlags}
       mark={(input) => markWordAction(input, subjectId)}

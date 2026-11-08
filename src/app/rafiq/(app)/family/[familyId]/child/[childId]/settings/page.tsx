@@ -1,3 +1,4 @@
+import { familyHighlightAllowed } from "@/lib/highlight/server";
 import { redirect } from "next/navigation";
 import { familyEnabled } from "@/lib/family/enabled";
 import { childForAdult } from "@/lib/family/child-pages";
@@ -26,6 +27,7 @@ export default async function AdultChildSettingsPage({ params }: PageProps<"/raf
         flags={child.flags}
         commitDays={await currentCommitDays(child.id)}
         excuse={await childExcuseCard(access.family.id, child, access.user)}
+        highlightSwitch={await familyHighlightAllowed(access.family.id)}
       />
     </>
   );

@@ -13,6 +13,7 @@ import {
   restoreColor,
   restoreHighlight,
 } from "@/lib/highlight/server";
+import type { HighlightRow, HighlightViewer, PaletteEntry } from "@/lib/highlight/rules";
 
 // «التظليل»: the actions of every page that shows verses in «رفيق الحفظ»
 // and «العائلة». An action is posted to the page it's used on, so it carries
@@ -21,11 +22,14 @@ import {
 // is on the child's page.
 
 /** The owner's highlights in one surah and her colours, with what the viewer may do. */
-export async function loadHighlightsAction(surahNumber: number, subjectId?: string) {
+export async function loadHighlightsAction(
+  surahNumber: number,
+  subjectId?: string,
+): Promise<{ ok: true; viewer: HighlightViewer; highlights: HighlightRow[]; palette: PaletteEntry[] } | { ok: false }> {
   const g = await highlightGate(subjectId, "view");
-  if ("error" in g || !Number.isInteger(surahNumber) || surahNumber < 1 || surahNumber > 114) return { error: "not-available" } as const;
+  if ("error" in g || !Number.isInteger(surahNumber) || surahNumber < 1 || surahNumber > 114) return { ok: false };
   const [highlights, palette] = await Promise.all([highlightsIn(g.subject.id, surahNumber), paletteFor(g.subject.id)]);
-  return { ok: true, viewer: g.viewer, highlights, palette } as const;
+  return { ok: true, viewer: g.viewer, highlights, palette };
 }
 
 export async function createHighlightAction(input: { range: unknown; color: unknown; subjectId?: string }) {

@@ -38,9 +38,9 @@ test("safeNext: only «عائلاتي» and the join page, with an optional رم
   }
 });
 
-test("child switches: the eight known names only, each its own column", () => {
+test("child switches: the nine known names only, each its own column", () => {
   const keys = Object.keys(CHILD_FEATURES);
-  assert.deepEqual(keys.sort(), ["agenda", "goal", "homeLog", "homeMistakes", "mutashabihat", "streak", "summary", "tajweed"]);
+  assert.deepEqual(keys.sort(), ["agenda", "goal", "highlight", "homeLog", "homeMistakes", "mutashabihat", "streak", "summary", "tajweed"]);
   for (const k of keys) assert.equal(isChildFeature(k), true, k);
   // nothing else reaches the database column map — inherited keys included
   for (const bad of ["toString", "constructor", "__proto__", "kind", "planTemplate", "", null, 1]) assert.equal(isChildFeature(bad), false, String(bad));

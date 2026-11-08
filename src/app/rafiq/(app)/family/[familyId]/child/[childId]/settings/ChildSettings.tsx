@@ -17,6 +17,7 @@ import { SavedNote } from "@/components/nudge/SavedNote";
 import type { ChildExcuseCard } from "@/lib/excuse/family-data";
 import { CHILD_EXCUSE_LATER, CHILD_EXCUSE_VIEWERS_NOTE, childExcuseViewersTitle, childExcuseWhat, EXCUSE_SWITCH_OFF_NOTE, EXCUSE_TITLE, selfViewerHint, viewerYou } from "@/lib/excuse/texts";
 import { setChildExcuseAction, setExcuseViewerAction } from "../../../../excuse-actions";
+import { highlightSwitchTexts } from "@/lib/highlight/texts";
 
 const FAIL = "تعذّر حفظ الإعداد، يُرجى المحاولة مرة أخرى";
 
@@ -72,6 +73,7 @@ export function ChildSettings({
   flags,
   commitDays,
   excuse,
+  highlightSwitch = false,
 }: {
   childId: string;
   name: string;
@@ -83,6 +85,8 @@ export function ChildSettings({
   commitDays: number;
   // «أيام العذر»: a girl's, where it reaches her family
   excuse: ChildExcuseCard | null;
+  // «التظليل»: offered where HIGHLIGHT_EMAILS reaches the family (the founder's email)
+  highlightSwitch?: boolean;
 }) {
   const g = (m: string, fem: string) => (gender === "FEMALE" ? fem : m);
   const rows: Row[] = [
@@ -94,6 +98,7 @@ export function ChildSettings({
     { key: "agenda", title: "الجدول اليومي", what: "أوقات لبنود جدول المتابعة وجدول اليوم؛ الأوقات المرتبطة بالصلاة من مكان العائلة." },
     { key: "summary", title: "المحصّلات", what: "ملخّص أسبوعي وشهري وأكثر لجدول المتابعة." },
     { key: "streak", title: "أيام الالتزام والسلسلة", what: `🔥 أيام الالتزام المتتالية في ${g("صفحته", "صفحتها")}، حسب الأيام التي تختارونها هنا.` },
+    ...(highlightSwitch ? [{ key: "highlight" as const, ...highlightSwitchTexts({ name, gender }), what: highlightSwitchTexts({ name, gender }).note }] : []),
   ];
   return (
     <div className={styles.settingsGrid}>

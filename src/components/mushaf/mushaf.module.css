@@ -295,3 +295,18 @@
   height: 44px;
   transform: translate(-50%, -50%);
 }
+
+/* «التظليل»: the space between two glyphs, as a flex spacer (the same equal
+   gaps as space-between), so a highlight's band runs across it */
+.spacer {
+  flex: 1 1 0;
+  align-self: stretch;
+}
+
+.centred .spacer {
+  flex: 0 0 0;
+}
+
+.bandWrap {
+  display: inline-block;
+}

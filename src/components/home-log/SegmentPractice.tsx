@@ -16,6 +16,8 @@ import { MushafPages } from "@/components/mushaf/MushafPages";
 import { MushafToggle } from "@/components/mushaf/MushafToggle";
 import { useMushafView } from "@/components/mushaf/useMushafView";
 import mushafStyles from "@/components/mushaf/mushaf.module.css";
+import { pageHighlight, useHighlights, wordCounter, type HighlightConfig } from "@/components/highlight/useHighlights";
+import { BandedAyah, HighlightBar, HighlightModeText } from "@/components/highlight/HighlightUI";
 import mistakeStyles from "@/components/mistakes/mistakes.module.css";
 import { TajweedSheet, type SheetTarget } from "@/components/mistakes/TajweedSheet";
 import { splitAyah } from "@/lib/quran-data/words";
@@ -66,6 +68,7 @@ export function SegmentPractice({
   beforeAyat,
   mushaf,
   mushafFeminine,
+  highlight,
 }: {
   segment: HomeSegmentView;
   groupGender: GroupGender;
@@ -99,11 +102,16 @@ export function SegmentPractice({
   mushaf?: MushafConfig;
   // whom the toggle's hint speaks to (default: by groupGender)
   mushafFeminine?: boolean;
+  // «التظليل» (Rafiq and «العائلة», HIGHLIGHT_EMAILS); unset: none, as before
+  highlight?: HighlightConfig;
 }) {
   const view = useMushafView();
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const ayahs = useSurahText(s.surahNumber);
+  const hl = useHighlights(highlight, s.surahNumber, wordCounter(s.surahNumber, ayahs));
+  /** An ayah as plain text, with her bands when it has any. */
+  const plain = (a: number, text: string) => (hl.on && BandedAyah({ hl, surah: s.surahNumber, ayah: a, text })) || text;
   const menu = useWordMenu();
   // the letter / gap sheet (detailed tajweed marks), one at a time
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
@@ -163,6 +171,7 @@ export function SegmentPractice({
     onFlag: marking!.onFlag,
     subject: marking!.subject,
     showNumber: false,
+    ...(hl.on ? { bands: (position: number) => hl.bandOf(a, position) } : {}),
     detail: detail && {
       enabled: true,
       flags: detail.flags,
@@ -208,7 +217,15 @@ export function SegmentPractice({
     Array.from({ length: to - from + 1 }, (_, i) => from + i).map((a) => (
       <div key={a} className={styles.ayah}>
         <div className={`${styles.ayahText} ${quranFont.className} ${detail ? mistakeStyles.detailMode : ""}`} lang="ar">
-          {marking && ayahs ? <FlaggableAyah {...ayahProps(a, ayahs)} /> : ayahs ? ayahs[a - 1] : "…"}{" "}
+          {hl.mode && ayahs ? (
+            <HighlightModeText hl={hl} surah={s.surahNumber} fromAyah={a} toAyah={a} text={ayahs} numbers={false} inline />
+          ) : marking && ayahs ? (
+            <FlaggableAyah {...ayahProps(a, ayahs)} />
+          ) : ayahs ? (
+            plain(a, ayahs[a - 1])
+          ) : (
+            "…"
+          )}{" "}
           <span className={styles.ayahNum}>﴿{a}﴾</span>
           <SimilarAfter surah={s.surahNumber} ayah={a} />
           {afterAyah?.(a)}
@@ -304,6 +321,7 @@ export function SegmentPractice({
       )}
       <div className={`${styles.section}`} {...t("practice.text")}>
         {mushaf && <MushafToggle feminine={mushafFeminine ?? g === "GIRLS"} />}
+        {hl.on && <HighlightBar hl={hl} />}
         {mushaf && view === "page" && ayahs ? (
           <>
             <div className={detail ? mistakeStyles.detailMode : undefined}>
@@ -313,7 +331,7 @@ export function SegmentPractice({
                 fromAyah={s.fromAyah}
                 toAyah={s.toAyah}
                 word={
-                  marking
+                  marking && !hl.mode
                     ? (key, glyph, span) => {
                         const { ayah, word } = parseKey(key);
                         const parts = ayahParts(ayahProps(ayah, ayahs));
@@ -327,10 +345,11 @@ export function SegmentPractice({
                     <button type="button" className={mushafStyles.endBtn} onClick={() => toRow(a)} aria-label={`عدّادات الآية ${a}`}>
                       {glyph}
                     </button>
-                    {marking && ayahParts(ayahProps(a, ayahs)).pageEndGap}
+                    {marking && !hl.mode && ayahParts(ayahProps(a, ayahs)).pageEndGap}
                   </span>
                 )}
                 fallback={(a1, a2) => ayat(a1, a2, false)}
+                {...pageHighlight(hl, s.surahNumber, ayahs)}
               />
             </div>
             {/* every ayah in full (its real text for screen readers too), its «≈» and note marker beside it, its counters below */}
@@ -338,7 +357,7 @@ export function SegmentPractice({
               {Array.from({ length: s.toAyah - s.fromAyah + 1 }, (_, i) => s.fromAyah + i).map((a) => (
                 <div key={a} id={rowId(a)} tabIndex={-1} className={mushafStyles.row}>
                   <div className={`${styles.ayahText} ${quranFont.className}`} lang="ar">
-                    {ayahOnly(s.surahNumber, a, ayahs[a - 1] ?? "")} <span className={styles.ayahNum}>﴿{a}﴾</span>
+                    {plain(a, ayahOnly(s.surahNumber, a, ayahs[a - 1] ?? ""))} <span className={styles.ayahNum}>﴿{a}﴾</span>
                     <SimilarAfter surah={s.surahNumber} ayah={a} />
                     {afterAyah?.(a)}
                   </div>

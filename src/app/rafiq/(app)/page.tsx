@@ -12,6 +12,7 @@ import { ResumeCard } from "./ResumeCard";
 import { mushafViewFor } from "@/lib/mushaf/enabled";
 import { Checklist } from "./guide/Checklist";
 import { loadPauses, ownExcuse, pausedNow } from "@/lib/excuse/rafiq-data";
+import { highlightOn } from "@/lib/highlight/server";
 
 // «صفحتي»: where she stands, her progress, recording a session, her
 // mistakes, review reminders and her session history. Before she has a plan,
@@ -34,6 +35,7 @@ export default async function RafiqHomePage({ searchParams }: PageProps<"/rafiq"
       data={data}
       gender={user.gender}
       mushaf={mushafViewFor(user.email)}
+      highlight={(await highlightOn()) ? { gender: user.gender } : undefined}
       commitment={await getCommitment(user.id)}
       similar={mutashabihatEnabled}
       tajweed={tajweedDetailEnabled}

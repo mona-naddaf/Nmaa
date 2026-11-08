@@ -8,6 +8,8 @@ import { getAyahPageEntries, SURAH_NAME } from "@/lib/quran-data";
 import { loadMushafPage, pageHeader, pagesOf, parseKey, type MushafEntry, type MushafPage } from "@/lib/mushaf/page";
 import { loadPageFont } from "@/lib/mushaf/font";
 import type { MushafConfig } from "@/lib/mushaf/enabled";
+import { bandProps, modeWordClass, pendingWordClass } from "@/components/highlight/HighlightUI";
+import type { Band } from "@/components/highlight/useHighlights";
 
 // «صفحة المصحف»: the whole Mushaf page(s) an ayah range of one surah touches,
 // line by line exactly as printed (KFGQPC V2, 1421H), drawn with each page's
@@ -31,6 +33,10 @@ export interface MushafPagesProps {
   end?: (ayah: number, glyph: ReactNode) => ReactNode;
   /** the range's ayat fromAyah..toAyah of a page that couldn't be drawn, in the old view */
   fallback: (fromAyah: number, toAyah: number) => ReactNode;
+  /** «التظليل»: the highlight a word or an ayah-end glyph is in, drawn behind it; unset: none, as before */
+  bandOf?: (key: string) => Band | null;
+  /** «التظليل» mode: the range's words become plain buttons (no mistake menus); a faded word only says it's outside */
+  highlightMode?: { tap: (key: string, inRange: boolean) => void; pendingKey: string | null; label: (key: string) => string };
 }
 
 export function MushafPages(props: MushafPagesProps) {
@@ -56,7 +62,7 @@ export function MushafPages(props: MushafPagesProps) {
 
 type State = { status: "idle" | "loading" } | { status: "ready"; data: MushafPage; family: string } | { status: "failed" };
 
-function PageView({ page, config, surah, fromAyah, toAyah, word, end, fallback }: MushafPagesProps & { page: number }) {
+function PageView({ page, config, surah, fromAyah, toAyah, word, end, fallback, bandOf, highlightMode }: MushafPagesProps & { page: number }) {
   const [state, setState] = useState<State>({ status: "idle" });
   const box = useRef<HTMLDivElement>(null);
   // the widest line's width per 1px of font size (measured once the font is in), and the box's width
@@ -143,8 +149,49 @@ function PageView({ page, config, surah, fromAyah, toAyah, word, end, fallback }
     const head = pageHeader(data);
     const glyph = (g: string) => <span aria-hidden="true">{g}</span>;
     const entry = (e: MushafEntry) => {
+      const node = plainEntry(e);
+      const band = bandOf?.(e[0]) ?? null;
+      if (!band) return node;
+      const b = bandProps(band);
+      return (
+        <span key={e[0]} className={`${styles.bandWrap} ${b.className}`} style={b.style}>
+          {node}
+        </span>
+      );
+    };
+    // «التظليل»: a spacer between two glyphs carries the band when both are in the same highlight
+    const lineEntries = (w: MushafEntry[]) =>
+      w.flatMap((e, i) => {
+        const node = entry(e);
+        if (i === w.length - 1) return [node];
+        const a = bandOf!(e[0]);
+        const b = bandOf!(w[i + 1][0]);
+        const sp = a && b && a.id === b.id ? bandProps({ ...a, end: false }, "space") : { className: "" };
+        return [node, <span key={`${e[0]}~`} className={`${styles.spacer} ${sp.className}`} style={sp.style} aria-hidden="true" />];
+      });
+    const plainEntry = (e: MushafEntry) => {
       const [key, g, span] = e;
       const k = parseKey(key);
+      if (highlightMode && k.word > 0) {
+        // highlight mode: a word of the range is a plain button; one outside only says so
+        const tapped = highlightMode.pendingKey === key;
+        return inRange(key) ? (
+          <button
+            key={key}
+            type="button"
+            data-hl-key={key}
+            className={`${modeWordClass} ${styles.w} ${tapped ? pendingWordClass : ""}`}
+            aria-label={highlightMode.label(key)}
+            onClick={() => highlightMode.tap(key, true)}
+          >
+            {glyph(g)}
+          </button>
+        ) : (
+          <span key={key} className={styles.out} aria-hidden="true" onClick={() => highlightMode.tap(key, false)}>
+            {g}
+          </span>
+        );
+      }
       if (!inRange(key)) {
         return (
           <span key={key} className={styles.out} aria-hidden="true">
@@ -179,7 +226,7 @@ function PageView({ page, config, surah, fromAyah, toAyah, word, end, fallback }
               </div>
             ) : (
               <div key={i} className={`${styles.line} ${measuring ? styles.measureLine : ""} ${line.c ? styles.centred : ""}`}>
-                {line.w.map(entry)}
+                {bandOf ? lineEntries(line.w) : line.w.map(entry)}
               </div>
             ),
           )}

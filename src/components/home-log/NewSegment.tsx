@@ -15,6 +15,8 @@ import { MushafToggle } from "@/components/mushaf/MushafToggle";
 import { MushafPages } from "@/components/mushaf/MushafPages";
 import { useMushafView } from "@/components/mushaf/useMushafView";
 import mushafStyles from "@/components/mushaf/mushaf.module.css";
+import { pageHighlight, useHighlights, wordCounter, type HighlightConfig } from "@/components/highlight/useHighlights";
+import { BandedAyah, HighlightBar, HighlightModeText } from "@/components/highlight/HighlightUI";
 
 /**
  * Picking a new segment: her plan's surahs first, the text as a preview.
@@ -37,6 +39,7 @@ export function NewSegment({
   mushaf,
   mushafFeminine = g === "GIRLS",
   belowPage,
+  highlight,
 }: {
   g: GroupGender;
   plan: number[];
@@ -55,6 +58,8 @@ export function NewSegment({
   mushafFeminine?: boolean;
   // under the Mushaf page (nothing may sit on it): e.g. her noted verses
   belowPage?: (surah: number, fromAyah: number, toAyah: number) => React.ReactNode;
+  // «التظليل» (Rafiq and «العائلة», HIGHLIGHT_EMAILS); unset: none, as before
+  highlight?: HighlightConfig;
 }) {
   const router = useRouter();
   const [surah, setSurah] = useState(suggestion.surahNumber);
@@ -63,16 +68,20 @@ export function NewSegment({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const ayahs = useSurahText(surah);
+  const hl = useHighlights(highlight, surah, wordCounter(surah, ayahs));
   const count = AYAH_COUNT[surah] ?? 1;
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const view = useMushafView();
   // the ayat as plain text: the old preview, and a Mushaf page's fallback
-  const preview = (a1: number, a2: number) => (
+  const preview = (a1: number, a2: number) =>
+    hl.mode && ayahs ? (
+      <HighlightModeText hl={hl} surah={surah} fromAyah={a1} toAyah={a2} text={ayahs} className={`${styles.preview} ${quranFont.className}`} />
+    ) : (
     <div className={`${styles.preview} ${quranFont.className}`} lang="ar">
       {ayahs
         ? ayahs.slice(a1 - 1, a2).map((t, i) => (
             <span key={a1 + i}>
-              {t} <span className={styles.ayahNum}>﴿{a1 + i}﴾</span>
+              {(hl.on && BandedAyah({ hl, surah, ayah: a1 + i, text: t })) || t} <span className={styles.ayahNum}>﴿{a1 + i}﴾</span>
               <SimilarAfter surah={surah} ayah={a1 + i} />
               {afterAyah?.(a1 + i, surah)}{" "}
             </span>
@@ -159,6 +168,7 @@ export function NewSegment({
         {planMark} · {suggestionNote}
       </div>
       {mushaf && <MushafToggle feminine={mushafFeminine} />}
+      {hl.on && <HighlightBar hl={hl} />}
       {mushaf && view === "page" && ayahs ? (
         <>
           <MushafPages
@@ -178,6 +188,7 @@ export function NewSegment({
               </span>
             )}
             fallback={preview}
+            {...pageHighlight(hl, surah, ayahs)}
           />
           {belowPage?.(surah, from, to)}
         </>

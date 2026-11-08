@@ -7,6 +7,7 @@ import { nextExpectedEntry } from "@/lib/recitation/logic";
 import { RafiqHomeLog } from "@/app/rafiq/(app)/home-log/RafiqHomeLog";
 import { SimilarScope } from "@/app/rafiq/(app)/SimilarScope";
 import { mushafForFamily } from "@/lib/mushaf/server";
+import { highlightOn } from "@/lib/highlight/server";
 
 // A child's «حفظي في البيت» («العائلة»), only while the adults have it on:
 // her passages (she adds them and taps the counters herself); the targets are
@@ -29,6 +30,7 @@ export default async function ChildHomeLogPage() {
         viewer="child"
         base="/family/home-log"
         mushaf={await mushafForFamily(child.familyId)}
+        highlight={(await highlightOn()) ? { gender: child.gender } : undefined}
       />
     </SimilarScope>
   );

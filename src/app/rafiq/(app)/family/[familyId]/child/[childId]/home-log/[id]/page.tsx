@@ -7,6 +7,7 @@ import { FamilyPractice } from "../../../../../../home-log/[id]/FamilyPractice";
 import { SimilarScope } from "../../../../../../SimilarScope";
 import { ChildHeader } from "../../ChildHeader";
 import { mushafForRafiqUser } from "@/lib/mushaf/server";
+import { highlightOn } from "@/lib/highlight/server";
 
 // An adult with edit rights practising one of a child's active passages with
 // her: the counters, and marking her words (always — the child's own switch
@@ -35,6 +36,7 @@ export default async function AdultChildPracticePage({ params }: PageProps<"/raf
           listHref={`${base}/home-log`}
           viewer="adult-edit"
           mushaf={await mushafForRafiqUser()}
+          highlight={(await highlightOn(child.id)) ? { gender: access.user.gender, subjectId: child.id } : undefined}
           subjectId={child.id}
           childName={child.name}
           you={access.user.gender}

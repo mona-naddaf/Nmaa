@@ -18,6 +18,9 @@ export type WordRef = { ayah: number; word: number };
 
 export type HighlightRange = { surahNumber: number; fromAyah: number; fromWord: number; toAyah: number; toWord: number };
 
+/** A highlight as a page gets it: byName = the adult who made it on a child's page (null: unknown / «أحد البالغين»). */
+export type HighlightRow = HighlightRange & { id: string; color: HighlightColor; byAdult: boolean; byName: string | null };
+
 /** Where one glyph stands for two of our words: "s:a:w" = words w and w+1 (the Mushaf data, page.ts). */
 export const TWO_WORD_GLYPHS = ["37:130:3"] as const;
 

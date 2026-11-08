@@ -29,6 +29,7 @@ export type ChildFlags = {
   agenda: boolean;
   summary: boolean;
   streak: boolean;
+  highlight: boolean;
   // null: review reminders off
   reviewReminderDays: number | null;
 };
@@ -42,6 +43,7 @@ const FLAGS_SELECT = {
   agendaEnabled: true,
   summaryEnabled: true,
   streakEnabled: true,
+  highlightEnabled: true,
   reviewReminderDays: true,
 } as const;
 
@@ -57,6 +59,7 @@ const flagsOf = (r: FlagRow): ChildFlags => ({
   agenda: r.agendaEnabled,
   summary: r.summaryEnabled,
   streak: r.streakEnabled,
+  highlight: r.highlightEnabled,
   reviewReminderDays: r.reviewReminderDays,
 });
 

@@ -21,6 +21,7 @@ import { computeGoal } from "@/lib/goals/goal";
 import { MistakesList } from "@/components/mistakes/MistakesList";
 import { WordFlagger } from "@/components/mistakes/WordFlagger";
 import type { MushafConfig } from "@/lib/mushaf/enabled";
+import type { HighlightConfig } from "@/components/highlight/useHighlights";
 import { TajweedSummaryBlock } from "@/components/mistakes/TajweedSummaryBlock";
 import { mistakeWordCount } from "@/lib/students/mistake-types";
 import type { TajweedSummary } from "@/lib/tajweed/summary";
@@ -77,6 +78,7 @@ export function RafiqHome({
   pausedNow = false,
   quiet,
   mushaf,
+  highlight,
 }: {
   data: MemorizationView;
   gender: PersonGender;
@@ -101,6 +103,8 @@ export function RafiqHome({
   quiet?: QuietHome;
   // «صفحة المصحف» in the word picker (MUSHAF_VIEW_EMAILS); unset: as before
   mushaf?: MushafConfig;
+  // «التظليل» (HIGHLIGHT_EMAILS); unset: none, as before
+  highlight?: HighlightConfig;
 }) {
   const router = useRouter();
   const today = useToday();
@@ -374,6 +378,7 @@ export function RafiqHome({
               detail={tajweed ? { enabled: true, flags: entry.detailFlags, onChange: entry.setDetailFlags } : undefined}
               {...(guide ? { onOpenChange: setFlaggerOpen, inside: <IntroLine candidates={intros} here={["mutashabihat", "tajweed"]} /> } : {})}
               mushaf={mushaf}
+              highlight={highlight}
               mushafFeminine={gender === "FEMALE"}
             />
           </SimilarScope>

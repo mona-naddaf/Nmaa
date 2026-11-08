@@ -10,6 +10,7 @@ import { getGuide } from "@/lib/guide/state";
 import { introsFor } from "@/lib/guide/lines";
 import { IntroLine } from "../../guide/IntroLine";
 import { deleteSegmentAction, finishSegmentAction, markSpotAction, markWordAction, resolveSpotAction, tapAction, undoTapAction } from "../actions";
+import { highlightOn } from "@/lib/highlight/server";
 
 // One active passage of hers: big counters and the ayat. Anything else (not
 // hers, finished) goes back to the list. With guidance on: the page's intro
@@ -34,6 +35,7 @@ export default async function RafiqSegmentPage({ params }: PageProps<"/rafiq/hom
         actions={{ tap: tapAction, undoTap: undoTapAction, finish: finishSegmentAction, remove: deleteSegmentAction }}
         listHref="/rafiq/home-log"
         mushaf={mushafViewFor(user.email)}
+        highlight={(await highlightOn()) ? { gender: user.gender } : undefined}
         mushafFeminine={user.gender === "FEMALE"}
         initialFlags={await rafiqMarkFlags(user.id, segment.surahNumber, segment.fromAyah, segment.toAyah)}
         mark={markWordAction}

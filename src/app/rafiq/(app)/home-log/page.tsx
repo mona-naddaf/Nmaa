@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { SimilarScope } from "../SimilarScope";
 import { guideEnabled } from "@/lib/guide/enabled";
 import { mushafViewFor } from "@/lib/mushaf/enabled";
+import { highlightOn } from "@/lib/highlight/server";
 
 export default async function RafiqHomeLogPage() {
   const user = await requireRafiqUser();
@@ -30,6 +31,7 @@ export default async function RafiqHomeLogPage() {
         targets={targets}
         {...(guideEnabled() ? { guided: true } : {})}
         mushaf={mushafViewFor(user.email)}
+        highlight={(await highlightOn()) ? { gender: user.gender } : undefined}
       />
     </SimilarScope>
   );

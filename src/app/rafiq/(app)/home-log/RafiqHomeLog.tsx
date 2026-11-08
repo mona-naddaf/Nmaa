@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import styles from "@/components/home-log/home-log.module.css";
 import { NewSegment } from "@/components/home-log/NewSegment";
 import type { MushafConfig } from "@/lib/mushaf/enabled";
+import type { HighlightConfig } from "@/components/highlight/useHighlights";
 import { VerseNoteMarker, VerseNotesStrip } from "../notes/NotesProvider";
 import { SegmentCard } from "@/components/home-log/SegmentCard";
 import { TargetsEditor } from "@/components/home-log/TargetsEditor";
@@ -36,6 +37,7 @@ export function RafiqHomeLog({
   you = null,
   guided = false,
   mushaf,
+  highlight,
 }: {
   log: HomeLogView;
   g: GroupGender;
@@ -54,6 +56,8 @@ export function RafiqHomeLog({
   guided?: boolean;
   // «صفحة المصحف» in the new-passage preview (MUSHAF_VIEW_EMAILS); unset: as before
   mushaf?: MushafConfig;
+  // «التظليل» (HIGHLIGHT_EMAILS); unset: none, as before
+  highlight?: HighlightConfig;
 }) {
   const router = useRouter();
   // g: whose list it is (her own, or the child's)
@@ -128,6 +132,7 @@ export function RafiqHomeLog({
           afterAyah={viewer === "self" ? (a, s) => <VerseNoteMarker surah={s} ayah={a} /> : undefined}
           belowPage={viewer === "self" ? (s, from, to) => <VerseNotesStrip surah={s} fromAyah={from} toAyah={to} /> : undefined}
           mushaf={mushaf}
+          highlight={highlight}
           mushafFeminine={adult ? you === "FEMALE" : g === "GIRLS"}
         />
       )}

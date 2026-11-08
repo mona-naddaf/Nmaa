@@ -5,6 +5,7 @@ import { getRafiqHomeLog } from "@/lib/rafiq/home-log";
 import { rafiqMarkDetails, rafiqMarkFlags } from "@/lib/rafiq/home-mistakes";
 import { FamilyPractice } from "@/app/rafiq/(app)/home-log/[id]/FamilyPractice";
 import { SimilarScope } from "@/app/rafiq/(app)/SimilarScope";
+import { mushafForFamily } from "@/lib/mushaf/server";
 
 // One active passage of a child («العائلة»), for the child herself: the
 // counters, and — with her «تحديد أخطائي في البيت» switch — marking her words
@@ -25,6 +26,7 @@ export default async function ChildPracticePage({ params }: PageProps<"/family/h
         g={child.gender === "FEMALE" ? "GIRLS" : "BOYS"}
         listHref="/family/home-log"
         viewer="child"
+        mushaf={await mushafForFamily(child.familyId)}
         childName={child.name}
         marks={flags.homeMistakes}
         initialFlags={flags.homeMistakes ? await rafiqMarkFlags(child.id, s, from, to) : {}}

@@ -8,7 +8,14 @@ import styles from "./home-log.module.css";
 import { TargetProgress, segmentTitle } from "./TargetProgress";
 import { useSurahText } from "./useSurahText";
 import { quranFont } from "@/components/mistakes/quran-font";
-import { FlaggableAyah, useWordMenu, type WordFlags } from "@/components/mistakes/FlaggableAyah";
+import { ayahParts, FlaggableAyah, useWordMenu, type WordFlags } from "@/components/mistakes/FlaggableAyah";
+import type { MushafConfig } from "@/lib/mushaf/enabled";
+import { parseKey } from "@/lib/mushaf/page";
+import { ayahOnly } from "@/lib/quran-data/words";
+import { MushafPages } from "@/components/mushaf/MushafPages";
+import { MushafToggle } from "@/components/mushaf/MushafToggle";
+import { useMushafView } from "@/components/mushaf/useMushafView";
+import mushafStyles from "@/components/mushaf/mushaf.module.css";
 import mistakeStyles from "@/components/mistakes/mistakes.module.css";
 import { TajweedSheet, type SheetTarget } from "@/components/mistakes/TajweedSheet";
 import { splitAyah } from "@/lib/quran-data/words";
@@ -57,6 +64,8 @@ export function SegmentPractice({
   afterAyah,
   liveUndo = false,
   beforeAyat,
+  mushaf,
+  mushafFeminine,
 }: {
   segment: HomeSegmentView;
   groupGender: GroupGender;
@@ -85,7 +94,13 @@ export function SegmentPractice({
   liveUndo?: boolean;
   // Rafiq's guidance: a line just above «الآيات» (unset: nothing)
   beforeAyat?: ReactNode;
+  // «صفحة المصحف» (Rafiq and «العائلة», MUSHAF_VIEW_EMAILS): the page on top,
+  // a row of counters per ayah under it. Unset: as before.
+  mushaf?: MushafConfig;
+  // whom the toggle's hint speaks to (default: by groupGender)
+  mushafFeminine?: boolean;
 }) {
+  const view = useMushafView();
   const router = useRouter();
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const ayahs = useSurahText(s.surahNumber);
@@ -137,6 +152,79 @@ export function SegmentPractice({
   const segCounts = counts[SEG] ?? EMPTY_COUNTS;
   const done = allTargetsMet(segCounts, s.targets);
   const hasTaps = Object.values(counts).some((c) => c.LISTEN + c.REPEAT + c.RECITE > 0);
+
+  // one ayah's word props (marking only), the same in both views
+  const ayahProps = (a: number, text: string[]) => ({
+    surahNumber: s.surahNumber,
+    ayah: a,
+    text: text[a - 1],
+    flags: marking!.flags,
+    menu,
+    onFlag: marking!.onFlag,
+    subject: marking!.subject,
+    showNumber: false,
+    detail: detail && {
+      enabled: true,
+      flags: detail.flags,
+      lastGap: a < s.toAyah,
+      nextAyahWord: a < s.toAyah ? (splitAyah(s.surahNumber, a + 1, text[a] ?? "").words[0]?.text ?? null) : null,
+      prevAyahLast: a > s.fromAyah ? lastWordOf(a - 1) : null,
+      open: setSheet,
+    },
+  });
+
+  /** An ayah's own counters (under it in the old view, in its row under a Mushaf page). */
+  const ayahCounters = (a: number) => (
+    <div className={styles.ayahCounters}>
+      {HOME_TAP_KINDS.map((k) => {
+        const n = get(String(a), k);
+        return (
+          <span key={k} className={styles.miniCounter}>
+            <button
+              type="button"
+              className={styles.miniPlus}
+              onClick={() => tap(String(a), k)}
+              aria-label={`${HOME_TAP_LABEL[k]} للآية ${a}: إضافة واحد (العدد ${n})`}
+            >
+              {HOME_TAP_ICON[k]} {n} +
+            </button>
+            <button
+              type="button"
+              className={undoClass(styles.miniMinus, n)}
+              onClick={() => tap(String(a), k, true)}
+              {...undoAt(n)}
+              aria-label={`تراجع عن ${HOME_TAP_LABEL[k]} للآية ${a}`}
+            >
+              −
+            </button>
+          </span>
+        );
+      })}
+    </div>
+  );
+
+  /** The old view: every ayah with its counters under it (without: a Mushaf page's fallback, whose counters are in the rows). */
+  const ayat = (from: number, to: number, withCounters: boolean) =>
+    Array.from({ length: to - from + 1 }, (_, i) => from + i).map((a) => (
+      <div key={a} className={styles.ayah}>
+        <div className={`${styles.ayahText} ${quranFont.className} ${detail ? mistakeStyles.detailMode : ""}`} lang="ar">
+          {marking && ayahs ? <FlaggableAyah {...ayahProps(a, ayahs)} /> : ayahs ? ayahs[a - 1] : "…"}{" "}
+          <span className={styles.ayahNum}>﴿{a}﴾</span>
+          <SimilarAfter surah={s.surahNumber} ayah={a} />
+          {afterAyah?.(a)}
+        </div>
+        {withCounters && ayahCounters(a)}
+      </div>
+    ));
+
+  // the Mushaf view: an ayah-end glyph takes her to that ayah's row of counters
+  const rowId = (a: number) => `ayah-row-${s.id}-${a}`;
+  const toRow = (a: number) => {
+    const row = document.getElementById(rowId(a));
+    if (!row) return;
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    row.focus({ preventScroll: true });
+  };
 
   function finish() {
     startTransition(async () => {
@@ -215,67 +303,57 @@ export function SegmentPractice({
         </p>
       )}
       <div className={`${styles.section}`} {...t("practice.text")}>
-        {Array.from({ length: s.toAyah - s.fromAyah + 1 }, (_, i) => s.fromAyah + i).map((a) => (
-          <div key={a} className={styles.ayah}>
-            <div className={`${styles.ayahText} ${quranFont.className} ${detail ? mistakeStyles.detailMode : ""}`} lang="ar">
-              {marking && ayahs ? (
-                <FlaggableAyah
-                  surahNumber={s.surahNumber}
-                  ayah={a}
-                  text={ayahs[a - 1]}
-                  flags={marking.flags}
-                  menu={menu}
-                  onFlag={marking.onFlag}
-                  subject={marking.subject}
-                  showNumber={false}
-                  detail={
-                    detail && {
-                      enabled: true,
-                      flags: detail.flags,
-                      lastGap: a < s.toAyah,
-                      nextAyahWord: a < s.toAyah ? (splitAyah(s.surahNumber, a + 1, ayahs[a] ?? "").words[0]?.text ?? null) : null,
-                      prevAyahLast: a > s.fromAyah ? lastWordOf(a - 1) : null,
-                      open: setSheet,
-                    }
-                  }
-                />
-              ) : ayahs ? (
-                ayahs[a - 1]
-              ) : (
-                "…"
-              )}{" "}
-              <span className={styles.ayahNum}>﴿{a}﴾</span>
-              <SimilarAfter surah={s.surahNumber} ayah={a} />
-              {afterAyah?.(a)}
-            </div>
-            <div className={styles.ayahCounters}>
-              {HOME_TAP_KINDS.map((k) => {
-                const n = get(String(a), k);
-                return (
-                  <span key={k} className={styles.miniCounter}>
-                    <button
-                      type="button"
-                      className={styles.miniPlus}
-                      onClick={() => tap(String(a), k)}
-                      aria-label={`${HOME_TAP_LABEL[k]} للآية ${a}: إضافة واحد (العدد ${n})`}
-                    >
-                      {HOME_TAP_ICON[k]} {n} +
+        {mushaf && <MushafToggle feminine={mushafFeminine ?? g === "GIRLS"} />}
+        {mushaf && view === "page" && ayahs ? (
+          <>
+            <div className={detail ? mistakeStyles.detailMode : undefined}>
+              <MushafPages
+                config={mushaf}
+                surah={s.surahNumber}
+                fromAyah={s.fromAyah}
+                toAyah={s.toAyah}
+                word={
+                  marking
+                    ? (key, glyph, span) => {
+                        const { ayah, word } = parseKey(key);
+                        const parts = ayahParts(ayahProps(ayah, ayahs));
+                        const w = parts.split.words[word - 1];
+                        return w ? parts.renderWord(w, { node: glyph, span }) : glyph;
+                      }
+                    : undefined
+                }
+                end={(a, glyph) => (
+                  <span className={mushafStyles.endWrap}>
+                    <button type="button" className={mushafStyles.endBtn} onClick={() => toRow(a)} aria-label={`عدّادات الآية ${a}`}>
+                      {glyph}
                     </button>
-                    <button
-                      type="button"
-                      className={undoClass(styles.miniMinus, n)}
-                      onClick={() => tap(String(a), k, true)}
-                      {...undoAt(n)}
-                      aria-label={`تراجع عن ${HOME_TAP_LABEL[k]} للآية ${a}`}
-                    >
-                      −
-                    </button>
+                    {!marking && (
+                      <span className={mushafStyles.srOnly}>
+                        {ayahOnly(s.surahNumber, a, ayahs[a - 1] ?? "")} ﴿{a}﴾
+                      </span>
+                    )}
+                    <span className={mushafStyles.endBadges}>
+                      <SimilarAfter surah={s.surahNumber} ayah={a} />
+                      {afterAyah?.(a)}
+                    </span>
+                    {marking && ayahParts(ayahProps(a, ayahs)).pageEndGap}
                   </span>
-                );
-              })}
+                )}
+                fallback={(a1, a2) => ayat(a1, a2, false)}
+              />
             </div>
-          </div>
-        ))}
+            <div className={mushafStyles.rows}>
+              {Array.from({ length: s.toAyah - s.fromAyah + 1 }, (_, i) => s.fromAyah + i).map((a) => (
+                <div key={a} id={rowId(a)} tabIndex={-1} className={mushafStyles.row}>
+                  <span className={mushafStyles.rowNum}>الآية {a}</span>
+                  {ayahCounters(a)}
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          ayat(s.fromAyah, s.toAyah, true)
+        )}
       </div>
 
       {sheet && detail && (

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import styles from "./home-log.module.css";
 import { SegmentPractice, type SegmentActions } from "./SegmentPractice";
+import type { MushafConfig } from "@/lib/mushaf/enabled";
 import type { WordFlags } from "@/components/mistakes/FlaggableAyah";
 import type { HomeSegmentView } from "@/lib/home-log/data";
 import type { MistakeType } from "@/lib/students/mistake-types";
@@ -42,6 +43,8 @@ export function PracticeWithMarks({
   hint: hintText,
   liveUndo,
   beforeAyat,
+  mushaf,
+  mushafFeminine,
 }: {
   segment: HomeSegmentView;
   groupGender: GroupGender;
@@ -62,6 +65,9 @@ export function PracticeWithMarks({
   beforeAyat?: ReactNode;
   // replaces the hint above the ayat
   hint?: string;
+  // passed on to SegmentPractice («صفحة المصحف»)
+  mushaf?: MushafConfig;
+  mushafFeminine?: boolean;
 }) {
   const [flags, setFlags] = useState<WordFlags>(initialFlags);
   const [details, setDetails] = useState<DetailFlags>(detail?.initial ?? {});
@@ -148,6 +154,8 @@ export function PracticeWithMarks({
         afterAyah={afterAyah}
         liveUndo={liveUndo}
         beforeAyat={beforeAyat}
+        mushaf={mushaf}
+        mushafFeminine={mushafFeminine}
       />
     </>
   );

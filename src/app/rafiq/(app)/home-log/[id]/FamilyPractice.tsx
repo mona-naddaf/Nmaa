@@ -5,6 +5,7 @@ import { SegmentPractice, type SegmentActions } from "@/components/home-log/Segm
 import type { WordFlags } from "@/components/mistakes/FlaggableAyah";
 import type { HomeSegmentView } from "@/lib/home-log/data";
 import type { DetailFlags } from "@/lib/tajweed/spots";
+import type { MushafConfig } from "@/lib/mushaf/enabled";
 import type { GroupGender } from "@/lib/text/gender";
 import { deleteSegmentAction, finishSegmentAction, markSpotAction, markWordAction, resolveSpotAction, tapAction, undoTapAction } from "../actions";
 
@@ -24,6 +25,7 @@ export function FamilyPractice({
   marks,
   initialFlags,
   detailInitial = null,
+  mushaf,
 }: {
   segment: HomeSegmentView;
   // the child's
@@ -38,6 +40,8 @@ export function FamilyPractice({
   initialFlags: WordFlags;
   // detailed tajweed marks (the child's switch on): her open ones here
   detailInitial?: DetailFlags | null;
+  // «صفحة المصحف» (MUSHAF_VIEW_EMAILS); unset: as before
+  mushaf?: MushafConfig;
 }) {
   const actions: SegmentActions = {
     tap: (input) => tapAction({ ...input, subjectId }),
@@ -45,11 +49,14 @@ export function FamilyPractice({
     finish: (id) => finishSegmentAction(id, subjectId),
     remove: (id) => deleteSegmentAction(id, subjectId),
   };
-  if (!marks) return <SegmentPractice segment={segment} groupGender={g} actions={actions} listHref={listHref} liveUndo />;
+  const adult = viewer === "adult-edit";
+  // the toggle's hint speaks to whoever is looking
+  const mushafFeminine = adult ? you === "FEMALE" : g === "GIRLS";
+  if (!marks)
+    return <SegmentPractice segment={segment} groupGender={g} actions={actions} listHref={listHref} liveUndo mushaf={mushaf} mushafFeminine={mushafFeminine} />;
 
   const c = (m: string, f: string) => (g === "GIRLS" ? f : m);
   const y = (m: string, f: string) => (you === "FEMALE" ? f : m);
-  const adult = viewer === "adult-edit";
   return (
     <PracticeWithMarks
       segment={segment}
@@ -57,6 +64,8 @@ export function FamilyPractice({
       actions={actions}
       listHref={listHref}
       liveUndo
+      mushaf={mushaf}
+      mushafFeminine={mushafFeminine}
       initialFlags={initialFlags}
       mark={(input) => markWordAction(input, subjectId)}
       subject={adult ? { child: { name: childName, gender: g === "GIRLS" ? "FEMALE" : "MALE" } } : undefined}

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireRafiqUser } from "@/lib/rafiq/session";
 import { getRafiqHomeLog } from "@/lib/rafiq/home-log";
 import { RafiqPractice } from "./RafiqPractice";
+import { mushafViewFor } from "@/lib/mushaf/enabled";
 import { prisma } from "@/lib/db";
 import { SimilarScope } from "../../SimilarScope";
 import { rafiqMarkDetails, rafiqMarkFlags } from "@/lib/rafiq/home-mistakes";
@@ -32,6 +33,8 @@ export default async function RafiqSegmentPage({ params }: PageProps<"/rafiq/hom
         groupGender={user.gender === "FEMALE" ? "GIRLS" : "BOYS"}
         actions={{ tap: tapAction, undoTap: undoTapAction, finish: finishSegmentAction, remove: deleteSegmentAction }}
         listHref="/rafiq/home-log"
+        mushaf={mushafViewFor(user.email)}
+        mushafFeminine={user.gender === "FEMALE"}
         initialFlags={await rafiqMarkFlags(user.id, segment.surahNumber, segment.fromAyah, segment.toAyah)}
         mark={markWordAction}
         {...(guide

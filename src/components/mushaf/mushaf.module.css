@@ -229,3 +229,52 @@
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
+
+/* the practice page: an ayah-end glyph is a button to that ayah's counters */
+.endBtn {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  line-height: inherit;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.endBtn:focus-visible {
+  outline: 2px solid var(--rose-deep);
+  outline-offset: 1px;
+}
+
+/* …under the page: one row per ayah with its counters */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  scroll-margin: 80px;
+}
+
+.row:focus {
+  outline: 2px solid var(--rose-deep);
+  outline-offset: 1px;
+}
+
+.rowNum {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--rose-deep);
+  min-width: 4.5em;
+}

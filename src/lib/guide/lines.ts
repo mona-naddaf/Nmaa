@@ -93,6 +93,8 @@ export type IntroFacts = {
   excuse?: boolean;
   // «صفحتي»: commitmentChosen
   commitSet?: boolean;
+  // «التظليل» reaches her (HIGHLIGHT_EMAILS)
+  highlight?: boolean;
 };
 
 /** Every account has commitment days (every day by default): hers count as set once she saved them or logged a session. */
@@ -119,11 +121,13 @@ export function introsFor(page: GuidePage, f: IntroFacts): IntroId[] {
   if (page === "home") {
     on.mutashabihat = f.flaggerOpen === true && !f.features.similar;
     on.tajweed = f.flaggerOpen === true && !f.features.tajweed && f.flaggedWords === true;
+    on.highlight = f.flaggerOpen === true && f.highlight === true;
     on.review = !f.features.review && f.completedSurah === true;
     on.goal = (f.sessions ?? 0) >= 3 && f.goal === false;
     on.excuse = f.excuse === false && f.commitSet === true;
   } else if (page === "segment") {
     on.mutashabihat = !f.features.similar;
+    on.highlight = f.highlight === true;
     on.verseNotes = true;
   } else if (page === "tracker") {
     const items = f.trackerItems ?? 0;

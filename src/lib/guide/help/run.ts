@@ -24,8 +24,13 @@ export function holds(cond: HelpCond, facts: HelpFacts): boolean {
       return facts.founder;
     case "noPlan":
       return !facts.plan;
+    case "highlight":
+      return facts.highlight === true;
   }
 }
+
+/** A page's questions for her: the ones whose condition holds. */
+export const questionsFor = <Q extends { when?: HelpCond }>(questions: Q[], facts: HelpFacts): Q[] => questions.filter((q) => !q.when || holds(q.when, facts));
 
 const featureOn = (f: EnableFeature, facts: HelpFacts) => (f === "excuse" ? facts.excuse === true : facts.features[f]);
 

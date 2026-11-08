@@ -43,6 +43,9 @@ export const GUIDE_TARGETS = [
   "practice.finish",
   "practice.delete",
   "practice.back",
+  // «التظليل» (its bar above the verses, both pages)
+  "highlight.button",
+  "highlight.chip",
   // «جدول المتابعة» and «المحصّلات»
   "tracker.menu",
   "tracker.menu.items",

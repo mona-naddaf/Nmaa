@@ -177,3 +177,21 @@ test("HIGHLIGHT_EMAILS: unset or empty = nobody, «*» = everyone, else the list
     else process.env.HIGHLIGHT_EMAILS = before;
   }
 });
+
+test("the guide: the intro line and the «؟» question only where «التظليل» reaches her", async () => {
+  const { introsFor } = await import("@/lib/guide/lines");
+  const { questionsFor } = await import("@/lib/guide/help/run");
+  const { RAFIQ_HELP } = await import("@/lib/guide/help/rafiq/index");
+  const features = { agenda: false, summary: false, similar: true, tajweed: true, review: false };
+  assert.ok(introsFor("segment", { features, city: false, highlight: true }).includes("highlight"));
+  assert.ok(!introsFor("segment", { features, city: false }).includes("highlight"));
+  assert.ok(introsFor("home", { features, city: false, flaggerOpen: true, highlight: true }).includes("highlight"));
+  assert.ok(!introsFor("home", { features, city: false, flaggerOpen: false, highlight: true }).includes("highlight"));
+  const facts = { features, city: false, plan: true, founder: false };
+  for (const page of ["home", "segment"] as const) {
+    const qs = RAFIQ_HELP[page]!.questions;
+    const q = "كيف أظلّل مقطعًا؟";
+    assert.ok(questionsFor(qs, { ...facts, highlight: true }).some((x) => x.q === q), page);
+    assert.ok(!questionsFor(qs, facts).some((x) => x.q === q), page);
+  }
+});

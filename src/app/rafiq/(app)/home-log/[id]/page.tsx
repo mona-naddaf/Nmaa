@@ -40,7 +40,7 @@ export default async function RafiqSegmentPage({ params }: PageProps<"/rafiq/hom
         initialFlags={await rafiqMarkFlags(user.id, segment.surahNumber, segment.fromAyah, segment.toAyah)}
         mark={markWordAction}
         {...(guide
-          ? { beforeAyat: <IntroLine candidates={introsFor("segment", { features: guide.facts.features, city: guide.facts.city })} here={["mutashabihat", "verseNotes"]} /> }
+          ? { beforeAyat: <IntroLine candidates={introsFor("segment", { features: guide.facts.features, city: guide.facts.city, highlight: guide.facts.highlight })} here={["mutashabihat", "highlight", "verseNotes"]} /> }
           : {})}
         // «أخطاء التجويد المفصّلة» (her setting): letters and gaps too
         detail={

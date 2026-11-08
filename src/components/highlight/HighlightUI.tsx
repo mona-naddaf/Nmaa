@@ -4,6 +4,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSPropert
 import { createPortal } from "react-dom";
 import styles from "./highlight.module.css";
 import { LeaveGuard } from "@/components/leave-guard/LeaveGuard";
+import { useGuideTarget } from "@/components/guide/targets";
 import { HIGHLIGHT_COLOR_KEYS, HIGHLIGHT_COLORS, DEFAULT_HIGHLIGHT_COLOR, type HighlightColor } from "@/lib/highlight/colors";
 import { covers, MAX_COLOR_NAME, MAX_HIGHLIGHT_COLORS, type HighlightRow } from "@/lib/highlight/rules";
 import { colorName } from "@/lib/highlight/texts";
@@ -29,6 +30,7 @@ export const pendingWordClass = styles.pendingWord;
 /** The bar above the verses: «تظليل», and in highlight mode the colour chip, the hint and the panel. */
 export function HighlightBar({ hl }: { hl: Highlights }) {
   const [panel, setPanel] = useState(false);
+  const g = useGuideTarget();
   if (!hl.on) return null;
   const { t } = hl;
   const current = hl.palette.find((p) => p.color === hl.color) ?? hl.palette[0];
@@ -40,6 +42,7 @@ export function HighlightBar({ hl }: { hl: Highlights }) {
           className={styles.btn}
           aria-pressed={hl.mode}
           aria-label={hl.mode ? t.buttonOn : t.buttonAria}
+          {...g("highlight.button")}
           onClick={() => {
             setPanel(false);
             hl.toggleMode();
@@ -49,7 +52,7 @@ export function HighlightBar({ hl }: { hl: Highlights }) {
         </button>
       )}
       {hl.mode && (
-        <button type="button" className={styles.chip} aria-expanded={panel} aria-label={t.chipAria(colorName(current))} onClick={() => setPanel(!panel)}>
+        <button type="button" className={styles.chip} aria-expanded={panel} aria-label={t.chipAria(colorName(current))} onClick={() => setPanel(!panel)} {...g("highlight.chip")}>
           <span className={styles.dot} style={{ background: HIGHLIGHT_COLORS[current.color].swatch }} aria-hidden />
           <span className={styles.chipName}>{colorName(current)}</span>
           <span aria-hidden>▾</span>

@@ -37,10 +37,12 @@ export type HelpFacts = {
   founder: boolean;
   // «أيام العذر» on or off; left out for anyone it isn't for (never false for them)
   excuse?: boolean;
+  // «التظليل» reaches her (HIGHLIGHT_EMAILS); left out otherwise
+  highlight?: boolean;
 };
 
 /** A condition on her facts: a step shows only when it holds, or an alternative replaces it. */
-export type HelpCond = "agenda" | "founder" | "noPlan";
+export type HelpCond = "agenda" | "founder" | "noPlan" | "highlight";
 
 export type HelpStep<T extends string = string, P extends string = string> = {
   text: string;
@@ -81,6 +83,8 @@ export type HelpQuestion<T extends string = string, P extends string = string> =
   more?: boolean;
   // with this feature off: this sentence and «تفعيل الآن» in place of the steps
   offer?: { feature: EnableFeature; text: string };
+  // the question is listed only when this holds
+  when?: HelpCond;
 };
 
 export type HelpPage<T extends string = string, P extends string = string> = {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { genderText } from "@/lib/guide/help/text";
-import { isTap, panelShows, splitQuestions, stepsFor, tourFor } from "@/lib/guide/help/run";
+import { isTap, panelShows, questionsFor, splitQuestions, stepsFor, tourFor } from "@/lib/guide/help/run";
 import type { EnableFeature, HelpQuestion, HelpStep } from "@/lib/guide/help/types";
 import type { HelpHost } from "./host";
 import { useHelpAvoidState, type HelpAvoid } from "./help-avoid";
@@ -168,7 +168,7 @@ function Panel<T extends string, P extends string>({
   const closeRef = useRef<HTMLButtonElement>(null);
   const [openQ, setOpenQ] = useState<number | null>(null);
   const [more, setMore] = useState(false);
-  const { visible, more: rest } = splitQuestions(page.questions);
+  const { visible, more: rest } = splitQuestions(questionsFor(page.questions, host.facts));
   const phone = usePhone();
   const [folded, setFolded] = useState(false);
   const collapsed = preview && phone && folded;

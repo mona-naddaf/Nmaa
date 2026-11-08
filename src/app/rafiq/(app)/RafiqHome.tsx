@@ -124,6 +124,7 @@ export function RafiqHome({
           goal: data.goal !== null,
           excuse: guided.facts.excuse,
           commitSet: guide.commitSet,
+          highlight: guided.facts.highlight,
         })
       : [];
   // surahs overdue for review, on her own today
@@ -376,7 +377,7 @@ export function RafiqHome({
               afterAyah={can.ownExtras ? (a) => <VerseNoteMarker surah={surahNumber} ayah={a} /> : undefined}
               belowPage={can.ownExtras ? <VerseNotesStrip surah={surahNumber} fromAyah={fromAyah} toAyah={toAyah} /> : undefined}
               detail={tajweed ? { enabled: true, flags: entry.detailFlags, onChange: entry.setDetailFlags } : undefined}
-              {...(guide ? { onOpenChange: setFlaggerOpen, inside: <IntroLine candidates={intros} here={["mutashabihat", "tajweed"]} /> } : {})}
+              {...(guide ? { onOpenChange: setFlaggerOpen, inside: <IntroLine candidates={intros} here={["mutashabihat", "tajweed", "highlight"]} /> } : {})}
               mushaf={mushaf}
               highlight={highlight}
               mushafFeminine={gender === "FEMALE"}

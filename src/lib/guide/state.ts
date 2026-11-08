@@ -1,3 +1,4 @@
+import { highlightAllowed } from "@/lib/highlight/enabled";
 import "server-only";
 import { cache } from "react";
 import { prisma } from "@/lib/db";
@@ -76,6 +77,7 @@ export const getGuide = cache(async (): Promise<GuideSnapshot | null> => {
       city: row.prayerLat !== null,
       plan: row.planTemplate !== null,
       founder: ((row as { _count?: { foundedFamilies: number } })._count?.foundedFamilies ?? 0) > 0,
+      ...(highlightAllowed(row.email) ? { highlight: true } : {}),
       ...parts.facts,
     },
   };

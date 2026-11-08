@@ -334,7 +334,8 @@ export function SegmentPractice({
                   marking && !hl.mode
                     ? (key, glyph, span) => {
                         const { ayah, word } = parseKey(key);
-                        const parts = ayahParts(ayahProps(ayah, ayahs));
+                        // (the page draws the bands itself)
+                        const parts = ayahParts({ ...ayahProps(ayah, ayahs), bands: undefined });
                         const w = parts.split.words[word - 1];
                         return w ? parts.renderWord(w, { node: glyph, span }) : glyph;
                       }

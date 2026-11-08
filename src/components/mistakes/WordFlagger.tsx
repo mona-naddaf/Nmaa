@@ -220,7 +220,8 @@ export function WordFlagger({
   });
 
   // the Mushaf page asks for each word: its ayah's pieces (one split of one ayah, cheap)
-  const partsOf = (ayah: number, text: string[]) => ayahParts(ayahProps(ayah, text));
+  // (its bands are the page's own, drawn by MushafPages)
+  const partsOf = (ayah: number, text: string[]) => ayahParts({ ...ayahProps(ayah, text), bands: undefined });
 
   /** The old view («نص كبير», and a Mushaf page that couldn't be drawn). */
   const textView = (from: number, to: number, text: string[]) =>

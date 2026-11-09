@@ -111,7 +111,7 @@ function ColorPanel({ hl, onPicked }: { hl: Highlights; onPicked: () => void }) 
           </div>
         ))}
       </div>
-      {hl.palette.length < MAX_HIGHLIGHT_COLORS ? (
+      {hl.palette.length < MAX_HIGHLIGHT_COLORS && unused.length > 0 ? (
         adding ? (
           <div>
             <div className={styles.note}>{t.pickNew}</div>

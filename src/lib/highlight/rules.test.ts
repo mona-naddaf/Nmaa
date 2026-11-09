@@ -11,6 +11,7 @@ import {
   cleanColorName,
   covers,
   MAX_HIGHLIGHTS,
+  MAX_HIGHLIGHT_COLORS,
   overlaps,
   paletteOf,
   rangeOf,
@@ -120,8 +121,10 @@ test("cleanColorName: trimmed, at most 30 characters, empty = no name", () => {
   assert.equal(cleanColorName(5), null);
 });
 
-test("colours: six fixed keys, the default among them, no raw colour accepted", () => {
-  assert.equal(HIGHLIGHT_COLOR_KEYS.length, 6);
+test("colours: five fixed keys (no sand), the default among them, no raw colour accepted", () => {
+  assert.equal(HIGHLIGHT_COLOR_KEYS.length, 5);
+  assert.equal(HIGHLIGHT_COLOR_KEYS.length, MAX_HIGHLIGHT_COLORS);
+  assert.ok(!isHighlightColor("sand"));
   assert.ok(isHighlightColor(DEFAULT_HIGHLIGHT_COLOR));
   assert.ok(!isHighlightColor("#ff0000"));
   assert.ok(!isHighlightColor("constructor"));

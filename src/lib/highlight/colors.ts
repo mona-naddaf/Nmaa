@@ -9,7 +9,6 @@ export const HIGHLIGHT_COLORS = {
   sky: { label: "سماوي", band: "#cfe2f6", swatch: "#9cc3ea" },
   lavender: { label: "خزامى", band: "#e3d9f4", swatch: "#bba6e3" },
   pink: { label: "وردي", band: "#f8d5e2", swatch: "#eca6c1" },
-  sand: { label: "رملي", band: "#eedcb8", swatch: "#d8bb83" },
   aqua: { label: "فيروزي", band: "#c8ecea", swatch: "#86d0cb" },
 } as const;
 

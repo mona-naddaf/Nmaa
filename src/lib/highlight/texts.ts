@@ -15,7 +15,7 @@ export function highlightTexts(g: G) {
     buttonAria: "تظليل مقطع من الآيات",
     hintFirst: `${pick(g, "اضغطي", "اضغط")} أول كلمة في المقطع.`,
     hintLast: `${pick(g, "اضغطي", "اضغط")} آخر كلمة في المقطع، أو الكلمة نفسها لتظليلها وحدها.`,
-    outside: "هذه الكلمة خارج الآيات المعروضة هنا.",
+    outside: `${pick(g, "اختاري", "اختر")} كلمة من الآيات الواضحة.`,
     problem: {
       invalid: "تعذّر تحديد هذا المقطع.",
       ayat: `التظليل حتى ${MAX_HIGHLIGHT_AYAT} آيات. ${pick(g, "اختاري", "اختر")} كلمة أقرب، ثم ${pick(g, "ظلّلي", "ظلّل")} الباقي في تظليل جديد.`,
@@ -30,7 +30,7 @@ export function highlightTexts(g: G) {
     menuChangeColor: "تغيير اللون",
     menuRemove: "إزالة التظليل",
     lockedBy: (name: string | null) => (name ? `🔒 من ${name}` : "🔒 من أحد البالغين"),
-    lockedNote: "لا يمكن تغييره أو إزالته من هنا.",
+    lockedNote: `${pick(g, "لا يمكنكِ", "لا يمكنك")} تغييره أو إزالته.`,
     // the undo toast
     removed: "أُزيل التظليل.",
     colorRemoved: (defaultName: string) => `أُزيل اللون، وصارت تظليلاته بلون «${defaultName}».`,

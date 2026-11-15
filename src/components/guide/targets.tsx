@@ -17,6 +17,11 @@ export function GuideTargets({ on, children }: { on: TargetsOn; children: React.
   return <On.Provider value={on}>{children}</On.Provider>;
 }
 
+/** Whether every name is on here (the family guide's pages): what may offer «أرِني» of its own. */
+export function useGuideNamesOn(): boolean {
+  return useContext(On) === true;
+}
+
 /**
  * `{...t("record.save")}` on an element: data-guide while on, nothing at all
  * otherwise. An element can carry more than one name (`t("templates.card",

@@ -9,6 +9,7 @@ import { ACCOUNT_LIMITS } from "@/lib/rafiq/rules";
 import { FAMILY_LIMITS } from "@/lib/family/rules";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
 import { createFamilyAction, joinFamilyAction, type FamilyState } from "./actions";
+import { useGuideTarget } from "@/components/guide/targets";
 
 type P = (m: string, f: string) => string;
 
@@ -47,13 +48,14 @@ function Shell({ title, intro, children }: { title: string; intro: string; child
 export function CreateFamilyForm({ gender, needsName }: { gender: PersonGender; needsName: boolean }) {
   const p: P = (m, f) => pickByPerson(gender, { m, f });
   const [state, action, pending] = useActionState<FamilyState, FormData>(createFamilyAction, null);
+  const t = useGuideTarget();
   return (
     <Shell
       title="إنشاء عائلة"
       intro={`${p("ستكون", "ستكونين")} ${p("مؤسِّس", "مؤسِّسة")} العائلة: ${p("تدعو", "تدعين")} البالغين برمز دعوة، ${p("وتحدّد", "وتحدّدين")} من يستطيع تعديل بيانات الأطفال.`}
     >
       <form action={action}>
-        <div className={styles.formField}>
+        <div className={styles.formField} {...t("family.newName")}>
           <label className={styles.fieldLabel} htmlFor="name">
             اسم العائلة
           </label>
@@ -72,13 +74,14 @@ export function CreateFamilyForm({ gender, needsName }: { gender: PersonGender; 
 export function JoinFamilyForm({ gender, needsName, code }: { gender: PersonGender; needsName: boolean; code: string }) {
   const p: P = (m, f) => pickByPerson(gender, { m, f });
   const [state, action, pending] = useActionState<FamilyState, FormData>(joinFamilyAction, null);
+  const t = useGuideTarget();
   return (
     <Shell
       title="الانضمام إلى عائلة"
       intro={`${p("أدخل", "أدخلي")} رمز الدعوة الذي ${p("وصلك", "وصلكِ")} من مؤسِّس العائلة. ${p("ستنضمّ", "ستنضمّين")} ${p("مشاهدًا", "مشاهِدةً")} لبيانات الأطفال، ولا يظهر من بياناتك شيء للعائلة إلا ما ${p("تختار", "تختارين")} مشاركته.`}
     >
       <form action={action}>
-        <div className={styles.formField}>
+        <div className={styles.formField} {...t("family.joinCode")}>
           <label className={styles.fieldLabel} htmlFor="code">
             رمز الدعوة
           </label>

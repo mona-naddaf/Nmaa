@@ -13,6 +13,7 @@ import { GoalLine } from "@/components/goal/GoalLine";
 import type { DashboardData, DashCard } from "@/lib/family/dashboard-build";
 import { nextFamilyItem } from "@/lib/family/calendar-rules";
 import type { FamilyCalendarData } from "@/lib/family/calendar";
+import { useGuideTarget } from "@/components/guide/targets";
 
 // «عائلتي» (step 5): one card per child, then one per adult who shares —
 // each showing only what it carries (src/lib/family/dashboard-build.ts).
@@ -37,13 +38,14 @@ export function FamilyDashboard({
   calendarHref?: string;
 }) {
   const today = useToday();
+  const guide = useGuideTarget();
   const childTitle = viewer === "adult" ? "الأطفال" : "إخوتك";
   const next = today && upcoming ? nextFamilyItem(today, upcoming.enabledOccasions, upcoming.adjustments, upcoming.events) : null;
   return (
     <>
       {/* the family calendar: its nearest item when one comes within 30 days, else just the link */}
       {calendarHref && (
-        <Link href={calendarHref} className={hl.section} style={{ display: "block", textDecoration: "none", color: "var(--ink)", fontSize: 14 }}>
+        <Link href={calendarHref} className={hl.section} style={{ display: "block", textDecoration: "none", color: "var(--ink)", fontSize: 14 }} {...guide("family.calendarLink")}>
           {next ? (
             <>
               📅 القادم: <b>{next.title}</b> — {next.when} <span className={hl.muted}>· تقويم العائلة ←</span>

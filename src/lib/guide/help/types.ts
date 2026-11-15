@@ -23,8 +23,11 @@ export type StepKind = "look" | "press" | "save" | "leave";
 /** Features «تفعيل الآن» can turn on from inside a tour. */
 export type HelpFeature = "agenda" | "summary" | "similar" | "tajweed" | "review";
 
-/** What «تفعيل» can turn on: those, and «أيام العذر», which only some accounts have. */
-export type EnableFeature = HelpFeature | "excuse";
+/** A child's switches an adult with edit rights can turn on from her pages («العائلة»), beyond those. */
+export type FamilyFeature = "streak" | "goal" | "homeLog";
+
+/** What «تفعيل» can turn on: those, «أيام العذر», which only some accounts have, and a child's switches. */
+export type EnableFeature = HelpFeature | "excuse" | FamilyFeature;
 
 /** What she has, as far as a tour needs to know. */
 export type HelpFacts = {
@@ -85,6 +88,9 @@ export type HelpQuestion<T extends string = string, P extends string = string> =
   offer?: { feature: EnableFeature; text: string };
   // the question is listed only when this holds
   when?: HelpCond;
+  // this sentence alone in place of the steps, with no «أرِني» («العائلة»: a
+  // child's switch that is off, or an adult without edit rights)
+  locked?: string;
 };
 
 export type HelpPage<T extends string = string, P extends string = string> = {

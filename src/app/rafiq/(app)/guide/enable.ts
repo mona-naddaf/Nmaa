@@ -15,7 +15,8 @@ import {
 
 type SettingsAction = (prev: null, formData: FormData) => Promise<{ error?: string } | null>;
 
-const SWITCH: Record<EnableFeature, [SettingsAction, Record<string, string>]> = {
+// a child's own switches («العائلة») have their own action (family/guide-actions.ts)
+const SWITCH: Partial<Record<EnableFeature, [SettingsAction, Record<string, string>]>> = {
   agenda: [setAgendaEnabledAction, { on: "1" }],
   summary: [setSummaryEnabledAction, { on: "1" }],
   similar: [setMutashabihatEnabledAction, { on: "1" }],
@@ -26,7 +27,9 @@ const SWITCH: Record<EnableFeature, [SettingsAction, Record<string, string>]> = 
 };
 
 export async function enableFeature(feature: EnableFeature): Promise<{ error?: string }> {
-  const [action, fields] = SWITCH[feature];
+  const entry = SWITCH[feature];
+  if (!entry) return { error: "هذه الخدمة غير متاحة حاليًا" };
+  const [action, fields] = entry;
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   const r = await action(null, fd);

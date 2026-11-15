@@ -10,6 +10,7 @@ import styles from "../../rafiq.module.css";
 import f from "./family.module.css";
 import { targetAttr } from "@/lib/guide/help/targets";
 import { guideEnabled } from "@/lib/guide/enabled";
+import { adultFamilyGuide } from "@/lib/family/guide";
 
 // «عائلاتي»: the families she belongs to, and creating or joining one. With
 // exactly one family she goes straight to it (?list=1 shows this page anyway,
@@ -22,6 +23,8 @@ export default async function FamiliesPage({ searchParams }: PageProps<"/rafiq/f
   if (families.length === 1 && list !== "1") redirect(`/rafiq/family/${families[0].id}`);
   const p = (m: string, fem: string) => pickByPerson(user.gender, { m, f: fem });
   const full = families.length >= FAMILY_LIMITS.familiesPerAdult;
+  // «العائلة»'s guide (FAMILY_GUIDE_EMAILS): «أرِني» lights these two
+  const guided = !!(await adultFamilyGuide());
 
   return (
     <div className={styles.settingsGrid}>
@@ -69,10 +72,10 @@ export default async function FamiliesPage({ searchParams }: PageProps<"/rafiq/f
         </p>
       ) : (
         <div className={hl.actionsRow}>
-          <Link href="/rafiq/family/new" className={hl.primaryBtn} style={{ textDecoration: "none" }}>
+          <Link href="/rafiq/family/new" className={hl.primaryBtn} style={{ textDecoration: "none" }} {...targetAttr("family.create", guided)}>
             + إنشاء عائلة
           </Link>
-          <Link href="/rafiq/family/join" className={hl.ghostBtn} style={{ textDecoration: "none" }}>
+          <Link href="/rafiq/family/join" className={hl.ghostBtn} style={{ textDecoration: "none" }} {...targetAttr("family.join", guided)}>
             الانضمام إلى عائلة
           </Link>
         </div>

@@ -17,7 +17,8 @@ import { FamilyDashboard } from "@/components/family/FamilyDashboard";
 import type { DashboardData } from "@/lib/family/dashboard-build";
 import type { FamilyCalendarData } from "@/lib/family/calendar";
 import { pickByPerson, type PersonGender } from "@/lib/text/gender";
-import { useGuideTarget } from "@/components/guide/targets";
+import { useGuideNamesOn, useGuideTarget } from "@/components/guide/targets";
+import { requestTour } from "@/components/guide/tour-request";
 import {
   createChildAction,
   createInviteAction,
@@ -62,6 +63,7 @@ function useFamilyAction() {
 export function FamilyView({ view, gender, dashboard, upcoming }: { view: View; gender: PersonGender; dashboard: DashboardData | null; upcoming: FamilyCalendarData }) {
   const p: P = (m, fem) => pickByPerson(gender, { m, f: fem });
   const me = view.members.find((m) => m.isMe);
+  const guide = useGuideTarget();
   return (
     <div className={styles.settingsGrid}>
       <div className={f.head}>
@@ -84,7 +86,7 @@ export function FamilyView({ view, gender, dashboard, upcoming }: { view: View; 
         <FamilyDashboard data={dashboard} viewer="adult" upcoming={upcoming} calendarHref={`/rafiq/family/${view.id}/calendar`} />
       ) : (
         <div style={{ margin: "0 0 12px" }}>
-          <Link href={`/rafiq/family/${view.id}/calendar`} className={hl.linkBtn}>
+          <Link href={`/rafiq/family/${view.id}/calendar`} className={hl.linkBtn} {...guide("family.calendarLink")}>
             📅 تقويم العائلة ←
           </Link>
         </div>
@@ -96,7 +98,7 @@ export function FamilyView({ view, gender, dashboard, upcoming }: { view: View; 
 
       <Children view={view} p={p} />
       {view.canEditChildren && view.children.length > 0 && (
-        <div className={hl.section}>
+        <div className={hl.section} {...guide("family.city")}>
           <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
             المدينة (لمواقيت الصلاة)
           </div>
@@ -122,12 +124,22 @@ export function FamilyView({ view, gender, dashboard, upcoming }: { view: View; 
 
 /** «ابدأ من هنا»: for whoever may add children, until the family has one. */
 function FirstSteps({ view, p }: { view: View; p: P }) {
+  // the family guide (FAMILY_GUIDE_EMAILS): «أرِني» on adding a child runs «كيف أضيف طفلًا؟»
+  const guided = useGuideNamesOn();
   const steps: [boolean, ReactNode][] = [
     [true, "إنشاء العائلة"],
     [
       false,
       <>
         إضافة طفل من قسم <a href="#children">«الأطفال»</a> أدناه
+        {guided && (
+          <>
+            {" "}
+            <button type="button" className={hl.linkBtn} onClick={(e) => requestTour({ page: "f.family", question: "كيف أضيف طفلًا؟", from: e.currentTarget })}>
+              أرِني
+            </button>
+          </>
+        )}
       </>,
     ],
     [false, "إعطاؤه رمز الدخول: يدخل به من بطاقة «العائلة» في الصفحة الرئيسية باسمه ورمزه"],
@@ -160,8 +172,9 @@ function Sharing({ view, p }: { view: View; p: P }) {
   const progress = useOptimisticToggle(view.myShare.progress, "تعذّر حفظ المشاركة، يُرجى المحاولة مرة أخرى");
   const tracker = useOptimisticToggle(view.myShare.tracker, "تعذّر حفظ المشاركة، يُرجى المحاولة مرة أخرى");
   const siblings = useOptimisticToggle(view.siblingsVisible, "تعذّر حفظ الإعداد، يُرجى المحاولة مرة أخرى");
+  const t = useGuideTarget();
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...t("family.sharing")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         مشاركتي مع العائلة
       </div>
@@ -203,8 +216,9 @@ function Sharing({ view, p }: { view: View; p: P }) {
 // ---------- adults ----------
 
 function Adults({ view, p }: { view: View; p: P }) {
+  const t = useGuideTarget();
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...t("family.adults")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 10px" }}>
         البالغون ({view.members.length} من {FAMILY_LIMITS.adultsPerFamily})
       </div>
@@ -327,8 +341,9 @@ function useOptimisticToggle(saved: boolean, failMessage: string) {
 
 function Children({ view, p }: { view: View; p: P }) {
   const full = view.children.length >= FAMILY_LIMITS.childrenPerFamily;
+  const t = useGuideTarget();
   return (
-    <div className={hl.section} id="children">
+    <div className={hl.section} id="children" {...t("family.children")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 10px" }}>
         الأطفال ({view.children.length} من {FAMILY_LIMITS.childrenPerFamily})
       </div>
@@ -356,6 +371,7 @@ function Children({ view, p }: { view: View; p: P }) {
 function AddChild({ familyId, p }: { familyId: string; p: P }) {
   const [state, action, pending] = useActionState<FamilyState, FormData>(createChildAction, null);
   const [open, setOpen] = useState(false);
+  const t = useGuideTarget();
   // the form closes once the child is added (it stays open, with the message, on an error)
   const [seen, setSeen] = useState(state);
   if (seen !== state) {
@@ -377,14 +393,14 @@ function AddChild({ familyId, p }: { familyId: string; p: P }) {
             </Link>
           </p>
         )}
-        <button type="button" className={hl.primaryBtn} onClick={() => setOpen(true)}>
+        <button type="button" className={hl.primaryBtn} onClick={() => setOpen(true)} {...t("family.addChild")}>
           + إضافة طفل
         </button>
       </>
     );
   }
   return (
-    <form action={action} className={f.confirm}>
+    <form action={action} className={f.confirm} {...t("family.childForm")}>
       <input type="hidden" name="familyId" value={familyId} />
       <div className={styles.formField} style={{ margin: 0 }}>
         <label className={styles.fieldLabel} htmlFor="child-name">
@@ -421,6 +437,7 @@ function ChildRow({ familyId, c, canEdit, p }: { familyId: string; c: ChildView;
   const [confirm, setConfirm] = useState<"code" | "stop" | "delete" | null>(null);
   const [word, setWord] = useState("");
   const [copied, setCopied] = useState(false);
+  const t = useGuideTarget();
   const g = c.gender;
   const close = () => {
     setConfirm(null);
@@ -437,7 +454,7 @@ function ChildRow({ familyId, c, canEdit, p }: { familyId: string; c: ChildView;
       </div>
 
       {canEdit && (
-        <div className={f.rowActions}>
+        <div className={f.rowActions} {...t("family.childCode")}>
           {c.code ? (
             <>
               <span>رمز الدخول:</span>
@@ -541,8 +558,9 @@ function ChildRow({ familyId, c, canEdit, p }: { familyId: string; c: ChildView;
 function Invites({ view, p }: { view: View; p: P }) {
   const { pending, error, run } = useFamilyAction();
   const valid = view.invites.filter((i) => i.state === "valid").length;
+  const t = useGuideTarget();
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...t("family.invites")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         رموز الدعوة
       </div>
@@ -616,8 +634,9 @@ function Rename({ view }: { view: View }) {
   const { pending, error, run } = useFamilyAction();
   const [name, setName] = useState(view.name);
   const [saved, setSaved] = useState(false);
+  const t = useGuideTarget();
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...t("family.rename")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         اسم العائلة
       </div>
@@ -650,8 +669,9 @@ function Rename({ view }: { view: View }) {
 function Leave({ view, p }: { view: View; p: P }) {
   const { pending, error, run } = useFamilyAction();
   const [open, setOpen] = useState(false);
+  const t = useGuideTarget();
   return (
-    <div className={hl.section}>
+    <div className={hl.section} {...t("family.leave")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         مغادرة العائلة
       </div>

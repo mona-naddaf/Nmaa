@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { GuideLink } from "@/components/guide/GuideLink";
 import { redirect } from "next/navigation";
 import { requireFamilyChild } from "@/lib/family/child-session";
 import { childFlags } from "@/lib/family/child-pages";
@@ -13,9 +13,9 @@ export default async function ChildSummaryPage() {
     <div>
       <div className={hl.sectionTitle}>
         <span style={{ fontSize: 16, color: "var(--ink)" }}>📊 المحصّلات</span>
-        <Link href="/family/tracker" className={hl.linkBtn}>
+        <GuideLink href="/family/tracker" className={hl.linkBtn} name="summary.back">
           → جدول المتابعة
-        </Link>
+        </GuideLink>
       </div>
       <RafiqSummary g={child.gender === "FEMALE" ? "GIRLS" : "BOYS"} />
     </div>

@@ -15,6 +15,7 @@ import { setCommitDaysAction, setReviewRemindersAction } from "../../../../../se
 import { LeaveGuard, trackSave } from "@/components/leave-guard/LeaveGuard";
 import { SavedNote } from "@/components/nudge/SavedNote";
 import type { ChildExcuseCard } from "@/lib/excuse/family-data";
+import { useGuideTarget } from "@/components/guide/targets";
 import { CHILD_EXCUSE_LATER, CHILD_EXCUSE_VIEWERS_NOTE, childExcuseViewersTitle, childExcuseWhat, EXCUSE_SWITCH_OFF_NOTE, EXCUSE_TITLE, selfViewerHint, viewerYou } from "@/lib/excuse/texts";
 import { setChildExcuseAction, setExcuseViewerAction } from "../../../../excuse-actions";
 import { highlightSwitchTexts } from "@/lib/highlight/texts";
@@ -89,6 +90,8 @@ export function ChildSettings({
   highlightSwitch?: boolean;
 }) {
   const g = (m: string, fem: string) => (gender === "FEMALE" ? fem : m);
+  // named for «أرِني» only inside the family guide
+  const guide = useGuideTarget();
   const rows: Row[] = [
     { key: "homeLog", title: "حفظي في البيت", what: `${g("يسجّل", "تسجّل")} ${name} ما ${g("يحفظه", "تحفظه")} في البيت (سماع، تكرار، تسميع لأحد)، ويمكنكم إضافة المقاطع والتسجيل ${g("معه", "معها")}.` },
     { key: "homeMistakes", title: "تحديد أخطائي في البيت", what: `${g("يحدّد", "تحدّد")} ${name} الكلمات التي ${g("أخطأ", "أخطأت")} فيها أثناء التدريب في البيت، فتظهر في ${g("كلماته", "كلماتها")} التي تحتاج مراجعة.`, needs: "homeLog" },
@@ -110,7 +113,7 @@ export function ChildSettings({
           ? `كل الإعدادات متوقفة في البداية. إيقاف أي منها لاحقًا يخفيه فقط، ويبقى ما سُجّل فيه محفوظًا.`
           : "مشاهدة فقط — يمنح مؤسِّس العائلة صلاحية التعديل."}
       </p>
-      <div className={hl.section}>
+      <div className={hl.section} {...guide("childSettings.features")}>
         <div className={f.list}>
           {rows.map((r) => (
             <Switch key={r.key} row={r} childId={childId} saved={flags[r.key]} canEdit={canEdit} blockedBy={r.needs && !flags[r.needs] ? rows.find((x) => x.key === r.needs)?.title : undefined} />
@@ -152,8 +155,9 @@ function Switch({ row, childId, saved, canEdit, blockedBy }: { row: Row; childId
  */
 function Excuse({ childId, name, card, you, canEdit }: { childId: string; name: string; card: ChildExcuseCard; you: "MALE" | "FEMALE" | null; canEdit: boolean }) {
   const t = useOptimistic(card.on);
+  const guide = useGuideTarget();
   return (
-    <div className={f.row}>
+    <div className={f.row} {...guide("childSettings.excuse")}>
       <label className={f.check} style={{ fontWeight: 700 }}>
         <input
           type="checkbox"
@@ -218,8 +222,9 @@ function Reminders({ childId, name, g, days, canEdit }: { childId: string; name:
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
   const [pending, start] = useTransition();
+  const guide = useGuideTarget();
   return (
-    <div className={f.row} id="reminders">
+    <div className={f.row} id="reminders" {...guide("childSettings.review")}>
       <label className={f.check} style={{ fontWeight: 700 }}>
         <input type="checkbox" checked={t.on} disabled={!canEdit} onChange={(e) => t.set(e.target.checked, (on) => save(on, Number(value) || 7))} />
         تذكير المراجعة
@@ -279,8 +284,9 @@ function CommitDays({ childId, name, g, initial, canEdit }: { childId: string; n
   const [saved, setSaved] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const guide = useGuideTarget();
   return (
-    <div className={hl.section} id="commit">
+    <div className={hl.section} id="commit" {...guide("childSettings.commit")}>
       <div className={hl.sectionTitle} style={{ margin: "0 0 8px" }}>
         أيام الالتزام
       </div>

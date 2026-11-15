@@ -106,6 +106,31 @@ export const GUIDE_TARGETS = [
   // the «عائلتي» tab, and the card of a family she founded (the founder step)
   "nav.family",
   "family.card",
+  // «العائلة» (FAMILY_GUIDE_EMAILS): an adult's family pages, a child's pages
+  // as an adult sees them, and the child's own; named only inside the
+  // family guide's own <GuideTargets on>
+  "family.create",
+  "family.newName",
+  "family.join",
+  "family.joinCode",
+  "family.addChild",
+  "family.childForm",
+  "family.childCode",
+  "family.children",
+  "family.sharing",
+  "family.invites",
+  "family.adults",
+  "family.city",
+  "family.leave",
+  "family.rename",
+  "family.calendarLink",
+  "child.settingsTab",
+  "child.familyLink",
+  "childSettings.features",
+  "childSettings.commit",
+  "childSettings.review",
+  "childSettings.excuse",
+  "tracker.copy",
 ] as const;
 
 export type GuideTarget = (typeof GUIDE_TARGETS)[number];

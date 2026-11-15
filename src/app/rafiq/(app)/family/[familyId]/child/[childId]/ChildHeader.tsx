@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useGuideTarget } from "@/components/guide/targets";
 import hl from "@/components/home-log/home-log.module.css";
 import f from "../../../family.module.css";
 
@@ -26,6 +29,8 @@ export function ChildHeader({
   const p = (m: string, fem: string) => (you === "FEMALE" ? fem : m);
   const g = (m: string, fem: string) => (child.gender === "FEMALE" ? fem : m);
   const base = `/rafiq/family/${familyId}/child/${child.id}`;
+  // named for «أرِني» only inside the family guide
+  const guide = useGuideTarget();
   const tabs: { key: ChildPage; href: string; label: string }[] = [
     { key: "page", href: base, label: g("صفحته", "صفحتها") },
     { key: "tracker", href: `${base}/tracker`, label: "جدول المتابعة" },
@@ -39,7 +44,7 @@ export function ChildHeader({
         <span className={f.title}>
           {child.name} <span className={f.tag}>{g("ولد", "بنت")}</span>
         </span>
-        <Link href={`/rafiq/family/${familyId}`} className={f.back}>
+        <Link href={`/rafiq/family/${familyId}`} className={f.back} {...guide("child.familyLink")}>
           العائلة ←
         </Link>
       </div>
@@ -56,6 +61,7 @@ export function ChildHeader({
             className={on === t.key ? hl.primaryBtn : hl.ghostBtn}
             style={{ textDecoration: "none" }}
             aria-current={on === t.key ? "page" : undefined}
+            {...(t.key === "settings" ? guide("child.settingsTab") : undefined)}
           >
             {t.label}
           </Link>

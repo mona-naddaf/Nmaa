@@ -267,8 +267,8 @@ function Panel<T extends string, P extends string>({
     const isOpen = openQ === n;
     const bodyId = `${titleId}-q${n}`;
     const steps = stepsFor(q, host.facts);
-    const offer = q.offer && q.offer.feature !== enabledHere && panelShows(q, host.facts) === "offer" ? q.offer : null;
-    const showMe = q.showMe && !offer && (
+    const offer = !q.locked && q.offer && q.offer.feature !== enabledHere && panelShows(q, host.facts) === "offer" ? q.offer : null;
+    const showMe = q.showMe && !offer && !q.locked && (
       <button type="button" className={styles.primary} style={preview ? { marginBottom: 10 } : undefined} onClick={() => onShowMe(q)}>
         {host.texts.showMe}
       </button>
@@ -288,7 +288,9 @@ function Panel<T extends string, P extends string>({
         </button>
         <div id={bodyId} className={styles.qBody} hidden={!isOpen}>
           {preview && showMe}
-          {offer ? (
+          {q.locked ? (
+            <p className={styles.offerText}>{t(q.locked)}</p>
+          ) : offer ? (
             <>
               <p className={styles.offerText}>{t(offer.text)}</p>
               <button type="button" className={styles.primary} disabled={enabling} onClick={() => enable(offer.feature, n)}>

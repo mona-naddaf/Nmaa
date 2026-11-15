@@ -522,12 +522,13 @@ function CopyTracker({
   const { checked, toggle } = useChecks();
   const [problem, setProblem] = useState<string | null>(null);
   const label = own ? "نسخ جدولي إلى…" : "نسخ الجدول إلى…";
+  const t = useGuideTarget();
   return (
     <>
       <div className={hl.sectionTitle}>
         <span>{own ? "نسخ جدولي" : "نسخ الجدول"}</span>
         {!open && (
-          <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setOpen(true)}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} onClick={() => setOpen(true)} {...t("tracker.copy")}>
             {label}
           </button>
         )}

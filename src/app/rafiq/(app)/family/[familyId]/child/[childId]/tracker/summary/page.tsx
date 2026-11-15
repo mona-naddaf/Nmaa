@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { familyEnabled } from "@/lib/family/enabled";
 import { childForAdult } from "@/lib/family/child-pages";
 import hl from "@/components/home-log/home-log.module.css";
+import { GuideLink } from "@/components/guide/GuideLink";
 import { RafiqSummary } from "../../../../../../tracker/summary/RafiqSummary";
 import { ChildHeader } from "../../ChildHeader";
 
@@ -20,9 +20,9 @@ export default async function AdultChildSummaryPage({ params }: PageProps<"/rafi
       <ChildHeader familyId={access.family.id} child={child} canEdit={viewer === "adult-edit"} on="tracker" you={access.user.gender} homeLog={child.flags.homeLog} />
       <div className={hl.sectionTitle}>
         <span style={{ fontSize: 16, color: "var(--ink)" }}>📊 المحصّلات</span>
-        <Link href={`${base}/tracker`} className={hl.linkBtn}>
+        <GuideLink href={`${base}/tracker`} className={hl.linkBtn} name="summary.back">
           → جدول المتابعة
-        </Link>
+        </GuideLink>
       </div>
       <RafiqSummary g={child.gender === "FEMALE" ? "GIRLS" : "BOYS"} subjectId={child.id} />
     </>

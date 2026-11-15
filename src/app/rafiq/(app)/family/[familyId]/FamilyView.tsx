@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition, type ReactNode } from "react";
+import { useActionState, useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import hl from "@/components/home-log/home-log.module.css";
@@ -374,10 +374,16 @@ function AddChild({ familyId, p }: { familyId: string; p: P }) {
   const t = useGuideTarget();
   // the form closes once the child is added (it stays open, with the message, on an error)
   const [seen, setSeen] = useState(state);
+  const router = useRouter();
   if (seen !== state) {
     setSeen(state);
     if (state?.ok) setOpen(false);
   }
+  // the family guide: straight on to her start questions
+  const start = state?.start;
+  useEffect(() => {
+    if (start) router.push(start);
+  }, [start, router]);
   if (!open) {
     const c = state?.child;
     return (

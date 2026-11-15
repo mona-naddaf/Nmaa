@@ -18,6 +18,7 @@ import { CHILD_FEATURES, isChildFeature, type ChildFeature } from "@/lib/family/
 import { familyHighlightAllowed } from "@/lib/highlight/server";
 import { cleanFamilyName, FAMILY_LIMITS, inviteExpiry, inviteState } from "@/lib/family/rules";
 import { joinLimited, JOIN_TOO_MANY, recordJoinFailure } from "@/lib/family/limits";
+import { familyGuideOnFor } from "@/lib/family/guide";
 
 // «العائلة» step 2: creating and joining a family, invite رموز, and the
 // founder's management of the adults. Every action re-checks, from the
@@ -26,7 +27,8 @@ import { joinLimited, JOIN_TOO_MANY, recordJoinFailure } from "@/lib/family/limi
 // (src/lib/family/data.ts).
 
 // child: the one just added, for the next steps under the form (step 7)
-export type FamilyState = { error?: string; ok?: string; child?: { id: string; gender: "MALE" | "FEMALE" } } | null;
+// start: where her start questions are (the family guide, FAMILY_GUIDE_EMAILS): the form goes there
+export type FamilyState = { error?: string; ok?: string; child?: { id: string; gender: "MALE" | "FEMALE" }; start?: string } | null;
 
 const BAD_CODE = "رمز الدعوة غير صحيح أو انتهت صلاحيته";
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -90,6 +92,7 @@ export async function joinFamilyAction(_prev: FamilyState, formData: FormData): 
     return { error: BAD_CODE };
   }
 
+  const guidedJoin = await familyGuideOnFor(invite.familyId);
   const outcome = await prisma.$transaction(async (tx) => {
     // one join at a time per family, so the adults limit holds
     await tx.$queryRaw`SELECT id FROM "Family" WHERE id = ${invite.familyId} FOR UPDATE`;
@@ -105,6 +108,15 @@ export async function joinFamilyAction(_prev: FamilyState, formData: FormData): 
     if (who.save) await tx.rafiqUser.update({ where: { id: user.id }, data: { name: who.save } });
     // view only, nothing shared: the founder gives edit rights, she chooses what to share
     await tx.familyMember.create({ data: { familyId: invite.familyId, userId: user.id } });
+    // the family guide's welcome card on that family's page (FAMILY_GUIDE_EMAILS)
+    if (guidedJoin) {
+      const value = { f: invite.familyId };
+      await tx.guideState.upsert({
+        where: { rafiqUserId_key: { rafiqUserId: user.id, key: "family.joined" } },
+        create: { rafiqUserId: user.id, key: "family.joined", value },
+        update: { value },
+      });
+    }
     return { familyId: invite.familyId };
   });
   if ("error" in outcome) return { error: outcome.error };
@@ -250,6 +262,8 @@ export async function createChildAction(_prev: FamilyState, formData: FormData):
   if (!gender) return { error: "يُرجى اختيار: ولد أو بنت" };
   const code = await uniqueChildCode();
   const plan = templatePlan(CHILD_PLAN);
+  // the family guide reaches the family: she is «new» (start questions, welcome lines)
+  const guided = await familyGuideOnFor(access.family.id);
 
   const outcome = await prisma.$transaction(async (tx) => {
     // one at a time per family, so the children limit holds
@@ -268,13 +282,18 @@ export async function createChildAction(_prev: FamilyState, formData: FormData):
         childCodeCreatedAt: new Date(),
         planTemplate: CHILD_PLAN,
         planItems: { create: plan.map((surahNumber, position) => ({ surahNumber, position })) },
+        ...(guided ? { guideNewAt: new Date() } : {}),
       },
     });
     return { id: child.id };
   });
   if ("error" in outcome) return outcome;
   refresh(access.family.id);
-  return { ok: `تمت إضافة ${named.name} ✓`, child: { id: outcome.id, gender } };
+  return {
+    ok: `تمت إضافة ${named.name} ✓`,
+    child: { id: outcome.id, gender },
+    ...(guided ? { start: `/rafiq/family/${access.family.id}/child/${outcome.id}/start` } : {}),
+  };
 }
 
 /** A new login رمز for a child; whoever is signed in with the old one is signed out. */

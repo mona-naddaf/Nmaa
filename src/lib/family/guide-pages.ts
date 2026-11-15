@@ -12,7 +12,9 @@ import { FAMILY_PAGE_TITLE } from "@/lib/guide/help/family/pages";
 import { fillFamily, type FamilyWho } from "@/lib/guide/help/family/text";
 import type { FamilyHelpPage, FamilyPageId } from "@/lib/guide/help/family/types";
 import type { HelpFacts } from "@/lib/guide/help/types";
-import type { ChildGuidePage } from "@/lib/guide/family-keys";
+import { joinCardShows, startQuestionsLeft, type ChildGuidePage } from "@/lib/guide/family-keys";
+import { CHILD_START, startLeftLine } from "@/lib/guide/child-start-texts";
+import { FAMILY_JOIN } from "@/lib/guide/family-join-texts";
 import type { PersonGender } from "@/lib/text/gender";
 import { adultFamilyGuide, childGuideFacts, type ChildGuideFacts } from "./guide";
 
@@ -106,6 +108,8 @@ export type AdultChildGuideProps = {
   enabledText: string;
   settingsLabel: string;
   preview: boolean;
+  // S0.7, for an adult with edit rights while her start questions aren't finished (and the card isn't hidden); S0.6 after «إكمال الأسئلة لاحقًا»
+  start: { line: string; later: string; card: boolean } | null;
 };
 
 /** An adult on one child's pages: null when the guide doesn't reach the family. */
@@ -145,6 +149,14 @@ export async function adultChildGuideProps(
       enabledText: fillFamily(FAMILY_LINES.enabled, who),
       settingsLabel: fillFamily("إعدادات {name}", who),
       preview: guidePreviewAllowed(c.founderEmail),
+      start:
+        canEdit && c.isNew && !Object.hasOwn(c.states, "childStart.done")
+          ? {
+              line: fillFamily(startLeftLine(startQuestionsLeft(c.states)), who),
+              later: fillFamily(CHILD_START.laterNote, who),
+              card: !Object.hasOwn(c.states, "childStart.cardHidden"),
+            }
+          : null,
     },
   };
 }
@@ -155,6 +167,8 @@ export type FamilyPagesGuideProps = {
   list: Pages;
   titles: Record<FamilyPageId, string>;
   preview: boolean;
+  // J1–J3: the welcome card on a family's page she joined, until «فهمت» (setup: only without a plan of her own)
+  join: Record<string, { title: string; sub: string; setup: string | null; setupBtn: string }>;
 };
 
 /** An adult's own family pages: null when the guide reaches none of hers (nor her). */
@@ -168,11 +182,26 @@ export async function familyPagesGuideProps(email: string | null): Promise<Famil
     const who: FamilyWho = { family: f.name, founder: f.founder };
     families[f.id] = { "f.family": familyHelpPage(raw("f.family"), f.role, who), "f.calendar": familyHelpPage(raw("f.calendar"), f.role, who) };
   }
+  const joined = g.families.filter((f) => f.on && joinCardShows(g.states, f.id));
+  const join: FamilyPagesGuideProps["join"] = {};
+  if (joined.length) {
+    const me = await prisma.rafiqUser.findUnique({ where: { id: g.userId }, select: { planTemplate: true } });
+    for (const f of joined) {
+      const who: FamilyWho = { family: f.name, founder: f.founder };
+      join[f.id] = {
+        title: fillFamily(FAMILY_JOIN.title, who),
+        sub: fillFamily(FAMILY_JOIN.sub, who),
+        setup: me?.planTemplate == null ? fillFamily(FAMILY_JOIN.setup, who) : null,
+        setupBtn: fillFamily(FAMILY_JOIN.setupBtn, who),
+      };
+    }
+  }
   return {
     gender: g.gender,
     families,
     list: { "f.list": familyHelpPage(raw("f.list"), "view", {}) },
     titles: titlesFor({}),
     preview: guidePreviewAllowed(email),
+    join,
   };
 }

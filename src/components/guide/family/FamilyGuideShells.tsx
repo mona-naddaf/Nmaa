@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { Suspense, useCallback, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { GuideTargets } from "@/components/guide/targets";
 import { focusables } from "@/components/guide/focus";
 import { trackSave } from "@/components/leave-guard/LeaveGuard";
@@ -13,7 +14,9 @@ import type { PersonGender } from "@/lib/text/gender";
 import { childPageFor, familyPageFor } from "@/lib/guide/help/family/pages";
 import type { ChildGuideProps, AdultChildGuideProps, FamilyPagesGuideProps } from "@/lib/family/guide-pages";
 import { markChildWelcomeAction } from "@/app/family/guide-actions";
-import { enableChildFeatureAction } from "@/app/rafiq/(app)/family/guide-actions";
+import { enableChildFeatureAction, markChildStartAction, welcomeJoinAction } from "@/app/rafiq/(app)/family/guide-actions";
+import { resetGuideAction } from "@/app/rafiq/(app)/guide-actions";
+import { CHILD_START } from "@/lib/guide/child-start-texts";
 import styles from "@/app/rafiq/(app)/guide/lines.module.css";
 import { FamilyHelp } from "./FamilyHelp";
 
@@ -90,8 +93,14 @@ export function AdultChildGuideShell({ guide, children }: { guide: AdultChildGui
   const { childId, canEdit } = guide;
   const enable = useCallback((feature: EnableFeature) => enableChildFeatureAction(childId, feature), [childId]);
   const where = useMemo(() => ({ kind: "adult" as const, base: guide.base }), [guide.base]);
+  const pathname = usePathname();
   return (
     <GuideTargets on>
+      {guide.start && pathname === guide.base && (
+        <Suspense fallback={null}>
+          <StartCard childId={childId} base={guide.base} start={guide.start} gender={guide.gender} />
+        </Suspense>
+      )}
       {children}
       <FamilyHelp
         where={where}
@@ -107,6 +116,49 @@ export function AdultChildGuideShell({ guide, children }: { guide: AdultChildGui
   );
 }
 
+/** On the child's page, for an adult with edit rights: S0.6 after «إكمال الأسئلة لاحقًا», and S0.7, the rest of her start questions. */
+function StartCard({ childId, base, start, gender }: { childId: string; base: string; start: NonNullable<AdultChildGuideProps["start"]>; gender: PersonGender }) {
+  const later = useSearchParams().get("later") === "1";
+  const [hidden, setHidden] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const card = start.card && !hidden;
+  if (!later && !card) return null;
+
+  async function hide() {
+    setError(null);
+    setHidden(true);
+    const r = await trackSave(markChildStartAction(childId, "childStart.cardHidden")).catch(() => ({ error: "تعذّر الحفظ، يُرجى المحاولة مرة أخرى" }));
+    if (r.error) {
+      setHidden(false);
+      setError(r.error);
+    }
+  }
+
+  return (
+    <div className={styles.line} role={later ? "status" : undefined}>
+      {later && <p className={styles.lineText}>{genderText(start.later, gender)}</p>}
+      {card && (
+        <>
+          <p className={styles.lineText}>{genderText(start.line, gender)}</p>
+          <div className={styles.lineActions}>
+            <Link href={`${base}/start`} className={styles.btn}>
+              {CHILD_START.card.more}
+            </Link>
+            <button type="button" className={styles.ghost} onClick={hide}>
+              {CHILD_START.card.hide}
+            </button>
+          </div>
+        </>
+      )}
+      {error && (
+        <p className={styles.fail} role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** An adult's own family pages: «عائلاتي», creating and joining, a family's page and its calendar. */
 export function FamilyPagesGuideShell({ guide, children }: { guide: FamilyPagesGuideProps; children: React.ReactNode }) {
   const pathname = usePathname();
@@ -117,9 +169,74 @@ export function FamilyPagesGuideShell({ guide, children }: { guide: FamilyPagesG
   return (
     // elsewhere as the Rafiq provider names them (the founder step's card only)
     <GuideTargets on={named ? true : "family"}>
+      {at?.page === "f.family" && at.familyId && guide.join[at.familyId] && (
+        <JoinCard key={at.familyId} familyId={at.familyId} card={guide.join[at.familyId]} gender={guide.gender} />
+      )}
       {children}
       <FamilyHelp where={where} gender={guide.gender} titles={guide.titles} facts={FAMILY_FACTS} preview={guide.preview} />
     </GuideTargets>
+  );
+}
+
+/** J1–J3 on a family's page she joined: «فهمت» hides it for good; «جهّزي صفحتي» (no plan yet) also opens her start questions. */
+function JoinCard({ familyId, card, gender }: { familyId: string; card: FamilyPagesGuideProps["join"][string]; gender: PersonGender }) {
+  const router = useRouter();
+  const box = useRef<HTMLDivElement>(null);
+  const [hidden, setHidden] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (hidden) return null;
+  const failed = { error: "تعذّر الحفظ، يُرجى المحاولة مرة أخرى" };
+
+  async function gotIt() {
+    const after = box.current ? focusables(document.body).find((el) => box.current!.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING && !box.current!.contains(el)) : null;
+    setError(null);
+    setHidden(true);
+    after?.focus({ preventScroll: true });
+    const r = await trackSave(welcomeJoinAction(familyId)).catch(() => failed);
+    if (r.error) {
+      setHidden(false);
+      setError(r.error);
+    }
+  }
+
+  async function setup() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const r = await trackSave(resetGuideAction("wizard")).catch(() => failed);
+    if (r.error) {
+      setBusy(false);
+      setError(r.error);
+      return;
+    }
+    await welcomeJoinAction(familyId).catch(() => null);
+    router.push("/rafiq/start");
+  }
+
+  return (
+    <div ref={box} className={styles.line}>
+      <p className={styles.lineText}>
+        <b>{genderText(card.title, gender)}</b>
+      </p>
+      <p className={styles.lineText}>{genderText(card.sub, gender)}</p>
+      {card.setup && <p className={styles.lineText}>{genderText(card.setup, gender)}</p>}
+      <div className={styles.lineActions}>
+        {card.setup && (
+          <button type="button" className={styles.btn} onClick={setup} disabled={busy}>
+            {genderText(card.setupBtn, gender)}
+          </button>
+        )}
+        <button type="button" className={card.setup ? styles.ghost : styles.btn} onClick={gotIt}>
+          {GOT_IT}
+        </button>
+      </div>
+      {error && (
+        <p className={styles.fail} role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

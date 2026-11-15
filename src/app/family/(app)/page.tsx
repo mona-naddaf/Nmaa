@@ -10,6 +10,7 @@ import { resolveSubject } from "@/lib/rafiq/subject";
 import { homeExcuse, subjectExcuse } from "@/lib/excuse/subject";
 import { mushafForFamily } from "@/lib/mushaf/server";
 import { highlightOn } from "@/lib/highlight/server";
+import { childGuideFacts } from "@/lib/family/guide";
 
 // «صفحتي» of a child («العائلة»): the Rafiq page, as herself — her position
 // (and goal, with its switch), recording her own sessions (no word marks:
@@ -23,13 +24,15 @@ export default async function ChildHomePage() {
   const p = (m: string, f: string) => pickByPerson(child.gender, { m, f });
   // «أيام العذر»: a girl's own paused days, where it reaches her family
   const me = await resolveSubject(null, "view");
+  // a child the family guide treats as new has its «صفحتي» welcome line instead of this card
+  const guidedNew = (await childGuideFacts(child.id))?.isNew === true;
   const excuse = data && !("error" in me) ? await homeExcuse(child.id, await subjectExcuse(me), data, commitment) : {};
   return (
     <>
       <div className={hl.sectionTitle} style={{ margin: "0 4px 12px" }}>
         <span style={{ fontSize: 17, color: "var(--ink)" }}>أهلًا يا {child.name} 🌱</span>
       </div>
-      {data && data.loggedSessions === 0 && (await cookies()).get(WELCOME_SEEN_COOKIE)?.value !== child.id && (
+      {!guidedNew && data && data.loggedSessions === 0 && (await cookies()).get(WELCOME_SEEN_COOKIE)?.value !== child.id && (
         <ChildWelcome childId={child.id} gender={child.gender} />
       )}
       {data ? (

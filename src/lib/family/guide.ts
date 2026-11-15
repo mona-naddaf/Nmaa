@@ -70,7 +70,7 @@ export type ChildGuideFacts = {
 };
 
 /** A child's facts for her guide, or null when the guide doesn't reach her family. */
-export async function childGuideFacts(childId: string): Promise<ChildGuideFacts | null> {
+export const childGuideFacts = cache(async (childId: string): Promise<ChildGuideFacts | null> => {
   if (!familyGuideListed()) return null;
   const c = await prisma.rafiqUser.findUnique({
     where: { id: childId },
@@ -118,4 +118,4 @@ export async function childGuideFacts(childId: string): Promise<ChildGuideFacts 
     },
     highlight: highlightAllowed(c.family.founder.email),
   };
-}
+});

@@ -32,7 +32,7 @@ export async function loadQadaAction(input: { subjectId?: string; zone: string }
   return "error" in g ? g : { view: await loadView(g, input.zone) };
 }
 
-export async function logMadeUpAction(input: { subjectId?: string; zone: string; kind: string; day?: string }): Promise<Answer> {
+export async function logMadeUpAction(input: { subjectId?: string; zone: string; kind: string; day?: string; count?: number }): Promise<Answer> {
   const g = await gate(input?.subjectId);
   return "error" in g ? g : logMadeUp(g, input);
 }

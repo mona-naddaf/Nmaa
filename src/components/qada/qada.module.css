@@ -1,4 +1,4 @@
-/* «القضاء»: the card at the top of «جدول المتابعة». Phone-first. */
+/* «القضاء»: the card below the day in «جدول المتابعة». Phone-first. */
 
 .card {
   position: relative;
@@ -385,6 +385,128 @@
 @media (prefers-reduced-motion: reduce) {
   .toast,
   .milestone {
+    animation: none;
+  }
+}
+
+/* ---------- folded to one line (per device) ---------- */
+
+.fold {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.fold .title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fold:focus-visible {
+  outline: 2px solid var(--rose-deep);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.chev {
+  flex: none;
+  font-size: 14px;
+  color: var(--ink-soft);
+  transform: rotate(0deg);
+  transition: transform 200ms var(--ease-out);
+}
+
+.fold[aria-expanded="true"] .chev {
+  transform: rotate(180deg);
+}
+
+/* open/close: the height follows the content (0fr ↔ 1fr), quick and smooth */
+.body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms var(--ease-out);
+}
+
+.bodyOpen {
+  grid-template-rows: 1fr;
+}
+
+.bodyInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body,
+  .chev {
+    transition: none;
+  }
+}
+
+/* ---------- «+ عدد» ---------- */
+
+.plusPair {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.many {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.many[aria-expanded="true"] {
+  background: var(--cream);
+  color: var(--ink);
+}
+
+.manyRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px;
+  margin: 0 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream);
+  animation: rise 160ms var(--ease-out);
+}
+
+.manyRow .field {
+  margin-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .manyRow {
     animation: none;
   }
 }

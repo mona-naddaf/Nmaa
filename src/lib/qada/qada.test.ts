@@ -8,6 +8,7 @@ import { fastPaceFinish, fastPerWeek, prayerPaceFinish, prayerQuota, standing } 
 import { blockedFastDays, fastSuggestions } from "./fasting-days";
 import { nextMilestone } from "./milestones";
 import { qadaAccess } from "./visibility";
+import * as T from "./texts";
 import { fastPlan, prayerPlan, type DayRow, type Goal } from "./plan";
 
 const five = (n: number) => ({ FAJR: n, DHUHR: n, ASR: n, MAGHRIB: n, ISHA: n });
@@ -230,4 +231,12 @@ test("fasting suggestions: Thursdays as well as Mondays (16, 19, 23 Nov 2026), w
   assert.deepEqual(s.find((x) => x.day === "2026-11-19")?.reasons, ["THURSDAY"]);
   // the card's first four, in order
   assert.deepEqual(fastSuggestions("2026-11-15", 14, new Set()).map((x) => x.day), ["2026-11-16", "2026-11-19", "2026-11-23", "2026-11-24"]);
+});
+
+test("collapsed line and «+ عدد» toast", () => {
+  assert.equal(T.collapsedLine(null, 2529, 21), "القضاء · بقي 2529 صلاة · 21 يومًا");
+  assert.equal(T.collapsedLine({ name: "سارة", gender: "FEMALE" }, 50, null), "قضاء سارة · بقي 50 صلاة");
+  assert.equal(T.collapsedLine(null, null, null), "القضاء");
+  assert.equal(T.loggedManyToast("FAJR", 7, "2026-11-15", "2026-11-16"), "سُجّلت 7 صلوات من الفجر (أمس) ✓");
+  assert.equal(T.loggedManyToast("FAST", 2, "2026-11-16", "2026-11-16"), "سُجّل من الصيام: يومان ✓");
 });

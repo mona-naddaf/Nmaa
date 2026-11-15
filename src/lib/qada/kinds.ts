@@ -39,6 +39,8 @@ export const LIMITS = {
   maxCount: 100_000,
   // «في يوم سابق»
   backDays: 7,
+  // «+ عدد»: at most this many in one entry
+  maxMadeUp: 100,
   // «يوم كامل»
   maxFullDays: 20_000,
   // the estimate

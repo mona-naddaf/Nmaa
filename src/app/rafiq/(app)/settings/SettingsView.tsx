@@ -495,7 +495,7 @@ function ExcuseSwitch({ enabled, active }: { enabled: boolean; active: boolean }
   );
 }
 
-/** «القضاء» (her own, QADA_EMAILS): its card at the top of «جدول المتابعة». Off hides it and keeps everything. */
+/** «القضاء» (her own, QADA_EMAILS): its card below the day in «جدول المتابعة». Off hides it and keeps everything. */
 function QadaSwitch({ gender, enabled }: { gender: RafiqGender; enabled: boolean }) {
   return (
     <FeatureSwitch title={QADA_TITLE} label={QADA_SWITCH_LABEL} enabled={enabled} action={setQadaEnabledAction}>

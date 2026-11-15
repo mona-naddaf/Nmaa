@@ -240,7 +240,7 @@ function Viewer({
 }
 
 /**
- * «القضاء» (her 12th switch): its card at the top of her tracker. For a
+ * «القضاء» (her 12th switch): its card below the day in her tracker. For a
  * girl, while it's on, the adults who see her fasting qada and her plan:
  * the «من يرى…» list of «أيام العذر» (the same rows), shown here too unless
  * it already shows above.

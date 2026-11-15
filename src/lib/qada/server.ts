@@ -294,16 +294,19 @@ const by = (g: QadaGate) => {
 };
 const todayIn = (zone: unknown) => zoneToday(safeTimeZone(typeof zone === "string" ? zone : null));
 
-/** «+1»: one made up, today or up to 7 days before (her days). */
-export async function logMadeUp(g: QadaGate, input: { kind: unknown; day?: unknown; zone: unknown }): Promise<Result> {
+
+/** «+1» (one), or «+ عدد» (several at once: one entry, one line of the log, one «تراجع»), today or up to 7 days before (her days). */
+export async function logMadeUp(g: QadaGate, input: { kind: unknown; day?: unknown; count?: unknown; zone: unknown }): Promise<Result> {
   if (!kindAllowed(g, input.kind)) return { error: ERR.kind };
   const today = todayIn(input.zone);
   const day = input.day === undefined || input.day === null ? today : input.day;
   if (typeof day !== "string" || !isValidIso(day)) return { error: ERR.day };
   const back = daysBetween(day, today);
   if (back < 0 || back > LIMITS.backDays) return { error: ERR.earlier };
+  const count = input.count === undefined ? 1 : input.count;
+  if (!Number.isInteger(count) || (count as number) < 1 || (count as number) > LIMITS.maxMadeUp) return { error: ERR.madeUpCount };
   const e = await prisma.rafiqQadaEntry.create({
-    data: { userId: g.subject.id, kind: input.kind, action: "MADE_UP", count: 1, day: dateOnly(day), ...by(g) },
+    data: { userId: g.subject.id, kind: input.kind, action: "MADE_UP", count: count as number, day: dateOnly(day), ...by(g) },
     select: { id: true },
   });
   return { view: await loadView(g, input.zone), id: e.id };

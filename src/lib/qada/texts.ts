@@ -227,9 +227,9 @@ export const deletedAll = "حُذفت كل بيانات القضاء.";
 
 export const SWITCH_LABEL = "تفعيل القضاء";
 export const settingsSelf = (you: G) =>
-  `بطاقة في أعلى «جدول المتابعة» ${pick(you, "تتابع", "تتابعين")} فيها قضاء الصلوات والصيام: ما ${pick(you, "عليك", "عليكِ")}، وما ${pick(you, "قضيته", "قضيتِه")}، وهدفًا إن ${pick(you, "شئت", "شئتِ")}. لا تؤثّر في نسبة ${pick(you, "يومك", "يومكِ")} ولا في المحصّلات، ولا يراها أحد ${pick(you, "غيرك", "غيركِ")}، ولا تُشارَك مع العائلة.`;
+  `بطاقة أسفل «جدول المتابعة» ${pick(you, "تتابع", "تتابعين")} فيها قضاء الصلوات والصيام: ما ${pick(you, "عليك", "عليكِ")}، وما ${pick(you, "قضيته", "قضيتِه")}، وهدفًا إن ${pick(you, "شئت", "شئتِ")}. لا تؤثّر في نسبة ${pick(you, "يومك", "يومكِ")} ولا في المحصّلات، ولا يراها أحد ${pick(you, "غيرك", "غيركِ")}، ولا تُشارَك مع العائلة.`;
 export const childSwitchWhat = (who: { name: string; gender: G }) =>
-  `بطاقة في أعلى جدول ${who.name} لقضاء الصلوات والصيام. ${pick(who.gender, "يراها", "تراها")} ${who.name} ومن له صلاحية التعديل فقط.` +
+  `بطاقة أسفل جدول ${who.name} لقضاء الصلوات والصيام. ${pick(who.gender, "يراها", "تراها")} ${who.name} ومن له صلاحية التعديل فقط.` +
   (who.gender === "FEMALE" ? ` أما قضاء الصيام ومتوسط أيام العذر والخطة فلا يراها إلا من في قائمة «من يرى أن ${who.name} معذورة؟».` : "");
 export const QADA_LIST_NOTE = "هي القائمة نفسها في «أيام العذر». من حُدِّد يرى قضاء الصيام والخطة، ومن لم يُحدَّد يرى الصلوات وتقدّمها فقط، والسجل دون تواريخ.";
 
@@ -241,6 +241,7 @@ export const ERR = {
   count: "العدد من 1 إلى 100000.",
   day: "التاريخ غير صحيح.",
   earlier: "يمكن التسجيل لليوم أو لسبعة أيام سابقة فقط.",
+  madeUpCount: "العدد من 1 إلى 100.",
   kind: "يُرجى اختيار النوع.",
   deadline: "يُرجى اختيار موعد بعد اليوم.",
   pace: "يُرجى إدخال رقم صحيح.",
@@ -250,3 +251,24 @@ export const ERR = {
   gone: "لم يعد هذا السطر موجودًا.",
 };
 export const qadaListAbove = (name: string) => `يرى قضاء الصيام والخطة من حُدِّد في قائمة «من يرى أن ${name} معذورة؟» أعلاه.`;
+
+// ---------- «+ عدد» and the collapsed card (live test, 2026-11-16) ----------
+
+export const PLUS_MANY = "+ عدد";
+export const plusManyLabel = (k: QadaKind) => (k === "FAST" ? "تسجيل عدد من أيام الصيام المقضيّة" : `تسجيل عدد من صلاة ${KIND_NAMES[k]} المقضيّة`);
+export const MANY_COUNT = "العدد";
+export const MANY_DAY = "اليوم";
+export const MANY_SUBMIT = "تسجيل";
+/** «+ عدد»'s day choices: today, then up to 7 days back. */
+export const manyDayLabel = (iso: string, today: string) => dayLabel(iso, today);
+export const loggedManyToast = (k: QadaKind, n: number, day: string, today: string) =>
+  `${k === "FAST" ? `سُجّل من الصيام: ${daysCount(n)}` : `سُجّلت ${prayersCount(n)} من ${KIND_NAMES[k]}`}${day === today ? "" : ` (${dayLabel(day, today)})`} ✓`;
+
+export const collapseLabel = (open: boolean) => (open ? "طيّ البطاقة" : "فتح البطاقة");
+/** The collapsed card's one line: «القضاء · بقي 2529 صلاة · 21 يومًا». */
+export function collapsedLine(who: Who, prayersLeft: number | null, fastLeft: number | null): string {
+  const parts = [cardTitle(who)];
+  const rest = [prayersLeft !== null ? prayersCount(prayersLeft) : null, fastLeft !== null ? daysCount(fastLeft) : null].filter(Boolean);
+  if (rest.length) parts.push(`بقي ${rest.join(" · ")}`);
+  return parts.join(" · ");
+}

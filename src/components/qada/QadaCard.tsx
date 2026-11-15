@@ -28,7 +28,7 @@ import {
   setQadaGoalAction,
 } from "@/app/rafiq/(app)/qada-actions";
 
-// «القضاء»: the card at the top of «جدول المتابعة» (her own, the child's own,
+// «القضاء»: the card below the day in «جدول المتابعة» (her own, the child's own,
 // and an adult's view of a child's). Not a tracker item: nothing here touches
 // the day's score, «المحصّلات», the day's celebration or sharing. Its data
 // comes from its own action with the browser's time zone (her days), cut on
@@ -38,9 +38,18 @@ import {
 
 const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const HIDE_KEY = "namaa:qada:hidden";
+const OPEN_KEY = "namaa:qada:open";
 
 type Panel = null | "add" | "log" | "goal" | "estimate" | "settings";
 type Answer = { view: QadaView; id?: string } | { error: string };
+
+function readOpen(): boolean {
+  try {
+    return localStorage.getItem(OPEN_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
 
 function readHidden(): boolean {
   try {
@@ -50,20 +59,21 @@ function readHidden(): boolean {
   }
 }
 
-/** One «+1» shown before the server answers: what it changes on the card. */
-function plusOne(v: QadaView, kind: QadaKind, day: string): QadaView {
+/** «+1» or «+ عدد» (n) shown before the server answers: what it changes on the card. */
+function plusMany(v: QadaView, kind: QadaKind, day: string, n: number): QadaView {
   const k = v.totals[kind];
   if (!k) return v;
-  const next: QadaView = { ...v, totals: { ...v.totals, [kind]: { ...k, done: k.done + 1, remaining: Math.max(0, k.remaining - 1) } } };
+  const next: QadaView = { ...v, totals: { ...v.totals, [kind]: { ...k, done: k.done + n, remaining: Math.max(0, k.remaining - n) } } };
   const t = kind === "FAST" ? "fast" : "prayers";
   const tt = v.totals[t];
   if (tt) {
-    const counted = k.done < k.owed ? 1 : 0;
-    next.totals[t] = { ...tt, done: tt.done + 1, remaining: Math.max(0, tt.remaining - counted), pct: tt.owed ? Math.min(100, tt.pct + (counted * 100) / tt.owed) : 0 };
+    // what counts towards what she owes of this kind
+    const counted = Math.max(0, Math.min(n, k.owed - k.done));
+    next.totals[t] = { ...tt, done: tt.done + n, remaining: Math.max(0, tt.remaining - counted), pct: tt.owed ? Math.min(100, tt.pct + (counted * 100) / tt.owed) : 0 };
   }
   if (kind !== "FAST" && day === v.today && v.plan?.prayers.today) {
     const today = v.plan.prayers.today;
-    next.plan = { ...v.plan, prayers: { ...v.plan.prayers, today: { ...today, done: { ...today.done, [kind]: today.done[kind as PrayerKind] + 1 } } } };
+    next.plan = { ...v.plan, prayers: { ...v.plan.prayers, today: { ...today, done: { ...today.done, [kind]: today.done[kind as PrayerKind] + n } } } };
   }
   return next;
 }
@@ -75,6 +85,8 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
   const [panel, setPanel] = useState<Panel>(null);
   // the card renders only after its data has come (in the browser), so this device's choice is read at once
   const [hidden, setHidden] = useState(() => typeof window !== "undefined" && readHidden());
+  // open, or folded to one line: per device, open by default
+  const [opened, setOpened] = useState(() => typeof window === "undefined" || readOpen());
   const [earlier, setEarlier] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; key: number; undo: boolean } | null>(null);
   const [, start] = useTransition();
@@ -140,15 +152,15 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
   // a «+1» still on its way whose «تراجع» was pressed
   const pending = useRef<{ wanted: boolean; key: number } | null>(null);
 
-  const logOne = (kind: QadaKind) => {
+  /** «+1» (n = 1: today, or the day of «في يوم سابق») or «+ عدد»: shown at once, saved as one entry, undone as one. */
+  const logMade = (kind: QadaKind, day: string, n: number) => {
     if (!view) return;
-    const day = earlier ?? view.today;
     const before = view;
-    setView(plusOne(view, kind, day));
-    showToast(T.loggedToast(kind, day, view.today), { id: null, before });
+    setView(plusMany(view, kind, day, n));
+    showToast(n === 1 ? T.loggedToast(kind, day, view.today) : T.loggedManyToast(kind, n, day, view.today), { id: null, before });
     const key = undoRef.current?.key;
     start(async () => {
-      const r = await trackSave(logMadeUpAction({ subjectId, zone: zone(), kind, day })).catch(() => ({ error: T.ERR.fail }) as Answer);
+      const r = await trackSave(logMadeUpAction({ subjectId, zone: zone(), kind, day, count: n })).catch(() => ({ error: T.ERR.fail }) as Answer);
       if ("error" in r) {
         setView(before);
         setError(r.error);
@@ -167,6 +179,16 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
       const u = undoRef.current;
       if (u && u.key === key) u.id = r.id ?? null;
     });
+  };
+
+  const toggleOpen = () => {
+    const next = !opened;
+    setOpened(next);
+    try {
+      localStorage.setItem(OPEN_KEY, next ? "1" : "0");
+    } catch {
+      // no storage: this visit only
+    }
   };
 
   const toggleHidden = () => {
@@ -195,7 +217,23 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
   return (
     <section className={`${hl.section} ${css.card}`} aria-label={T.cardTitle(who)} {...t("tracker.qada")}>
       <div className={css.head}>
-        <span className={css.title}>{T.cardTitle(who)}</span>
+        <button type="button" className={css.fold} aria-expanded={opened} aria-controls="qada-body" title={T.collapseLabel(opened)} onClick={toggleOpen}>
+          <span className={css.title}>
+            {opened
+              ? T.cardTitle(who)
+              : mask(
+                  T.collapsedLine(
+                    who,
+                    view.totals.prayers.owed > 0 ? view.totals.prayers.remaining : null,
+                    view.totals.fast && view.totals.fast.owed > 0 ? view.totals.fast.remaining : null,
+                  ),
+                )}
+          </span>
+          <span className={css.chev} aria-hidden="true">
+            ▾
+          </span>
+          <span className={css.srOnly}>{T.collapseLabel(opened)}</span>
+        </button>
         {!empty && (
           <button type="button" className={`${css.eye} pressable`} aria-pressed={hidden} aria-label={T.hideLabel(hidden)} title={T.hideLabel(hidden)} onClick={toggleHidden}>
             {hidden ? "🙈" : "👁"}
@@ -205,6 +243,8 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
 
       {a.milestones && <Milestones view={view} subjectId={subjectId} onView={setView} />}
 
+      <div id="qada-body" className={`${css.body} ${opened ? css.bodyOpen : ""}`} inert={!opened}>
+        <div className={css.bodyInner}>
       {empty ? (
         <p className={css.soft}>{T.emptyText(you, who)}</p>
       ) : (
@@ -215,7 +255,7 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
               <PrayerPlanLines view={view} mask={mask} onExtend={() => setPanel("goal")} />
               <div className={css.rows}>
                 {PRAYERS.map((k) => (
-                  <KindRow key={k} kind={k} view={view} mask={mask} onPlus={() => logOne(k)} canEdit={a.edit} />
+                  <KindRow key={k} kind={k} view={view} mask={mask} onPlus={() => logMade(k, earlier ?? view.today, 1)} onMany={(n, d) => logMade(k, d, n)} canEdit={a.edit} />
                 ))}
               </div>
             </div>
@@ -225,7 +265,7 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
               <TrackHead track="fast" view={view} mask={mask} hidden={hidden} />
               <FastPlanLines view={view} mask={mask} onExtend={() => setPanel("goal")} />
               <div className={css.rows}>
-                <KindRow kind="FAST" view={view} mask={mask} onPlus={() => logOne("FAST")} canEdit={a.edit} />
+                <KindRow kind="FAST" view={view} mask={mask} onPlus={() => logMade("FAST", earlier ?? view.today, 1)} onMany={(n, d) => logMade("FAST", d, n)} canEdit={a.edit} />
               </div>
             </div>
           )}
@@ -272,6 +312,8 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
       {panel === "goal" && view.plan && <GoalPanel view={view} send={send} subjectId={subjectId} onClose={() => setPanel(null)} />}
       {panel === "estimate" && view.plan && <EstimatePanel view={view} send={send} subjectId={subjectId} onClose={() => setPanel(null)} />}
       {panel === "settings" && <SettingsPanel view={view} send={send} subjectId={subjectId} onClose={() => setPanel(null)} />}
+        </div>
+      </div>
 
       {toast &&
         typeof document !== "undefined" &&
@@ -312,17 +354,108 @@ function TrackHead({ track, view, mask, hidden }: { track: QadaTrack; view: Qada
   );
 }
 
-function KindRow({ kind, view, mask, onPlus, canEdit }: { kind: QadaKind; view: QadaView; mask: (s: string) => string; onPlus: () => void; canEdit: boolean }) {
+function KindRow({
+  kind,
+  view,
+  mask,
+  onPlus,
+  onMany,
+  canEdit,
+}: {
+  kind: QadaKind;
+  view: QadaView;
+  mask: (s: string) => string;
+  onPlus: () => void;
+  onMany: (n: number, day: string) => void;
+  canEdit: boolean;
+}) {
+  const [many, setMany] = useState(false);
   const k = view.totals[kind];
   if (!k) return null;
   return (
-    <div className={css.row}>
-      <span className={css.kind}>{KIND_NAMES[kind]}</span>
-      <span className={css.left}>{mask(k.owed > 0 ? T.remainingLabel(kind, k.remaining) : k.done > 0 ? `قُضي ${k.done}` : "—")}</span>
-      {canEdit && (
-        <button type="button" className={`${css.plus} pressable`} aria-label={T.plusOneLabel(kind)} onClick={onPlus}>
-          {T.PLUS_ONE}
+    <>
+      <div className={css.row}>
+        <span className={css.kind}>{KIND_NAMES[kind]}</span>
+        <span className={css.left}>{mask(k.owed > 0 ? T.remainingLabel(kind, k.remaining) : k.done > 0 ? `قُضي ${k.done}` : "—")}</span>
+        {canEdit && (
+          <span className={css.plusPair}>
+            <button type="button" className={`${css.many} pressable`} aria-expanded={many} aria-label={T.plusManyLabel(kind)} onClick={() => setMany(!many)}>
+              {T.PLUS_MANY}
+            </button>
+            <button type="button" className={`${css.plus} pressable`} aria-label={T.plusOneLabel(kind)} onClick={onPlus}>
+              {T.PLUS_ONE}
+            </button>
+          </span>
+        )}
+      </div>
+      {canEdit && many && (
+        <ManyRow
+          kind={kind}
+          today={view.today}
+          onSave={(n, day) => {
+            setMany(false);
+            onMany(n, day);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/** «+ عدد»: how many and which day (today, or up to 7 days back) → one entry, one «تراجع». */
+function ManyRow({ kind, today, onSave }: { kind: QadaKind; today: string; onSave: (n: number, day: string) => void }) {
+  const [count, setCount] = useState("");
+  const [day, setDay] = useState(today);
+  const [err, setErr] = useState(false);
+  const countRef = useRef<HTMLInputElement>(null);
+  const id = `qada-many-${kind}`;
+  const save = () => {
+    const n = intOf(count);
+    if (!(n >= 1 && n <= LIMITS.maxMadeUp)) {
+      setErr(true);
+      return pointTo(countRef.current);
+    }
+    onSave(n, day);
+  };
+  return (
+    <div className={css.manyRow}>
+      <div className={css.field}>
+        <label htmlFor={`${id}-n`}>{T.MANY_COUNT}</label>
+        <input
+          id={`${id}-n`}
+          ref={countRef}
+          className={`${css.input} ${css.narrow}`}
+          inputMode="numeric"
+          autoFocus
+          value={count}
+          onChange={(e) => {
+            setCount(e.target.value);
+            setErr(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+          }}
+        />
+      </div>
+      <div className={css.field}>
+        <label htmlFor={`${id}-d`}>{T.MANY_DAY}</label>
+        <select id={`${id}-d`} className={css.input} value={day} onChange={(e) => setDay(e.target.value)}>
+          {Array.from({ length: LIMITS.backDays + 1 }, (_, i) => addDays(today, -i)).map((d) => (
+            <option key={d} value={d}>
+              {T.manyDayLabel(d, today)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className={css.field}>
+        <button type="button" className={`${hl.primaryBtn} pressable`} onClick={save}>
+          {T.MANY_SUBMIT}
         </button>
+      </div>
+      {err && (
+        <div className={hl.err} style={{ flexBasis: "100%" }}>
+          {T.ERR.madeUpCount}
+        </div>
       )}
     </div>
   );

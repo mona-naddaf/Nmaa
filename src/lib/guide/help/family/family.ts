@@ -1,3 +1,4 @@
+import { FAMILY_LIMITS } from "@/lib/family/rules";
 import type { FamilyRawPage } from "./types";
 
 // «؟» on an adult's own family pages («عائلاتي»، the family's page, the
@@ -53,7 +54,8 @@ export const FAMILY_HELP: FamilyRawPage[] = [
         q: "كيف أضيف طفلًا؟",
         showMe: true,
         steps: [
-          { text: "[اضغطي|اضغط] «+ إضافة طفل» في قسم «الأطفال».", target: "family.addChild", kind: "press", optional: true },
+          // at the limit the button gives way to the page's own line
+          { text: "[اضغطي|اضغط] «+ إضافة طفل» في قسم «الأطفال».", target: "family.addChild", kind: "press", missing: `تضم العائلة ${FAMILY_LIMITS.childrenPerFamily} طفلًا، وهو الحدّ الأقصى.` },
           { text: "[اكتبي|اكتب] «اسم الطفل»، وهو الاسم الذي يدخل به.", target: "family.childForm", optional: true },
           { text: "[اختاري|اختر] «ولد» أو «بنت»." },
           { text: "[اضغطي|اضغط] «إضافة». تبدأ بعدها أسئلة قصيرة لتجهيز صفحته." },
@@ -65,7 +67,7 @@ export const FAMILY_HELP: FamilyRawPage[] = [
         q: "كيف يدخل الطفل إلى صفحته؟",
         showMe: true,
         steps: [
-          { text: "رمز الدخول بجانب اسم الطفل في قسم «الأطفال». [اضغطي|اضغط] «نسخ الرمز».", target: "family.childCode", optional: true },
+          { text: "رمز الدخول بجانب اسم الطفل في قسم «الأطفال». [اضغطي|اضغط] «نسخ الرمز».", target: "family.childCode", missing: "[أضيفي|أضف] طفلًا أولًا." },
           { text: "[أعطيه|أعطه] الرمز." },
           { text: "يدخل الطفل من بطاقة «العائلة» في الصفحة الرئيسية، ثم «طفل / طفلة»، باسمه ورمزه." },
         ],
@@ -118,7 +120,7 @@ export const FAMILY_HELP: FamilyRawPage[] = [
         q: "متى أستعمل «رمز جديد» و«إيقاف الدخول»؟",
         showMe: true,
         steps: [
-          { text: "«رمز جديد»: إن عرف الرمزَ غيرُ الطفل. يتوقّف الرمز القديم، ويخرج الطفل من كل الأجهزة حتى يدخل بالجديد.", target: "family.childCode", optional: true },
+          { text: "«رمز جديد»: إن عرف الرمزَ غيرُ الطفل. يتوقّف الرمز القديم، ويخرج الطفل من كل الأجهزة حتى يدخل بالجديد.", target: "family.childCode", missing: "[أضيفي|أضف] طفلًا أولًا." },
           { text: "«إيقاف الدخول»: لإيقاف دخوله مدة. تبقى بياناته، ويعود بـ«إصدار رمز دخول»." },
           { text: "بعد الضغط [اضغطي|اضغط] «نعم، رمز جديد» أو «نعم، إيقاف الدخول»." },
         ],
@@ -141,7 +143,7 @@ export const FAMILY_HELP: FamilyRawPage[] = [
         q: "كيف أحدّد مدينة العائلة لأوقات الصلاة؟",
         showMe: true,
         steps: [
-          { text: "[انزلي|انزل] إلى «المدينة (لمواقيت الصلاة)».", target: "family.city", optional: true },
+          { text: "[انزلي|انزل] إلى «المدينة (لمواقيت الصلاة)».", target: "family.city", missing: "[أضيفي|أضف] طفلًا أولًا." },
           { text: "[اختاري|اختر] المدينة، ثم [احفظيها|احفظها]." },
         ],
         notes: ["مدينة واحدة لكل أطفال العائلة. ولكلّ بالغ مدينته في إعداداته."],
@@ -184,7 +186,7 @@ export const FAMILY_HELP: FamilyRawPage[] = [
         q: "كيف أحذف طفلًا؟",
         showMe: true,
         steps: [
-          { text: "[اضغطي|اضغط] «حذف الطفل» أو «حذف الطفلة» تحت اسمه.", target: "family.childCode", optional: true },
+          { text: "[اضغطي|اضغط] «حذف الطفل» أو «حذف الطفلة» تحت اسمه.", target: "family.childCode", missing: "[أضيفي|أضف] طفلًا أولًا." },
           { text: "[اكتبي|اكتب] «حذف»، ثم [اضغطي|اضغط] «حذف نهائيًا»." },
         ],
         notes: ["تُحذف صفحته وكل حفظه ومتابعته، ولا يمكن التراجع عن ذلك."],
@@ -236,9 +238,11 @@ export const FAMILY_HELP: FamilyRawPage[] = [
         showMe: true,
         steps: [
           { text: "[اضغطي|اضغط] على يومها في التقويم.", target: "calendar.grid", kind: "press", optional: true },
-          { text: "[اضغطي|اضغط] «تعديل» أو «حذف» تحتها.", target: "calendar.dayItem", optional: true },
+          { text: "[اضغطي|اضغط] «تعديل» أو «حذف» تحتها.", target: "calendar.dayItem", missing: "[اختاري|اختر] يومًا فيه مناسبة [أضفتِها|أضفتَها]." },
         ],
         roleNotes: { edit: "[تستطيعين|تستطيع] تعديل أي مناسبة وحذفها.", view: "[تعدّلين|تعدّل] ما [أضفتِه|أضفتَه] فقط." },
+        // they may edit any occasion, not only their own (Mona, 2026-11-15)
+        editMissing: { target: "calendar.dayItem", text: "[اختاري|اختر] يومًا فيه مناسبة." },
       },
       {
         id: "FC3",
@@ -263,7 +267,7 @@ export const FAMILY_HELP: FamilyRawPage[] = [
         q: "كيف أعدّل موعد مناسبة بحسب رؤية الهلال؟",
         showMe: true,
         steps: [
-          { text: "في «القادم» [اضغطي|اضغط] «تعديل الموعد بحسب رؤية الهلال» تحت المناسبة.", target: "calendar.upcoming", optional: true },
+          { text: "في «القادم» [اضغطي|اضغط] «تعديل الموعد بحسب رؤية الهلال» تحت المناسبة.", target: "calendar.adjust", missing: "لا توجد في «القادم» الآن مناسبة يُعدَّل موعدها." },
           { text: "[اختاري|اختر] «تقديم يوم» أو «تأخير يوم»." },
           { text: "يُحفظ فورًا لكل العائلة، لهذه السنة الهجرية فقط." },
         ],

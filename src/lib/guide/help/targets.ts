@@ -131,6 +131,8 @@ export const GUIDE_TARGETS = [
   "childSettings.review",
   "childSettings.excuse",
   "tracker.copy",
+  // the family calendar's «تعديل الموعد بحسب رؤية الهلال» (FC5)
+  "calendar.adjust",
 ] as const;
 
 export type GuideTarget = (typeof GUIDE_TARGETS)[number];

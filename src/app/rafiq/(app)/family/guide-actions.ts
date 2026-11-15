@@ -42,6 +42,7 @@ const SWITCH: Partial<Record<EnableFeature, ChildFeature>> = {
   similar: "mutashabihat",
   tajweed: "tajweed",
   homeLog: "homeLog",
+  highlight: "highlight",
 };
 
 /** «تفعيل الآن» in a child's help: her switch on (review reminders: 14 days), through the settings' own actions. */

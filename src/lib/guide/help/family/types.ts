@@ -47,10 +47,15 @@ export type FamilyQuestion = HelpQuestion<GuideTarget, FamilyPageId> & {
   // the review page's id (C1.1, A2.3, F4…)
   id: string;
   role?: FamilyRole;
-  // the child's switch it needs
-  feat?: ChildSwitch;
+  // the child's switch(es) it needs (all of them on)
+  feat?: ChildSwitch | ChildSwitch[];
+  // the child herself: listed only while one of its switches is off (with
+  // its locked line), because with them all on it lives on another page (C1.10)
+  lockedOnly?: true;
   // view-only adults: a line under the steps in place of the edit one (FC2)
   roleNotes?: { edit: string; view: string };
+  // adults with edit rights: this «إن لم يظهر» line in place of the step's own (FC2)
+  editMissing?: { target: GuideTarget; text: string };
 };
 
 export type FamilyRawPage = { id: FamilyPageId; title: string; questions: FamilyQuestion[]; welcome?: string };

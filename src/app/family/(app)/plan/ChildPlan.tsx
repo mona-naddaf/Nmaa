@@ -6,6 +6,7 @@ import { AYAH_COUNT, SURAH_NAME } from "@/lib/quran-data";
 import { useToday } from "@/lib/calendar/useToday";
 import { computeGoal } from "@/lib/goals/goal";
 import { GoalLine } from "@/components/goal/GoalLine";
+import { useGuideTarget } from "@/components/guide/targets";
 import type { MemorizationView } from "@/lib/rafiq/memorization";
 import { pickByPerson } from "@/lib/text/gender";
 import f from "@/app/rafiq/(app)/family/family.module.css";
@@ -49,6 +50,7 @@ export function ChildPlan({
   quiet?: QuietHome;
 }) {
   const today = useToday();
+  const guide = useGuideTarget();
   const p = (m: string, fem: string) => pickByPerson(gender, { m, f: fem });
   // you (the child) / he, she (the child, for an adult)
   const w = (you: [string, string], them: [string, string]) => (about ? p(...them) : p(...you));
@@ -97,12 +99,15 @@ export function ChildPlan({
             {w(["أتممتَ", "أتممتِ"], ["أتمّ", "أتمّت"])} {done} من {plan.length} سورة في {w(["خطتك", "خطتك"], ["خطته", "خطتها"])}
           </div>
         )}
-        <GoalLine
-          goal={goal}
-          feminine={gender === "FEMALE"}
-          invalidHint="الهدف لم يعد ضمن خطتك الحالية."
-          {...(pausedNow && goal ? { pausedText: goalPausedText(gregorianLabel(goal.deadline), !about) } : {})}
-        />
+        {/* named for «أرِني» (the family guide's «ما هدفي؟») only while there is a goal */}
+        <div {...(goal ? guide("plan.goal") : undefined)}>
+          <GoalLine
+            goal={goal}
+            feminine={gender === "FEMALE"}
+            invalidHint="الهدف لم يعد ضمن خطتك الحالية."
+            {...(pausedNow && goal ? { pausedText: goalPausedText(gregorianLabel(goal.deadline), !about) } : {})}
+          />
+        </div>
       </div>
 
       {ahead.length > 0 && (

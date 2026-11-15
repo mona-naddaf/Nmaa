@@ -225,7 +225,7 @@ export function CalendarView({
                     ))}
                   </select>
                 ) : (
-                  <button type="button" className={styles.linkBtn} onClick={() => setAdjustKey(item.key)}>
+                  <button type="button" className={styles.linkBtn} onClick={() => setAdjustKey(item.key)} {...t("calendar.adjust")}>
                     تعديل الموعد بحسب رؤية الهلال
                   </button>
                 ))}

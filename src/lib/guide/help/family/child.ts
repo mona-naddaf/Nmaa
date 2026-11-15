@@ -78,7 +78,7 @@ export const CHILD_HELP: FamilyRawPage[] = [
         showMe: true,
         more: true,
         steps: [
-          { text: "[افتحي|افتح] «سجل الجلسات».", target: "history.section", kind: "press", optional: true },
+          { text: "[افتحي|افتح] «سجل الجلسات».", target: "history.section", kind: "press", missing: "لا توجد جلسات بعد." },
           { text: "[اضغطي|اضغط] «حذف» تحت الجلسة، ثم «تأكيد الحذف»." },
         ],
         notes: ["الجلسة التي [سجّلتِها|سجّلتَها] مع [أهلكِ|أهلك] يحذفها [أهلكِ|أهلك] فقط."],
@@ -115,21 +115,20 @@ export const CHILD_HELP: FamilyRawPage[] = [
         steps: [{ text: "≈ تعني أن للآية آيات تشبهها في القرآن. [اضغطي|اضغط] عليها [لتريها|لتراها]." }],
       },
       {
+        // «صفحتي» has no verses for her: here only while a switch is off (the
+        // locked line); with both on it is in «حفظي في البيت» (C5.7, C6.7)
         id: "C1.10",
         q: "كيف أظلّل مقطعًا؟",
         showMe: true,
         more: true,
-        feat: "highlight",
+        feat: ["homeLog", "highlight"],
+        lockedOnly: true,
         when: "highlight",
-        steps: [
-          { text: "[اضغطي|اضغط] «تظليل» فوق الآيات.", target: "highlight.button", optional: true },
-          { text: "[اضغطي|اضغط] أول كلمة في المقطع، ثم آخر كلمة." },
-          { text: "[اضغطي|اضغط] «إنهاء التظليل» حين [تنتهين|تنتهي]." },
-        ],
+        steps: [],
       },
       {
         id: "C1.11",
-        q: "لماذا لا يعمل زر «حفظ الجلسة»؟",
+        q: "لماذا لا يعمل زرّ «حفظ الجلسة»؟",
         showMe: true,
         more: true,
         steps: [
@@ -199,7 +198,7 @@ export const CHILD_HELP: FamilyRawPage[] = [
         showMe: true,
         steps: [
           { text: "[اضغطي|اضغط] «⚙ البنود»، ثم «إدارة البنود».", target: "tracker.menu.items", kind: "press", via: ["tracker.menu"], optional: true },
-          { text: "[اضغطي|اضغط] ✎ بجانب البند لتعديله، أو 🗑 لحذفه.", target: "tracker.itemRow", optional: true },
+          { text: "[اضغطي|اضغط] ✎ بجانب البند لتعديله، أو 🗑 لحذفه.", target: "tracker.itemRow", missing: "لا بنود بعد." },
           { text: "عند الحذف [اضغطي|اضغط] «نعم، حذف»." },
         ],
       },
@@ -209,7 +208,7 @@ export const CHILD_HELP: FamilyRawPage[] = [
         showMe: true,
         feat: "agenda",
         steps: [
-          { text: "[اضغطي|اضغط] ⏱ بجانب البند.", target: "agenda.timeBtn", kind: "press", via: ["tracker.back"], optional: true },
+          { text: "[اضغطي|اضغط] ⏱ بجانب البند.", target: "agenda.timeBtn", kind: "press", via: ["tracker.back"], missing: "لا بنود لليوم." },
           { text: "[اختاري|اختر] «وقت محدّد» أو «بالنسبة إلى صلاة»، ثم [حدّدي|حدّد] الوقت." },
           { text: "[اضغطي|اضغط] «حفظ الوقت»." },
         ],
@@ -241,11 +240,11 @@ export const CHILD_HELP: FamilyRawPage[] = [
       },
       {
         id: "C4.2",
-        q: "ماذا تعني الدائرة والمربعات؟",
+        q: "ماذا تعني الدائرة والمربّعات؟",
         showMe: true,
         steps: [
           { text: "الدائرة: كم [التزمتِ|التزمتَ] في الفترة كلها.", target: "summary.ring", optional: true },
-          { text: "كل مربع يوم. كلما غمق لونه زاد [التزامكِ|التزامك]. والنجمة ✦ يوم [أكملتِ|أكملتَ] فيه كل البنود.", target: "summary.mosaic", optional: true },
+          { text: "كل مربّع يوم. كلما غمق لونه زاد [التزامكِ|التزامك]. والنجمة ✦ يوم [أكملتِ|أكملتَ] فيه كل البنود.", target: "summary.mosaic", optional: true },
           { text: "[اضغطي|اضغط] على يوم [لتري|لترى] بنوده." },
         ],
       },
@@ -310,6 +309,20 @@ export const CHILD_HELP: FamilyRawPage[] = [
         more: true,
         steps: [{ text: "في «مقاطع سابقة» أسفل الصفحة.", target: "homeLog.past", missing: "لا توجد مقاطع سابقة بعد." }],
       },
+      {
+        id: "C5.7",
+        q: "كيف أظلّل مقطعًا؟",
+        showMe: true,
+        more: true,
+        feat: "highlight",
+        when: "highlight",
+        steps: [
+          { text: "[اضغطي|اضغط] على بطاقة المقطع تحت «قيد الحفظ».", target: "homeLog.active", kind: "press", missing: "لا توجد مقاطع قيد الحفظ. [ابدئي|ابدأ] مقطعًا جديدًا أولًا." },
+          { text: "[اضغطي|اضغط] «تظليل» فوق الآيات.", target: "highlight.button", page: "c.segment" },
+          { text: "[اضغطي|اضغط] أول كلمة في المقطع، ثم آخر كلمة.", page: "c.segment" },
+          { text: "[اضغطي|اضغط] «إنهاء التظليل» حين [تنتهين|تنتهي].", page: "c.segment" },
+        ],
+      },
     ],
   },
   {
@@ -358,7 +371,15 @@ export const CHILD_HELP: FamilyRawPage[] = [
         id: "C6.5",
         q: "كيف أحذف المقطع؟",
         showMe: true,
-        steps: [{ text: "[اضغطي|اضغط] «حذف المقطع» أسفل الصفحة.", target: "practice.delete", kind: "save", optional: true }, { text: "[اضغطي|اضغط] «نعم»." }],
+        steps: [
+          {
+            text: "[اضغطي|اضغط] «حذف المقطع» أسفل الصفحة.",
+            target: "practice.delete",
+            kind: "save",
+            missing: "يُحذف المقطع قبل أن [تبدئي|تبدأ] التدريب عليه فقط. بعدها [أنهيه|أنهِه] بـ«✓ أتممتُ هذا المقطع».",
+          },
+          { text: "[اضغطي|اضغط] «نعم»." },
+        ],
       },
       {
         id: "C6.6",
@@ -366,6 +387,19 @@ export const CHILD_HELP: FamilyRawPage[] = [
         showMe: true,
         more: true,
         steps: [{ text: "[اضغطي|اضغط] «→ مقاطعي» أعلى الصفحة.", target: "practice.back", kind: "press", optional: true }],
+      },
+      {
+        id: "C6.7",
+        q: "كيف أظلّل مقطعًا؟",
+        showMe: true,
+        more: true,
+        feat: "highlight",
+        when: "highlight",
+        steps: [
+          { text: "[اضغطي|اضغط] «تظليل» فوق الآيات.", target: "highlight.button" },
+          { text: "[اضغطي|اضغط] أول كلمة في المقطع، ثم آخر كلمة." },
+          { text: "[اضغطي|اضغط] «إنهاء التظليل» حين [تنتهين|تنتهي]." },
+        ],
       },
     ],
   },
@@ -412,7 +446,7 @@ export const CHILD_HELP: FamilyRawPage[] = [
         showMe: true,
         steps: [
           { text: "[اضغطي|اضغط] على يومها في التقويم.", target: "calendar.grid", kind: "press", optional: true },
-          { text: "[اضغطي|اضغط] «تعديل» أو «حذف» تحتها.", target: "calendar.dayItem", optional: true },
+          { text: "[اضغطي|اضغط] «تعديل» أو «حذف» تحتها.", target: "calendar.dayItem", missing: "[اختاري|اختر] يومًا فيه مناسبة [أضفتِها|أضفتَها]." },
         ],
         notes: ["[تعدّلين|تعدّل] ما [أضفتِه|أضفتَه] فقط."],
       },

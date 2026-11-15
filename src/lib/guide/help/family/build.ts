@@ -13,6 +13,8 @@ import type { ChildSwitch, FamilyHelpPage, FamilyPageId, FamilyQuestion, FamilyR
 export const FAMILY_LINES = {
   // the child: a switch that is off
   childOff: "هذه الميزة غير مفعّلة [لكِ|لك] بعد. [اطلبي|اطلب] من [أهلكِ|أهلك] تفعيلها.",
+  // C1.10 on «صفحتي» with «حفظي في البيت» off (Mona, 2026-11-15)
+  childHomeLogOff: "التظليل يكون في «حفظي في البيت»، وهي غير مفعّلة [لكِ|لك] بعد. [اطلبي|اطلب] من [أهلكِ|أهلك] تفعيلها.",
   // a view-only adult: a question that needs edit rights
   needsEdit: "[تحتاجين|تحتاج] صلاحية التعديل. [اطلبيها|اطلبها] من {founder}.",
   // a view-only adult: the child's switch is off
@@ -48,7 +50,16 @@ const ENABLES: Partial<Record<ChildSwitch, EnableFeature>> = {
   similar: "similar",
   tajweed: "tajweed",
   homeLog: "homeLog",
+  highlight: "highlight",
 };
+
+/** A question's switches, as a list. */
+const featsOf = (q: FamilyQuestion): ChildSwitch[] => (q.feat === undefined ? [] : Array.isArray(q.feat) ? q.feat : [q.feat]);
+
+/** The child's locked line: «حفظي في البيت» named when it is the one off among several, U1 otherwise. */
+function childLockedLine(q: FamilyQuestion, off: ChildSwitch[]): string {
+  return off.includes("homeLog") && featsOf(q).length > 1 ? FAMILY_LINES.childHomeLogOff : FAMILY_LINES.childOff;
+}
 
 const fillStep = (s: HelpStep<GuideTarget, FamilyPageId>, who: FamilyWho): HelpStep<GuideTarget, FamilyPageId> => ({
   ...s,
@@ -61,7 +72,7 @@ const fillStep = (s: HelpStep<GuideTarget, FamilyPageId>, who: FamilyWho): HelpS
 
 /** A raw question as plain help: extras dropped, texts filled. */
 function plain(q: FamilyQuestion, who: FamilyWho, extra: Partial<HelpQuestion<GuideTarget, FamilyPageId>> = {}, note?: string): HelpQuestion<GuideTarget, FamilyPageId> {
-  const { id: _id, role: _role, feat: _feat, roleNotes: _rn, ...rest } = q;
+  const { id: _id, role: _role, feat: _feat, roleNotes: _rn, lockedOnly: _lo, editMissing: _em, ...rest } = q;
   const merged = { ...rest, ...extra };
   const notes = [...(merged.notes ?? []), ...(note ? [note] : [])];
   return {
@@ -85,21 +96,30 @@ export function childHelpPage(raw: FamilyRawPage, sw: ChildSwitches, who: Family
   return page(
     raw,
     who,
-    raw.questions.map((q) => (q.feat && !sw[q.feat] ? plain(q, who, { locked: FAMILY_LINES.childOff, more: true }) : plain(q, who))),
+    raw.questions.flatMap((q) => {
+      const off = featsOf(q).filter((f) => !sw[f]);
+      if (off.length) return [plain(q, who, { locked: childLockedLine(q, off), more: true })];
+      return q.lockedOnly ? [] : [plain(q, who)];
+    }),
   );
 }
 
-/** An adult on a child's pages: edit questions locked for a view-only adult; a switch off offered (or U4). */
-export function adultChildHelpPage(raw: FamilyRawPage, sw: ChildSwitches, canEdit: boolean, who: FamilyWho): FamilyHelpPage {
+/**
+ * An adult on a child's pages: edit questions locked for a view-only adult; a
+ * switch off offered (or U4). `hide`: questions with nothing to do here (A2.3
+ * with nothing to copy).
+ */
+export function adultChildHelpPage(raw: FamilyRawPage, sw: ChildSwitches, canEdit: boolean, who: FamilyWho, hide: ReadonlySet<string> = new Set()): FamilyHelpPage {
   return page(
     raw,
     who,
-    raw.questions.map((q) => {
+    raw.questions.filter((q) => !hide.has(q.id)).map((q) => {
       if (q.role === "edit" && !canEdit) return plain(q, who, { locked: FAMILY_LINES.needsEdit, more: true });
-      if (q.feat && !sw[q.feat]) {
+      const off = featsOf(q).find((f) => !sw[f]);
+      if (off) {
         if (!canEdit) return plain(q, who, { locked: FAMILY_LINES.viewOff, more: true });
-        const feature = ENABLES[q.feat];
-        const text = CHILD_OFFERS[q.feat];
+        const feature = ENABLES[off];
+        const text = CHILD_OFFERS[off];
         if (feature && text) return plain(q, who, { offer: { feature, text } });
       }
       return plain(q, who);
@@ -119,7 +139,9 @@ export function familyHelpPage(raw: FamilyRawPage, role: FamilyViewerRole, who: 
       questions.push(plain(q, who, { locked: FAMILY_LINES.needsEdit, more: true }));
       continue;
     }
-    questions.push(plain(q, who, {}, q.roleNotes ? (role === "view" ? q.roleNotes.view : q.roleNotes.edit) : undefined));
+    const em = role !== "view" ? q.editMissing : undefined;
+    const extra = em ? { steps: q.steps.map((s) => (s.target === em.target ? { ...s, missing: em.text } : s)) } : {};
+    questions.push(plain(q, who, extra, q.roleNotes ? (role === "view" ? q.roleNotes.view : q.roleNotes.edit) : undefined));
   }
   return page(raw, who, questions);
 }

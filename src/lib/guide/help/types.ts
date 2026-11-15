@@ -24,7 +24,7 @@ export type StepKind = "look" | "press" | "save" | "leave";
 export type HelpFeature = "agenda" | "summary" | "similar" | "tajweed" | "review";
 
 /** A child's switches an adult with edit rights can turn on from her pages («العائلة»), beyond those. */
-export type FamilyFeature = "streak" | "goal" | "homeLog";
+export type FamilyFeature = "streak" | "goal" | "homeLog" | "highlight";
 
 /** What «تفعيل» can turn on: those, «أيام العذر», which only some accounts have, and a child's switches. */
 export type EnableFeature = HelpFeature | "excuse" | FamilyFeature;

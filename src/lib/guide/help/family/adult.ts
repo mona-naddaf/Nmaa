@@ -42,7 +42,7 @@ export const ADULT_HELP: FamilyRawPage[] = [
         q: "من سجّل كل جلسة؟",
         showMe: true,
         steps: [
-          { text: "[افتحي|افتح] «سجل الجلسات».", target: "history.section", kind: "press", optional: true },
+          { text: "[افتحي|افتح] «سجل الجلسات».", target: "history.section", kind: "press", missing: "لا توجد جلسات بعد." },
           { text: "تحت كل جلسة من سجّلها: «<سجّلتها|سجّلها> {name}»، أو اسم البالغ الذي سمّع <معها|معه>." },
           { text: "«تقييم ذاتي»: تقييم {name} <لنفسها|لنفسه>." },
         ],
@@ -74,7 +74,7 @@ export const ADULT_HELP: FamilyRawPage[] = [
         more: true,
         q: "كيف أغيّر تقييم جلسة؟",
         showMe: true,
-        steps: [{ text: "[افتحي|افتح] «سجل الجلسات».", target: "history.section", kind: "press", optional: true }, { text: "[اختاري|اختر] «التقييم» تحت الجلسة. يُحفظ فورًا." }],
+        steps: [{ text: "[افتحي|افتح] «سجل الجلسات».", target: "history.section", kind: "press", missing: "لا توجد جلسات بعد." }, { text: "[اختاري|اختر] «التقييم» تحت الجلسة. يُحفظ فورًا." }],
       },
       {
         id: "A1.7",
@@ -82,7 +82,7 @@ export const ADULT_HELP: FamilyRawPage[] = [
         more: true,
         q: "كيف أحذف جلسة؟",
         showMe: true,
-        steps: [{ text: "[افتحي|افتح] «سجل الجلسات».", target: "history.section", kind: "press", optional: true }, { text: "[اضغطي|اضغط] «حذف» تحت الجلسة، ثم «تأكيد الحذف»." }],
+        steps: [{ text: "[افتحي|افتح] «سجل الجلسات».", target: "history.section", kind: "press", missing: "لا توجد جلسات بعد." }, { text: "[اضغطي|اضغط] «حذف» تحت الجلسة، ثم «تأكيد الحذف»." }],
       },
       {
         id: "A1.8",
@@ -104,6 +104,22 @@ export const ADULT_HELP: FamilyRawPage[] = [
           { text: "في قسم «الأطفال» رمز الدخول بجانب اسم {name}. [اضغطي|اضغط] «نسخ الرمز»." },
           { text: "<تدخل|يدخل> {name} من بطاقة «العائلة» في الصفحة الرئيسية، ثم «طفل / طفلة»، <باسمها ورمزها|باسمه ورمزه>." },
         ],
+      },
+      {
+        id: "A1.10",
+        role: "edit",
+        more: true,
+        feat: "highlight",
+        when: "highlight",
+        q: "كيف أظلّل مقطعًا لـ{name}؟",
+        showMe: true,
+        steps: [
+          { text: "[افتحي|افتح] «🔖 تحديد الأخطاء على مستوى الكلمة (اختياري)».", target: "record.flagger", kind: "press", optional: true },
+          { text: "[اضغطي|اضغط] «تظليل» فوق الآيات.", target: "highlight.button", via: ["record.flagger"] },
+          { text: "[اضغطي|اضغط] أول كلمة في المقطع، ثم آخر كلمة." },
+          { text: "[اضغطي|اضغط] «إنهاء التظليل» حين [تنتهين|تنتهي]." },
+        ],
+        notes: ["<ترى|يرى> {name} ما [تظلّلينه|تظلّله] في <صفحاتها|صفحاته>."],
       },
     ],
   },
@@ -150,7 +166,7 @@ export const ADULT_HELP: FamilyRawPage[] = [
         showMe: true,
         steps: [
           { text: "[اضغطي|اضغط] «⚙ البنود»، ثم «إدارة البنود».", target: "tracker.menu.items", kind: "press", via: ["tracker.menu"], optional: true },
-          { text: "[اضغطي|اضغط] ✎ بجانب البند لتعديله، أو 🗑 لحذفه.", target: "tracker.itemRow", optional: true },
+          { text: "[اضغطي|اضغط] ✎ بجانب البند لتعديله، أو 🗑 لحذفه.", target: "tracker.itemRow", missing: "لا بنود بعد." },
           { text: "عند الحذف [اضغطي|اضغط] «نعم، حذف». تبقى درجات الأيام السابقة." },
         ],
       },
@@ -178,7 +194,7 @@ export const ADULT_HELP: FamilyRawPage[] = [
         q: "كيف أعطي كل بند وقتًا؟",
         showMe: true,
         steps: [
-          { text: "[اضغطي|اضغط] ⏱ بجانب البند.", target: "agenda.timeBtn", kind: "press", via: ["tracker.back"], optional: true },
+          { text: "[اضغطي|اضغط] ⏱ بجانب البند.", target: "agenda.timeBtn", kind: "press", via: ["tracker.back"], missing: "لا بنود لليوم." },
           { text: "[اختاري|اختر] «وقت محدّد» أو «بالنسبة إلى صلاة»، ثم [حدّدي|حدّد] الوقت." },
           { text: "[اضغطي|اضغط] «حفظ الوقت»." },
         ],
@@ -216,11 +232,11 @@ export const ADULT_HELP: FamilyRawPage[] = [
       {
         id: "A3.2",
         role: "view",
-        q: "ماذا تعني الدائرة والمربعات؟",
+        q: "ماذا تعني الدائرة والمربّعات؟",
         showMe: true,
         steps: [
           { text: "الدائرة نسبة التزام {name} في الفترة كلها.", target: "summary.ring", optional: true },
-          { text: "كل مربع يوم، وكلما غمق لونه زاد الالتزام. والنجمة ✦ يوم مكتمل.", target: "summary.mosaic", optional: true },
+          { text: "كل مربّع يوم، وكلما غمق لونه زاد الالتزام. والنجمة ✦ يوم مكتمل.", target: "summary.mosaic", optional: true },
           { text: "[اضغطي|اضغط] على يوم [لتري|لترى] بنوده." },
         ],
       },
@@ -324,6 +340,21 @@ export const ADULT_HELP: FamilyRawPage[] = [
         ],
       },
       { id: "A5.4", role: "view", q: "كيف أعود إلى قائمة المقاطع؟", showMe: true, steps: [{ text: "[اضغطي|اضغط] «→ مقاطعي» أعلى الصفحة.", target: "practice.back", kind: "press", optional: true }] },
+      {
+        id: "A5.5",
+        role: "edit",
+        more: true,
+        feat: "highlight",
+        when: "highlight",
+        q: "كيف أظلّل مقطعًا لـ{name}؟",
+        showMe: true,
+        steps: [
+          { text: "[اضغطي|اضغط] «تظليل» فوق الآيات.", target: "highlight.button" },
+          { text: "[اضغطي|اضغط] أول كلمة في المقطع، ثم آخر كلمة." },
+          { text: "[اضغطي|اضغط] «إنهاء التظليل» حين [تنتهين|تنتهي]." },
+        ],
+        notes: ["<ترى|يرى> {name} ما [تظلّلينه|تظلّله] في <صفحاتها|صفحاته>."],
+      },
     ],
   },
   {
@@ -432,7 +463,7 @@ export const ADULT_HELP: FamilyRawPage[] = [
   },
 ];
 
-/** «تفعيل الآن» lines (O1–O8) for an adult with edit rights, by the child's switch. */
+/** «تفعيل الآن» lines (O1–O9) for an adult with edit rights, by the child's switch. */
 export const CHILD_OFFERS: Partial<Record<ChildSwitch, string>> = {
   streak: "تظهر 🔥 بعد تفعيل «أيام الالتزام والسلسلة» لـ{name}. هل [تريدين|تريد] تفعيلها الآن؟",
   summary: "يظهر هذا بعد تفعيل «المحصّلات» لـ{name}. هل [تريدين|تريد] تفعيلها الآن؟",
@@ -442,4 +473,5 @@ export const CHILD_OFFERS: Partial<Record<ChildSwitch, string>> = {
   similar: "يظهر هذا بعد تفعيل «المتشابهات» لـ{name}. هل [تريدين|تريد] تفعيلها الآن؟",
   tajweed: "يظهر هذا بعد تفعيل «أخطاء التجويد المفصّلة» لـ{name}. هل [تريدين|تريد] تفعيلها الآن؟",
   homeLog: "يظهر هذا بعد تفعيل «حفظي في البيت» لـ{name}. هل [تريدين|تريد] تفعيله الآن؟",
+  highlight: "يظهر «تظليل» بعد تفعيل «التظليل» لـ{name}. هل [تريدين|تريد] تفعيله الآن؟",
 };

@@ -122,7 +122,17 @@ export async function adultChildGuideProps(
   const c = await childGuideFacts(child.id);
   if (!c || c.familyId !== familyId) return null;
   const who: FamilyWho = { child: { name: c.name, gender: c.gender }, family: c.familyName, founder: c.founder };
-  let pages: Pages = Object.fromEntries(ADULT_HELP.map((raw) => [raw.id, adultChildHelpPage(raw, c.switches, canEdit, who)]));
+  // A2.3 «كيف أنسخ جدول {name}…» only while there is something to copy and
+  // someone to copy it to (as the page's «نسخ الجدول إلى…»: her items, and
+  // another child the adult may edit)
+  const [items, others] = await Promise.all([
+    prisma.rafiqTrackerItem.count({ where: { userId: c.id, archivedAt: null } }),
+    prisma.rafiqUser.count({
+      where: { kind: "CHILD", id: { not: c.id }, family: { OR: [{ founderId: viewer.id }, { members: { some: { userId: viewer.id, canEditChildren: true } } }] } },
+    }),
+  ]);
+  const hide = new Set(items > 0 && others > 0 ? [] : ["A2.3"]);
+  let pages: Pages = Object.fromEntries(ADULT_HELP.map((raw) => [raw.id, adultChildHelpPage(raw, c.switches, canEdit, who, hide)]));
   if (c.gender === "FEMALE") {
     const [allowed, row, overrides] = await Promise.all([
       familyExcuseAllowed(familyId),

@@ -2,6 +2,8 @@
 
 import {
   ackMilestone,
+  answerRamadan,
+  setOwnAverage,
   addFullDays,
   addOwed,
   deleteAll,
@@ -80,4 +82,14 @@ export async function ackQadaMilestoneAction(input: { subjectId?: string; zone: 
 export async function deleteAllQadaAction(input: { subjectId?: string; zone: string; word: string }): Promise<Answer> {
   const g = await gate(input?.subjectId);
   return "error" in g ? g : deleteAll(g, input);
+}
+
+export async function answerRamadanAction(input: { subjectId?: string; zone: string; year: number; count: number | null }): Promise<Answer> {
+  const g = await gate(input?.subjectId);
+  return "error" in g ? g : answerRamadan(g, input);
+}
+
+export async function setOwnAverageAction(input: { subjectId?: string; zone: string; own: boolean }): Promise<Answer> {
+  const g = await gate(input?.subjectId);
+  return "error" in g ? g : setOwnAverage(g, input);
 }

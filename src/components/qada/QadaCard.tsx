@@ -24,6 +24,8 @@ import {
   loadQadaAction,
   logMadeUpAction,
   saveEstimateAction,
+  answerRamadanAction,
+  setOwnAverageAction,
   setQadaAverageAction,
   setQadaGoalAction,
 } from "@/app/rafiq/(app)/qada-actions";
@@ -44,6 +46,15 @@ export const QADA_CHANGED = "namaa:qada:changed";
 
 type Panel = null | "add" | "log" | "goal" | "estimate" | "settings";
 type Answer = { view: QadaView; id?: string } | { error: string };
+
+function readKey(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
 
 function readOpen(): boolean {
   try {
@@ -89,6 +100,9 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
   const [hidden, setHidden] = useState(() => typeof window !== "undefined" && readHidden());
   // open, or folded to one line: per device, open by default
   const [opened, setOpened] = useState(() => typeof window === "undefined" || readOpen());
+  // the line before Ramadan, hidden for the day («إخفاء لليوم»): the day it was hidden, per device
+  const reminderKey = `namaa:qada:reminder:${subjectId ?? "self"}`;
+  const [reminderHidden, setReminderHidden] = useState<string | null>(() => readKey(reminderKey));
   const [earlier, setEarlier] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; key: number; undo: boolean } | null>(null);
   const [, start] = useTransition();
@@ -200,6 +214,16 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
     }
   };
 
+  const hideReminder = () => {
+    if (!view) return;
+    setReminderHidden(view.today);
+    try {
+      localStorage.setItem(reminderKey, view.today);
+    } catch {
+      // no storage: this visit only
+    }
+  };
+
   const toggleHidden = () => {
     const next = !hidden;
     setHidden(next);
@@ -222,6 +246,8 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
   const hasPrayers = view.totals.prayers.owed + view.totals.prayers.done > 0;
   const open = (p: Panel) => setPanel(panel === p ? null : p);
   const settings = (a.plan && a.excuseAware) || a.deleteAll;
+  // the line before Ramadan, unless hidden today on this device
+  const reminder = view.reminder && reminderHidden !== view.today ? view.reminder : null;
 
   return (
     <section className={`${hl.section} ${css.card}`} aria-label={T.cardTitle(who)} {...t("tracker.qada")}>
@@ -235,7 +261,7 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
                     who,
                     view.totals.prayers.owed > 0 ? view.totals.prayers.remaining : null,
                     view.totals.fast && view.totals.fast.owed > 0 ? view.totals.fast.remaining : null,
-                  ),
+                  ) + (reminder ? ` · ${T.reminderShort(reminder.daysLeft)}` : ""),
                 )}
           </span>
           <span className={css.chev} aria-hidden="true">
@@ -251,6 +277,17 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
       </div>
 
       {a.milestones && <Milestones view={view} subjectId={subjectId} onView={setView} />}
+
+      {/* Phase 2: outside the fold, so a folded card still shows them */}
+      {view.plan?.ramadan && <RamadanOffer view={view} subjectId={subjectId} send={send} />}
+      {opened && reminder && (
+        <div className={css.reminder} role="status">
+          <span>{mask(T.reminderLine(reminder.daysLeft, reminder.remaining, you, who))}</span>
+          <button type="button" className={css.x} aria-label={T.REMINDER_HIDE} title={T.REMINDER_HIDE} onClick={hideReminder}>
+            ×
+          </button>
+        </div>
+      )}
 
       <div id="qada-body" className={`${css.body} ${opened ? css.bodyOpen : ""}`} inert={!opened}>
         <div className={css.bodyInner}>
@@ -1091,6 +1128,7 @@ function SettingsPanel({ view, subjectId, send, onClose }: PanelProps) {
           </div>
           <span className={css.soft}>{T.avgNote(view.who)}</span>
           {msg?.at === "avg" && <div className={msg.ok ? hl.ok : hl.err}>{msg.text}</div>}
+          <Prediction view={view} subjectId={subjectId} send={send} />
         </div>
       )}
       {view.access.deleteAll && (
@@ -1140,6 +1178,94 @@ function SettingsPanel({ view, subjectId, send, onClose }: PanelProps) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Phase 2: after Ramadan, the days of it her excuse took — once per Ramadan, the number hers to change. */
+function RamadanOffer({ view, subjectId, send }: { view: QadaView; subjectId?: string; send: PanelProps["send"] }) {
+  const offer = view.plan!.ramadan!;
+  const [count, setCount] = useState(String(offer.count));
+  const [err, setErr] = useState(false);
+  const [pending, start] = useTransition();
+  const ref = useRef<HTMLInputElement>(null);
+  const n = intOf(count);
+  const answer = (c: number | null) => {
+    if (pending) return;
+    if (c !== null && !(c >= 1 && c <= 30)) {
+      setErr(true);
+      return pointTo(ref.current);
+    }
+    start(async () => void (await send(() => answerRamadanAction({ subjectId, zone: zone(), year: offer.year, count: c }))));
+  };
+  return (
+    <div className={css.offer} role="group" aria-label={T.ramadanQuestion(offer.count)}>
+      <div className={css.offerTitle}>{T.ramadanQuestion(n >= 1 && n <= 30 ? n : offer.count)}</div>
+      <p className={css.soft}>{T.ramadanBasis(offer.year, view.who)}</p>
+      <div className={css.inline}>
+        <div className={css.field}>
+          <label htmlFor="qada-ramadan">{T.RAMADAN_COUNT}</label>
+          <input
+            id="qada-ramadan"
+            ref={ref}
+            className={`${css.input} ${css.narrow}`}
+            inputMode="numeric"
+            value={count}
+            onChange={(e) => {
+              setCount(e.target.value);
+              setErr(false);
+            }}
+          />
+        </div>
+        <div className={css.field}>
+          <span className={hl.actionsRow} style={{ marginTop: 0 }}>
+            <button type="button" className={`${hl.primaryBtn} pressable`} aria-busy={pending} onClick={() => answer(n)}>
+              {T.RAMADAN_ADD}
+            </button>
+            <button type="button" className={`${hl.ghostBtn} pressable`} aria-busy={pending} onClick={() => answer(null)}>
+              {T.RAMADAN_LATER}
+            </button>
+          </span>
+        </div>
+      </div>
+      {err && <div className={hl.err}>{T.ERR.ramadanCount}</div>}
+      {offer.noCity && <p className={css.soft}>{T.ramadanNoCity(view.you, offer.family)}</p>}
+    </div>
+  );
+}
+
+/** Phase 2: her predicted cycle, and «استعمال رقمي أنا» (saved at once). */
+function Prediction({ view, subjectId, send }: { view: QadaView; subjectId?: string; send: PanelProps["send"] }) {
+  const plan = view.plan!;
+  const [own, setOwn] = useState(plan.ownAverage === true);
+  const [failed, setFailed] = useState(false);
+  const [, start] = useTransition();
+  if (!plan.prediction) return <p className={css.soft}>{T.PREDICTION_NOT_YET}</p>;
+  return (
+    <div className={css.block}>
+      <p className={css.planLine} style={{ marginTop: 0 }}>
+        {T.predictionLine(plan.prediction, view.who)}
+      </p>
+      {!own && <p className={css.soft}>{T.predictionUsed}</p>}
+      <label className={css.check}>
+        <input
+          type="checkbox"
+          checked={own}
+          onChange={(e) => {
+            const next = e.target.checked;
+            setOwn(next);
+            setFailed(false);
+            start(async () => {
+              if (!(await send(() => setOwnAverageAction({ subjectId, zone: zone(), own: next })))) {
+                setOwn(!next);
+                setFailed(true);
+              }
+            });
+          }}
+        />
+        {T.ownAverageSwitch(plan.avg, view.who)}
+      </label>
+      {failed && <div className={hl.err}>{T.ERR.fail}</div>}
     </div>
   );
 }

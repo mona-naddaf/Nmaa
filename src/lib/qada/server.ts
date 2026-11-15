@@ -19,6 +19,11 @@ import { blockedFastDays } from "./fasting-days";
 import { fastPlan, prayerPlan, type DayRow, type FastPlan, type Goal, type GoalMode, type PrayerPlan } from "./plan";
 import { nextMilestone, type Milestone } from "./milestones";
 import type { ExcuseSpan } from "./available";
+import { monthlyFromCycle, predictCycle, type ExcuseRecord } from "./cycle";
+import { excusedRamadanDays, nextRamadan, ramadanToOffer, type ExcuseSpan as RamadanSpan } from "./ramadan";
+import { ramadanReminder } from "./reminder";
+import { rafiqPlace } from "@/lib/prayer/place-data";
+import { prayerMinutes } from "@/lib/prayer/times";
 import { itemOfRef, linkToSave, trackerRef } from "./link";
 import { ERR, QADA_DELETE_WORD } from "./texts";
 
@@ -124,7 +129,16 @@ export type QadaView = {
     avg: number | null;
     // the estimate's last answers (to reopen it filled in)
     estimate: EstimateInput | null;
+    // Phase 2 (excuse-aware only): her predicted cycle (null: not enough
+    // records yet), and «استعمال رقمي أنا»
+    prediction?: { cycle: number; duration: number } | null;
+    ownAverage?: boolean;
+    // Phase 2: the Ramadan offer, once per Ramadan (her, or a girl's list)
+    // family: a child's (her city is the family's)
+    ramadan?: { year: number; count: number; noCity: boolean; family: boolean };
   };
+  // Phase 2: the calm line before Ramadan (the owner; for a girl her list too)
+  reminder?: { daysLeft: number; remaining: number };
   // the owner's milestones still to show
   milestones?: { track: QadaTrack; level: Milestone }[];
 };
@@ -139,25 +153,53 @@ const goalOf = (p: PlanRow | null, t: QadaTrack): Goal => {
 
 type PlanRow = Prisma.RafiqQadaPlanGetPayload<object>;
 
-/** Her excuses for the plan: recorded ones (null: she doesn't record them), and whether one is open now. */
-async function excuseFacts(g: QadaGate, today: string): Promise<{ spans: ExcuseSpan[] | null; now: boolean }> {
+type ExcuseFacts = {
+  // her recorded excuses as days (the plan); null: she doesn't record them
+  spans: ExcuseSpan[] | null;
+  // one is open now
+  now: boolean;
+  // Phase 2: the same as records (her cycle) and as moments (Ramadan's hours)
+  records: ExcuseRecord[];
+  moments: RamadanSpan[];
+  // her «أيام العذر» switch is on (the Ramadan offer needs it)
+  on: boolean;
+};
+
+/** Her excuses for the plan, the prediction and the Ramadan offer (nothing when «أيام العذر» doesn't reach her). */
+async function excuseFacts(g: QadaGate, today: string): Promise<ExcuseFacts> {
   const s = g.subject;
-  const records = s.kind === "ADULT" ? (await ownExcuse(s.id)).show : !!g.familyId && (await familyExcuseAllowed(g.familyId));
-  if (!records) return { spans: null, now: false };
+  const none: ExcuseFacts = { spans: null, now: false, records: [], moments: [], on: false };
+  let on = false;
+  if (s.kind === "ADULT") {
+    const own = await ownExcuse(s.id);
+    if (!own.show) return none;
+    on = own.on;
+  } else {
+    if (!g.familyId || !(await familyExcuseAllowed(g.familyId))) return none;
+    on = (await prisma.rafiqUser.findUnique({ where: { id: s.id }, select: { excuseEnabled: true } }))?.excuseEnabled === true;
+  }
   const rows = await prisma.rafiqExcuse.findMany({
-    // all of hers (a few a month): the plan reads those since its goals were set
+    // all of hers (a few a month)
     where: { userId: s.id },
-    select: { startDay: true, startMin: true, endDay: true },
+    orderBy: { startDay: "asc" },
+    select: { startDay: true, startMin: true, endDay: true, endMin: true, endedBy: true },
   });
   let now = false;
-  const spans = rows.map((r) => {
+  const spans: ExcuseSpan[] = [];
+  const records: ExcuseRecord[] = [];
+  const moments: RamadanSpan[] = [];
+  for (const r of rows) {
     const start = isoOf(r.startDay);
     // an open one ends by itself after 15 days
-    const end = r.endDay ? isoOf(r.endDay) : autoEndOf({ day: start, min: r.startMin }).day;
-    if (!r.endDay && daysBetween(today, end) >= 0 && daysBetween(start, today) >= 0) now = true;
-    return { start, end: r.endDay || daysBetween(today, end) < 0 ? end : null };
-  });
-  return { spans, now };
+    const auto = autoEndOf({ day: start, min: r.startMin });
+    const end = r.endDay ? isoOf(r.endDay) : auto.day;
+    const open = !r.endDay && daysBetween(today, end) >= 0;
+    if (open && daysBetween(start, today) >= 0) now = true;
+    spans.push({ start, end: open ? null : end });
+    records.push({ start, end: open ? null : end, auto: r.endedBy === "AUTO" || (!r.endDay && !open) });
+    moments.push({ start: { day: start, min: r.startMin }, end: r.endDay ? { day: end, min: r.endMin ?? 0 } : auto });
+  }
+  return { spans, now, records, moments, on };
 }
 
 async function adjustmentsFor(g: QadaGate) {
@@ -185,7 +227,7 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
       select: { id: true, kind: true, action: true, count: true, day: true, batchId: true, source: true, sourceRef: true, byAdult: true, createdAt: true, by: { select: { name: true } } },
     }),
     g.subject.kind === "CHILD" ? prisma.rafiqUser.findUnique({ where: { id: userId }, select: { name: true } }) : null,
-    g.access.plan && g.access.excuseAware ? excuseFacts(g, today) : { spans: null, now: false },
+    g.access.plan && g.access.excuseAware ? excuseFacts(g, today) : ({ spans: null, now: false, records: [], moments: [], on: false } as ExcuseFacts),
     g.access.plan && g.access.fasting ? adjustmentsFor(g) : [],
   ]);
   const rows: CountRow[] = sums.map((s) => ({ kind: s.kind, action: s.action, count: s._sum.count ?? 0 }));
@@ -214,7 +256,11 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
     }
     const pg = goalOf(planRow, "prayers");
     const fg = goalOf(planRow, "fast");
-    const avg = g.access.excuseAware ? (planRow?.excuseDaysPerMonth ?? null) : null;
+    // her own number, or her predicted cycle where her records allow it (unless she keeps her own)
+    const prediction = g.access.excuseAware ? predictCycle(ex.records) : null;
+    const ownAvg = g.access.excuseAware ? (planRow?.excuseDaysPerMonth ?? null) : null;
+    const usePrediction = !!prediction && !planRow?.ownAverage;
+    const avg = usePrediction ? monthlyFromCycle(prediction!) : ownAvg;
     const blocked = g.access.fasting ? blockedFastDays(today, addDays(today, 365 * BLOCKED_YEARS), adjustments) : new Set<string>();
     const ctx = { today, avg, excuses: ex.spans, excuseNow: ex.now, blocked };
     const estimate = planRow?.estimate ? parseEstimate(planRow.estimate, g.access.excuseAware) : null;
@@ -225,9 +271,33 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
         prayers: { mode: pg.mode, deadline: pg.deadline, pace: pg.pace },
         fast: g.access.fasting ? { mode: fg.mode, deadline: fg.deadline, pace: fg.pace } : null,
       },
-      avg,
+      avg: ownAvg,
       estimate,
+      ...(g.access.excuseAware ? { prediction: prediction && { cycle: prediction.cycle, duration: prediction.duration }, ownAverage: planRow?.ownAverage === true } : {}),
     };
+
+    // the Ramadan offer: «القضاء» and «أيام العذر» both on, fasting hers to see
+    if (g.access.fasting && g.access.excuseAware && ex.on) {
+      const r = ramadanToOffer(today, adjustments);
+      if (r && !(planRow?.ramadanSeen ?? []).includes(r.year)) {
+        const place = await rafiqPlace(userId);
+        const tz = safeTimeZone(typeof zone === "string" ? zone : null);
+        const count = excusedRamadanDays(r, ex.moments, (d) => {
+          if (!place) return null;
+          const m = prayerMinutes(place, d, tz);
+          return { from: m.FAJR, to: m.MAGHRIB };
+        });
+        if (count > 0) view.plan.ramadan = { year: r.year, count, noCity: !place, family: g.subject.kind === "CHILD" };
+      }
+    }
+
+    // the line before Ramadan: the owner (a child herself), or a girl's list
+    const owner = g.viewer === "self" || g.viewer === "child" || g.subject.gender === "FEMALE";
+    const next = owner && g.access.fasting && t.fast.remaining > 0 ? nextRamadan(today, adjustments) : null;
+    if (next) {
+      const r = ramadanReminder({ today, ramadan: next.first, remaining: t.fast.remaining, blocked, prediction: usePrediction ? prediction : null, avg: usePrediction ? null : ownAvg });
+      if (r) view.reminder = { daysLeft: r.daysLeft, remaining: r.remaining };
+    }
   }
 
   if (g.access.milestones) {
@@ -531,4 +601,45 @@ export function tickQadaOps(subject: Subject, item: { id: string; qadaKind: Qada
   }
   if (effect === "remove") return [prisma.rafiqQadaEntry.deleteMany({ where: { userId: subject.id, source: "TRACKER", sourceRef } })];
   return [];
+}
+
+// ---------- Phase 2: the Ramadan offer and «استعمال رقمي أنا» ----------
+
+/**
+ * The Ramadan offer, answered: «إضافة» (count, as she left it: 1–30 fasting
+ * days owed, source RAMADAN_EXCUSE, once per Hijri year) or «ليس الآن»
+ * (count null). Either way that Ramadan is never offered again.
+ */
+export async function answerRamadan(g: QadaGate, input: { year: unknown; count: unknown; zone: unknown }): Promise<Result> {
+  if (!g.access.plan || !g.access.fasting || !g.access.excuseAware) return NOT_AVAILABLE;
+  const view = await loadView(g, input.zone);
+  const offer = view.plan?.ramadan;
+  if (!offer || offer.year !== input.year) return { error: ERR.gone };
+  const add = input.count !== null;
+  if (add && (!Number.isInteger(input.count) || (input.count as number) < 1 || (input.count as number) > 30)) return { error: ERR.ramadanCount };
+  const a = addedBy(g.subject);
+  await prisma.$transaction([
+    ...(add
+      ? [
+          prisma.rafiqQadaEntry.createMany({
+            data: [{ userId: g.subject.id, kind: "FAST", action: "OWED", count: input.count as number, source: "RAMADAN_EXCUSE", sourceRef: `ramadan:${offer.year}`, byAdult: a.byAdult, byId: a.adultId }],
+            skipDuplicates: true,
+          }),
+        ]
+      : []),
+    prisma.rafiqQadaPlan.upsert({
+      where: { userId: g.subject.id },
+      create: { userId: g.subject.id, ramadanSeen: [offer.year] },
+      update: { ramadanSeen: { push: offer.year } },
+    }),
+  ]);
+  return { view: await loadView(g, input.zone) };
+}
+
+/** «استعمال رقمي أنا»: her own average even where her records allow a prediction. */
+export async function setOwnAverage(g: QadaGate, input: { own: unknown; zone: unknown }): Promise<Result> {
+  if (!g.access.plan || !g.access.excuseAware) return NOT_AVAILABLE;
+  const own = input.own === true;
+  await prisma.rafiqQadaPlan.upsert({ where: { userId: g.subject.id }, create: { userId: g.subject.id, ownAverage: own }, update: { ownAverage: own } });
+  return { view: await loadView(g, input.zone) };
 }

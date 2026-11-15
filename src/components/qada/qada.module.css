@@ -510,3 +510,41 @@
     animation: none;
   }
 }
+
+/* ---------- Phase 2: the Ramadan offer and the line before Ramadan ---------- */
+
+.offer {
+  border: 1px solid var(--rose);
+  border-radius: 14px;
+  background: var(--cream);
+  padding: 12px;
+  margin-bottom: 10px;
+  animation: rise 220ms var(--ease-out);
+}
+
+.offerTitle {
+  font-weight: 800;
+  font-size: 14.5px;
+  color: var(--rose-deep);
+}
+
+.reminder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--ink);
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px 6px 6px 12px;
+  margin-bottom: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offer {
+    animation: none;
+  }
+}

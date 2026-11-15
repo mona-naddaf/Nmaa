@@ -242,6 +242,7 @@ export const ERR = {
   day: "التاريخ غير صحيح.",
   earlier: "يمكن التسجيل لليوم أو لسبعة أيام سابقة فقط.",
   madeUpCount: "العدد من 1 إلى 100.",
+  ramadanCount: "العدد من 1 إلى 30.",
   kind: "يُرجى اختيار النوع.",
   deadline: "يُرجى اختيار موعد بعد اليوم.",
   pace: "يُرجى إدخال رقم صحيح.",
@@ -284,3 +285,34 @@ export const linkLine = (k: QadaKind) => `${LINK_FIELD}: ${linkOption(k)}`;
 export const LINK_ONE_CHILD = "يُحسب قضاءً لهذا الطفل وحده، لا عند الإضافة إلى أكثر من طفل.";
 /** «السجل»: an entry from a ticked item. */
 export const logFromItem = (title: string | null) => (title ? `من بند «${title}» في الجدول` : "من بند في الجدول");
+
+// ---------- Phase 2: the Ramadan offer ----------
+
+export const ramadanQuestion = (n: number) => `أُضيف ${daysCount(n)} إلى قضاء الصيام؟`;
+export const ramadanBasis = (year: number, who: Who) =>
+  who ? `حسب أيام العذر التي سُجّلت ل${who.name} في رمضان ${year} هـ.` : `حسب أيام العذر التي سجّلتِها في رمضان ${year} هـ.`;
+export const RAMADAN_COUNT = "عدد الأيام";
+export const RAMADAN_ADD = "إضافة";
+export const RAMADAN_LATER = "ليس الآن";
+/** Without a place: her own city (an adult), or the family's (a child's pages). */
+export const ramadanNoCity = (you: G, family: boolean) =>
+  family
+    ? "حين تُحدَّد مدينة العائلة يُحسب حسب وقت الصيام بدقّة."
+    : `${pick(you, "حدّد", "حدّدي")} ${pick(you, "مدينتك", "مدينتكِ")} في الإعدادات ليُحسب حسب وقت الصيام بدقّة.`;
+export const ramadanAdded = "أُضيف إلى قضاء الصيام ✓";
+
+// ---------- Phase 2: the line before Ramadan ----------
+
+export const reminderLine = (daysLeft: number, remaining: number, you: G, who: Who) =>
+  `بقي على رمضان ${daysCount(daysLeft)}، و${who ? `على ${who.name}` : pick(you, "عليك", "عليكِ")} ${daysCount(remaining)} من قضاء الصيام.`;
+export const reminderShort = (daysLeft: number) => `رمضان بعد ${daysCount(daysLeft)}`;
+export const REMINDER_HIDE = "إخفاء لليوم";
+
+// ---------- Phase 2: her predicted cycle ----------
+
+export const predictionLine = (p: { cycle: number; duration: number }, who: Who) =>
+  `حسب ${who ? `سجلّ ${who.name}` : "سجلّكِ"}: كل ${daysCount(p.cycle)} تقريبًا، لمدة ${daysCount(p.duration)}.`;
+export const predictionUsed = "يُستعمل هذا في الخطة بدل المتوسط المكتوب.";
+export const PREDICTION_NOT_YET = "بعد ثلاث دورات كاملة في «أيام العذر» يُحسب المتوسط من السجل.";
+export const ownAverageSwitch = (avg: number | null, who: Who) =>
+  `${who ? "استعمال الرقم المكتوب" : "استعمال رقمي أنا"}${avg !== null ? ` (${daysCount(avg)} في الشهر)` : ""}`;

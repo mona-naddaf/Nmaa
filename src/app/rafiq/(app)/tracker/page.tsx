@@ -10,7 +10,8 @@ import { introsFor } from "@/lib/guide/lines";
 import { trackerIntroFacts } from "@/lib/guide/page-facts";
 import { loadExcuses, ownExcuse, pausedNow } from "@/lib/excuse/rafiq-data";
 import { addDays } from "@/lib/tracker/rules";
-import { qadaOn } from "@/lib/qada/server";
+import { qadaAccessFor } from "@/lib/qada/server";
+import { linkableKinds } from "@/lib/qada/link";
 
 // With guidance on: the page's intro lines, and ?add=1 («إضافة بند» in
 // «الخطوات الأولى») opens the new-item form straight away.
@@ -22,9 +23,11 @@ export default async function RafiqTrackerPage({ searchParams }: PageProps<"/raf
   const guide = await getGuide();
   // «أيام العذر»: a woman's own (EXCUSE_ENABLED); nothing of it is loaded otherwise
   const excuse = await ownExcuse(user.id);
+  // «القضاء»: its card, and «يُحسب قضاءً» on her items
+  const qada = await qadaAccessFor();
   return (
     <RafiqTracker
-      data={await getRafiqTracker(user.id, undefined, excuse.show)}
+      data={await getRafiqTracker(user.id, undefined, excuse.show, qada)}
       excuse={
         excuse.show
           ? { excuses: await loadExcuses(user.id, addDays(new Date().toISOString().slice(0, 10), -10)), on: excuse.on, pausedNow: await pausedNow(user.id), you: user.gender }
@@ -35,7 +38,8 @@ export default async function RafiqTrackerPage({ searchParams }: PageProps<"/raf
       summary={summaryEnabled}
       place={agendaEnabled ? await rafiqPlace(user.id) : null}
       celebrateKey={`rafiq:${user.id}`}
-      qada={await qadaOn()}
+      qada={qada !== null}
+      qadaKinds={linkableKinds(qada)}
       family={family}
       guide={
         guide

@@ -19,6 +19,7 @@ import { blockedFastDays } from "./fasting-days";
 import { fastPlan, prayerPlan, type DayRow, type FastPlan, type Goal, type GoalMode, type PrayerPlan } from "./plan";
 import { nextMilestone, type Milestone } from "./milestones";
 import type { ExcuseSpan } from "./available";
+import { itemOfRef, linkToSave, trackerRef } from "./link";
 import { ERR, QADA_DELETE_WORD } from "./texts";
 
 // «القضاء» on the server: who may see and change whose qada (qadaGate), what
@@ -99,6 +100,8 @@ export type LogLine = {
   createdAt?: string;
   // who made it, when it's someone else than the one whose page it is (null: an adult whose account is gone)
   by?: string | null;
+  // Phase 2: the item it came from (a tick on a linked item; null: that item is gone)
+  fromItem?: string | null;
 };
 
 export type GoalView = { mode: GoalMode; deadline: string | null; pace: number | null };
@@ -179,7 +182,7 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
       where: { userId, kind: { in: kinds } },
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       take: LIMITS.logLines * 6,
-      select: { id: true, kind: true, action: true, count: true, day: true, batchId: true, source: true, byAdult: true, createdAt: true, by: { select: { name: true } } },
+      select: { id: true, kind: true, action: true, count: true, day: true, batchId: true, source: true, sourceRef: true, byAdult: true, createdAt: true, by: { select: { name: true } } },
     }),
     g.subject.kind === "CHILD" ? prisma.rafiqUser.findUnique({ where: { id: userId }, select: { name: true } }) : null,
     g.access.plan && g.access.excuseAware ? excuseFacts(g, today) : { spans: null, now: false },
@@ -191,7 +194,12 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
   for (const k of kinds) totals[k] = t[k];
 
   const who = g.viewer === "adult-edit" ? { name: g.subject.name ?? "—", gender: g.subject.gender } : null;
-  const view: QadaView = { today, access: g.access, you: g.you, who, kinds, totals, log: logLines(entries, g, names?.name ?? null) };
+  // «من بند «…» في الجدول»: the titles of the items behind ticked entries (hers only)
+  const itemIds = [...new Set(entries.filter((e) => e.source === "TRACKER").map((e) => itemOfRef(e.sourceRef)).filter((x): x is string => !!x))];
+  const titles = itemIds.length
+    ? new Map((await prisma.rafiqTrackerItem.findMany({ where: { userId, id: { in: itemIds } }, select: { id: true, title: true } })).map((i) => [i.id, i.title]))
+    : new Map<string, string>();
+  const view: QadaView = { today, access: g.access, you: g.you, who, kinds, totals, log: logLines(entries, g, names?.name ?? null, titles) };
 
   if (g.access.plan) {
     const doneToday = new Map(todays.map((r) => [r.kind, r._sum.count ?? 0]));
@@ -253,10 +261,11 @@ type EntryRow = {
   byAdult: boolean;
   createdAt: Date;
   by: { name: string | null } | null;
+  sourceRef: string | null;
 };
 
 /** The log's lines, newest first: a batch is one line. Dates only for whoever may see them. */
-function logLines(entries: EntryRow[], g: QadaGate, childName: string | null): LogLine[] {
+function logLines(entries: EntryRow[], g: QadaGate, childName: string | null, titles: Map<string, string>): LogLine[] {
   const lines: LogLine[] = [];
   const index = new Map<string, LogLine>();
   for (const e of entries) {
@@ -273,6 +282,7 @@ function logLines(entries: EntryRow[], g: QadaGate, childName: string | null): L
       line.createdAt = e.createdAt.toISOString();
     }
     // who made it: an adult on a child's page; on an adult's view, the child herself too
+    if (e.source === "TRACKER") line.fromItem = titles.get(itemOfRef(e.sourceRef) ?? "") ?? null;
     if (e.byAdult) line.by = e.by?.name ?? null;
     else if (g.viewer === "adult-edit") line.by = childName ?? "—";
     index.set(key, line);
@@ -479,4 +489,46 @@ export async function childQadaList(familyId: string, child: { id: string; gende
     members.map((m) => ({ id: m.userId, name: m.user.name ?? "—", gender: m.user.gender })),
     overrides,
   ).map((a) => ({ ...a, you: a.id === viewerId }));
+}
+
+// ---------- Phase 2: tracker items linked to qada («يُحسب قضاءً») ----------
+
+/** What this viewer gets of the subject's qada (null: nothing — the switch off, not allowed, or view only). */
+export async function qadaAccessFor(subjectId?: unknown): Promise<QadaAccess | null> {
+  const g = await qadaGate(subjectId, "view");
+  return "error" in g ? null : g.access;
+}
+
+/** Her «القضاء» is on and QADA_EMAILS reaches her (her own email, or her family founder's) — whoever is ticking. */
+export async function qadaSwitchOn(userId: string): Promise<boolean> {
+  const u = await prisma.rafiqUser.findUnique({
+    where: { id: userId },
+    select: { kind: true, email: true, qadaEnabled: true, family: { select: { founder: { select: { email: true } } } } },
+  });
+  if (!u?.qadaEnabled) return false;
+  return qadaAllowed(u.kind === "ADULT" ? u.email : u.family?.founder.email);
+}
+
+/** The link to save on an item (link.ts linkToSave), for the one saving it. */
+export async function itemLinkToSave(subjectId: unknown, current: QadaKind | null, submitted: unknown): Promise<QadaKind | null> {
+  if (submitted === undefined) return current;
+  const g = await qadaGate(subjectId, "record");
+  return linkToSave(current, submitted, "error" in g ? null : g.access);
+}
+
+/** The writes of one tick on a linked item: its made-up entry added (once) or removed. */
+export function tickQadaOps(subject: Subject, item: { id: string; qadaKind: QadaKind | null }, day: string, effect: "add" | "remove" | "none") {
+  const sourceRef = trackerRef(item.id, day);
+  if (effect === "add" && item.qadaKind) {
+    const a = addedBy(subject);
+    // the unique index (owner, source, sourceRef) makes a second one a no-op
+    return [
+      prisma.rafiqQadaEntry.createMany({
+        data: [{ userId: subject.id, kind: item.qadaKind, action: "MADE_UP", count: 1, day: dateOnly(day), source: "TRACKER", sourceRef, byAdult: a.byAdult, byId: a.adultId }],
+        skipDuplicates: true,
+      }),
+    ];
+  }
+  if (effect === "remove") return [prisma.rafiqQadaEntry.deleteMany({ where: { userId: subject.id, source: "TRACKER", sourceRef } })];
+  return [];
 }

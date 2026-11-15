@@ -5,6 +5,9 @@ import { addDays } from "@/lib/tracker/rules";
 import { placeOf } from "@/lib/tracker/agenda";
 import type { SlotRow } from "@/lib/tracker/schedule";
 import type { ExcuseMode } from "@/lib/excuse/rules";
+import type { QadaKind } from "@/lib/qada/kinds";
+import type { QadaAccess } from "@/lib/qada/visibility";
+import { linkShown } from "@/lib/qada/link";
 
 // Her own «جدول المتابعة», in the same shape as a course student's sheet so
 // the shared TrackerDaySheet shows and scores it unchanged. Scores are never
@@ -28,15 +31,18 @@ export interface RafiqTrackerData {
     addedBy: string | null;
     excuseMode?: ExcuseMode;
     excuseAltTitle?: string | null;
+    // «القضاء» Phase 2: «يُحسب قضاءً», only for a viewer who may see that link
+    qadaKind?: QadaKind;
   }[];
 }
 
 /**
  * The last `days` days (plus a day of time-zone slack). excuse: also each
  * item's «أيام العذر» setting — only for a viewer who may see her excuse
- * (src/lib/excuse/visibility.ts); never sent otherwise.
+ * (src/lib/excuse/visibility.ts); never sent otherwise. qada: what the viewer
+ * gets of her «القضاء» — each item's link only where that viewer may see it.
  */
-export async function getRafiqTracker(userId: string, days = 9, excuse = false): Promise<RafiqTrackerData> {
+export async function getRafiqTracker(userId: string, days = 9, excuse = false, qada: QadaAccess | null = null): Promise<RafiqTrackerData> {
   const fromDay = addDays(day(new Date()), -days);
   const from = new Date(`${fromDay}T00:00:00Z`);
   const [items, checks] = await Promise.all([
@@ -56,6 +62,7 @@ export async function getRafiqTracker(userId: string, days = 9, excuse = false):
         createdById: true,
         excuseMode: true,
         excuseAltTitle: true,
+        qadaKind: true,
         slots: { select: { weekdays: true, startMin: true, durationMin: true, anchor: true, anchorOffsetMin: true }, orderBy: { weekdays: "desc" } },
       },
     }),
@@ -85,7 +92,7 @@ export async function getRafiqTracker(userId: string, days = 9, excuse = false):
     sheet: { items: views, checks: byDay },
     active: items
       .filter((r) => !r.archivedAt)
-      .map(({ id, title, value, days, slots, adultAdded, createdById, excuseMode, excuseAltTitle }) => ({
+      .map(({ id, title, value, days, slots, adultAdded, createdById, excuseMode, excuseAltTitle, qadaKind }) => ({
         id,
         title,
         value,
@@ -94,6 +101,8 @@ export async function getRafiqTracker(userId: string, days = 9, excuse = false):
         adultAdded,
         addedBy: createdById,
         ...(excuse ? { excuseMode, excuseAltTitle } : {}),
+        // a girl's link to fasting never reaches an adult outside her list (src/lib/qada/link.ts)
+        ...(qadaKind && linkShown(qadaKind, qada) ? { qadaKind } : {}),
       })),
   };
 }

@@ -39,6 +39,8 @@ import {
 const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const HIDE_KEY = "namaa:qada:hidden";
 const OPEN_KEY = "namaa:qada:open";
+/** Sent by «جدول المتابعة» after a tick on a linked item («يُحسب قضاءً»): the card reloads. */
+export const QADA_CHANGED = "namaa:qada:changed";
 
 type Panel = null | "add" | "log" | "goal" | "estimate" | "settings";
 type Answer = { view: QadaView; id?: string } | { error: string };
@@ -99,15 +101,22 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
 
   useEffect(() => {
     let alive = true;
-    loadQadaAction({ subjectId, zone: zone() })
-      .then((r) => {
-        if (!alive) return;
-        if ("error" in r) setFailed(true);
-        else setView(r.view);
-      })
-      .catch(() => alive && setFailed(true));
+    const load = (first: boolean) =>
+      loadQadaAction({ subjectId, zone: zone() })
+        .then((r) => {
+          if (!alive) return;
+          if ("error" in r) {
+            if (first) setFailed(true);
+          } else setView(r.view);
+        })
+        .catch(() => alive && first && setFailed(true));
+    void load(true);
+    // a tick on a linked item («يُحسب قضاءً») changed it: fresh numbers
+    const again = () => void load(false);
+    window.addEventListener(QADA_CHANGED, again);
     return () => {
       alive = false;
+      window.removeEventListener(QADA_CHANGED, again);
     };
   }, [subjectId]);
 
@@ -742,7 +751,8 @@ function AddPanel({ view, subjectId, send, onClose }: PanelProps) {
 function lineText(l: LogLine): string {
   const label = l.source === "ESTIMATE" ? T.LOG_KIND.ESTIMATE : l.source === "FULL_DAY" ? T.LOG_KIND.FULL_DAY : T.LOG_KIND[l.action];
   const body = l.source === "FULL_DAY" && l.parts.length ? T.fullDayParts(l.parts[0].count) : T.logParts(l.parts);
-  return `${label}: ${body}`;
+  // a tick on a linked item: «من بند «…» في الجدول»
+  return `${label}: ${body}${l.source === "TRACKER" ? ` — ${T.logFromItem(l.fromItem ?? null)}` : ""}`;
 }
 
 /** «السجل»: every line, newest first; a line is deleted after «نعم، حذف». */

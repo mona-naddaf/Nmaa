@@ -272,3 +272,15 @@ export function collapsedLine(who: Who, prayersLeft: number | null, fastLeft: nu
   if (rest.length) parts.push(`بقي ${rest.join(" · ")}`);
   return parts.join(" · ");
 }
+
+// ---------- Phase 2: «يُحسب قضاءً» on a tracker item ----------
+
+export const LINK_FIELD = "يُحسب قضاءً";
+export const LINK_NONE = "لا";
+export const linkOption = (k: QadaKind) => (k === "FAST" ? "الصيام" : `صلاة ${KIND_NAMES[k]}`);
+export const linkHint = (you: G) =>
+  `كل يوم ${pick(you, "تعلّم", "تعلّمين")} فيه هذا البند يُضاف إلى «القضاء» واحد، ويُرفع إن ${pick(you, "أزلت", "أزلتِ")} العلامة.`;
+export const linkLine = (k: QadaKind) => `${LINK_FIELD}: ${linkOption(k)}`;
+export const LINK_ONE_CHILD = "يُحسب قضاءً لهذا الطفل وحده، لا عند الإضافة إلى أكثر من طفل.";
+/** «السجل»: an entry from a ticked item. */
+export const logFromItem = (title: string | null) => (title ? `من بند «${title}» في الجدول` : "من بند في الجدول");

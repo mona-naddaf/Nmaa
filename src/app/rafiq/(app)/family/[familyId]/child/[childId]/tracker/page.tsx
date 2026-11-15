@@ -8,7 +8,8 @@ import { ChildHeader } from "../ChildHeader";
 import { editableChildren } from "@/lib/family/tracker-copy-data";
 import { resolveSubject } from "@/lib/rafiq/subject";
 import { subjectExcuse, trackerExcuse, trackerQuiet } from "@/lib/excuse/subject";
-import { qadaOn } from "@/lib/qada/server";
+import { qadaAccessFor } from "@/lib/qada/server";
+import { linkableKinds } from "@/lib/qada/link";
 
 // A child's «جدول المتابعة» for an adult of her family: view only, or — with
 // edit rights — ticking for her and adding, changing and removing items
@@ -24,15 +25,18 @@ export default async function AdultChildTrackerPage({ params }: PageProps<"/rafi
   // «أيام العذر»: shown only to an adult checked in her list; the others get only what isn't due (quiet)
   const subject = await resolveSubject(child.id, "view");
   const ex = "error" in subject ? null : await subjectExcuse(subject);
+  // «القضاء»: null for a view-only adult (no card, no links)
+  const qada = await qadaAccessFor(child.id);
   return (
     <>
       <ChildHeader familyId={access.family.id} child={child} canEdit={viewer === "adult-edit"} on="tracker" you={access.user.gender} homeLog={child.flags.homeLog} />
       <RafiqTracker
-        data={await getRafiqTracker(child.id, undefined, ex?.show === true)}
+        data={await getRafiqTracker(child.id, undefined, ex?.show === true, qada)}
         excuse={ex ? await trackerExcuse(child.id, ex, { name: child.name, adultPage: true }) : undefined}
         quiet={ex ? await trackerQuiet(child.id, ex) : undefined}
         g={child.gender === "FEMALE" ? "GIRLS" : "BOYS"}
-        qada={await qadaOn(child.id)}
+        qada={qada !== null}
+        qadaKinds={linkableKinds(qada)}
         agenda={child.flags.agenda}
         place={child.flags.agenda ? await rafiqPlace(child.id) : null}
         summaryHref={child.flags.summary ? `${base}/tracker/summary` : undefined}

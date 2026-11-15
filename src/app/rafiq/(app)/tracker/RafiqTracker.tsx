@@ -33,7 +33,9 @@ import type { IntroId } from "@/lib/guide/keys";
 import { EMPTY } from "@/lib/guide/lines-texts";
 import { IntroLine } from "../guide/IntroLine";
 import { ExcuseBar } from "@/components/excuse/ExcuseBar";
-import { QadaCard } from "@/components/qada/QadaCard";
+import { QadaCard, QADA_CHANGED } from "@/components/qada/QadaCard";
+import type { QadaKind } from "@/lib/qada/kinds";
+import { LINK_FIELD, LINK_NONE, LINK_ONE_CHILD, linkHint, linkLine, linkOption } from "@/lib/qada/texts";
 import { ItemExcuseField, useItemExcuse } from "@/components/excuse/ItemExcuse";
 import { excuseLens, quietLens } from "@/lib/excuse/lens";
 import type { ExcuseMode } from "@/lib/excuse/rules";
@@ -66,6 +68,7 @@ export function RafiqTracker({
   excuse,
   quiet,
   qada = false,
+  qadaKinds = [],
 }: {
   data: RafiqTrackerData;
   g: GroupGender;
@@ -96,11 +99,18 @@ export function RafiqTracker({
   quiet?: string[];
   // «القضاء» (src/lib/qada): its card below the day, where the server let this viewer have it
   qada?: boolean;
+  // «يُحسب قضاءً»: the kinds this viewer may link an item to (empty: no field)
+  qadaKinds?: QadaKind[];
 }) {
   const can = scopeCan(scope);
   const subjectId = scope.subjectId;
   // «العائلة»: every action names the child on an adult's page
-  const tick = (input: Parameters<typeof setCheckAction>[0]) => setCheckAction({ ...input, subjectId });
+  // a tick on a linked item changes «القضاء»: its card below reloads
+  const tick = (input: Parameters<typeof setCheckAction>[0]) =>
+    setCheckAction({ ...input, subjectId }).then((r) => {
+      if (r.qada) window.dispatchEvent(new Event(QADA_CHANGED));
+      return r;
+    });
   const schedule = (id: string, choice: Parameters<typeof setItemScheduleAction>[1]) => setItemScheduleAction(id, choice, subjectId);
   const reorder = (ids: string[]) => reorderItemsAction(ids, subjectId);
   const today = useToday();
@@ -218,6 +228,7 @@ export function RafiqTracker({
               pending={pending}
               onCancel={() => setAdding(false)}
               excuse={excuseG}
+              qadaKinds={qadaKinds}
               targets={siblings.length > 1 ? siblings : undefined}
               hereId={subjectId}
               onSubmit={(fields, childIds) =>
@@ -238,7 +249,7 @@ export function RafiqTracker({
               <div className={hl.empty}>{guide ? gt(EMPTY.trackerItems) : "لا بنود بعد."}</div>
             ) : (
               data.active.map((item) => (
-                <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} scope={scope} excuse={excuseG} />
+                <ItemRow key={item.id} item={item} run={run} pending={pending} agenda={agenda} place={place} scope={scope} excuse={excuseG} qadaKinds={qadaKinds} />
               ))
             )}
           </div>
@@ -466,7 +477,7 @@ function Publish({ items, p, agenda }: { items: Item[]; p: (m: string, f: string
   );
 }
 
-type ItemFields = { title: string; value: number; days: number; schedule?: ScheduleInput; excuse?: { mode: string; alt: string } };
+type ItemFields = { title: string; value: number; days: number; schedule?: ScheduleInput; excuse?: { mode: string; alt: string }; qadaKind?: string | null };
 
 function Report({ lines }: { lines: string[] }) {
   if (lines.length === 0) return null;
@@ -581,8 +592,9 @@ function ItemForm({
   targets,
   hereId,
   excuse,
+  qadaKinds = [],
 }: {
-  initial?: { title: string; value: number; days: number; slots: SlotRow[]; excuseMode?: ExcuseMode; excuseAltTitle?: string | null };
+  initial?: { title: string; value: number; days: number; slots: SlotRow[]; excuseMode?: ExcuseMode; excuseAltTitle?: string | null; qadaKind?: QadaKind };
   submitLabel: string;
   // «الجدول اليومي» on: the item's schedule too
   agenda?: boolean;
@@ -595,8 +607,11 @@ function ItemForm({
   hereId?: string;
   // «أيام العذر»: her «في أيام العذر» field (her gender, for the wording); unset: no field
   excuse?: GroupGender;
+  // «يُحسب قضاءً»: the kinds this one may link to (empty: no field)
+  qadaKinds?: QadaKind[];
 }) {
   const [title, setTitle] = useState(initial.title);
+  const [qadaKind, setQadaKind] = useState<string>(initial.qadaKind ?? "");
   const to = useChecks(hereId ? [hereId] : []);
   const [value, setValue] = useState(initial.value);
   const [days, setDays] = useState(initial.days);
@@ -604,6 +619,8 @@ function ItemForm({
   const excuseField = useItemExcuse(initial, excuse === "BOYS" ? "MALE" : "FEMALE");
   const guideTarget = useGuideTarget();
   const [problem, setProblem] = useState<string | null>(null);
+  // «إضافة إلى:» more than this child: the link is per person, so no field then
+  const linkable = qadaKinds.length > 0 && (!targets || (to.checked.size === 1 && !!hereId && to.checked.has(hereId)));
   return (
     <form
       className={hl.section}
@@ -614,7 +631,8 @@ function ItemForm({
         // «أيام العذر»: an alternative needs its title (the field says so and is focused)
         const ex = excuse ? excuseField.read() : null;
         if (excuse && !ex) return setProblem(null);
-        const withExcuse = ex ? { excuse: ex } : {};
+        // «يُحسب قضاءً»: sent only where the field is (a link this one can't see is kept by the server)
+        const withExcuse = { ...(ex ? { excuse: ex } : {}), ...(linkable ? { qadaKind: qadaKind || null } : {}) };
         if (!agenda) {
           setProblem(null);
           return onSubmit({ title, value, days, ...withExcuse }, ids);
@@ -647,6 +665,21 @@ function ItemForm({
       </div>
       {agenda && <TimeFields fields={time} days={days} place={place} />}
       {excuse && <ItemExcuseField field={excuseField} target={guideTarget("tracker.excuseField")} />}
+      {linkable && (
+        <div className={styles.field}>
+          <label htmlFor="item-qada">{LINK_FIELD}</label>
+          <select id="item-qada" className={styles.input} value={qadaKind} onChange={(e) => setQadaKind(e.target.value)}>
+            <option value="">{LINK_NONE}</option>
+            {qadaKinds.map((k) => (
+              <option key={k} value={k}>
+                {linkOption(k)}
+              </option>
+            ))}
+          </select>
+          <span className={hl.muted}>{linkHint(excuse === "BOYS" ? "MALE" : "FEMALE")}</span>
+        </div>
+      )}
+      {qadaKinds.length > 0 && !linkable && targets && <div className={hl.muted}>{LINK_ONE_CHILD}</div>}
       {targets && (
         <div className={styles.field}>
           <span className={styles.fieldLabel}>إضافة إلى:</span>
@@ -674,6 +707,7 @@ function ItemRow({
   place,
   scope,
   excuse,
+  qadaKinds = [],
 }: {
   item: Item;
   run: Run;
@@ -683,6 +717,7 @@ function ItemRow({
   scope: RafiqScope;
   // «أيام العذر»: its setting shown and edited (her gender); unset: none of it
   excuse?: GroupGender;
+  qadaKinds?: QadaKind[];
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "remove">("view");
   const t = useGuideTarget();
@@ -714,6 +749,13 @@ function ItemRow({
           {itemExcuseLine(item.excuseMode, item.excuseAltTitle)}
         </div>
       )}
+      {item.qadaKind && (
+        // «يُحسب قضاءً» (only ever here for a viewer who may see this link)
+        <div className={hl.muted} style={{ fontSize: 12, marginTop: 4 }}>
+          {scope.viewer === "child" && item.adultAdded ? "🔒 " : ""}
+          {linkLine(item.qadaKind)}
+        </div>
+      )}
       {mode === "edit" && (
         <div className={itemStyles.rowPanel}>
           <ItemForm
@@ -722,6 +764,7 @@ function ItemRow({
             place={place}
             submitLabel="حفظ"
             excuse={excuse}
+            qadaKinds={qadaKinds}
             pending={pending}
             onCancel={() => setMode("view")}
             onSubmit={(fields) => run(() => updateItemAction(item.id, { ...fields, subjectId: scope.subjectId }), () => setMode("view"))}

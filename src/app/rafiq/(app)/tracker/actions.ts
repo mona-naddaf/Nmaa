@@ -12,12 +12,15 @@ import { rafiqSummary, type SummaryPayload } from "@/lib/tracker/summary-data";
 import { clampOffset, isPeriodKind } from "@/lib/tracker/summary";
 import { subjectExcuse } from "@/lib/excuse/subject";
 import { validateItemExcuse } from "@/lib/excuse/rules";
+import { itemLinkToSave, qadaSwitchOn, tickQadaOps } from "@/lib/qada/server";
+import { tickEffect } from "@/lib/qada/link";
 
 // Her own follow-up tracker: she creates, edits and removes her items (no
 // approval), and ticks today or yesterday only. Every action resolves whose
 // tracker it is (src/lib/rafiq/subject.ts) and checks the item is theirs.
 
-export type TrackerResult = { error?: string };
+// qada: the tick changed her «القضاء» (a linked item): the card reloads
+export type TrackerResult = { error?: string; qada?: boolean };
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -36,7 +39,8 @@ const editableBy = (user: Subject) => (childActing(user) ? { adultAdded: false }
 // schedule: «الجدول اليومي» only (ignored while she has it off): [{ weekdays, timing }]
 // subjectId: «العائلة», a child's id when an adult works on the child's tracker
 // excuse: «أيام العذر» — «في أيام العذر» (only read while it applies to her; ignored otherwise)
-type ItemInput = { title: string; value: number; days: number; schedule?: ScheduleChoice; subjectId?: string; excuse?: { mode: unknown; alt: unknown } };
+// qadaKind: «القضاء» Phase 2 — «يُحسب قضاءً» (null: «لا»; absent: the form had no field)
+type ItemInput = { title: string; value: number; days: number; schedule?: ScheduleChoice; subjectId?: string; excuse?: { mode: unknown; alt: unknown }; qadaKind?: string | null };
 
 /**
  * The item's «في أيام العذر», when it applies (her switch on, and the one
@@ -85,8 +89,9 @@ export async function addItemAction(input: ItemInput): Promise<TrackerResult> {
   if ("error" in excuse) return { error: excuse.error };
   // new items go last in her order
   const by = addedBy(user);
+  const qadaKind = await itemLinkToSave(input?.subjectId, null, input?.qadaKind);
   const item = await prisma.rafiqTrackerItem.create({
-    data: { userId: user.id, ...fields, ...excuse, sortOrder: await nextRafiqSortOrder(user.id), adultAdded: by.byAdult, createdById: by.adultId },
+    data: { userId: user.id, ...fields, ...excuse, qadaKind, sortOrder: await nextRafiqSortOrder(user.id), adultAdded: by.byAdult, createdById: by.adultId },
     select: { id: true },
   });
   if (timed.schedule) await setRafiqItemSchedule(user.id, item.id, timed.schedule, timed.anchors);
@@ -104,9 +109,12 @@ export async function updateItemAction(id: string, input: ItemInput): Promise<Tr
   if ("error" in timed) return { error: timed.error };
   const excuse = await readExcuse(user, input);
   if ("error" in excuse) return { error: excuse.error };
+  // «يُحسب قضاءً»: a link this one may not see stays as it is
+  const current = await prisma.rafiqTrackerItem.findFirst({ where: { id: String(id ?? ""), userId: user.id }, select: { qadaKind: true } });
+  const qadaKind = await itemLinkToSave(input?.subjectId, current?.qadaKind ?? null, input?.qadaKind);
   const { count } = await prisma.rafiqTrackerItem.updateMany({
     where: { id: String(id ?? ""), userId: user.id, archivedAt: null, ...editableBy(user) },
-    data: { ...fields, ...excuse },
+    data: { ...fields, ...excuse, qadaKind },
   });
   if (count === 0) return childActing(user) ? LOCKED : { error: "هذا البند غير موجود" };
   if (timed.schedule) await setRafiqItemSchedule(user.id, id, timed.schedule, timed.anchors);
@@ -168,7 +176,7 @@ export async function setCheckAction(input: { itemId: string; day: string; today
   if (!d) return { error: "يمكن التعليم لليوم أو الأمس فقط — يُرجى تحديث الصفحة" };
   const item = await prisma.rafiqTrackerItem.findFirst({
     where: { id: String(input?.itemId ?? ""), userId: user.id },
-    select: { id: true, value: true, days: true, createdAt: true, archivedAt: true },
+    select: { id: true, value: true, days: true, createdAt: true, archivedAt: true, qadaKind: true },
   });
   // her browser counts an item from its LOCAL creation day; the server only
   // knows UTC, so it allows a day of slack either side (as in courses)
@@ -181,15 +189,21 @@ export async function setCheckAction(input: { itemId: string; day: string; today
   if (!scored || !shownOn(scored, d)) return { error: "هذا البند غير متاح لهذا اليوم" };
 
   const dayDate = new Date(`${d}T00:00:00Z`);
+  // «يُحسب قضاءً»: the tick and its made-up entry are saved together
+  const effect = tickEffect(input.on === true, scored.qadaKind, scored.qadaKind ? await qadaSwitchOn(user.id) : false);
+  const qadaOps = tickQadaOps(user, scored, d, effect);
   if (input.on === true) {
-    await prisma.rafiqTrackerCheck.upsert({
-      where: { itemId_day: { itemId: scored.id, day: dayDate } },
-      create: { itemId: scored.id, userId: user.id, day: dayDate },
-      update: {},
-    });
+    await prisma.$transaction([
+      prisma.rafiqTrackerCheck.upsert({
+        where: { itemId_day: { itemId: scored.id, day: dayDate } },
+        create: { itemId: scored.id, userId: user.id, day: dayDate },
+        update: {},
+      }),
+      ...qadaOps,
+    ]);
   } else {
-    await prisma.rafiqTrackerCheck.deleteMany({ where: { itemId: scored.id, userId: user.id, day: dayDate } });
+    await prisma.$transaction([prisma.rafiqTrackerCheck.deleteMany({ where: { itemId: scored.id, userId: user.id, day: dayDate } }), ...qadaOps]);
   }
   refresh();
-  return {};
+  return effect === "none" ? {} : { qada: true };
 }

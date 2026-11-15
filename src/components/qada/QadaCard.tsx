@@ -384,7 +384,8 @@ function FastPlanLines({ view, mask, onExtend }: { view: QadaView; mask: (s: str
           <div className={css.chips}>
             {f.suggestions.map((s) => (
               <span key={s.day} className={css.chip}>
-                {mask(T.dayLabel(s.day, view.today))} · {s.reasons.map((r) => T.REASONS[r]).filter((r, i, all) => all.indexOf(r) === i).join("، ")}
+                {mask(T.dayLabel(s.day, view.today))}
+                {s.reasons.includes("WHITE") && ` · ${T.REASONS.WHITE}`}
               </span>
             ))}
           </div>

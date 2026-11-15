@@ -7,6 +7,8 @@ import { CHILD_HELP } from "@/lib/guide/help/family/child";
 import { ADULT_HELP } from "@/lib/guide/help/family/adult";
 import { FAMILY_HELP } from "@/lib/guide/help/family/family";
 import { familyExcuseHelp } from "@/lib/guide/help/family/excuse";
+import { familyQadaHelp } from "@/lib/qada/help";
+import { familyQadaAllowed } from "@/lib/qada/server";
 import { adultChildHelpPage, childHelpPage, familyHelpPage, FAMILY_LINES, switchFacts } from "@/lib/guide/help/family/build";
 import { FAMILY_PAGE_TITLE } from "@/lib/guide/help/family/pages";
 import { fillFamily, type FamilyWho } from "@/lib/guide/help/family/text";
@@ -80,6 +82,8 @@ export async function childGuideProps(childId: string): Promise<ChildGuideProps 
     const [allowed, row] = await Promise.all([familyExcuseAllowed(c.familyId), prisma.rafiqUser.findUnique({ where: { id: childId }, select: { excuseEnabled: true } })]);
     pages = withExtra(pages, familyExcuseHelp({ girl: true, allowed, on: !!row?.excuseEnabled, streak: c.switches.streak, viewer: { kind: "child" } }), who);
   }
+  // «القضاء»: her questions while her switch is on (QADA_EMAILS)
+  if (await qadaShows(c.familyId, childId)) pages = withExtra(pages, familyQadaHelp({ on: true, girl: c.gender === "FEMALE", viewer: { kind: "child" } }), who);
   const welcome: Partial<Record<ChildGuidePage, string>> = {};
   if (c.isNew) {
     for (const raw of CHILD_HELP) {
@@ -145,6 +149,12 @@ export async function adultChildGuideProps(
       familyExcuseHelp({ girl: true, allowed, on: !!row?.excuseEnabled, streak: c.switches.streak, viewer: { kind: "adult", sees, canEdit, card: allowed } }),
       who,
     );
+  }
+  // «القضاء»: an adult with edit rights, while her switch is on
+  if (canEdit && (await qadaShows(familyId, c.id))) {
+    const inList =
+      c.gender !== "FEMALE" || familySees({ kind: "ADULT", id: viewer.id, gender: viewer.gender }, { id: c.id, gender: "FEMALE", excuseEnabled: true }, await viewerOverrides(c.id));
+    pages = withExtra(pages, familyQadaHelp({ on: true, girl: c.gender === "FEMALE", viewer: { kind: "adult", canEdit, inList } }), who);
   }
   return {
     facts: c,
@@ -214,4 +224,11 @@ export async function familyPagesGuideProps(email: string | null): Promise<Famil
     preview: guidePreviewAllowed(email),
     join,
   };
+}
+
+/** «القضاء» reaches the family and the child's switch is on. */
+async function qadaShows(familyId: string, childId: string): Promise<boolean> {
+  if (!(await familyQadaAllowed(familyId))) return false;
+  const row = await prisma.rafiqUser.findUnique({ where: { id: childId }, select: { qadaEnabled: true } });
+  return !!row?.qadaEnabled;
 }

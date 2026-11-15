@@ -58,8 +58,10 @@ export const cardTitle = (who: Who) => (who ? `قضاء ${who.name}` : QADA_TITL
 export const TRACK_TITLE: Record<QadaTrack, string> = { prayers: "الصلوات", fast: "الصيام" };
 
 export const remainingLabel = (k: QadaKind, n: number) => (k === "FAST" ? `بقي ${daysCount(n)}` : `بقي ${n}`);
-export const trackLine = (t: QadaTrack, remaining: number, done: number) =>
-  t === "fast" ? `بقي ${daysCount(remaining)} · قُضي ${daysCount(done)}` : `بقي ${prayersCount(remaining)} · قُضي ${prayersCount(done)}`;
+export function trackLine(t: QadaTrack, remaining: number, done: number): string {
+  const count = t === "fast" ? daysCount : prayersCount;
+  return done === 0 ? `بقي ${count(remaining)}` : `بقي ${count(remaining)} · قُضي ${count(done)}`;
+}
 export const pctLabel = (pct: number) => `${Math.floor(pct)}%`;
 
 export const PLUS_ONE = "+1";
@@ -70,7 +72,7 @@ export const hideLabel = (hidden: boolean) => (hidden ? "إظهار الأرقا
 export const EARLIER_DAY = "في يوم سابق";
 export const EARLIER_HINT = (you: G) => `${pick(you, "اختر", "اختاري")} اليوم، ثم ${pick(you, "اضغط", "اضغطي")} «+1».`;
 export const loggedToast = (k: QadaKind, day: string, today: string) =>
-  `سُجّل: ${k === "FAST" ? "يوم صيام" : KIND_NAMES[k]} +1${day === today ? "" : ` (${dayLabel(day, today)})`}`;
+  `${k === "FAST" ? "سُجّل يوم صيام" : `سُجّلت صلاة ${KIND_NAMES[k]}`}${day === today ? "" : ` (${dayLabel(day, today)})`} ✓`;
 export const UNDO = "تراجع";
 export const UNDONE = "تم التراجع ✓";
 
@@ -171,7 +173,7 @@ export const GOAL_MODES = { DEADLINE: "موعد", PACE: "وتيرة", NONE: "ب�
 export const goalModeHint = (t: QadaTrack, you: G) => ({
   DEADLINE:
     t === "prayers"
-      ? `${pick(you, "اختر", "اختاري")} يومًا ${pick(you, "تنتهي", "تنتهين")} قبله، ${pick(you, "فترى", "فترين")} كل يوم ما عليك من كل صلاة.`
+      ? `${pick(you, "اختر", "اختاري")} يومًا ${pick(you, "تنتهي", "تنتهين")} قبله، ${pick(you, "فترى", "فترين")} كل يوم ما ${pick(you, "عليك", "عليكِ")} من كل صلاة.`
       : `${pick(you, "اختر", "اختاري")} يومًا ${pick(you, "تنتهي", "تنتهين")} قبله، ${pick(you, "فترى", "فترين")} كم يومًا في الأسبوع تقريبًا.`,
   PACE:
     t === "prayers"

@@ -137,12 +137,13 @@ const goalOf = (p: PlanRow | null, t: QadaTrack): Goal => {
 type PlanRow = Prisma.RafiqQadaPlanGetPayload<object>;
 
 /** Her excuses for the plan: recorded ones (null: she doesn't record them), and whether one is open now. */
-async function excuseFacts(g: QadaGate, today: string, since: string): Promise<{ spans: ExcuseSpan[] | null; now: boolean }> {
+async function excuseFacts(g: QadaGate, today: string): Promise<{ spans: ExcuseSpan[] | null; now: boolean }> {
   const s = g.subject;
   const records = s.kind === "ADULT" ? (await ownExcuse(s.id)).show : !!g.familyId && (await familyExcuseAllowed(g.familyId));
   if (!records) return { spans: null, now: false };
   const rows = await prisma.rafiqExcuse.findMany({
-    where: { userId: s.id, OR: [{ endDay: null }, { endDay: { gte: dateOnly(since) } }] },
+    // all of hers (a few a month): the plan reads those since its goals were set
+    where: { userId: s.id },
     select: { startDay: true, startMin: true, endDay: true },
   });
   let now = false;
@@ -169,7 +170,8 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
   const today = zoneToday(safeTimeZone(typeof zone === "string" ? zone : null));
   const kinds = visibleKinds(g.access);
   const userId = g.subject.id;
-  const [sums, todays, planRow, entries, names] = await Promise.all([
+  // one round of queries: the excuses and the calendar shifts too, when the plan needs them
+  const [sums, todays, planRow, entries, names, ex, adjustments] = await Promise.all([
     prisma.rafiqQadaEntry.groupBy({ by: ["kind", "action"], where: { userId, kind: { in: kinds } }, _sum: { count: true } }),
     prisma.rafiqQadaEntry.groupBy({ by: ["kind"], where: { userId, kind: { in: kinds }, action: "MADE_UP", day: dateOnly(today) }, _sum: { count: true } }),
     prisma.rafiqQadaPlan.findUnique({ where: { userId } }),
@@ -180,6 +182,8 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
       select: { id: true, kind: true, action: true, count: true, day: true, batchId: true, source: true, byAdult: true, createdAt: true, by: { select: { name: true } } },
     }),
     g.subject.kind === "CHILD" ? prisma.rafiqUser.findUnique({ where: { id: userId }, select: { name: true } }) : null,
+    g.access.plan && g.access.excuseAware ? excuseFacts(g, today) : { spans: null, now: false },
+    g.access.plan && g.access.fasting ? adjustmentsFor(g) : [],
   ]);
   const rows: CountRow[] = sums.map((s) => ({ kind: s.kind, action: s.action, count: s._sum.count ?? 0 }));
   const t = totalsOf(rows);
@@ -203,9 +207,7 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
     const pg = goalOf(planRow, "prayers");
     const fg = goalOf(planRow, "fast");
     const avg = g.access.excuseAware ? (planRow?.excuseDaysPerMonth ?? null) : null;
-    const since = [pg.from, fg.from, today].filter((d): d is string => !!d).sort()[0];
-    const ex = g.access.excuseAware ? await excuseFacts(g, today, since) : { spans: null, now: false };
-    const blocked = g.access.fasting ? blockedFastDays(today, addDays(today, 365 * BLOCKED_YEARS), await adjustmentsFor(g)) : new Set<string>();
+    const blocked = g.access.fasting ? blockedFastDays(today, addDays(today, 365 * BLOCKED_YEARS), adjustments) : new Set<string>();
     const ctx = { today, avg, excuses: ex.spans, excuseNow: ex.now, blocked };
     const estimate = planRow?.estimate ? parseEstimate(planRow.estimate, g.access.excuseAware) : null;
     view.plan = {

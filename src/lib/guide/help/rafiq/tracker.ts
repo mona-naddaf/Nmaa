@@ -3,6 +3,7 @@
 // step metadata (kind, page, fallbacks); edit the texts only with Mona.
 
 import type { RafiqHelpPage } from "./index";
+import { RAFIQ_QADA_HELP } from "@/lib/qada/help";
 
 export const tracker: RafiqHelpPage = {
   id: "tracker",

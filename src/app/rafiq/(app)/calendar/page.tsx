@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireRafiqUser } from "@/lib/rafiq/session";
 import { CalendarView, type CalendarWording } from "@/components/calendar/CalendarView";
+import { qadaCalendarMarks } from "@/lib/qada/server";
 import { createDayAction, deleteDayAction, setAdjustmentAction, setOptionalOccasionAction, updateDayAction } from "./actions";
 
 // Her calendar: the same Hijri + Gregorian calendar as a course's, with the
@@ -49,6 +50,8 @@ export default async function RafiqCalendarPage() {
         setAdjustment: setAdjustmentAction,
       }}
       wording={WORDING}
+      // «القضاء»: her own calendar only
+      qadaMarks={await qadaCalendarMarks()}
     />
   );
 }

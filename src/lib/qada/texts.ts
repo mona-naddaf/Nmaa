@@ -316,3 +316,8 @@ export const predictionUsed = "يُستعمل هذا في الخطة بدل ال
 export const PREDICTION_NOT_YET = "بعد ثلاث دورات كاملة في «أيام العذر» يُحسب المتوسط من السجل.";
 export const ownAverageSwitch = (avg: number | null, who: Who) =>
   `${who ? "استعمال الرقم المكتوب" : "استعمال رقمي أنا"}${avg !== null ? ` (${daysCount(avg)} في الشهر)` : ""}`;
+
+// ---------- Phase 2: her personal calendar ----------
+
+export const CAL_FASTED = "صيام قضاء";
+export const CAL_SUGGESTED = "يوم مقترح لقضاء الصيام";

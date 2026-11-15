@@ -15,11 +15,11 @@ import { qadaAccess, type QadaAccess, type QadaViewer } from "./visibility";
 import { KINDS, LIMITS, PRAYERS, isQadaKind, type PrayerKind, type QadaKind, type QadaTrack } from "./kinds";
 import { totalsOf, type CountRow, type KindTotal, type TrackTotal } from "./totals";
 import { estimate as runEstimate, parseEstimate, parsePreview, type EstimateInput } from "./estimate";
-import { blockedFastDays } from "./fasting-days";
+import { blockedFastDays, fastSuggestions } from "./fasting-days";
 import { fastPlan, prayerPlan, type DayRow, type FastPlan, type Goal, type GoalMode, type PrayerPlan } from "./plan";
 import { nextMilestone, type Milestone } from "./milestones";
 import type { ExcuseSpan } from "./available";
-import { monthlyFromCycle, predictCycle, type ExcuseRecord } from "./cycle";
+import { monthlyFromCycle, predictCycle, predictedDays, type ExcuseRecord } from "./cycle";
 import { excusedRamadanDays, nextRamadan, ramadanToOffer, type ExcuseSpan as RamadanSpan } from "./ramadan";
 import { ramadanReminder } from "./reminder";
 import { rafiqPlace } from "@/lib/prayer/place-data";
@@ -642,4 +642,43 @@ export async function setOwnAverage(g: QadaGate, input: { own: unknown; zone: un
   const own = input.own === true;
   await prisma.rafiqQadaPlan.upsert({ where: { userId: g.subject.id }, create: { userId: g.subject.id, ownAverage: own }, update: { ownAverage: own } });
   return { view: await loadView(g, input.zone) };
+}
+
+// ---------- Phase 2: marks on her own calendar ----------
+
+export type QadaCalendarMarks = { fasted: string[]; suggested: string[] };
+
+/**
+ * Her personal calendar only («رفيق الحفظ»; never the family's): the days of
+ * her made-up fasts, and — while fasting qada remains — the suggested days of
+ * the coming month (Mondays, Thursdays, الأيام البيض), without the days left
+ * out and her predicted excuse days. null: «القضاء» isn't hers to have, or
+ * nothing to mark.
+ */
+export async function qadaCalendarMarks(): Promise<QadaCalendarMarks | null> {
+  const g = await qadaGate(undefined, "view");
+  if ("error" in g || g.viewer !== "self" || !g.access.fasting) return null;
+  const userId = g.subject.id;
+  // the server's day: the calendar shows only those from the browser's today on
+  const today = new Date().toISOString().slice(0, 10);
+  const [days, sums, planRow, adjustments, ex] = await Promise.all([
+    prisma.rafiqQadaEntry.findMany({ where: { userId, kind: "FAST", action: "MADE_UP", day: { not: null } }, select: { day: true }, distinct: ["day"] }),
+    prisma.rafiqQadaEntry.groupBy({ by: ["action"], where: { userId, kind: "FAST" }, _sum: { count: true } }),
+    prisma.rafiqQadaPlan.findUnique({ where: { userId }, select: { ownAverage: true } }),
+    adjustmentsFor(g),
+    g.access.excuseAware ? excuseFacts(g, today) : ({ spans: null, now: false, records: [], moments: [], on: false } as ExcuseFacts),
+  ]);
+  const owed = sums.find((s) => s.action === "OWED")?._sum.count ?? 0;
+  const done = sums.find((s) => s.action === "MADE_UP")?._sum.count ?? 0;
+  const fasted = days.map((d) => isoOf(d.day!));
+  let suggested: string[] = [];
+  if (owed - done > 0) {
+    const from = addDays(today, -1);
+    const to = addDays(today, 31);
+    const blocked = blockedFastDays(from, to, adjustments);
+    const prediction = planRow?.ownAverage ? null : predictCycle(ex.records);
+    if (prediction) for (const d of predictedDays(prediction, from, to)) blocked.add(d);
+    suggested = fastSuggestions(from, 33, blocked, 40).map((s) => s.day);
+  }
+  return fasted.length || suggested.length ? { fasted, suggested } : null;
 }

@@ -37,6 +37,7 @@ import { imperative, type PersonGender } from "@/lib/text/gender";
 import { itemDates, NextItemBanner } from "./CalendarBanner";
 import { EventForm, type EventInput } from "./EventForm";
 import { useGuideTarget } from "@/components/guide/targets";
+import { CAL_FASTED as QADA_CAL_FASTED, CAL_SUGGESTED as QADA_CAL_SUGGESTED } from "@/lib/qada/texts";
 
 type ActionResult = Promise<{ error?: string }>;
 
@@ -103,6 +104,7 @@ export function CalendarView({
   viewerGender,
   actions,
   wording: w = COURSE_CALENDAR_WORDING,
+  qadaMarks,
 }: {
   enabledOccasions: Occasion[];
   adjustments: Adjustment[];
@@ -116,6 +118,9 @@ export function CalendarView({
   viewerGender: PersonGender;
   actions: CalendarActions;
   wording?: CalendarWording;
+  // «القضاء» Phase 2: her own calendar only («رفيق الحفظ»; the family's never
+  // passes it) — made-up fast days, and suggested days from today on
+  qadaMarks?: { fasted: string[]; suggested: string[] } | null;
 }) {
   const today = useToday();
   const [view, setView] = useState<{ year: number; month: number } | null>(null);
@@ -342,6 +347,8 @@ export function CalendarView({
                 const dayItems = monthItems.filter((it) => it.date === iso);
                 const [, gm, gd] = iso.split("-").map(Number);
                 const showMonth = gd === 1 || i === 0;
+                const fasted = !!qadaMarks?.fasted.includes(iso);
+                const suggested = !fasted && !!qadaMarks?.suggested.includes(iso) && iso >= today;
                 return (
                   <button
                     type="button"
@@ -352,7 +359,7 @@ export function CalendarView({
                     onClick={() => setSelected(iso)}
                     aria-label={`${hijriLabel({ ...month, day: i + 1 })}، ${gregorianLabel(iso)}${
                       dayItems.length ? `، ${dayItems.map(itemTitle).join("، ")}` : ""
-                    }`}
+                    }${fasted ? `، ${QADA_CAL_FASTED}` : suggested ? `، ${QADA_CAL_SUGGESTED}` : ""}`}
                     aria-pressed={iso === selectedDay}
                   >
                     <span className={styles.cellHijri}>{i + 1}</span>
@@ -360,10 +367,12 @@ export function CalendarView({
                       {gd}
                       {showMonth && <span className={styles.cellGregMonth}> {GREGORIAN_MONTHS[gm - 1]}</span>}
                     </span>
-                    {dayItems.length > 0 && (
+                    {(dayItems.length > 0 || fasted || suggested) && (
                       <span className={styles.dots} aria-hidden>
                         {dayItems.some((it) => it.kind === "occasion") && <span className={styles.dotOccasion} />}
                         {dayItems.some((it) => it.kind === "event") && <span className={styles.dotEvent} />}
+                        {fasted && <span className={styles.dotQada} />}
+                        {suggested && <span className={styles.dotQadaSuggested} />}
                       </span>
                     )}
                   </button>
@@ -377,6 +386,16 @@ export function CalendarView({
               <span>
                 <span className={styles.dotEvent} /> {w.eventLegend}
               </span>
+              {qadaMarks && (
+                <>
+                  <span>
+                    <span className={styles.dotQada} /> {QADA_CAL_FASTED}
+                  </span>
+                  <span>
+                    <span className={styles.dotQadaSuggested} /> {QADA_CAL_SUGGESTED}
+                  </span>
+                </>
+              )}
             </div>
 
             <div className={styles.dayPanel}>

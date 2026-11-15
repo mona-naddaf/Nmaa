@@ -294,6 +294,28 @@ a.banner:hover {
   box-shadow: 0 0 0 1.5px #fff;
 }
 
+/* «القضاء» (her own calendar only): a made-up fast, and a lighter ring on a suggested day */
+.dotQada,
+.dotQadaSuggested {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.dotQada {
+  background: var(--rose-deep);
+}
+
+.dotQadaSuggested {
+  border: 1.5px solid var(--rose);
+  background: transparent;
+}
+
+.cell.selected .dotQada {
+  box-shadow: 0 0 0 1.5px #fff;
+}
+
 .legend {
   display: flex;
   gap: 14px;

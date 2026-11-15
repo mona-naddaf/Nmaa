@@ -6,7 +6,7 @@ import { excusedRamadanDays, nextRamadan, ramadanOf, ramadanToOffer } from "./ra
 import { ramadanReminder, REMINDER_MARGIN_DAYS } from "./reminder";
 import { itemOfRef, linkableKinds, linkShown, linkToSave, tickEffect, trackerRef } from "./link";
 import { blockedFastDays } from "./fasting-days";
-import { qadaAccess } from "./visibility";
+import { predictionShown, qadaAccess, ramadanOfferShown, reminderShown } from "./visibility";
 
 const girl = { kind: "CHILD" as const, gender: "FEMALE" as const };
 const self = qadaAccess("child", girl, false);
@@ -150,4 +150,29 @@ test("prediction: per-month figure and the next windows", () => {
   assert.equal(days.length, 7);
   assert.equal(days[0], "2026-01-29");
   assert.equal(daysBetween(days[0], days[6]), 6);
+});
+
+test("visibility, Phase 2: offer, reminder and prediction only where her excuse-derived data may go", () => {
+  const boy = { kind: "CHILD" as const, gender: "MALE" as const };
+  const man = { kind: "ADULT" as const, gender: "MALE" as const };
+  const woman = { kind: "ADULT" as const, gender: "FEMALE" as const };
+  const boysAdult = qadaAccess("adult-edit", boy, false);
+  // the offer: her and her list, with «أيام العذر» on
+  assert.equal(ramadanOfferShown(self, true), true);
+  assert.equal(ramadanOfferShown(inList, true), true);
+  assert.equal(ramadanOfferShown(outside, true), false);
+  assert.equal(ramadanOfferShown(self, false), false);
+  assert.equal(ramadanOfferShown(qadaAccess("self", man, false), true), false);
+  // the reminder: owners (a man too), a girl's list; not outside it, not a boy's adults
+  assert.equal(reminderShown("child", girl, self), true);
+  assert.equal(reminderShown("self", man, qadaAccess("self", man, false)), true);
+  assert.equal(reminderShown("adult-edit", girl, inList), true);
+  assert.equal(reminderShown("adult-edit", girl, outside), false);
+  assert.equal(reminderShown("adult-edit", boy, boysAdult), false);
+  assert.equal(reminderShown("child", boy, qadaAccess("child", boy, false)), true);
+  // the prediction: whoever sees her average
+  assert.equal(predictionShown(qadaAccess("self", woman, false)), true);
+  assert.equal(predictionShown(inList), true);
+  assert.equal(predictionShown(outside), false);
+  assert.equal(predictionShown(boysAdult), false);
 });

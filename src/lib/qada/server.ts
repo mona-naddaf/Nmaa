@@ -11,7 +11,7 @@ import { familyExcuseAllowed, viewerOverrides } from "@/lib/excuse/family-data";
 import { familySees, familyViewerChecks } from "@/lib/excuse/visibility";
 import { autoEndOf } from "@/lib/excuse/rules";
 import { qadaAllowed } from "./enabled";
-import { qadaAccess, type QadaAccess, type QadaViewer } from "./visibility";
+import { predictionShown, qadaAccess, ramadanOfferShown, reminderShown, type QadaAccess, type QadaViewer } from "./visibility";
 import { KINDS, LIMITS, PRAYERS, isQadaKind, type PrayerKind, type QadaKind, type QadaTrack } from "./kinds";
 import { totalsOf, type CountRow, type KindTotal, type TrackTotal } from "./totals";
 import { estimate as runEstimate, parseEstimate, parsePreview, type EstimateInput } from "./estimate";
@@ -257,7 +257,7 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
     const pg = goalOf(planRow, "prayers");
     const fg = goalOf(planRow, "fast");
     // her own number, or her predicted cycle where her records allow it (unless she keeps her own)
-    const prediction = g.access.excuseAware ? predictCycle(ex.records) : null;
+    const prediction = predictionShown(g.access) ? predictCycle(ex.records) : null;
     const ownAvg = g.access.excuseAware ? (planRow?.excuseDaysPerMonth ?? null) : null;
     const usePrediction = !!prediction && !planRow?.ownAverage;
     const avg = usePrediction ? monthlyFromCycle(prediction!) : ownAvg;
@@ -277,7 +277,7 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
     };
 
     // the Ramadan offer: «القضاء» and «أيام العذر» both on, fasting hers to see
-    if (g.access.fasting && g.access.excuseAware && ex.on) {
+    if (ramadanOfferShown(g.access, ex.on)) {
       const r = ramadanToOffer(today, adjustments);
       if (r && !(planRow?.ramadanSeen ?? []).includes(r.year)) {
         const place = await rafiqPlace(userId);
@@ -292,8 +292,7 @@ export async function loadView(g: QadaGate, zone: unknown): Promise<QadaView> {
     }
 
     // the line before Ramadan: the owner (a child herself), or a girl's list
-    const owner = g.viewer === "self" || g.viewer === "child" || g.subject.gender === "FEMALE";
-    const next = owner && g.access.fasting && t.fast.remaining > 0 ? nextRamadan(today, adjustments) : null;
+    const next = reminderShown(g.viewer, g.subject, g.access) && t.fast.remaining > 0 ? nextRamadan(today, adjustments) : null;
     if (next) {
       const r = ramadanReminder({ today, ramadan: next.first, remaining: t.fast.remaining, blocked, prediction: usePrediction ? prediction : null, avg: usePrediction ? null : ownAvg });
       if (r) view.reminder = { daysLeft: r.daysLeft, remaining: r.remaining };

@@ -55,3 +55,15 @@ export function qadaAccess(viewer: QadaViewer, subject: QadaSubject, inList: boo
       return { edit: true, fasting: false, plan: false, dates: false, excuseAware: false, milestones: false, deleteAll: false };
   }
 }
+
+// ---------- Phase 2 ----------
+
+/** The Ramadan offer: her fasting and her excuse are this viewer's to see, and her «أيام العذر» is on. */
+export const ramadanOfferShown = (a: QadaAccess | null, excuseOn: boolean) => !!a && a.plan && a.fasting && a.excuseAware && excuseOn;
+
+/** The line before Ramadan: the owner herself (a child too); on a girl's page, the adults in her list; never a boy's adults. */
+export const reminderShown = (viewer: QadaViewer, subject: QadaSubject, a: QadaAccess | null) =>
+  !!a && a.plan && a.fasting && (viewer === "self" || viewer === "child" || subject.gender === "FEMALE");
+
+/** Her predicted cycle (and «استعمال رقمي أنا»): whoever sees her average. */
+export const predictionShown = (a: QadaAccess | null) => !!a && a.plan && a.excuseAware;

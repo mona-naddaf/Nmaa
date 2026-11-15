@@ -222,3 +222,12 @@ test("plan: fasting per week and suggestions; none during her excuse", () => {
   assert.ok(f.suggestions.length > 0);
   assert.equal(fastPlan(rows, goal({ mode: "DEADLINE", deadline: "2026-03-01" }), { ...ctx, excuseNow: true }).suggestions.length, 0);
 });
+
+test("fasting suggestions: Thursdays as well as Mondays (16, 19, 23 Nov 2026), with الأيام البيض marked", () => {
+  const s = fastSuggestions("2026-11-15", 14, new Set(), 10);
+  const days = s.map((x) => x.day);
+  assert.ok(days.includes("2026-11-16") && days.includes("2026-11-19") && days.includes("2026-11-23"), days.join(" "));
+  assert.deepEqual(s.find((x) => x.day === "2026-11-19")?.reasons, ["THURSDAY"]);
+  // the card's first four, in order
+  assert.deepEqual(fastSuggestions("2026-11-15", 14, new Set()).map((x) => x.day), ["2026-11-16", "2026-11-19", "2026-11-23", "2026-11-24"]);
+});

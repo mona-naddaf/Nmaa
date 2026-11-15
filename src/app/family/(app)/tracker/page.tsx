@@ -5,6 +5,7 @@ import { rafiqPlace } from "@/lib/prayer/place-data";
 import { RafiqTracker } from "@/app/rafiq/(app)/tracker/RafiqTracker";
 import { resolveSubject } from "@/lib/rafiq/subject";
 import { subjectExcuse, trackerExcuse } from "@/lib/excuse/subject";
+import { qadaOn } from "@/lib/qada/server";
 
 // A child's «جدول المتابعة» («العائلة»): her own items (hers to change) and
 // the ones her family's adults added (hers to tick, theirs to change); the
@@ -24,6 +25,7 @@ export default async function ChildTrackerPage() {
       agenda={flags.agenda}
       place={flags.agenda ? await rafiqPlace(child.id) : null}
       celebrateKey={`family-child:${child.id}`}
+      qada={await qadaOn()}
       summaryHref={flags.summary ? "/family/tracker/summary" : undefined}
       scope={{ viewer: "child", adults: await familyAdults(child.familyId) }}
     />

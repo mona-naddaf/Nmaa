@@ -8,6 +8,7 @@ import { ChildHeader } from "../ChildHeader";
 import { editableChildren } from "@/lib/family/tracker-copy-data";
 import { resolveSubject } from "@/lib/rafiq/subject";
 import { subjectExcuse, trackerExcuse, trackerQuiet } from "@/lib/excuse/subject";
+import { qadaOn } from "@/lib/qada/server";
 
 // A child's «جدول المتابعة» for an adult of her family: view only, or — with
 // edit rights — ticking for her and adding, changing and removing items
@@ -31,6 +32,7 @@ export default async function AdultChildTrackerPage({ params }: PageProps<"/rafi
         excuse={ex ? await trackerExcuse(child.id, ex, { name: child.name, adultPage: true }) : undefined}
         quiet={ex ? await trackerQuiet(child.id, ex) : undefined}
         g={child.gender === "FEMALE" ? "GIRLS" : "BOYS"}
+        qada={await qadaOn(child.id)}
         agenda={child.flags.agenda}
         place={child.flags.agenda ? await rafiqPlace(child.id) : null}
         summaryHref={child.flags.summary ? `${base}/tracker/summary` : undefined}

@@ -1,0 +1,390 @@
+/* «القضاء»: the card at the top of «جدول المتابعة». Phone-first. */
+
+.card {
+  position: relative;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.eye {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 18px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.eye[aria-pressed="true"] {
+  background: var(--cream);
+}
+
+.block {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+.trackHead {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.trackName {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.trackPct {
+  font-weight: 800;
+  color: var(--rose-deep);
+  font-size: 12.5px;
+}
+
+.trackLine {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 4px 0 6px;
+}
+
+.rows {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 2px 4px;
+  border-radius: 12px;
+}
+
+.kind {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.left {
+  font-size: 13px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.plus {
+  min-width: 56px;
+  min-height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: var(--rose-deep);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+.planLine {
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 6px 0 0;
+  color: var(--ink);
+}
+
+.planLine b {
+  font-weight: 800;
+}
+
+.soft {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  margin: 4px 0 0;
+}
+
+.good {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rose-deep);
+  margin: 6px 0 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chip {
+  font-size: 12px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.earlier {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--cream);
+}
+
+.panelTitle {
+  font-weight: 800;
+  font-size: 14px;
+  margin: 0 0 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.field label,
+.label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.input {
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 15px;
+  color: var(--ink);
+  font-family: inherit;
+  width: 100%;
+}
+
+.narrow {
+  max-width: 120px;
+}
+
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 13.5px;
+}
+
+.modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+
+.mode {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.mode[aria-pressed="true"] {
+  background: var(--rose-deep);
+  border-color: var(--rose-deep);
+  color: #fff;
+}
+
+.log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.logLine {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.logMeta {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.trash {
+  min-width: 40px;
+  min-height: 40px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.confirm {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.danger {
+  background: var(--sage-deep);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.dangerTitle {
+  color: var(--sage-deep);
+}
+
+.toast {
+  position: fixed;
+  z-index: 45;
+  inset-inline: 16px;
+  bottom: 16px;
+  max-width: 480px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  animation: rise 160ms var(--ease-out);
+}
+
+.toastText {
+  flex: 1;
+}
+
+.toastUndo {
+  font: inherit;
+  font-weight: 700;
+  color: var(--paper);
+  background: rgba(255, 255, 255, 0.14);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.milestone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--rose-deep);
+  margin-bottom: 8px;
+  animation: rise 220ms var(--ease-out);
+}
+
+.x {
+  border: none;
+  background: none;
+  min-width: 36px;
+  min-height: 36px;
+  font-size: 16px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.placeholder {
+  min-height: 96px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .milestone {
+    animation: none;
+  }
+}

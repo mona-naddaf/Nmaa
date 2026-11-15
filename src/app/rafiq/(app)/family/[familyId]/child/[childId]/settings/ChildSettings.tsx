@@ -19,6 +19,9 @@ import { useGuideTarget } from "@/components/guide/targets";
 import { CHILD_EXCUSE_LATER, CHILD_EXCUSE_VIEWERS_NOTE, childExcuseViewersTitle, childExcuseWhat, EXCUSE_SWITCH_OFF_NOTE, EXCUSE_TITLE, selfViewerHint, viewerYou } from "@/lib/excuse/texts";
 import { setChildExcuseAction, setExcuseViewerAction } from "../../../../excuse-actions";
 import { highlightSwitchTexts } from "@/lib/highlight/texts";
+import { QADA_LIST_NOTE, QADA_TITLE, childSwitchWhat, qadaListAbove } from "@/lib/qada/texts";
+import type { QadaViewerRow } from "@/lib/qada/server";
+import { setQadaViewerAction } from "../../../../qada-actions";
 
 const FAIL = "تعذّر حفظ الإعداد، يُرجى المحاولة مرة أخرى";
 
@@ -75,6 +78,7 @@ export function ChildSettings({
   commitDays,
   excuse,
   highlightSwitch = false,
+  qada,
 }: {
   childId: string;
   name: string;
@@ -88,6 +92,8 @@ export function ChildSettings({
   excuse: ChildExcuseCard | null;
   // «التظليل»: offered where HIGHLIGHT_EMAILS reaches the family (the founder's email)
   highlightSwitch?: boolean;
+  // «القضاء»: offered where QADA_EMAILS reaches the family; list: a girl's «من يرى…» rows
+  qada?: { list: QadaViewerRow[] | null };
 }) {
   const g = (m: string, fem: string) => (gender === "FEMALE" ? fem : m);
   // named for «أرِني» only inside the family guide
@@ -120,6 +126,19 @@ export function ChildSettings({
           ))}
           <Reminders childId={childId} name={name} g={g} days={flags.reviewReminderDays} canEdit={canEdit} />
           {excuse && <Excuse childId={childId} name={name} card={excuse} you={you} canEdit={canEdit} />}
+          {qada && (
+            <Qada
+              childId={childId}
+              name={name}
+              gender={gender}
+              saved={flags.qada}
+              list={qada.list}
+              // the same list already shows under «أيام العذر» while that is on
+              listAbove={!!excuse?.on}
+              you={you}
+              canEdit={canEdit}
+            />
+          )}
         </div>
       </div>
       {flags.streak && <CommitDays childId={childId} name={name} g={g} initial={commitDays} canEdit={canEdit} />}
@@ -185,7 +204,20 @@ function Excuse({ childId, name, card, you, canEdit }: { childId: string; name: 
   );
 }
 
-function Viewer({ childId, viewer, you, canEdit }: { childId: string; viewer: ChildExcuseCard["viewers"][number]; you: "MALE" | "FEMALE" | null; canEdit: boolean }) {
+function Viewer({
+  childId,
+  viewer,
+  you,
+  canEdit,
+  save = setExcuseViewerAction,
+}: {
+  childId: string;
+  viewer: ChildExcuseCard["viewers"][number];
+  you: "MALE" | "FEMALE" | null;
+  canEdit: boolean;
+  // the list's own action: «أيام العذر»'s, or «القضاء»'s (the same rows)
+  save?: (input: { childId: string; adultId: string; canSee: boolean }) => Promise<{ error?: string }>;
+}) {
   const t = useOptimistic(viewer.checked);
   return (
     <div>
@@ -195,7 +227,7 @@ function Viewer({ childId, viewer, you, canEdit }: { childId: string; viewer: Ch
           checked={t.on}
           // nobody checks their own name (another adult with edit rights does); unchecking it is fine
           disabled={!canEdit || (viewer.you && !t.on)}
-          onChange={(e) => t.set(e.target.checked, (canSee) => setExcuseViewerAction({ childId, adultId: viewer.id, canSee }))}
+          onChange={(e) => t.set(e.target.checked, (canSee) => save({ childId, adultId: viewer.id, canSee }))}
         />
         {viewer.name}
         {viewer.you && <span className={hl.muted}> {viewerYou(you)}</span>}
@@ -203,6 +235,55 @@ function Viewer({ childId, viewer, you, canEdit }: { childId: string; viewer: Ch
       </label>
       {canEdit && viewer.you && !t.on && <div className={hl.muted}>{selfViewerHint(you)}</div>}
       {t.error && <div className={hl.err}>{t.error}</div>}
+    </div>
+  );
+}
+
+/**
+ * «القضاء» (her 12th switch): its card at the top of her tracker. For a
+ * girl, while it's on, the adults who see her fasting qada and her plan:
+ * the «من يرى…» list of «أيام العذر» (the same rows), shown here too unless
+ * it already shows above.
+ */
+function Qada({
+  childId,
+  name,
+  gender,
+  saved,
+  list,
+  listAbove,
+  you,
+  canEdit,
+}: {
+  childId: string;
+  name: string;
+  gender: "MALE" | "FEMALE";
+  saved: boolean;
+  list: QadaViewerRow[] | null;
+  listAbove: boolean;
+  you: "MALE" | "FEMALE" | null;
+  canEdit: boolean;
+}) {
+  const t = useOptimistic(saved);
+  return (
+    <div className={f.row}>
+      <label className={f.check} style={{ fontWeight: 700 }}>
+        <input type="checkbox" checked={t.on} disabled={!canEdit} onChange={(e) => t.set(e.target.checked, (on) => setChildFeatureAction(childId, "qada", on))} />
+        {QADA_TITLE}
+        <SavedNote stamp={t.stamp} />
+      </label>
+      <div className={hl.muted}>{childSwitchWhat({ name, gender })}</div>
+      {t.error && <div className={hl.err}>{t.error}</div>}
+      {t.on && list && listAbove && <div className={hl.muted}>{qadaListAbove(name)}</div>}
+      {t.on && list && !listAbove && (
+        <fieldset className={f.excuseViewers}>
+          <legend style={{ fontWeight: 700 }}>{childExcuseViewersTitle(name)}</legend>
+          <div className={hl.muted}>{QADA_LIST_NOTE}</div>
+          {list.map((v) => (
+            <Viewer key={v.id} childId={childId} viewer={v} you={you} canEdit={canEdit} save={setQadaViewerAction} />
+          ))}
+        </fieldset>
+      )}
     </div>
   );
 }

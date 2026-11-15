@@ -10,6 +10,7 @@ import { introsFor } from "@/lib/guide/lines";
 import { trackerIntroFacts } from "@/lib/guide/page-facts";
 import { loadExcuses, ownExcuse, pausedNow } from "@/lib/excuse/rafiq-data";
 import { addDays } from "@/lib/tracker/rules";
+import { qadaOn } from "@/lib/qada/server";
 
 // With guidance on: the page's intro lines, and ?add=1 («إضافة بند» in
 // «الخطوات الأولى») opens the new-item form straight away.
@@ -34,11 +35,12 @@ export default async function RafiqTrackerPage({ searchParams }: PageProps<"/raf
       summary={summaryEnabled}
       place={agendaEnabled ? await rafiqPlace(user.id) : null}
       celebrateKey={`rafiq:${user.id}`}
+      qada={await qadaOn()}
       family={family}
       guide={
         guide
           ? {
-              intros: introsFor("tracker", { features: guide.facts.features, city: guide.facts.city, excuse: guide.facts.excuse, ...(await trackerIntroFacts(user.id)) }),
+              intros: introsFor("tracker", { features: guide.facts.features, city: guide.facts.city, excuse: guide.facts.excuse, qada: guide.facts.qada, ...(await trackerIntroFacts(user.id)) }),
               add: (await searchParams).add === "1",
             }
           : undefined

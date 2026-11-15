@@ -1068,6 +1068,10 @@ model RafiqUser {
   // default; off = her highlights are hidden, never deleted. Ignored for an
   // adult, who has no switch.
   highlightEnabled    Boolean     @default(false)
+  // «القضاء» (src/lib/qada): an adult's own switch in the settings, or a
+  // child's 12th per-child feature. Off by default; off = the card is hidden
+  // and everything recorded stays.
+  qadaEnabled         Boolean     @default(false)
 
   // ---- ADULT only («العائلة») ----
   foundedFamilies   Family[]           @relation("FamilyFounder")
@@ -1078,6 +1082,8 @@ model RafiqUser {
   recordedSessions  RafiqSession[]     @relation("SessionRecordedBy")
   addedTrackerItems RafiqTrackerItem[] @relation("TrackerItemCreatedBy")
   addedHighlights   RafiqHighlight[]   @relation("HighlightBy")
+  // «القضاء» entries she made on a child's page
+  addedQada         RafiqQadaEntry[]   @relation("QadaEntryBy")
 
   // her memorization plan (src/lib/rafiq/memorization.ts). null template =
   // she hasn't set up a plan yet. Unlike a course, she may change it any
@@ -1124,6 +1130,9 @@ model RafiqUser {
   // a girl's page: which adults see her excuse (no row = by gender)
   excuseViewers       FamilyExcuseViewer[]      @relation("ExcuseViewerChild")
   excuseViewing       FamilyExcuseViewer[]      @relation("ExcuseViewerAdult")
+  // «القضاء» (src/lib/qada): her log, and her goals and private settings
+  qadaEntries         RafiqQadaEntry[]          @relation("QadaEntryOwner")
+  qadaPlan            RafiqQadaPlan?
 
   // in-site guidance (src/lib/guide): when she signed up with guidance on —
   // the setup questions, «الخطوات الأولى» and the first-visit welcome lines
@@ -1447,6 +1456,76 @@ model RafiqHighlightColor {
   createdAt DateTime  @default(now())
 
   @@unique([userId, color])
+}
+
+// «القضاء» (src/lib/qada): make-up prayers and fasting. A log only — every
+// total, remaining count and plan is worked out from these rows. Never a
+// tracker item: no score, summary, celebration or sharing reads it.
+// OWED = owed qada added (by hand, «يوم كامل», the estimate); MADE_UP = qada
+// done («+١»). Deleting an entry deletes the row.
+model RafiqQadaEntry {
+  id        String     @id @default(cuid())
+  // the owner: an adult, or the child on a child's pages
+  userId    String
+  user      RafiqUser  @relation("QadaEntryOwner", fields: [userId], references: [id], onDelete: Cascade)
+  kind      QadaKind
+  action    QadaAction
+  // 1–100,000 (check constraint)
+  count     Int
+  // the day it refers to, in her own days: required for MADE_UP, optional
+  // for OWED (check constraint)
+  day       DateTime?  @db.Date
+  // the rows one action made together (the estimate, «يوم كامل»): one line
+  // of «السجل», deleted together
+  batchId   String?
+  // where it came from. TRACKER and RAMADAN_EXCUSE are for Phase 2: with
+  // sourceRef (a tracker check, «ramadan:1448»), unique per owner, so such
+  // an entry is added once at most
+  source    QadaSource @default(MANUAL)
+  sourceRef String?
+  // made by an adult of the family on a child's page (byId null after that
+  // adult's account is deleted → «أحد البالغين»)
+  byAdult   Boolean    @default(false)
+  byId      String?
+  by        RafiqUser? @relation("QadaEntryBy", fields: [byId], references: [id], onDelete: SetNull)
+  createdAt DateTime   @default(now())
+
+  @@index([userId, kind])
+  @@index([batchId])
+  @@index([byId])
+}
+
+// «القضاء»: her goals and private settings, one row per person (none = no
+// goal and no average yet).
+model RafiqQadaPlan {
+  userId             String       @id
+  user               RafiqUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // «كم يوم العذر في الشهر تقريبًا؟» (a woman or a girl; 0–15). Private: for
+  // a girl, only she and the adults in her «من يرى…» list ever get it
+  excuseDaysPerMonth Int?
+  // the estimate's last answers, so it reopens filled in (src/lib/qada/estimate.ts)
+  estimate           Json?
+  // prayers: one goal for all five
+  prayerMode         QadaGoalMode @default(NONE)
+  prayerDeadline     DateTime?    @db.Date
+  // «وتيرة»: of each prayer per day
+  prayerPace         Int?
+  // the day the goal was set, and its daily total then (the extend line past ~2×)
+  prayerFrom         DateTime?    @db.Date
+  prayerBaseline     Float?
+  // fasting: the same, per week
+  fastMode           QadaGoalMode @default(NONE)
+  fastDeadline       DateTime?    @db.Date
+  fastPace           Int?
+  fastFrom           DateTime?    @db.Date
+  fastBaseline       Float?
+  // milestones (25/50/75/100): the highest shown, and the owed total then
+  // (more owed after 100%: they can come again)
+  prayerMilestone    Int          @default(0)
+  prayerMilestoneAt  Int          @default(0)
+  fastMilestone      Int          @default(0)
+  fastMilestoneAt    Int          @default(0)
+  updatedAt          DateTime     @updatedAt
 }
 
 // One "+" tap (same meaning as HomeTap): ayah null = a whole-passage counter.
@@ -2031,6 +2110,41 @@ enum ExcuseActor {
   ADULT
   // ended by itself after 15 days
   AUTO
+}
+
+// «القضاء»: the five prayers and fasting (not Prayer, which has SUNRISE)
+enum QadaKind {
+  FAJR
+  DHUHR
+  ASR
+  MAGHRIB
+  ISHA
+  FAST
+}
+
+enum QadaAction {
+  OWED
+  MADE_UP
+}
+
+enum QadaSource {
+  MANUAL
+  // the estimate's preview, saved
+  ESTIMATE
+  // «يوم كامل»
+  FULL_DAY
+  // Phase 2: a linked tracker item's tick
+  TRACKER
+  // Phase 2: «أُضيف ٦ أيام إلى قضاء الصيام؟» after Ramadan
+  RAMADAN_EXCUSE
+}
+
+enum QadaGoalMode {
+  NONE
+  // «موعد»
+  DEADLINE
+  // «وتيرة»
+  PACE
 }
 
 enum PointType {

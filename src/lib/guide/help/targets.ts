@@ -60,6 +60,7 @@ export const GUIDE_TARGETS = [
   "tracker.back",
   "tracker.publish",
   "tracker.excuse",
+  "tracker.qada",
   "tracker.excuseField",
   "agenda.timeBtn",
   "summary.periods",

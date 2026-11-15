@@ -26,6 +26,10 @@ export function holds(cond: HelpCond, facts: HelpFacts): boolean {
       return !facts.plan;
     case "highlight":
       return facts.highlight === true;
+    case "qada":
+      return facts.qada !== undefined;
+    case "qadaWoman":
+      return facts.qadaWoman === true;
   }
 }
 
@@ -34,7 +38,8 @@ export const questionsFor = <Q extends { when?: HelpCond }>(questions: Q[], fact
 
 // a child's own switches («العائلة») are never in her facts: their offer is only
 // put on a question while the switch is off
-const featureOn = (f: EnableFeature, facts: HelpFacts) => (f === "excuse" ? facts.excuse === true : (facts.features as Partial<Record<EnableFeature, boolean>>)[f] === true);
+const featureOn = (f: EnableFeature, facts: HelpFacts) =>
+  f === "excuse" ? facts.excuse === true : f === "qada" ? facts.qada === true : (facts.features as Partial<Record<EnableFeature, boolean>>)[f] === true;
 
 /** What a question's body shows in the panel: its steps, or the offer while its feature is off. */
 export function panelShows(q: Pick<HelpQuestion, "offer">, facts: HelpFacts): "steps" | "offer" {

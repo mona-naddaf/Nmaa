@@ -18,6 +18,7 @@ import type { PrayerLocation } from "@/lib/prayer/times";
 import { useGuideTarget } from "@/components/guide/targets";
 import { GuideCard } from "./GuideCard";
 import { EXCUSE_SETTINGS_SELF, EXCUSE_SWITCH, EXCUSE_SWITCH_OFF_NOTE, EXCUSE_TITLE } from "@/lib/excuse/texts";
+import { QADA_TITLE, SWITCH_LABEL as QADA_SWITCH_LABEL, settingsSelf as qadaSettingsSelf } from "@/lib/qada/texts";
 import {
   changePasswordAction,
   deleteAccountAction,
@@ -29,6 +30,7 @@ import {
   setMutashabihatEnabledAction,
   setTajweedDetailEnabledAction,
   setExcuseEnabledAction,
+  setQadaEnabledAction,
   setReviewRemindersAction,
   signOutEverywhereAction,
   updateProfileAction,
@@ -53,6 +55,8 @@ type Props = {
   guide?: { checklistComplete: boolean };
   // «أيام العذر» (EXCUSE_ENABLED, a woman): her switch, and whether an excuse is open now
   excuse?: { enabled: boolean; active: boolean };
+  // «القضاء» (QADA_EMAILS): her switch
+  qada?: { enabled: boolean };
 };
 
 export function SettingsView({
@@ -69,18 +73,32 @@ export function SettingsView({
   place,
   guide,
   excuse,
+  qada,
 }: Props) {
   const p = (m: string, f: string) => pickByPerson(gender, { m, f });
   const t = useGuideTarget();
-  // «أيام العذر» goes after it, in the same slot: while off the list keeps its old shape (see below)
-  const tajweed = excuse ? (
-    <>
+  // «أيام العذر» and «القضاء» go after it, in the same slot: for anyone without
+  // them the list keeps its old shape (see below)
+  const tajweed =
+    excuse && qada ? (
+      <>
+        <TajweedDetail p={p} enabled={tajweedEnabled} />
+        <ExcuseSwitch enabled={excuse.enabled} active={excuse.active} />
+        <QadaSwitch gender={gender} enabled={qada.enabled} />
+      </>
+    ) : excuse ? (
+      <>
+        <TajweedDetail p={p} enabled={tajweedEnabled} />
+        <ExcuseSwitch enabled={excuse.enabled} active={excuse.active} />
+      </>
+    ) : qada ? (
+      <>
+        <TajweedDetail p={p} enabled={tajweedEnabled} />
+        <QadaSwitch gender={gender} enabled={qada.enabled} />
+      </>
+    ) : (
       <TajweedDetail p={p} enabled={tajweedEnabled} />
-      <ExcuseSwitch enabled={excuse.enabled} active={excuse.active} />
-    </>
-  ) : (
-    <TajweedDetail p={p} enabled={tajweedEnabled} />
-  );
+    );
 
   return (
     <div className={styles.settingsGrid}>
@@ -474,6 +492,15 @@ function ExcuseSwitch({ enabled, active }: { enabled: boolean; active: boolean }
       )}
       {t.error && <div className={hl.err}>{t.error}</div>}
     </div>
+  );
+}
+
+/** «القضاء» (her own, QADA_EMAILS): its card at the top of «جدول المتابعة». Off hides it and keeps everything. */
+function QadaSwitch({ gender, enabled }: { gender: RafiqGender; enabled: boolean }) {
+  return (
+    <FeatureSwitch title={QADA_TITLE} label={QADA_SWITCH_LABEL} enabled={enabled} action={setQadaEnabledAction}>
+      {qadaSettingsSelf(gender)}
+    </FeatureSwitch>
   );
 }
 

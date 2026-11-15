@@ -7,12 +7,13 @@ import { getGuide } from "@/lib/guide/state";
 import { checklistComplete } from "@/lib/guide/lines";
 import { checklistFacts } from "@/lib/guide/page-facts";
 import { ownExcuse } from "@/lib/excuse/rafiq-data";
+import { qadaAllowed } from "@/lib/qada/enabled";
 
 export default async function RafiqSettingsPage() {
   const user = await requireRafiqUser();
-  const { recoveryCodeCreatedAt, reviewReminderDays, agendaEnabled, summaryEnabled, mutashabihatEnabled, tajweedDetailEnabled, ...placeRow } = await prisma.rafiqUser.findUniqueOrThrow({
+  const { recoveryCodeCreatedAt, reviewReminderDays, agendaEnabled, summaryEnabled, mutashabihatEnabled, tajweedDetailEnabled, qadaEnabled, ...placeRow } = await prisma.rafiqUser.findUniqueOrThrow({
     where: { id: user.id },
-    select: { recoveryCodeCreatedAt: true, reviewReminderDays: true, agendaEnabled: true, summaryEnabled: true, mutashabihatEnabled: true, tajweedDetailEnabled: true, ...PLACE_SELECT },
+    select: { recoveryCodeCreatedAt: true, reviewReminderDays: true, agendaEnabled: true, summaryEnabled: true, mutashabihatEnabled: true, tajweedDetailEnabled: true, qadaEnabled: true, ...PLACE_SELECT },
   });
   // guidance on, a new account: whether «إظهار الإرشادات من جديد» brings her checklist back
   const guide = await getGuide();
@@ -36,6 +37,7 @@ export default async function RafiqSettingsPage() {
       commitDays={await currentCommitDays(user.id)}
       {...(guide ? { guide: { checklistComplete: done ?? false } } : {})}
       {...(excuse.show ? { excuse: { enabled: excuse.on, active: open } } : {})}
+      {...(qadaAllowed(user.email) ? { qada: { enabled: qadaEnabled } } : {})}
     />
   );
 }

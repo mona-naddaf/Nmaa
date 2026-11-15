@@ -16,6 +16,7 @@ import { validateLocation } from "@/lib/prayer/times";
 import { placeColumns } from "@/lib/prayer/location";
 import { CHILD_FEATURES, isChildFeature, type ChildFeature } from "@/lib/family/rules";
 import { familyHighlightAllowed } from "@/lib/highlight/server";
+import { familyQadaAllowed } from "@/lib/qada/server";
 import { cleanFamilyName, FAMILY_LIMITS, inviteExpiry, inviteState } from "@/lib/family/rules";
 import { joinLimited, JOIN_TOO_MANY, recordJoinFailure } from "@/lib/family/limits";
 import { familyGuideOnFor } from "@/lib/family/guide";
@@ -342,6 +343,11 @@ export async function setChildFeatureAction(childId: string, feature: ChildFeatu
   if (feature === "highlight") {
     const child = await prisma.rafiqUser.findUnique({ where: { id: user.id }, select: { familyId: true } });
     if (!child?.familyId || !(await familyHighlightAllowed(child.familyId))) return { error: "إعداد غير معروف" };
+  }
+  // «القضاء»: only where QADA_EMAILS reaches the family
+  if (feature === "qada") {
+    const child = await prisma.rafiqUser.findUnique({ where: { id: user.id }, select: { familyId: true } });
+    if (!child?.familyId || !(await familyQadaAllowed(child.familyId))) return { error: "إعداد غير معروف" };
   }
   await prisma.rafiqUser.update({ where: { id: user.id }, data: { [CHILD_FEATURES[feature]]: on === true } });
   refresh();

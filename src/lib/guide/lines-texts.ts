@@ -83,6 +83,12 @@ export const INTRO: Record<Exclude<IntroId, "excuse">, { text: string; button: s
   // a tip, not a setting
   verseNotes: { text: "[اضغطي|اضغط] ✎ بعد رقم أي آية لتكتب[ي|] ملاحظة عليها.", button: "فهمت", close: false },
   goal: { text: "[يمكنكِ|يمكنك] وضع هدف، مثل: إتمام جزء عمّ قبل رمضان.", button: "وضع هدف", close: true },
+  // «القضاء» (where QADA_EMAILS reaches her)
+  qada: {
+    text: "[يمكنكِ|يمكنك] تتبّع ما [عليكِ|عليك] من قضاء الصلاة والصيام في بطاقة خاصة، لا تؤثّر في نسبة [يومكِ|يومك] ولا يراها أحد [غيركِ|غيرك].",
+    button: "تفعيل",
+    close: true,
+  },
 };
 
 export const INTRO_UI = {

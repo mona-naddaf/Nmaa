@@ -6,6 +6,7 @@ import { currentCommitDays } from "@/lib/rafiq/commitment";
 import { ChildHeader } from "../ChildHeader";
 import { ChildSettings } from "./ChildSettings";
 import { childExcuseCard } from "@/lib/excuse/family-data";
+import { childQadaList, familyQadaAllowed } from "@/lib/qada/server";
 
 // «إعدادات {الاسم}»: a child's switches, commitment days and review
 // reminders — changed by adults with edit rights, shown to view-only adults.
@@ -28,6 +29,7 @@ export default async function AdultChildSettingsPage({ params }: PageProps<"/raf
         commitDays={await currentCommitDays(child.id)}
         excuse={await childExcuseCard(access.family.id, child, access.user)}
         highlightSwitch={await familyHighlightAllowed(access.family.id)}
+        {...((await familyQadaAllowed(access.family.id)) ? { qada: { list: await childQadaList(access.family.id, child, access.user.id) } } : {})}
       />
     </>
   );

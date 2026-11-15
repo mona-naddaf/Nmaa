@@ -1,4 +1,5 @@
 import { highlightAllowed } from "@/lib/highlight/enabled";
+import { qadaAllowed } from "@/lib/qada/enabled";
 import "server-only";
 import { cache } from "react";
 import { prisma } from "@/lib/db";
@@ -37,6 +38,7 @@ export const getGuide = cache(async (): Promise<GuideSnapshot | null> => {
       gender: true,
       guideNewAt: true,
       excuseEnabled: true,
+      qadaEnabled: true,
       guideStates: { select: { key: true, value: true } },
       agendaEnabled: true,
       summaryEnabled: true,
@@ -78,6 +80,7 @@ export const getGuide = cache(async (): Promise<GuideSnapshot | null> => {
       plan: row.planTemplate !== null,
       founder: ((row as { _count?: { foundedFamilies: number } })._count?.foundedFamilies ?? 0) > 0,
       ...(highlightAllowed(row.email) ? { highlight: true } : {}),
+      ...(qadaAllowed(row.email) ? { qada: row.qadaEnabled, ...(row.gender === "FEMALE" ? { qadaWoman: true } : {}) } : {}),
       ...parts.facts,
     },
   };

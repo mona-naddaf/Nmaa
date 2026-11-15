@@ -27,7 +27,7 @@ export type HelpFeature = "agenda" | "summary" | "similar" | "tajweed" | "review
 export type FamilyFeature = "streak" | "goal" | "homeLog" | "highlight";
 
 /** What «تفعيل» can turn on: those, «أيام العذر», which only some accounts have, and a child's switches. */
-export type EnableFeature = HelpFeature | "excuse" | FamilyFeature;
+export type EnableFeature = HelpFeature | "excuse" | "qada" | FamilyFeature;
 
 /** What she has, as far as a tour needs to know. */
 export type HelpFacts = {
@@ -40,12 +40,16 @@ export type HelpFacts = {
   founder: boolean;
   // «أيام العذر» on or off; left out for anyone it isn't for (never false for them)
   excuse?: boolean;
+  // «القضاء» on or off; left out for anyone it doesn't reach (QADA_EMAILS)
+  qada?: boolean;
+  // ... and she is a woman (its excuse-aware questions)
+  qadaWoman?: boolean;
   // «التظليل» reaches her (HIGHLIGHT_EMAILS); left out otherwise
   highlight?: boolean;
 };
 
 /** A condition on her facts: a step shows only when it holds, or an alternative replaces it. */
-export type HelpCond = "agenda" | "founder" | "noPlan" | "highlight";
+export type HelpCond = "agenda" | "founder" | "noPlan" | "highlight" | "qada" | "qadaWoman";
 
 export type HelpStep<T extends string = string, P extends string = string> = {
   text: string;

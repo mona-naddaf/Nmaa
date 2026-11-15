@@ -74,6 +74,8 @@ export const CHILD_FEATURES = {
   streak: "streakEnabled",
   // «التظليل» (src/lib/highlight): shown only where HIGHLIGHT_EMAILS reaches the family
   highlight: "highlightEnabled",
+  // «القضاء» (src/lib/qada): shown only where QADA_EMAILS reaches the family
+  qada: "qadaEnabled",
 } as const;
 
 export type ChildFeature = keyof typeof CHILD_FEATURES;

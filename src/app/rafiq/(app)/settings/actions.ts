@@ -15,6 +15,7 @@ import { validateLocation } from "@/lib/prayer/times";
 import { placeColumns } from "@/lib/prayer/location";
 import { endOnSwitchOff, ownExcuse } from "@/lib/excuse/rafiq-data";
 import { safeTimeZone } from "@/lib/time/zone";
+import { qadaAllowed } from "@/lib/qada/enabled";
 
 // Her own account settings. Every action resolves whose settings they are
 // (src/lib/rafiq/subject.ts): the account itself (profile, password, recovery
@@ -203,6 +204,29 @@ export async function setExcuseEnabledAction(_prev: SettingsState, formData: For
   // turned on, from anywhere: its intro lines are never offered again, even if she turns it off later
   if (on) {
     const key = "intro.excuse";
+    await prisma.guideState.upsert({
+      where: { rafiqUserId_key: { rafiqUserId: user.id, key } },
+      create: { rafiqUserId: user.id, key },
+      update: {},
+    });
+  }
+  revalidatePath("/rafiq", "layout");
+  return { ok: "تم الحفظ ✓" };
+}
+
+/**
+ * «القضاء» (her own, QADA_EMAILS): on or off (off by default). Off hides the
+ * card; everything recorded stays.
+ */
+export async function setQadaEnabledAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const user = await resolveSubject(null, "self");
+  if ("error" in user) return user;
+  if (!qadaAllowed(user.account.email)) return { error: "القضاء غير متاح حاليًا" };
+  const on = formData.get("on") === "1";
+  await prisma.rafiqUser.update({ where: { id: user.id }, data: { qadaEnabled: on } });
+  // turned on, from anywhere: its intro line is never offered again
+  if (on) {
+    const key = "intro.qada";
     await prisma.guideState.upsert({
       where: { rafiqUserId_key: { rafiqUserId: user.id, key } },
       create: { rafiqUserId: user.id, key },

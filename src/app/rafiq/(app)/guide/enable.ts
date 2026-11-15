@@ -3,6 +3,7 @@ import { REVIEW_DAYS_ON_ENABLE } from "@/lib/guide/help/rafiq/ui";
 import {
   setAgendaEnabledAction,
   setExcuseEnabledAction,
+  setQadaEnabledAction,
   setMutashabihatEnabledAction,
   setReviewRemindersAction,
   setSummaryEnabledAction,
@@ -24,6 +25,8 @@ const SWITCH: Partial<Record<EnableFeature, [SettingsAction, Record<string, stri
   review: [setReviewRemindersAction, { on: "1", days: String(REVIEW_DAYS_ON_ENABLE) }],
   // refused on the server for anyone it isn't for
   excuse: [setExcuseEnabledAction, { on: "1" }],
+  // refused on the server outside QADA_EMAILS
+  qada: [setQadaEnabledAction, { on: "1" }],
 };
 
 export async function enableFeature(feature: EnableFeature): Promise<{ error?: string }> {

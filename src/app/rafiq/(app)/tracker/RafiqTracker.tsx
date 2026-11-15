@@ -33,6 +33,7 @@ import type { IntroId } from "@/lib/guide/keys";
 import { EMPTY } from "@/lib/guide/lines-texts";
 import { IntroLine } from "../guide/IntroLine";
 import { ExcuseBar } from "@/components/excuse/ExcuseBar";
+import { QadaCard } from "@/components/qada/QadaCard";
 import { ItemExcuseField, useItemExcuse } from "@/components/excuse/ItemExcuse";
 import { excuseLens, quietLens } from "@/lib/excuse/lens";
 import type { ExcuseMode } from "@/lib/excuse/rules";
@@ -64,6 +65,7 @@ export function RafiqTracker({
   guide,
   excuse,
   quiet,
+  qada = false,
 }: {
   data: RafiqTrackerData;
   g: GroupGender;
@@ -92,6 +94,8 @@ export function RafiqTracker({
   // «أيام العذر» for an adult who may not see a girl's excuse: the «day:itemId»
   // pairs not due, left out quietly (no text anywhere)
   quiet?: string[];
+  // «القضاء» (src/lib/qada): its card at the top, where the server let this viewer have it
+  qada?: boolean;
 }) {
   const can = scopeCan(scope);
   const subjectId = scope.subjectId;
@@ -177,7 +181,8 @@ export function RafiqTracker({
 
   return (
     <div>
-      {guide && <IntroLine candidates={guide.intros} here={["agenda", "summary", "city", "excuse"]} />}
+      {guide && <IntroLine candidates={guide.intros} here={["agenda", "summary", "city", "excuse", "qada"]} />}
+      {qada && view === "day" && <QadaCard subjectId={subjectId} />}
       <TrackerHeader
         // «أمس» on the agenda; the tile sheet keeps its own today/yesterday tabs
         yesterday={yesterday}

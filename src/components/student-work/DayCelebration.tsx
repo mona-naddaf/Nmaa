@@ -38,9 +38,10 @@ function claim(key: string, today: string): boolean {
   return true;
 }
 
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+export const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-function dropLeaves(stage: HTMLElement) {
+/** Leaves falling softly inside a stage (also «القضاء»'s celebration). */
+export function dropLeaves(stage: HTMLElement) {
   const height = stage.clientHeight;
   const width = stage.clientWidth;
   const rand = (a: number, b: number) => a + Math.random() * (b - a);

@@ -93,6 +93,8 @@ export type IntroFacts = {
   excuse?: boolean;
   // «صفحتي»: commitmentChosen
   commitSet?: boolean;
+  // «القضاء» on or off; unset: not hers to have (QADA_EMAILS)
+  qada?: boolean;
   // «التظليل» reaches her (HIGHLIGHT_EMAILS)
   highlight?: boolean;
 };
@@ -108,6 +110,7 @@ export const INTRO_FEATURE: Partial<Record<IntroId, EnableFeature>> = {
   summary: "summary",
   review: "review",
   excuse: "excuse",
+  qada: "qada",
 };
 
 /**
@@ -135,6 +138,7 @@ export function introsFor(page: GuidePage, f: IntroFacts): IntroId[] {
     on.summary = !f.features.summary && items > 0 && (f.trackerDays ?? 0) >= 7;
     on.city = f.features.agenda && !f.city;
     on.excuse = f.excuse === false && items > 0;
+    on.qada = f.qada === false;
   }
   return INTRO_IDS.filter((id) => on[id] === true);
 }

@@ -282,7 +282,7 @@ export const linkOption = (k: QadaKind) => (k === "FAST" ? "الصيام" : `ص�
 export const linkHint = (you: G) =>
   `كل يوم ${pick(you, "تعلّم", "تعلّمين")} فيه هذا البند يُضاف إلى «القضاء» واحد، ويُرفع إن ${pick(you, "أزلت", "أزلتِ")} العلامة.`;
 export const linkLine = (k: QadaKind) => `${LINK_FIELD}: ${linkOption(k)}`;
-export const LINK_ONE_CHILD = "يُحسب قضاءً لهذا الطفل وحده، لا عند الإضافة إلى أكثر من طفل.";
+export const LINK_ONE_CHILD = "«يُحسب قضاءً» عند الإضافة إلى طفل واحد فقط.";
 /** «السجل»: an entry from a ticked item. */
 export const logFromItem = (title: string | null) => (title ? `من بند «${title}» في الجدول` : "من بند في الجدول");
 

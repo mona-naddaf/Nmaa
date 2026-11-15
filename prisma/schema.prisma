@@ -1278,6 +1278,11 @@ model RafiqTrackerItem {
   excuseMode     ExcuseMode @default(NONE)
   excuseAltTitle String?
 
+  // «القضاء» Phase 2: «يُحسب قضاءً» — a tick adds one made-up of this kind
+  // (source TRACKER, once per item and day; unticking removes it). Null: not
+  // linked. Never copied (to children, or into the bank).
+  qadaKind QadaKind?
+
   checks RafiqTrackerCheck[]
   slots  RafiqTrackerSlot[]
 
@@ -1525,6 +1530,12 @@ model RafiqQadaPlan {
   prayerMilestoneAt  Int          @default(0)
   fastMilestone      Int          @default(0)
   fastMilestoneAt    Int          @default(0)
+  // Phase 2: the Hijri years whose Ramadan offer («أُضيف … إلى قضاء الصيام؟»)
+  // was answered («إضافة» or «ليس الآن»): never offered again
+  ramadanSeen        Int[]        @default([])
+  // Phase 2: «استعمال رقمي أنا»: her own average, even when her «أيام العذر»
+  // records allow a prediction (src/lib/qada/cycle.ts)
+  ownAverage         Boolean      @default(false)
   updatedAt          DateTime     @updatedAt
 }
 

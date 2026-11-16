@@ -280,7 +280,7 @@ export const LINK_FIELD = "يُحسب قضاءً";
 export const LINK_NONE = "لا";
 export const linkOption = (k: QadaKind) => (k === "FAST" ? "الصيام" : `صلاة ${KIND_NAMES[k]}`);
 export const linkHint = (you: G) =>
-  `كل يوم ${pick(you, "تعلّم", "تعلّمين")} فيه هذا البند يُضاف إلى «القضاء» واحد، ويُرفع إن ${pick(you, "أزلت", "أزلتِ")} العلامة.`;
+  `كل يوم ${pick(you, "تعلّم", "تعلّمين")} فيه هذا البند يُسجَّل قضاءٌ واحد، ويُحذف إن ${pick(you, "أزلت", "أزلتِ")} العلامة.`;
 export const linkLine = (k: QadaKind) => `${LINK_FIELD}: ${linkOption(k)}`;
 export const LINK_ONE_CHILD = "«يُحسب قضاءً» عند الإضافة إلى طفل واحد فقط.";
 /** «السجل»: an entry from a ticked item. */

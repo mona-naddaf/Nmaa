@@ -10,7 +10,7 @@ export const PARENT_HELP: CourseRawPage<ParentFacts>[] = [
   {
     id: "p.home",
     title: "متابعة وليّ الأمر",
-    welcome: "هنا متابعة <ابنتك|ابنك>: <موضعها|موضعه> في الخطة، <وحضورها|وحضوره>، <ونقاطها|ونقاطه>، وسجل <تسميعها|تسميعه>. الصفحة للعرض فقط.",
+    welcome: "هنا متابعة <ابنتك|ابنك>: <موقعها|موقعه> في الخطة، <وحضورها|وحضوره>، <ونقاطها|ونقاطه>، وسجل <تسميعها|تسميعه>. الصفحة للعرض فقط.",
     questions: [
       {
         id: "P1.1",
@@ -18,7 +18,7 @@ export const PARENT_HELP: CourseRawPage<ParentFacts>[] = [
         showMe: true,
         steps: [
           { text: "في «آخر ما <وصلت|وصل> إليه (حسب الخطة)».", target: "c.pPosition" },
-          { text: "يتقدّم الموضع بكل تسميع جديد يُسجَّل في الحلقة." },
+          { text: "يتقدّم الموقع بكل تسميع جديد يُسجَّل في الحلقة." },
         ],
       },
       {
@@ -59,7 +59,7 @@ export const PARENT_HELP: CourseRawPage<ParentFacts>[] = [
         showMe: true,
         feat: "homeLog",
         hideOff: true,
-        steps: [{ text: "ما <تتدرّب|يتدرّب> عليه في البيت من مقاطع، للعرض فقط. لا يغيّر <موضعها|موضعه> في الخطة.", target: "c.pHomeLog" }],
+        steps: [{ text: "ما <تتدرّب|يتدرّب> عليه في البيت من مقاطع، للعرض فقط. لا يغيّر <موقعها|موقعه> في الخطة.", target: "c.pHomeLog" }],
       },
       {
         id: "P1.6",

@@ -26,7 +26,7 @@ export const courseGuideListed = (): boolean => (parseAllowList(process.env.COUR
  * button and the one line that announces it. COURSE_GUIDE_SINCE (an ISO date)
  * moves it, e.g. to the day the guide opens to everyone.
  */
-export const COURSE_GUIDE_SINCE_DEFAULT = "2026-11-21T00:00:00Z";
+export const COURSE_GUIDE_SINCE_DEFAULT = "2026-11-20T00:00:00Z";
 
 export function courseGuideSince(): Date {
   const raw = process.env.COURSE_GUIDE_SINCE;

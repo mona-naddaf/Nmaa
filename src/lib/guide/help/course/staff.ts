@@ -29,7 +29,7 @@ export const STAFF_HELP: CourseRawPage[] = [
       },
       {
         id: "S1.2",
-        q: "كيف أسجّل الحضور أو نقطة لعدد منهم معًا؟",
+        q: "كيف أسجّل الحضور أو نقطة لعدد <منهن|منهم> معًا؟",
         showMe: true,
         steps: [
           { text: "[اضغطي|اضغط] «تحديد».", target: "c.select", kind: "press" },

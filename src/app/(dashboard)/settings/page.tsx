@@ -37,6 +37,20 @@ import { safeTimeZone } from "@/lib/time/zone";
 import { COMMON_ZONES, zoneLabel } from "@/lib/time/zones";
 import { zoneOffsetLabel } from "@/lib/time/zone";
 import { locationOf } from "@/lib/prayer/location";
+import { courseGuideAllowed } from "@/lib/guide/course-enabled";
+import { LeaveGuard } from "@/components/leave-guard/LeaveGuard";
+import {
+  LiveCalendar,
+  LiveExcuse,
+  LiveOnline,
+  LivePermissions,
+  LiveProgressBars,
+  LiveReview,
+  LiveSimilar,
+  LiveStreak,
+  LiveStudentLogin,
+  LiveTajweed,
+} from "./live/LiveCards";
 
 export default async function SettingsPage() {
   const session = await requireAdmin();
@@ -65,6 +79,117 @@ export default async function SettingsPage() {
   const progressBarsOn = [course.showSurahProgress, course.showJuzProgress, course.showQuranProgress, course.showPlanProgress].filter(
     Boolean,
   ).length;
+
+  // COURSE_GUIDE_EMAILS: the choices saved at once (./live), until they open to everyone
+  const live = courseGuideAllowed(admin?.email);
+  const ag = admin?.gender ?? null;
+  const permissions = {
+    addStudentsPermission: course.addStudentsPermission,
+    editStudentsPermission: course.editStudentsPermission,
+    archiveStudentsPermission: course.archiveStudentsPermission,
+    addPriorPermission: course.addPriorPermission,
+    offlineSheetPermission: course.offlineSheetPermission,
+    editPlanPermission: course.editPlanPermission,
+    issueStudentCodesPermission: course.issueStudentCodesPermission,
+    studentLoginEnabled: course.studentLoginEnabled,
+    studentInfoEnabled: course.studentInfoEnabled,
+    adminGender: ag,
+    visibilityMode: course.visibilityMode,
+    groups: course.groups.map((g) => ({ id: g.id, name: g.name })),
+    teachers: course.teachers.map((t) => ({ id: t.id, name: t.name, groupId: t.groupAssignments[0]?.groupId ?? null })),
+  };
+  const bars = {
+    showSurahProgress: course.showSurahProgress,
+    showJuzProgress: course.showJuzProgress,
+    showQuranProgress: course.showQuranProgress,
+    showPlanProgress: course.showPlanProgress,
+  };
+  const login = {
+    enabled: course.studentLoginEnabled,
+    boardEnabled: course.studentBoardEnabled,
+    homeLogEnabled: course.homeLogEnabled,
+    homeTargets: { listen: course.homeTargetListen, repeat: course.homeTargetRepeat, recite: course.homeTargetRecite },
+    homeMistakesEnabled: course.homeMistakesEnabled,
+    assignmentsEnabled: course.assignmentsEnabled,
+    trackerEnabled: course.trackerEnabled,
+    trackerAgendaEnabled: course.trackerAgendaEnabled,
+    trackerSummaryEnabled: course.trackerSummaryEnabled,
+  };
+
+  if (live)
+    return (
+      <div>
+        {/* a choice still saving: leaving warns first */}
+        <LeaveGuard you={ag ?? "FEMALE"} />
+        <div className={styles.subtitle}>
+          إعدادات دورة {course.name} (تظهر لل{supervisorNoun(ag)} فقط)
+        </div>
+        <Collapsible title="رمز الدورة للمعلمين">
+          <CourseCodeBox courseName={course.name} code={course.code} adminGender={ag} />
+        </Collapsible>
+        <Collapsible title="رمز لوحة الإنجاز العامة" {...onOffTag(course.boardCode !== null)}>
+          <BoardCodeCard
+            initialCode={course.boardCode}
+            initialCreatedAt={course.boardCodeCreatedAt?.toISOString() ?? null}
+            loginUrl={origin ? `${origin}/board/login` : null}
+          />
+        </Collapsible>
+        <Collapsible title="صلاحيات المعلمين">
+          <LivePermissions {...permissions} />
+        </Collapsible>
+        <Collapsible title="أنواع التسميع" tag={course.onlineRecitationEnabled ? "الأونلاين مفعّل" : "الأونلاين غير مفعّل"} tagTone={course.onlineRecitationEnabled ? "on" : "off"}>
+          <LiveOnline enabled={course.onlineRecitationEnabled} />
+        </Collapsible>
+        <Collapsible title="أشرطة التقدّم" {...(progressBarsOn > 0 ? { tag: `${progressBarsOn} من 4`, tagTone: "on" as const } : onOffTag(false))}>
+          <LiveProgressBars enabled={bars} />
+        </Collapsible>
+        <Collapsible title="التوقيت" tag={zoneLabel(safeTimeZone(course.timeZone))}>
+          <TimeZoneCard
+            timeZone={safeTimeZone(course.timeZone)}
+            currentLabel={zoneLabel(safeTimeZone(course.timeZone))}
+            offsets={Object.fromEntries([...COMMON_ZONES.map((z) => z.id), safeTimeZone(course.timeZone)].map((id) => [id, zoneOffsetLabel(id)]))}
+            place={locationOf(course)}
+          />
+        </Collapsible>
+        {excuseAllowed(admin?.email) && (
+          <Collapsible title={`${EXCUSE_TITLE} · ${COURSE_EXCUSE_GIRLS_ONLY}`} {...onOffTag(course.excuseEnabled)}>
+            <LiveExcuse enabled={course.excuseEnabled} trackerEnabled={course.trackerEnabled} adminGender={ag} />
+          </Collapsible>
+        )}
+        <Collapsible title="تذكير المراجعة" {...onOffTag(course.reviewReminderDays !== null)}>
+          <LiveReview days={course.reviewReminderDays} adminGender={ag} />
+        </Collapsible>
+        <Collapsible title="الأسابيع المتتالية 🔥" {...onOffTag(course.streakMode !== null)}>
+          <LiveStreak mode={course.streakMode} />
+        </Collapsible>
+        <Collapsible title="دخول الطلاب" {...onOffTag(course.studentLoginEnabled)}>
+          <LiveStudentLogin {...login} />
+        </Collapsible>
+        <Collapsible title="المتشابهات" {...similarTag(course.mutashabihatTeachersEnabled, course.mutashabihatStudentsEnabled)}>
+          <LiveSimilar
+            teachers={course.mutashabihatTeachersEnabled}
+            students={course.mutashabihatStudentsEnabled}
+            studentLoginEnabled={course.studentLoginEnabled}
+            homeLogEnabled={course.homeLogEnabled}
+          />
+        </Collapsible>
+        <Collapsible title="أخطاء التجويد المفصّلة" {...onOffTag(course.tajweedDetailEnabled)}>
+          <LiveTajweed enabled={course.tajweedDetailEnabled} />
+        </Collapsible>
+        <Collapsible title="معلومات إضافية" {...onOffTag(course.studentInfoEnabled)}>
+          <StudentInfoCard enabled={course.studentInfoEnabled} parentEdit={course.parentStudentInfoEdit} fields={infoFields} adminGender={ag} />
+        </Collapsible>
+        <Collapsible title="التقويم الهجري" {...onOffTag(course.calendarEnabled)}>
+          <LiveCalendar enabled={course.calendarEnabled} bannerEnabled={course.calendarBannerEnabled} editPermission={course.calendarEditPermission} adminGender={ag} />
+        </Collapsible>
+        <Collapsible title="مجموعات الدورة" tag={course.groups.length > 0 ? countLabel(course.groups.length, GROUPS) : "لا توجد مجموعات"}>
+          <GroupsEditor groups={course.groups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))} />
+        </Collapsible>
+        <Collapsible title="نظام النقاط" tag={course.pointsActivities.length > 0 ? countLabel(course.pointsActivities.length, ACTIVITIES) : "لا توجد أنشطة"}>
+          <PointsEditor activities={course.pointsActivities.map((a) => ({ id: a.id, name: a.name, value: a.value, type: a.type }))} />
+        </Collapsible>
+      </div>
+    );
 
   return (
     <div>

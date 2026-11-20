@@ -111,7 +111,8 @@ export function courseExcuseHelp(v: CourseExcuseViewer): Partial<Record<CoursePa
       showMe: true,
       steps: [
         { text: "اضغطي «بدء العذر» تحت الحضور.", target: "c.excusePanel", missing: "يظهر «بدء العذر» في صفحة طالبة من مجموعة بنات." },
-        { text: "اختاري «الآن» أو «في وقت سابق»، ثم اضغطي «تأكيد»." },
+        { text: "اختاري «الآن» أو «في وقت سابق»." },
+        { text: "اضغطي «تأكيد»." },
         { text: "عند انتهائه اضغطي «انتهى العذر»، ثم «تأكيد»." },
       ],
       notes: ["إن لم يُنهَ ينتهي تلقائيًا بعد 15 يومًا."],

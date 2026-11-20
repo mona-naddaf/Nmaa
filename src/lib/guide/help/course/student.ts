@@ -197,7 +197,8 @@ export const STUDENT_HELP: CourseRawPage<StudentFacts>[] = [
         steps: [
           { text: "[اضغطي|اضغط] «⚙ البنود»، ثم «إدارة البنود».", target: "tracker.menu.items", kind: "press", via: ["tracker.menu"] },
           { text: "[اضغطي|اضغط] «+ بند خاص».", target: "c.stOwnItem", kind: "press" },
-          { text: "[اكتبي|اكتب] اسمه [واختاري|واختر] الأيام، ثم [اضغطي|اضغط] «إرسال للاعتماد»." },
+          { text: "[اكتبي|اكتب] اسمه، [واختاري|واختر] الأيام." },
+          { text: "[اضغطي|اضغط] «إرسال للاعتماد»." },
         ],
         notes: ["يُحتسب البند بعد اعتماده وتحديد درجته."],
       },
@@ -209,7 +210,8 @@ export const STUDENT_HELP: CourseRawPage<StudentFacts>[] = [
         hideOff: true,
         steps: [
           { text: "[اضغطي|اضغط] «⚙ البنود»، ثم «ترتيب البنود».", target: "tracker.menu.order", kind: "press", via: ["tracker.menu"], missing: "يظهر «ترتيب البنود» حين يكون [لديكِ|لديك] بندان على الأقل." },
-          { text: "[اسحبي|اسحب] البند أو [استعملي|استعمل] ▲ ▼، ثم [احفظي|احفظ] الترتيب." },
+          { text: "[اسحبي|اسحب] البند من المقبض ⠿، أو [استعملي|استعمل] ▲ ▼." },
+          { text: "[احفظي|احفظ] الترتيب." },
         ],
       },
       {

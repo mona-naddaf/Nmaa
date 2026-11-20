@@ -49,7 +49,8 @@ export const PARENT_HELP: CourseRawPage<ParentFacts>[] = [
         show: (f) => f.infoFields,
         steps: [
           { text: "[اضغطي|اضغط] «✎ تعديل المعلومات».", target: "c.pInfo", kind: "press" },
-          { text: "[اكتبي|اكتب] المعلومات، ثم [اضغطي|اضغط] «حفظ»." },
+          { text: "[اكتبي|اكتب] المعلومات." },
+          { text: "[اضغطي|اضغط] «حفظ»." },
         ],
       },
       {

@@ -96,4 +96,8 @@ export const PRESS_LABELS: Partial<Record<GuideTarget, PressLabel>> = {
   "verse.similar": "≈",
   // «الإعدادات»: opens the confirmation, never deletes by itself
   "settings.delete": "حذف حسابي",
+  // «القضاء»'s card: its title opens it; its buttons open their panels
+  "qada.fold": { plain: "على عنوان بطاقة «القضاء»" },
+  "qada.log": "السجل",
+  "qada.estimate": "حساب تقديري",
 };

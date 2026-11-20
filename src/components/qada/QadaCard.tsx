@@ -252,7 +252,7 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
   return (
     <section className={`${hl.section} ${css.card}`} aria-label={T.cardTitle(who)} {...t("tracker.qada")}>
       <div className={css.head}>
-        <button type="button" className={css.fold} aria-expanded={opened} aria-controls="qada-body" title={T.collapseLabel(opened)} onClick={toggleOpen}>
+        <button type="button" className={css.fold} aria-expanded={opened} aria-controls="qada-body" title={T.collapseLabel(opened)} onClick={toggleOpen} {...t("qada.fold")}>
           <span className={css.title}>
             {opened
               ? T.cardTitle(who)
@@ -270,7 +270,7 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
           <span className={css.srOnly}>{T.collapseLabel(opened)}</span>
         </button>
         {!empty && (
-          <button type="button" className={`${css.eye} pressable`} aria-pressed={hidden} aria-label={T.hideLabel(hidden)} title={T.hideLabel(hidden)} onClick={toggleHidden}>
+          <button type="button" className={`${css.eye} pressable`} aria-pressed={hidden} aria-label={T.hideLabel(hidden)} title={T.hideLabel(hidden)} onClick={toggleHidden} {...t("qada.eye")}>
             {hidden ? "🙈" : "👁"}
           </button>
         )}
@@ -327,12 +327,12 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
 
       <div className={css.buttons}>
         {a.edit && (
-          <button type="button" className={`${hl.ghostBtn} pressable`} aria-expanded={panel === "add"} onClick={() => open("add")}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} aria-expanded={panel === "add"} onClick={() => open("add")} {...t("qada.add")}>
             {T.BUTTONS.add}
           </button>
         )}
         {a.plan && (
-          <button type="button" className={`${hl.ghostBtn} pressable`} aria-expanded={panel === "estimate"} onClick={() => open("estimate")}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} aria-expanded={panel === "estimate"} onClick={() => open("estimate")} {...t("qada.estimate")}>
             {T.BUTTONS.estimate}
           </button>
         )}
@@ -342,12 +342,12 @@ export function QadaCard({ subjectId }: { subjectId?: string }) {
           </button>
         )}
         {!empty && (
-          <button type="button" className={`${hl.ghostBtn} pressable`} aria-expanded={panel === "log"} onClick={() => open("log")}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} aria-expanded={panel === "log"} onClick={() => open("log")} {...t("qada.log")}>
             {T.BUTTONS.log}
           </button>
         )}
         {settings && (
-          <button type="button" className={`${hl.ghostBtn} pressable`} aria-expanded={panel === "settings"} onClick={() => open("settings")}>
+          <button type="button" className={`${hl.ghostBtn} pressable`} aria-expanded={panel === "settings"} onClick={() => open("settings")} {...t("qada.settings")}>
             {T.BUTTONS.settings}
           </button>
         )}

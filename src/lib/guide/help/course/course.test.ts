@@ -151,7 +151,7 @@ test("gender: students by their group, staff by theirs; parents read masculine; 
   assert.match(genderText(st.questions[0].q, "MALE"), /وصلتَ/);
   const p = viewerHelpPage(PARENT_HELP[0], { features: ALL_ON, tajweedHers: false, infoFields: true }, fillF);
   assert.equal(genderText(p.questions[0].q, "MALE"), "أين وصلت في الحفظ؟");
-  assert.match(genderText(fillCourse(PARENT_HELP[0].welcome!, fillM), "MALE"), /ابنكم/);
+  assert.match(genderText(fillCourse(PARENT_HELP[0].welcome!, fillM), "MALE"), /متابعة ابنك:/);
 });
 
 // ---------- «أيام العذر» ----------

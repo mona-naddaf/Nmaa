@@ -9,6 +9,7 @@ import type { StudentSummary } from "@/lib/students/summary";
 import { streakText } from "@/lib/students/streak";
 import { MenuButton, type MenuItem } from "@/components/menu-button/MenuButton";
 import { EXCUSED_WORD } from "@/lib/excuse/texts";
+import { inertClass, inertProps } from "@/components/nudge/nudge";
 import {
   presentWord,
   absentWord,
@@ -35,7 +36,10 @@ export function StudentsList({
   canUseOfflineSheet = false,
   pointsActivities = [],
   excuseMarks = [],
+  live = false,
 }: {
+  // COURSE_GUIDE_EMAILS (until it opens to everyone): «تحديد الكل» with nobody to select stays visible and says why
+  live?: boolean;
   // «أيام العذر»: the groups where she may record «معذورة» (G6)
   excuseMarks?: string[];
   groups: { id: string; name: string; gender: GroupGender }[];
@@ -260,7 +264,13 @@ export function StudentsList({
 
       {selecting && (
         <div className={styles.selectRow}>
-          <button type="button" className={styles.selectChip} onClick={toggleAllShown} disabled={filtered.length === 0}>
+          <button
+            type="button"
+            className={`${styles.selectChip} ${live && filtered.length === 0 ? inertClass : ""}`}
+            onClick={() => filtered.length > 0 && toggleAllShown()}
+            disabled={!live && filtered.length === 0}
+            {...(live ? inertProps(filtered.length === 0, `لا يوجد ${studentsNoun(activeGender)} هنا للتحديد`) : {})}
+          >
             {allShownSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
           </button>
           <button

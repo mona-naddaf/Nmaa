@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { courseGuideOn } from "@/lib/guide/course-live";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
@@ -183,6 +184,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
 
   const view = (
       <DetailView
+        live={await courseGuideOn(session.courseId)}
         markExcused={excuse.mark && !archived}
         excuseSlot={
           excuse.on && !archived && excuseSheet ? (
@@ -353,6 +355,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           juzRows={juzRows}
           editedReverse={student.planTemplate === "MUSHAF_REVERSE" && !sp.directions}
           canEdit={canChangePlan}
+          live={await courseGuideOn(session.courseId)}
           secondTrack={second ? { title: second.title, positionText: second.positionText, done: second.done } : null}
           goalPlan={plan}
           goal={goal ? { target: goal.spec.target, juz: goal.spec.juz, surah: goal.spec.surah, ayah: goal.spec.ayah, deadline: goal.spec.deadline } : null}

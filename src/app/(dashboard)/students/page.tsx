@@ -7,6 +7,7 @@ import { CalendarBanner } from "@/components/calendar/CalendarBanner";
 import { studentCodeAccess } from "@/lib/students/student-codes";
 import { canAddStudents, canUseOfflineSheet } from "@/lib/students/manage";
 import { courseExcuseAllowed, groupSees, staffViewer } from "@/lib/excuse/course-data";
+import { courseGuideOn } from "@/lib/guide/course-live";
 
 export default async function StudentsPage() {
   const session = await requireSession();
@@ -75,6 +76,7 @@ export default async function StudentsPage() {
         canUseOfflineSheet={canUseOfflineSheet(session, course)}
         pointsActivities={course.pointsActivities}
         excuseMarks={course.excuseEnabled ? excuseSees : []}
+        live={await courseGuideOn(course.id)}
       />
     </>
   );

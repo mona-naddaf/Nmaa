@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./detail.module.css";
@@ -34,6 +34,7 @@ import { mistakeWordCount, type ActiveMistake } from "@/lib/students/mistake-typ
 import { GoalLine } from "@/components/goal/GoalLine";
 import type { GoalView } from "@/lib/goals/goal";
 import { SimilarScope } from "./SimilarScope";
+import { flash as flashEl, inertClass, pointTo } from "@/components/nudge/nudge";
 import type { AttendanceStatus } from "@/lib/attendance";
 import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
 import { courseGoalPausedText, EXCUSED_HINT, EXCUSED_WORD } from "@/lib/excuse/texts";
@@ -128,7 +129,11 @@ export function DetailView({
   today: serverToday,
   markExcused = false,
   excuseSlot,
+  live = false,
 }: {
+  // COURSE_GUIDE_EMAILS (until it opens to everyone): no button looks dead;
+  // pressing one that can't act yet points to the reason. Off: as before.
+  live?: boolean;
   // «أيام العذر»: the third attendance button (G6), for staff who may record it
   markExcused?: boolean;
   // «العذر» under today's attendance (G9)
@@ -236,7 +241,33 @@ export function DetailView({
     [pointsLogs, sessionDate],
   );
 
-  const saveDisabled = hasRangeError || (entry.requiresReason && !entry.reasonFilled) || (entry.needsTrackChoice && !entry.track) || savePending;
+  const saveDisabled = live ? savePending : hasRangeError || (entry.requiresReason && !entry.reasonFilled) || (entry.needsTrackChoice && !entry.track) || savePending;
+  // live: what «حفظ التسميع» points to when it can't save yet (staff with no gender recorded read feminine)
+  const you = (m: string, f: string) => pickByPerson(viewerGender ?? "FEMALE", { m, f });
+  const [saveHint, setSaveHint] = useState<"reason" | "track" | null>(null);
+  const [bonusHint, setBonusHint] = useState(false);
+  const [onlineHint, setOnlineHint] = useState(false);
+  const rangeErrRef = useRef<HTMLDivElement>(null);
+  function pointToReason(): boolean {
+    if (hasRangeError) {
+      setSaveError(null);
+      pointTo(document.getElementById("fromAyah"));
+      requestAnimationFrame(() => rangeErrRef.current && flashEl(rangeErrRef.current));
+      return true;
+    }
+    if (entry.requiresReason && !entry.reasonFilled) {
+      setSaveHint("reason");
+      pointTo(document.getElementById("reasonText"));
+      return true;
+    }
+    if (entry.needsTrackChoice && !entry.track) {
+      setSaveHint("track");
+      pointTo(document.querySelector<HTMLElement>("#entryStatus button[aria-pressed]"));
+      return true;
+    }
+    setSaveHint(null);
+    return false;
+  }
 
   function startReview(surah: number) {
     entry.startReview(surah);
@@ -280,7 +311,14 @@ export function DetailView({
   // press is its own request and its own row.
   function addBonusPoint() {
     const note = bonusNote.trim();
-    if (!note) return;
+    if (!note) {
+      if (live) {
+        setBonusHint(true);
+        pointTo(document.getElementById("bonusNote"));
+      }
+      return;
+    }
+    setBonusHint(false);
     const tempId = `pending-${Date.now()}-${Math.random()}`;
     const date = sessionDate;
     setBonusError(null);
@@ -318,6 +356,7 @@ export function DetailView({
   }
 
   function save() {
+    if (live && pointToReason()) return;
     setSaveError(null);
     startSaveTransition(async () => {
       const result = await saveRecitationAction({
@@ -509,15 +548,21 @@ export function DetailView({
               </button>
               <button
                 type="button"
-                className={mode === "ONLINE" ? styles.activeIn : ""}
-                onClick={() => setMode("ONLINE")}
-                disabled={!onlineRecitationEnabled}
+                className={live && !onlineRecitationEnabled ? inertClass : mode === "ONLINE" ? styles.activeIn : ""}
+                onClick={() => (onlineRecitationEnabled ? setMode("ONLINE") : setOnlineHint(true))}
+                disabled={!live && !onlineRecitationEnabled}
+                {...(live && !onlineRecitationEnabled ? { "aria-disabled": true as const } : {})}
                 style={{ flex: 1 }}
                 title={onlineRecitationEnabled ? undefined : "التسميع الأونلاين غير مفعّل في هذه الدورة"}
               >
                 أونلاين
               </button>
             </div>
+            {live && onlineHint && !onlineRecitationEnabled && (
+              <div className={styles.err} role="status">
+                التسميع الأونلاين غير مفعّل في هذه الدورة.
+              </div>
+            )}
           </div>
           <div className={rs.field} style={{ flex: 2 }}>
             <label htmlFor="notesField">ملاحظات (اختياري)</label>
@@ -536,11 +581,16 @@ export function DetailView({
             ⏱️ جلسة مؤرَّخة بتاريخ سابق ({sessionDate}) — ستُنسب نقاطها إلى هذا التاريخ لا إلى اليوم
           </div>
         )}
-        <EntryStatus
-          entry={entry}
-          positionOf={`موضع ${pickByGroup(groupGender, { m: "الطالب", f: "الطالبة" })}`}
-          confirmVerb={pickByPerson(viewerGender, { m: "تأكّد", f: "تأكّدي" })}
-        />
+        {(() => {
+          const status = (
+            <EntryStatus
+              entry={entry}
+              positionOf={`موضع ${pickByGroup(groupGender, { m: "الطالب", f: "الطالبة" })}`}
+              confirmVerb={pickByPerson(viewerGender, { m: "تأكّد", f: "تأكّدي" })}
+            />
+          );
+          return live ? <div id="entryStatus">{status}</div> : status;
+        })()}
 
         {!hasRangeError && (
           <SimilarScope on={similarEnabled}>
@@ -572,7 +622,7 @@ export function DetailView({
 
         {saveError && <div className={styles.err}>{saveError}</div>}
         {!saveError && hasRangeError && (
-          <div className={styles.err}>{(pageResult as { error: string }).error}</div>
+          <div className={styles.err} ref={live ? rangeErrRef : undefined}>{(pageResult as { error: string }).error}</div>
         )}
 
         <PageCalc surahNumber={surahNumber} pageResult={pageResult} />
@@ -580,6 +630,16 @@ export function DetailView({
         <button className={rs.saveBtn} onClick={save} disabled={saveDisabled} type="button">
           {savePending ? "جارٍ الحفظ..." : "حفظ التسميع"}
         </button>
+        {live && saveHint === "reason" && entry.requiresReason && !entry.reasonFilled && (
+          <div className={styles.err} role="alert" style={{ marginTop: 6 }}>
+            {you("اكتب", "اكتبي")} السبب أولًا
+          </div>
+        )}
+        {live && saveHint === "track" && entry.needsTrackChoice && !entry.track && (
+          <div className={styles.err} role="alert" style={{ marginTop: 6 }}>
+            {you("اختر", "اختاري")} المسار أولًا
+          </div>
+        )}
         <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6 }}>
           {ayahCount ? `تحتوي السورة على ${ayahCount} آية` : ""}
         </div>
@@ -623,8 +683,9 @@ export function DetailView({
                   if (e.key === "Enter") addBonusPoint();
                 }}
                 aria-label="سبب النقطة الإضافية"
+                {...(live ? { id: "bonusNote" } : {})}
               />
-              <button type="button" className={styles.bonusAdd} onClick={addBonusPoint} disabled={!bonusNote.trim()}>
+              <button type="button" className={styles.bonusAdd} onClick={addBonusPoint} disabled={!live && !bonusNote.trim()}>
                 +1
               </button>
               <button type="button" className={styles.bonusCancel} onClick={() => setBonusOpen(false)}>
@@ -637,6 +698,11 @@ export function DetailView({
             </button>
           )}
           {bonusError && <div className={styles.err}>{bonusError}</div>}
+          {live && bonusHint && bonusOpen && !bonusNote.trim() && (
+            <div className={styles.err} role="alert">
+              {you("اكتب", "اكتبي")} سبب النقطة الإضافية أولًا
+            </div>
+          )}
           {bonusForSelectedDate.length > 0 && (
             <ul className={styles.bonusList}>
               {bonusForSelectedDate.map((p) => (

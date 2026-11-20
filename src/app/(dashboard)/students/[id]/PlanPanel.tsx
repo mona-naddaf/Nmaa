@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import styles from "./detail.module.css";
 import rs from "@/components/recitation/recitation.module.css";
 import { PlanEditor } from "@/components/plan/PlanEditor";
+import { LeaveGuard } from "@/components/leave-guard/LeaveGuard";
 import { JUZ_DIRECTION_LABEL, type JuzDirection } from "@/lib/recitation/juz-direction";
 import { templateSurahs, type TemplateKey } from "@/lib/students/new-student";
 import { imperative, pickByGroup, studentNounDef, type GroupGender, type PersonGender } from "@/lib/text/gender";
@@ -50,7 +51,10 @@ export function PlanPanel({
   goalPlan,
   goal = null,
   today,
+  live = false,
 }: {
+  // COURSE_GUIDE_EMAILS (until it opens to everyone): leaving with a changed, unsaved plan warns first
+  live?: boolean;
   studentId: string;
   groupGender: GroupGender;
   viewerGender: PersonGender;
@@ -205,6 +209,13 @@ export function PlanPanel({
 
       {canEdit && editing && (
         <>
+          {live && (
+            <LeaveGuard
+              you={viewerGender ?? "FEMALE"}
+              dirty={template !== templateKey || plan.join(",") !== storedPlan.join(",")}
+              dirtyNote={`لم تُحفظ تغييرات الخطة بعد. ${imperative(viewerGender ?? "FEMALE", { m: "اضغط", f: "اضغطي" })} «حفظ ${herPlan}» أو «إلغاء».`}
+            />
+          )}
           <PlanEditor
             template={template}
             plan={plan}

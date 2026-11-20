@@ -27,7 +27,13 @@ export type HelpFeature = "agenda" | "summary" | "similar" | "tajweed" | "review
 export type FamilyFeature = "streak" | "goal" | "homeLog" | "highlight";
 
 /** What «تفعيل» can turn on: those, «أيام العذر», which only some accounts have, and a child's switches. */
-export type EnableFeature = HelpFeature | "excuse" | "qada" | FamilyFeature;
+export type EnableFeature = HelpFeature | "excuse" | "qada" | FamilyFeature | CourseCardFeature;
+
+/**
+ * The courses: «تفعيل الآن» opens the settings card that switches the feature
+ * on (the supervisor's own choice there), never switching it on by itself.
+ */
+export type CourseCardFeature = `card.${string}`;
 
 /** What she has, as far as a tour needs to know. */
 export type HelpFacts = {

@@ -35,6 +35,7 @@ import { GoalLine } from "@/components/goal/GoalLine";
 import type { GoalView } from "@/lib/goals/goal";
 import { SimilarScope } from "./SimilarScope";
 import { flash as flashEl, inertClass, pointTo } from "@/components/nudge/nudge";
+import { useGuideTarget } from "@/components/guide/targets";
 import type { AttendanceStatus } from "@/lib/attendance";
 import { STREAK_MODE_LABEL, streakText, type StreakMode } from "@/lib/students/streak";
 import { courseGoalPausedText, EXCUSED_HINT, EXCUSED_WORD } from "@/lib/excuse/texts";
@@ -187,6 +188,8 @@ export function DetailView({
   expandAll?: boolean;
 }) {
   const router = useRouter();
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   // the course's today; rolls over while the page stays open past midnight
   const today = useToday() ?? serverToday;
   const [attendance, setAttendanceState] = useState(student.attendance);
@@ -427,7 +430,7 @@ export function DetailView({
             {headerActions}
           </div>
         </div>
-        <div className={styles.attendanceToggle}>
+        <div className={styles.attendanceToggle} {...t("c.attendance")}>
           <button
             className={attendance === "IN" ? styles.activeIn : ""}
             onClick={() => toggleAttendance("IN")}
@@ -457,7 +460,7 @@ export function DetailView({
         </div>
       </div>
       {excusedHint && <div className={styles.girlMeta} style={{ marginBottom: 12 }}>{EXCUSED_HINT}</div>}
-      {excuseSlot}
+      {excuseSlot && t("c.excusePanel") ? <div {...t("c.excusePanel")}>{excuseSlot}</div> : excuseSlot}
 
       <div className={canManagePrior ? `${styles.lastPos} ${styles.withPrior}` : styles.lastPos}>
         <div className={styles.icon}>📖</div>
@@ -479,7 +482,7 @@ export function DetailView({
           </div>
         </div>
         {canManagePrior && !priorOpen && (
-          <button type="button" className={styles.priorOpenBtn} onClick={() => setPriorOpen(true)}>
+          <button type="button" className={styles.priorOpenBtn} onClick={() => setPriorOpen(true)} {...t("c.addPrior")}>
             + إضافة حفظ سابق
           </button>
         )}
@@ -505,7 +508,7 @@ export function DetailView({
       <div className={styles.secTitle} id="recitationForm">
         <span className={styles.dot} /> تسجيل تسميع جديد
       </div>
-      <div className={styles.card}>
+      <div className={styles.card} {...t("c.recordForm")}>
         <SessionTypePills entry={entry} />
         {entry.secondTrack?.next && (
           <button type="button" className={rs.comboBtn} style={{ marginBottom: 12, marginInlineStart: 0 }} onClick={entry.togglePrefill}>
@@ -627,7 +630,7 @@ export function DetailView({
 
         <PageCalc surahNumber={surahNumber} pageResult={pageResult} />
 
-        <button className={rs.saveBtn} onClick={save} disabled={saveDisabled} type="button">
+        <button className={rs.saveBtn} onClick={save} disabled={saveDisabled} type="button" {...t("c.recordSave")}>
           {savePending ? "جارٍ الحفظ..." : "حفظ التسميع"}
         </button>
         {live && saveHint === "reason" && entry.requiresReason && !entry.reasonFilled && (
@@ -647,6 +650,7 @@ export function DetailView({
 
       <Collapsible
         title={sessionDate === today ? "النقاط اليوم" : `النقاط ليوم ${sessionDate}`}
+        target={t("c.points")}
         tag={`${pointsForSelectedDate} نقطة`}
         {...section("points")}
       >

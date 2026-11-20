@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./detail.module.css";
@@ -74,6 +75,8 @@ export function PlanPanel({
   today: string;
 }) {
   const router = useRouter();
+  // the guide's name (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const [editing, setEditing] = useState(false);
   const [template, setTemplate] = useState<TemplateKey>(templateKey);
   const [plan, setPlan] = useState<number[]>(storedPlan);
@@ -201,7 +204,7 @@ export function PlanPanel({
 
       {canEdit && !editing && (
         <div className={styles.priorActions}>
-          <button type="button" className={styles.linkBtn} onClick={openEditor}>
+          <button type="button" className={styles.linkBtn} onClick={openEditor} {...t("c.planEdit")}>
             تعديل الخطة
           </button>
         </div>

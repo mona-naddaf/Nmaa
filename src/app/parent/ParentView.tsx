@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useMemo } from "react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import shell from "@/app/(dashboard)/shell.module.css";
@@ -32,6 +33,8 @@ const SESSION_TYPE_LABEL = { NEW: "حفظ جديد", REVIEW: "مراجعة", LIN
 // the date filter, and the only other server action is logout.
 export function ParentView({ data }: { data: ParentViewData }) {
   const g = data.groupGender;
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
 
   const range = useDateRange(
     useMemo(
@@ -101,7 +104,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
           </div>
         </div>
 
-        <div className={styles.lastPos}>
+        <div className={styles.lastPos} {...t("c.pPosition")}>
           <div className={styles.icon}>📖</div>
           <div>
             <div className={styles.label}>
@@ -146,7 +149,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
 
         {data.homeLog && (
           <>
-            <div className={styles.secTitle}>
+            <div className={styles.secTitle} {...t("c.pHomeLog")}>
               <span className={styles.dot} /> 🏠 حفظ البيت
             </div>
             <div className={styles.card}>
@@ -168,7 +171,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
 
         {data.tracker && (
           <>
-            <div className={styles.secTitle}>
+            <div className={styles.secTitle} {...t("c.pTracker")}>
               <span className={styles.dot} /> ✅ جدول المتابعة
             </div>
             <div className={styles.card}>
@@ -189,7 +192,13 @@ export function ParentView({ data }: { data: ParentViewData }) {
 
         {hasAnyData ? (
           <>
-            <DateRangeFilter range={range} />
+            {t("c.pRange") ? (
+              <div {...t("c.pRange")}>
+                <DateRangeFilter range={range} />
+              </div>
+            ) : (
+              <DateRangeFilter range={range} />
+            )}
             {range.tab === "last" && (
               <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: -8, marginBottom: 14 }}>
                 آخر يوم مسجّل: {range.lastDate}
@@ -236,7 +245,7 @@ export function ParentView({ data }: { data: ParentViewData }) {
               </>
             )}
 
-            <div className={styles.secTitle}>
+            <div className={styles.secTitle} {...t("c.pHistory")}>
               <span className={styles.dot} /> سجل التسميع
             </div>
             <div className={styles.card}>

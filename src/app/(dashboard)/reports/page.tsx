@@ -2,6 +2,8 @@ import { resolveReportScope, getReportRows } from "@/lib/reports/data";
 import { studentNoun, studentNounDef } from "@/lib/text/gender";
 import { ReportFilters } from "./ReportFilters";
 import styles from "./reports.module.css";
+import { courseGuideOn } from "@/lib/guide/course-live";
+import { targetAttr } from "@/lib/guide/help/targets";
 
 export default async function ReportsPage({
   searchParams,
@@ -44,7 +46,7 @@ export default async function ReportsPage({
       />
 
       <div className={styles.card}>
-        <div className={styles.downloadRow}>
+        <div className={styles.downloadRow} {...targetAttr("c.repDownload", await courseGuideOn(session.courseId))}>
           <a className={`${styles.downloadBtn} ${styles.excel}`} href={`/api/reports/excel?${downloadQuery}`}>
             ⬇️ تنزيل Excel
           </a>

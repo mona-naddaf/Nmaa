@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import styles from "./reports.module.css";
 import { studentNoun, studentNounDef, type GroupGender } from "@/lib/text/gender";
@@ -33,6 +34,8 @@ export function ReportFilters({
   students: { id: string; name: string; groupId: string; archived: boolean }[];
   scopeGender: GroupGender;
 }) {
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -63,7 +66,7 @@ export function ReportFilters({
   }
 
   return (
-    <div className={styles.card}>
+    <div className={styles.card} {...t("c.repFilters")}>
       <div className={styles.row}>
         <div>
           <label className={styles.label}>النطاق</label>

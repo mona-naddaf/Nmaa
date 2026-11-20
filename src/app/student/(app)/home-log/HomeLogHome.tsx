@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState } from "react";
 import styles from "@/components/home-log/home-log.module.css";
 import { NewSegment } from "@/components/home-log/NewSegment";
@@ -26,6 +27,8 @@ export function HomeLogHome({
 }) {
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
   const [adding, setAdding] = useState(false);
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   // D4: «واجب» segments don't count toward her limit
   const full = log.active.filter((s) => !s.assignmentId).length >= HOME_LIMITS.maxActiveSegments;
 
@@ -39,6 +42,7 @@ export function HomeLogHome({
             className={styles.primaryBtn}
             onClick={() => (live && full ? pointTo(document.getElementById("homeLogLimit"), { focus: false }) : setAdding(true))}
             disabled={!live && full}
+            {...t("homeLog.new")}
           >
             + مقطع جديد
           </button>
@@ -50,7 +54,7 @@ export function HomeLogHome({
         الخطة إلا بتسميع للمعلم.
       </p>
       {full && !adding && (
-        <p className={styles.err} style={{ margin: "0 4px 12px" }} {...(live ? { id: "homeLogLimit", role: "status" } : {})}>
+        <p className={styles.err} style={{ margin: "0 4px 12px" }} {...(live ? { id: "homeLogLimit", role: "status" } : {})} {...t("homeLog.limit")}>
           لديك {HOME_LIMITS.maxActiveSegments} مقاطع قيد الحفظ — {p("أتمّ", "أتمّي")} أحدها لإضافة مقطع جديد.
         </p>
       )}
@@ -73,7 +77,7 @@ export function HomeLogHome({
           <div className={styles.empty}>لا توجد مقاطع قيد الحفظ — {p("ابدأ", "ابدئي")} بإضافة مقطع جديد.</div>
         </div>
       ) : (
-        <div className={styles.cards} style={{ marginBottom: 14 }}>
+        <div className={styles.cards} style={{ marginBottom: 14 }} {...t("homeLog.active")}>
           {log.active.map((s) => (
             <SegmentCard key={s.id} s={s} g={g} href={`/student/home-log/${s.id}`} />
           ))}

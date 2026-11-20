@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useActionState } from "react";
 import Link from "next/link";
 import styles from "./import.module.css";
@@ -15,6 +16,8 @@ export function ImportForm({
   hasGroups: boolean;
   isSupervisor: boolean;
 }) {
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const [state, formAction, pending] = useActionState<ImportState, FormData>(importStudentsAction, null);
   const you = (forms: { m: string; f: string }) => imperative(viewerGender, forms);
 
@@ -27,7 +30,7 @@ export function ImportForm({
       <div className={styles.secTitle}>
         <span className={styles.dot} /> ١. تحميل القالب
       </div>
-      <div className={styles.card}>
+      <div className={styles.card} {...t("c.importTemplate")}>
         {hasGroups ? (
           <>
             <p className={styles.hint}>
@@ -56,7 +59,7 @@ export function ImportForm({
       <div className={styles.secTitle}>
         <span className={styles.dot} /> ٢. رفع الملف بعد تعبئته
       </div>
-      <form className={styles.card} action={formAction}>
+      <form className={styles.card} action={formAction} {...t("c.importUpload")}>
         <input className={styles.file} type="file" name="file" accept=".xlsx" required />
         <button className={styles.saveBtn} type="submit" disabled={pending}>
           {pending ? "جارٍ الاستيراد..." : "استيراد"}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./manage.module.css";
@@ -32,6 +33,8 @@ export function StudentManageBar({
   infoValues?: Record<string, string>;
 }) {
   const [open, setOpen] = useState<"edit" | "archive" | null>(null);
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   if (!canEdit && !canArchive) return null;
   const gender = groups.find((g) => g.id === student.groupId)?.gender ?? "MIXED";
 
@@ -39,12 +42,12 @@ export function StudentManageBar({
     <>
       <div className={styles.actions}>
         {canEdit && (
-          <button type="button" className={styles.actionBtn} onClick={() => setOpen("edit")}>
+          <button type="button" className={styles.actionBtn} onClick={() => setOpen("edit")} {...t("c.manageEdit")}>
             ✎ تعديل البيانات
           </button>
         )}
         {canArchive && (
-          <button type="button" className={styles.actionBtn} onClick={() => setOpen("archive")}>
+          <button type="button" className={styles.actionBtn} onClick={() => setOpen("archive")} {...t("c.manageArchive")}>
             🗄 أرشفة
           </button>
         )}

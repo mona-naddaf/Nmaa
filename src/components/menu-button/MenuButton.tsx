@@ -23,7 +23,10 @@ export function MenuButton({
   items,
   className,
   primary = false,
+  target,
 }: {
+  // the guide's name for it (src/components/guide/targets.tsx): undefined adds nothing
+  target?: { "data-guide": string };
   label: string;
   items: MenuItem[];
   // trigger styling, shared with the page's other buttons
@@ -85,7 +88,7 @@ export function MenuButton({
   if (items.length === 0) return null;
   if (items.length === 1) {
     return (
-      <Link href={items[0].href} className={className}>
+      <Link href={items[0].href} className={className} {...target}>
         {items[0].label}
       </Link>
     );
@@ -142,6 +145,7 @@ export function MenuButton({
       }}
     >
       <button
+        {...target}
         ref={triggerRef}
         type="button"
         className={className}

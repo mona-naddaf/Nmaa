@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import styles from "../parent-codes/parent-codes.module.css";
@@ -31,6 +32,8 @@ export function StudentCodesView({
   const g = NEUTRAL_GROUP_GENDER;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
 
   const missing = rows.filter((r) => r.status === "none").length;
   const revoked = rows.filter((r) => r.status === "revoked");
@@ -75,10 +78,10 @@ export function StudentCodesView({
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.primary} onClick={generate} disabled={pending || missing === 0}>
+          <button type="button" className={styles.primary} onClick={generate} disabled={pending || missing === 0} {...t("c.codesCreate")}>
             {pending ? "جارٍ الإنشاء..." : `إنشاء رموز لجميع ${studentsNounDef(g)} الذين لا يملكون رمزًا`}
           </button>
-          <a className={styles.secondary} href="/student-codes/print" target="_blank" rel="noopener">
+          <a className={styles.secondary} href="/student-codes/print" target="_blank" rel="noopener" {...t("c.codesPrint")}>
             🖨️ طباعة القائمة
           </a>
         </div>

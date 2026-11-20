@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
 import styles from "../import/import.module.css";
@@ -26,6 +27,8 @@ export function OfflineSheetView({
 }) {
   const you = (forms: { m: string; f: string }) => imperative(viewerGender, forms);
   const [group, setGroup] = useState("all");
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   // the file the preview was made from: the save sends the same file (the
   // form clears its input once its action has run)
   const [file, setFile] = useState<File | null>(null);
@@ -57,7 +60,7 @@ export function OfflineSheetView({
       <div className={styles.secTitle} id="download">
         <span className={styles.dot} /> ١. تنزيل الملف
       </div>
-      <div className={styles.card}>
+      <div className={styles.card} {...t("c.offlineDownload")}>
         <p className={styles.hint}>
           ملف Excel لتسجيل حضور يوم واحد وتسميعه ونقاطه دون اتصال بالإنترنت: ورقة لكل مجموعة، فيها الطلاب الحاليون، وفي
           الحفظ الجديد لكلٍّ منهم الموضع التالي معبَّأً مسبقًا. {you({ m: "اكتب", f: "اكتبي" })} في أعلى الورقة الأولى تاريخ اليوم
@@ -86,6 +89,7 @@ export function OfflineSheetView({
         <span className={styles.dot} /> ٢. رفع الملف بعد تعبئته
       </div>
       <form
+        {...t("c.offlineUpload")}
         className={styles.card}
         action={(data) => {
           const picked = data.get("file");

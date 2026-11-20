@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -19,6 +20,8 @@ type ArchivedStudent = {
 };
 
 export function ArchiveList({ students }: { students: ArchivedStudent[] }) {
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +43,7 @@ export function ArchiveList({ students }: { students: ArchivedStudent[] }) {
   return (
     <>
       {error && <div className={styles.err}>{error}</div>}
-      <div className={listStyles.list}>
+      <div className={listStyles.list} {...t("c.archiveList")}>
         {students.map((s) => {
           const p = (m: string, f: string) => pickByGroup(s.gender, { m, f });
           return (

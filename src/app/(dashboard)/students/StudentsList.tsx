@@ -10,6 +10,7 @@ import { streakText } from "@/lib/students/streak";
 import { MenuButton, type MenuItem } from "@/components/menu-button/MenuButton";
 import { EXCUSED_WORD } from "@/lib/excuse/texts";
 import { inertClass, inertProps } from "@/components/nudge/nudge";
+import { useGuideTarget } from "@/components/guide/targets";
 import {
   presentWord,
   absentWord,
@@ -58,6 +59,8 @@ export function StudentsList({
   pointsActivities?: { id: string; name: string; value: number; type: "ADD" | "SUBTRACT" }[];
 }) {
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id ?? "");
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const [query, setQuery] = useState("");
 
   const activeGender: GroupGender = groups.find((g) => g.id === activeGroup)?.gender ?? "MIXED";
@@ -239,15 +242,16 @@ export function StudentsList({
     <div>
       {(codeItems.length > 0 || addItems.length > 0 || offlineItems.length > 0) && (
         <div className={styles.actionsRow}>
-          <MenuButton label="الرموز" items={codeItems} className={`${styles.addBtn} ${styles.secondaryBtn}`} />
-          <MenuButton label="📄 تسميع بدون إنترنت" items={offlineItems} className={`${styles.addBtn} ${styles.secondaryBtn}`} />
-          <MenuButton label={`+ إضافة ${studentNoun(activeGender)}`} items={addItems} className={styles.addBtn} primary />
+          <MenuButton label="الرموز" items={codeItems} className={`${styles.addBtn} ${styles.secondaryBtn}`} target={t("c.codesMenu")} />
+          <MenuButton label="📄 تسميع بدون إنترنت" items={offlineItems} className={`${styles.addBtn} ${styles.secondaryBtn}`} target={t("c.offlineMenu")} />
+          <MenuButton label={`+ إضافة ${studentNoun(activeGender)}`} items={addItems} className={styles.addBtn} primary target={t("c.addMenu")} />
         </div>
       )}
 
       <div className={styles.topRow}>
         <input
           className={styles.search}
+          {...t("c.search")}
           placeholder={`بحث باسم ${studentNounDef(activeGender)}...`}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -255,6 +259,7 @@ export function StudentsList({
         <button
           type="button"
           className={`${styles.selectBtn} ${selecting ? styles.selectBtnOn : ""}`}
+          {...t("c.select")}
           aria-pressed={selecting}
           onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
         >
@@ -267,6 +272,7 @@ export function StudentsList({
           <button
             type="button"
             className={`${styles.selectChip} ${live && filtered.length === 0 ? inertClass : ""}`}
+            {...t("c.selectAll")}
             onClick={() => filtered.length > 0 && toggleAllShown()}
             disabled={!live && filtered.length === 0}
             {...(live ? inertProps(filtered.length === 0, `لا يوجد ${studentsNoun(activeGender)} هنا للتحديد`) : {})}
@@ -284,7 +290,7 @@ export function StudentsList({
         </div>
       )}
 
-      <div className={styles.tabs}>
+      <div className={styles.tabs} {...t("c.groupTabs")}>
         {groups.map((g) => (
           <div
             key={g.id}
@@ -301,7 +307,7 @@ export function StudentsList({
         <div className={styles.empty}>لا يوجد {studentsNoun(activeGender)} في هذه المجموعة بعد</div>
       ) : (
         <div className={styles.grid}>
-          {filtered.map((s) =>
+          {filtered.map((s, i) =>
             selecting ? (
               <button
                 key={s.id}
@@ -317,7 +323,7 @@ export function StudentsList({
                 {cardBody(s)}
               </button>
             ) : (
-              <Link key={s.id} href={`/students/${s.id}`} className={styles.girlCard}>
+              <Link key={s.id} href={`/students/${s.id}`} className={styles.girlCard} {...(i === 0 ? t("c.studentCard") : undefined)}>
                 {cardBody(s)}
               </Link>
             ),
@@ -331,7 +337,7 @@ export function StudentsList({
       </div>
 
       {selecting && selected.size > 0 && (
-        <div className={styles.bulkBar} role="region" aria-label="إجراءات المحدَّدين">
+        <div className={styles.bulkBar} role="region" aria-label="إجراءات المحدَّدين" {...t("c.bulkBar")}>
           {pointsOpen && (
             <div className={styles.bulkPoints}>
               {pointsActivities.map((a) => (
@@ -392,7 +398,7 @@ export function StudentsList({
 
       {isSupervisor && (
         <div className={styles.archiveRow}>
-          <Link href="/students/archive" className={styles.archiveLink}>
+          <Link href="/students/archive" className={styles.archiveLink} {...t("c.archiveLink")}>
             الأرشيف ({archivedCount})
           </Link>
         </div>

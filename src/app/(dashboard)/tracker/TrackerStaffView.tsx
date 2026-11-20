@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import hl from "@/components/home-log/home-log.module.css";
@@ -61,6 +62,8 @@ export function TrackerStaffView({
 }) {
   const [adding, setAdding] = useState(false);
   const [ordering, setOrdering] = useState(false);
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const order = useAction();
   const g = group.gender;
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
@@ -74,7 +77,7 @@ export function TrackerStaffView({
       </div>
 
       {groups.length > 1 && (
-        <div className={styles.pills} style={{ marginBottom: 14 }} role="navigation" aria-label="المجموعة">
+        <div className={styles.pills} style={{ marginBottom: 14 }} role="navigation" aria-label="المجموعة" {...t("c.trGroups")}>
           {groups.map((gr) => (
             <Link key={gr.id} href={`/tracker?group=${gr.id}`} className={`${styles.pill} ${gr.id === group.id ? styles.sel : ""}`}>
               {gr.name}
@@ -87,7 +90,7 @@ export function TrackerStaffView({
       {queue.length > 0 && (
         <>
           <div className={hl.sectionTitle}>بانتظار الاعتماد ({queue.length})</div>
-          <div className={hl.section}>
+          <div className={hl.section} {...t("c.trQueue")}>
             {queue.map((q) => (
               <PendingRow key={q.id} q={q} />
             ))}
@@ -96,7 +99,7 @@ export function TrackerStaffView({
       )}
 
       <div className={hl.sectionTitle}>متابعة الأسبوع — {group.name}</div>
-      <div className={hl.section}>
+      <div className={hl.section} {...t("c.trWeek")}>
         <GroupOverview data={overview} gender={g} />
       </div>
 
@@ -106,12 +109,12 @@ export function TrackerStaffView({
         </span>
         <span style={{ display: "flex", gap: 8 }}>
           {agenda && !ordering && active.length > 1 && (
-            <button type="button" className={hl.ghostBtn} onClick={() => setOrdering(true)}>
+            <button type="button" className={hl.ghostBtn} onClick={() => setOrdering(true)} {...t("c.trOrder")}>
               ترتيب البنود
             </button>
           )}
           {!adding && (
-            <button type="button" className={hl.primaryBtn} onClick={() => setAdding(true)}>
+            <button type="button" className={hl.primaryBtn} onClick={() => setAdding(true)} {...t("c.trNewItem")}>
               + بند جديد
             </button>
           )}
@@ -128,7 +131,7 @@ export function TrackerStaffView({
         />
       )}
       {adding && <NewItem group={group} students={students} agenda={agenda} place={place} excuseItems={excuseItems} onDone={() => setAdding(false)} />}
-      <div className={hl.section}>
+      <div className={hl.section} {...(active.length > 0 ? t("c.trItems") : undefined)}>
         {active.length === 0 ? (
           <div className={hl.empty}>لا توجد بنود بعد — {p("أضف", "أضيفي")} بندًا مثل «الورد اليومي» أو «أذكار الصباح».</div>
         ) : (

@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState, useTransition } from "react";
 import hl from "@/components/home-log/home-log.module.css";
 import styles from "@/components/student-work/work.module.css";
@@ -58,6 +59,8 @@ export function StudentTracker({
   celebrateKey?: string;
 }) {
   const today = useToday();
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const tz = useTimeZone();
   const [view, setView] = useState<"day" | "items" | "order">("day");
   const [yesterday, setYesterday] = useState(false);
@@ -81,8 +84,8 @@ export function StudentTracker({
   };
   // ordering only matters with «الجدول اليومي»
   const menu: MenuEntry[] = [
-    { label: "إدارة البنود", onSelect: () => show("items") },
-    ...(agenda && orderable.length > 1 ? [{ label: "ترتيب البنود", onSelect: () => show("order") }] : []),
+    { label: "إدارة البنود", onSelect: () => show("items"), guide: "tracker.menu.items" },
+    ...(agenda && orderable.length > 1 ? [{ label: "ترتيب البنود", onSelect: () => show("order"), guide: "tracker.menu.order" as const }] : []),
   ];
 
   return (
@@ -108,6 +111,7 @@ export function StudentTracker({
         <>
           {excuse?.on && (
             <ExcuseBar
+              target={t("tracker.excuse")}
               excuses={excuse.excuses}
               you="FEMALE"
               self
@@ -185,6 +189,8 @@ function ManageItems({
   const excuseField = useItemExcuse(undefined, "FEMALE");
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const [days, setDays] = useState(EVERY_DAY);
   const time = useTimeFields([]);
   const [error, setError] = useState<string | null>(null);
@@ -209,7 +215,7 @@ function ManageItems({
     <>
       <ViewBar title="إدارة البنود" onBack={onBack}>
         {!adding && (
-          <button type="button" className={`${hl.primaryBtn} pressable`} onClick={() => setAdding(true)}>
+          <button type="button" className={`${hl.primaryBtn} pressable`} onClick={() => setAdding(true)} {...t("c.stOwnItem")}>
             + بند خاص
           </button>
         )}

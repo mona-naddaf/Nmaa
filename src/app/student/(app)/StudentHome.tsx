@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useMemo } from "react";
 import styles from "@/app/(dashboard)/students/[id]/detail.module.css";
 import { DateRangeFilter } from "@/components/date-range/DateRangeFilter";
@@ -18,6 +19,8 @@ import { courseGoalPausedText } from "@/lib/excuse/texts";
 export function StudentHome({ data }: { data: StudentHomeData }) {
   const g = data.groupGender;
   const p = (m: string, f: string) => pickByGroup(g, { m, f });
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
 
   // the same points summary as the parent view
   const range = useDateRange(useMemo(() => data.points.map((x) => x.date), [data]));
@@ -44,7 +47,7 @@ export function StudentHome({ data }: { data: StudentHomeData }) {
         </div>
       </div>
 
-      <div className={styles.lastPos}>
+      <div className={styles.lastPos} {...t("c.stPosition")}>
         <div className={styles.icon}>📖</div>
         <div>
           <div className={styles.label}>آخر ما {p("وصلتَ", "وصلتِ")} إليه (حسب الخطة)</div>
@@ -119,7 +122,13 @@ export function StudentHome({ data }: { data: StudentHomeData }) {
         </div>
       ) : (
         <>
-          <DateRangeFilter range={range} />
+          {t("c.stRange") ? (
+            <div {...t("c.stRange")}>
+              <DateRangeFilter range={range} />
+            </div>
+          ) : (
+            <DateRangeFilter range={range} />
+          )}
           {range.tab === "last" && (
             <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: -8, marginBottom: 14 }}>
               آخر يوم مسجّل: {range.lastDate}

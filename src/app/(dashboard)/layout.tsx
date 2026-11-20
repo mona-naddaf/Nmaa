@@ -8,6 +8,8 @@ import styles from "./shell.module.css";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { courseTimeZone } from "@/lib/time/course-zone";
 import { TimeZoneProvider } from "@/lib/time/TimeZoneProvider";
+import { staffGuideProps } from "@/lib/guide/course-guide";
+import { CourseGuide } from "@/components/guide/course/CourseGuide";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
@@ -22,6 +24,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       : await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { gender: true, genderPrompted: true } });
 
   const genderPrompted = account?.genderPrompted ?? true;
+  // the guide (COURSE_GUIDE_EMAILS): null for every other course, which renders as before
+  const guide = await staffGuideProps(session);
   const adminGender = session.role === "admin" ? (account?.gender ?? null) : null;
 
   return (
@@ -55,7 +59,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
       <div className={styles.content}>
         {/* the course's days for every client component below (lib/time/zone.ts) */}
-        <TimeZoneProvider timeZone={await courseTimeZone(session.courseId)}>{children}</TimeZoneProvider>
+        <TimeZoneProvider timeZone={await courseTimeZone(session.courseId)}>{guide ? <CourseGuide guide={guide}>{children}</CourseGuide> : children}</TimeZoneProvider>
       </div>
     </div>
   );

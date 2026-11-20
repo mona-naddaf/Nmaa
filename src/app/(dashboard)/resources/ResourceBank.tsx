@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -44,6 +45,8 @@ export function ResourceBank({
   const router = useRouter();
   const pathname = usePathname();
   const [, startNav] = useTransition();
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const [q, setQ] = useState(filters.q);
   const [age, setAge] = useState(filters.age);
   const [form, setForm] = useState<{ editing: FormResource | null } | null>(null);
@@ -91,7 +94,7 @@ export function ResourceBank({
               🛡 إدارة البنك
             </Link>
           )}
-          <button type="button" className={styles.primaryBtn} onClick={() => setForm({ editing: null })}>
+          <button type="button" className={styles.primaryBtn} onClick={() => setForm({ editing: null })} {...t("c.resAdd")}>
             + إضافة وسيلة
           </button>
         </div>
@@ -101,12 +104,13 @@ export function ResourceBank({
         <button type="button" role="tab" aria-selected={!filters.mine} className={`${styles.tab} ${!filters.mine ? styles.active : ""}`} onClick={() => go({ mine: false })}>
           كل الوسائل
         </button>
-        <button type="button" role="tab" aria-selected={filters.mine} className={`${styles.tab} ${filters.mine ? styles.active : ""}`} onClick={() => go({ mine: true })}>
+        <button type="button" role="tab" aria-selected={filters.mine} className={`${styles.tab} ${filters.mine ? styles.active : ""}`} onClick={() => go({ mine: true })} {...t("c.resMine")}>
           وسائلي
         </button>
       </div>
 
       <form
+        {...t("c.resSearch")}
         className={styles.filters}
         onSubmit={(e) => {
           e.preventDefault();

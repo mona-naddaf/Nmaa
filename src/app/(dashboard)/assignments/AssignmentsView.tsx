@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import hl from "@/components/home-log/home-log.module.css";
@@ -31,6 +32,8 @@ export function AssignmentsView({
   viewerGender: PersonGender;
 }) {
   const [form, setForm] = useState<FormState>(null);
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const filterGroup = groups.find((g) => g.id === groupFilter);
 
   const blank: AssignmentFormInitial = {
@@ -49,14 +52,14 @@ export function AssignmentsView({
       <div className={styles.toolbar}>
         <h1 className={styles.pageTitle}>الواجبات</h1>
         {!form && groups.length > 0 && (
-          <button type="button" className={hl.primaryBtn} onClick={() => setForm({ kind: "new" })}>
+          <button type="button" className={hl.primaryBtn} onClick={() => setForm({ kind: "new" })} {...t("c.assignNew")}>
             + واجب جديد
           </button>
         )}
       </div>
 
       {groups.length > 1 && (
-        <div className={styles.pills} style={{ marginBottom: 14 }} role="navigation" aria-label="تصفية حسب المجموعة">
+        <div className={styles.pills} style={{ marginBottom: 14 }} role="navigation" aria-label="تصفية حسب المجموعة" {...t("c.assignFilter")}>
           <Link href="/assignments" className={`${styles.pill} ${!groupFilter ? styles.sel : ""}`}>
             كل المجموعات
           </Link>
@@ -98,7 +101,7 @@ export function AssignmentsView({
           </div>
         )
       ) : (
-        <div className={styles.list}>
+        <div className={styles.list} {...t("c.assignList")}>
           {assignments.map((a) => (
             <AssignmentCard key={a.id} a={a} onEdit={() => setForm({ kind: "edit", a })} editing={form?.kind === "edit" && form.a.id === a.id} />
           ))}

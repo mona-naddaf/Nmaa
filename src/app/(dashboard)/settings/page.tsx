@@ -39,6 +39,9 @@ import { zoneOffsetLabel } from "@/lib/time/zone";
 import { locationOf } from "@/lib/prayer/location";
 import { courseGuideAllowed } from "@/lib/guide/course-enabled";
 import { LeaveGuard } from "@/components/leave-guard/LeaveGuard";
+import { targetAttr } from "@/lib/guide/help/targets";
+import { CardFocus } from "./live/CardFocus";
+import { Suspense } from "react";
 import {
   LiveCalendar,
   LiveExcuse,
@@ -121,29 +124,33 @@ export default async function SettingsPage() {
       <div>
         {/* a choice still saving: leaving warns first */}
         <LeaveGuard you={ag ?? "FEMALE"} />
+        {/* «تفعيل الآن» in the help: ?card=… opens that card */}
+        <Suspense fallback={null}>
+          <CardFocus />
+        </Suspense>
         <div className={styles.subtitle}>
           إعدادات دورة {course.name} (تظهر لل{supervisorNoun(ag)} فقط)
         </div>
-        <Collapsible title="رمز الدورة للمعلمين">
+        <Collapsible id="card-code" target={targetAttr("c.card.code", true)} title="رمز الدورة للمعلمين">
           <CourseCodeBox courseName={course.name} code={course.code} adminGender={ag} />
         </Collapsible>
-        <Collapsible title="رمز لوحة الإنجاز العامة" {...onOffTag(course.boardCode !== null)}>
+        <Collapsible id="card-board" target={targetAttr("c.card.board", true)} title="رمز لوحة الإنجاز العامة" {...onOffTag(course.boardCode !== null)}>
           <BoardCodeCard
             initialCode={course.boardCode}
             initialCreatedAt={course.boardCodeCreatedAt?.toISOString() ?? null}
             loginUrl={origin ? `${origin}/board/login` : null}
           />
         </Collapsible>
-        <Collapsible title="صلاحيات المعلمين">
+        <Collapsible id="card-perms" target={targetAttr("c.card.perms", true)} title="صلاحيات المعلمين">
           <LivePermissions {...permissions} />
         </Collapsible>
-        <Collapsible title="أنواع التسميع" tag={course.onlineRecitationEnabled ? "الأونلاين مفعّل" : "الأونلاين غير مفعّل"} tagTone={course.onlineRecitationEnabled ? "on" : "off"}>
+        <Collapsible id="card-online" target={targetAttr("c.card.online", true)} title="أنواع التسميع" tag={course.onlineRecitationEnabled ? "الأونلاين مفعّل" : "الأونلاين غير مفعّل"} tagTone={course.onlineRecitationEnabled ? "on" : "off"}>
           <LiveOnline enabled={course.onlineRecitationEnabled} />
         </Collapsible>
-        <Collapsible title="أشرطة التقدّم" {...(progressBarsOn > 0 ? { tag: `${progressBarsOn} من 4`, tagTone: "on" as const } : onOffTag(false))}>
+        <Collapsible id="card-progress" target={targetAttr("c.card.progress", true)} title="أشرطة التقدّم" {...(progressBarsOn > 0 ? { tag: `${progressBarsOn} من 4`, tagTone: "on" as const } : onOffTag(false))}>
           <LiveProgressBars enabled={bars} />
         </Collapsible>
-        <Collapsible title="التوقيت" tag={zoneLabel(safeTimeZone(course.timeZone))}>
+        <Collapsible id="card-timezone" target={targetAttr("c.card.timezone", true)} title="التوقيت" tag={zoneLabel(safeTimeZone(course.timeZone))}>
           <TimeZoneCard
             timeZone={safeTimeZone(course.timeZone)}
             currentLabel={zoneLabel(safeTimeZone(course.timeZone))}
@@ -152,20 +159,20 @@ export default async function SettingsPage() {
           />
         </Collapsible>
         {excuseAllowed(admin?.email) && (
-          <Collapsible title={`${EXCUSE_TITLE} · ${COURSE_EXCUSE_GIRLS_ONLY}`} {...onOffTag(course.excuseEnabled)}>
+          <Collapsible id="card-excuse" target={targetAttr("c.card.excuse", true)} title={`${EXCUSE_TITLE} · ${COURSE_EXCUSE_GIRLS_ONLY}`} {...onOffTag(course.excuseEnabled)}>
             <LiveExcuse enabled={course.excuseEnabled} trackerEnabled={course.trackerEnabled} adminGender={ag} />
           </Collapsible>
         )}
-        <Collapsible title="تذكير المراجعة" {...onOffTag(course.reviewReminderDays !== null)}>
+        <Collapsible id="card-review" target={targetAttr("c.card.review", true)} title="تذكير المراجعة" {...onOffTag(course.reviewReminderDays !== null)}>
           <LiveReview days={course.reviewReminderDays} adminGender={ag} />
         </Collapsible>
-        <Collapsible title="الأسابيع المتتالية 🔥" {...onOffTag(course.streakMode !== null)}>
+        <Collapsible id="card-streak" target={targetAttr("c.card.streak", true)} title="الأسابيع المتتالية 🔥" {...onOffTag(course.streakMode !== null)}>
           <LiveStreak mode={course.streakMode} />
         </Collapsible>
-        <Collapsible title="دخول الطلاب" {...onOffTag(course.studentLoginEnabled)}>
+        <Collapsible id="card-studentLogin" target={targetAttr("c.card.studentLogin", true)} title="دخول الطلاب" {...onOffTag(course.studentLoginEnabled)}>
           <LiveStudentLogin {...login} />
         </Collapsible>
-        <Collapsible title="المتشابهات" {...similarTag(course.mutashabihatTeachersEnabled, course.mutashabihatStudentsEnabled)}>
+        <Collapsible id="card-similar" target={targetAttr("c.card.similar", true)} title="المتشابهات" {...similarTag(course.mutashabihatTeachersEnabled, course.mutashabihatStudentsEnabled)}>
           <LiveSimilar
             teachers={course.mutashabihatTeachersEnabled}
             students={course.mutashabihatStudentsEnabled}
@@ -173,19 +180,19 @@ export default async function SettingsPage() {
             homeLogEnabled={course.homeLogEnabled}
           />
         </Collapsible>
-        <Collapsible title="أخطاء التجويد المفصّلة" {...onOffTag(course.tajweedDetailEnabled)}>
+        <Collapsible id="card-tajweed" target={targetAttr("c.card.tajweed", true)} title="أخطاء التجويد المفصّلة" {...onOffTag(course.tajweedDetailEnabled)}>
           <LiveTajweed enabled={course.tajweedDetailEnabled} />
         </Collapsible>
-        <Collapsible title="معلومات إضافية" {...onOffTag(course.studentInfoEnabled)}>
+        <Collapsible id="card-info" target={targetAttr("c.card.info", true)} title="معلومات إضافية" {...onOffTag(course.studentInfoEnabled)}>
           <StudentInfoCard enabled={course.studentInfoEnabled} parentEdit={course.parentStudentInfoEdit} fields={infoFields} adminGender={ag} />
         </Collapsible>
-        <Collapsible title="التقويم الهجري" {...onOffTag(course.calendarEnabled)}>
+        <Collapsible id="card-calendar" target={targetAttr("c.card.calendar", true)} title="التقويم الهجري" {...onOffTag(course.calendarEnabled)}>
           <LiveCalendar enabled={course.calendarEnabled} bannerEnabled={course.calendarBannerEnabled} editPermission={course.calendarEditPermission} adminGender={ag} />
         </Collapsible>
-        <Collapsible title="مجموعات الدورة" tag={course.groups.length > 0 ? countLabel(course.groups.length, GROUPS) : "لا توجد مجموعات"}>
+        <Collapsible id="card-groups" target={targetAttr("c.card.groups", true)} title="مجموعات الدورة" tag={course.groups.length > 0 ? countLabel(course.groups.length, GROUPS) : "لا توجد مجموعات"}>
           <GroupsEditor groups={course.groups.map((g) => ({ id: g.id, name: g.name, gender: g.gender }))} />
         </Collapsible>
-        <Collapsible title="نظام النقاط" tag={course.pointsActivities.length > 0 ? countLabel(course.pointsActivities.length, ACTIVITIES) : "لا توجد أنشطة"}>
+        <Collapsible id="card-points" target={targetAttr("c.card.points", true)} title="نظام النقاط" tag={course.pointsActivities.length > 0 ? countLabel(course.pointsActivities.length, ACTIVITIES) : "لا توجد أنشطة"}>
           <PointsEditor activities={course.pointsActivities.map((a) => ({ id: a.id, name: a.name, value: a.value, type: a.type }))} />
         </Collapsible>
       </div>

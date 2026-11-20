@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useMemo, useState } from "react";
 import styles from "./leaderboard.module.css";
 import type { LeaderboardStudent, DailyEntry } from "@/lib/leaderboard/data";
@@ -22,6 +23,8 @@ export function Leaderboard({
   const range = useDateRange(useMemo(() => dailyEntries.map((e) => e.date), [dailyEntries]));
   const [sortBy, setSortBy] = useState<SortBy>("pages");
   const [activeGroups, setActiveGroups] = useState<Set<string>>(new Set(groups.map((g) => g.id)));
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
 
   function toggleGroup(id: string) {
     setActiveGroups((prev) => {
@@ -69,7 +72,7 @@ export function Leaderboard({
 
       <DateRangeFilter range={range} />
 
-      <div className={styles.sortRow}>
+      <div className={styles.sortRow} {...t("c.lbGroups")}>
         <div className={styles.sortLabel}>المجموعات:</div>
         {groups.map((g) => (
           <div
@@ -82,7 +85,7 @@ export function Leaderboard({
         ))}
       </div>
 
-      <div className={styles.sortRow}>
+      <div className={styles.sortRow} {...t("c.lbSort")}>
         <div className={styles.sortLabel}>الترتيب حسب:</div>
         <div className={`${styles.sortPill} ${sortBy === "pages" ? styles.sel : ""}`} onClick={() => setSortBy("pages")}>
           الصفحات

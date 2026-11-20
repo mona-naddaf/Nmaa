@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState, useTransition } from "react";
 import styles from "@/components/plan/plan.module.css";
 import { createStudentAction } from "./actions";
@@ -40,6 +41,8 @@ export function NewStudentForm({
   const [pending, startTransition] = useTransition();
 
   const prior = usePriorState();
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
 
   function applyTemplate(key: TemplateKey) {
     setTemplate(key);
@@ -67,7 +70,7 @@ export function NewStudentForm({
 
   return (
     <div>
-      <div className={styles.secTitle}>
+      <div className={styles.secTitle} {...t("c.newFields")}>
         <span className={styles.dot} /> بيانات {studentNounDef(selectedGender)}
       </div>
       <div className={styles.card}>
@@ -138,7 +141,7 @@ export function NewStudentForm({
       </div>
 
       {error && <div className={styles.err}>{error}</div>}
-      <button className={styles.saveBtn} onClick={submit} disabled={pending} type="button">
+      <button className={styles.saveBtn} onClick={submit} disabled={pending} type="button" {...t("c.newSave")}>
         {pending ? "جارٍ الحفظ..." : `حفظ ${studentNounDef(selectedGender)} والخطة`}
       </button>
       <div className={styles.note}>يمكن اختيار قالب جاهز كبداية، ثم إعادة ترتيب السور أو حذف/إضافة أي سورة يدويًا قبل الحفظ</div>

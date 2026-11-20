@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { courseGuideOn } from "@/lib/guide/course-live";
+import { targetAttr } from "@/lib/guide/help/targets";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/require";
@@ -180,11 +181,13 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     }));
 
   const excuseSheet = await studentTrackerExcuse(student.id, excuse);
+  // COURSE_GUIDE_EMAILS: the clarity fixes and the guide's names
+  const guideOn = await courseGuideOn(session.courseId);
   const excuseQuiet = await studentTrackerQuiet(student.id, excuse);
 
   const view = (
       <DetailView
-        live={await courseGuideOn(session.courseId)}
+        live={guideOn}
         markExcused={excuse.mark && !archived}
         excuseSlot={
           excuse.on && !archived && excuseSheet ? (
@@ -344,7 +347,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
     <>
       {view}
       {/* collapsed like the sections above */}
-      <Collapsible title="🗺 خطة الحفظ" persistKey="student.plan" tag={PLAN_TEMPLATE_LABEL[student.planTemplate]}>
+      <Collapsible title="🗺 خطة الحفظ" persistKey="student.plan" target={targetAttr("c.plan", guideOn)} tag={PLAN_TEMPLATE_LABEL[student.planTemplate]}>
         <PlanPanel
           studentId={student.id}
           groupGender={g}
@@ -355,7 +358,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
           juzRows={juzRows}
           editedReverse={student.planTemplate === "MUSHAF_REVERSE" && !sp.directions}
           canEdit={canChangePlan}
-          live={await courseGuideOn(session.courseId)}
+          live={guideOn}
           secondTrack={second ? { title: second.title, positionText: second.positionText, done: second.done } : null}
           goalPlan={plan}
           goal={goal ? { target: goal.spec.target, juz: goal.spec.juz, surah: goal.spec.surah, ayah: goal.spec.ayah, deadline: goal.spec.deadline } : null}
@@ -409,7 +412,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       )}
       {/* supervisor only: the code is never sent to a teacher's browser */}
       {session.role === "admin" && (
-        <Collapsible title="رمز دخول وليّ الأمر" persistKey="student.parentCode">
+        <Collapsible title="رمز دخول وليّ الأمر" persistKey="student.parentCode" target={targetAttr("c.parentCode", guideOn)}>
           <ParentCodeCard
             studentId={student.id}
             groupGender={student.group.gender}
@@ -422,7 +425,7 @@ export default async function StudentDetailPage({ params }: PageProps<"/students
       )}
       {/* student login on, and the viewer may issue codes for this group */}
       {inScope(await studentCodeAccess(session), student.groupId) && (
-        <Collapsible title={`رمز دخول ${studentNounDef(g)}`} persistKey="student.studentCode">
+        <Collapsible title={`رمز دخول ${studentNounDef(g)}`} persistKey="student.studentCode" target={targetAttr("c.studentCode", guideOn)}>
           <StudentCodeCard
             studentId={student.id}
             groupGender={student.group.gender}

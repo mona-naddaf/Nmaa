@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuideTarget } from "@/components/guide/targets";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/(dashboard)/students/[id]/detail.module.css";
@@ -32,6 +33,8 @@ export function ParentStudentInfo({
   const missing = missingRequiredCount(fields, values);
   const filled = fields.filter((f) => values[f.id]);
   const [editing, setEditing] = useState(false);
+  // the guide's names (only inside the course guide; nothing anywhere else)
+  const t = useGuideTarget();
   const [draft, setDraft] = useState(values);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -105,7 +108,7 @@ export function ParentStudentInfo({
             )}
             {saved && <div className={info.formSaved}>تم حفظ المعلومات ✓</div>}
             <div className={info.formButtons}>
-              <button type="button" className={info.formPrimary} onClick={open}>
+              <button type="button" className={info.formPrimary} onClick={open} {...t("c.pInfo")}>
                 ✎ تعديل المعلومات
               </button>
             </div>

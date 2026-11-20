@@ -8,13 +8,17 @@ import { HOME_LIMITS } from "@/lib/home-log/rules";
 import type { HomeLogView } from "@/lib/home-log/data";
 import { pickByGroup, type GroupGender } from "@/lib/text/gender";
 import { createSegmentAction } from "./actions";
+import { pointTo } from "@/components/nudge/nudge";
 
 export function HomeLogHome({
   log,
   groupGender: g,
   plan,
   suggestion,
+  live = false,
 }: {
+  // COURSE_GUIDE_EMAILS (until it opens to everyone): «+ مقطع جديد» at the limit stays pressable and points to the limit line
+  live?: boolean;
   log: HomeLogView;
   groupGender: GroupGender;
   plan: number[];
@@ -30,7 +34,12 @@ export function HomeLogHome({
       <div className={styles.sectionTitle}>
         <span style={{ fontSize: 16, color: "var(--ink)" }}>🏠 حفظي في البيت</span>
         {!adding && (
-          <button type="button" className={styles.primaryBtn} onClick={() => setAdding(true)} disabled={full}>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={() => (live && full ? pointTo(document.getElementById("homeLogLimit"), { focus: false }) : setAdding(true))}
+            disabled={!live && full}
+          >
             + مقطع جديد
           </button>
         )}
@@ -41,7 +50,7 @@ export function HomeLogHome({
         الخطة إلا بتسميع للمعلم.
       </p>
       {full && !adding && (
-        <p className={styles.err} style={{ margin: "0 4px 12px" }}>
+        <p className={styles.err} style={{ margin: "0 4px 12px" }} {...(live ? { id: "homeLogLimit", role: "status" } : {})}>
           لديك {HOME_LIMITS.maxActiveSegments} مقاطع قيد الحفظ — {p("أتمّ", "أتمّي")} أحدها لإضافة مقطع جديد.
         </p>
       )}

@@ -8,11 +8,12 @@ import { HomeLogHome } from "./HomeLogHome";
 import { SelfMarksList } from "./SelfMarksList";
 import { SimilarScope } from "./SimilarScope";
 import { homeMarkList } from "@/lib/home-log/self-marks";
+import { courseGuideOn } from "@/lib/guide/course-live";
 
 // «حفظي في البيت»: her segments and the "new segment" form. Refused (not
 // just hidden) when the course has the home log off.
 export default async function HomeLogPage() {
-  const { studentId, homeLogEnabled, homeMistakesEnabled, mutashabihatEnabled } = await requireStudentAccess();
+  const { studentId, courseId, homeLogEnabled, homeMistakesEnabled, mutashabihatEnabled } = await requireStudentAccess();
   if (!homeLogEnabled) redirect("/student");
   // «واجب» segments of group assignments set before she joined (no-op when assignments are off)
   await syncStudentAssignmentSegments(studentId);
@@ -24,7 +25,7 @@ export default async function HomeLogPage() {
   return (
     <>
       <SimilarScope on={mutashabihatEnabled}>
-        <HomeLogHome log={log} groupGender={groupGender} plan={plan} suggestion={suggestion} />
+        <HomeLogHome log={log} groupGender={groupGender} plan={plan} suggestion={suggestion} live={await courseGuideOn(courseId)} />
       </SimilarScope>
       {homeMistakesEnabled && <SelfMarksList mistakes={await homeMarkList(studentId, plan)} g={groupGender} />}
     </>
